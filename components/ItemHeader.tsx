@@ -11,14 +11,16 @@ interface HeaderProps {
 	iconShowLength?: number;
 	headerTitle?: string;
 	backEvent?: () => void;
+	artist?: string;
 }
 
-export function Header({
+export function ItemHeader({
 	iconName,
 	onIconPress,
 	iconShowLength = 1,
 	headerTitle,
 	backEvent,
+	artist,
 }: HeaderProps) {
 	const handleBack = backEvent
 		? backEvent
@@ -35,13 +37,16 @@ export function Header({
 			<HapticPressable onPress={handleBack}>
 				<MaterialIcons name="arrow-back-ios" size={28} color="white" />
 			</HapticPressable>
-			<StyledText style={styles.title}>{headerTitle}</StyledText>
+			<View style={styles.titleContainer}>
+				<StyledText style={styles.title}>{headerTitle}</StyledText>
+				<StyledText style={styles.owner}>{artist}</StyledText>
+			</View>
 			{iconShowLength > 0 && iconName ? (
 				<HapticPressable onPress={onIconPress}>
 					<MaterialIcons name={iconName} size={28} color="white" />
 				</HapticPressable>
 			) : (
-				<View style={{ width: 30 }} />
+				<MaterialIcons name="arrow-back-ios" size={28} color="black" />
 			)}
 		</View>
 	);
@@ -57,10 +62,21 @@ const styles = StyleSheet.create({
 		backgroundColor: "black",
 		zIndex: 1,
 	},
+	titleContainer: {
+		flex: 1,
+		gap: 0,
+		alignItems: "center",
+	},
 	title: {
 		color: "white",
-		fontSize: 20,
 		fontFamily: "AkkuratLL-Regular",
-		paddingBottom: 5,
+		fontSize: 20,
+		lineHeight: 20,
+	},
+	owner: {
+		color: "white",
+		fontFamily: "AkkuratLL-Regular",
+		fontSize: 12,
+		lineHeight: 14,
 	},
 });

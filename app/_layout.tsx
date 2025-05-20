@@ -42,6 +42,20 @@ function RootNavigation() {
 		<Stack>
 			<Stack.Screen name="login" options={{ headerShown: false }} />
 			<Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+			<Stack.Screen
+				name="album/[id]"
+				options={{
+					headerShown: false, // We use a custom header in the screen itself
+					animation: "none",
+				}}
+			/>
+			<Stack.Screen
+				name="playlist/[id]"
+				options={{
+					headerShown: false, // We use a custom header in the screen itself
+					animation: "none",
+				}}
+			/>
 		</Stack>
 	);
 }

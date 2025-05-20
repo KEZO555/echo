@@ -4,7 +4,7 @@ import { View, StyleSheet, Text } from "react-native";
 export default function IndexScreen() {
 	return (
 		<View style={styles.contentContainer}>
-			<Text style={{ color: "white" }}>Recents Screen</Text>
+			<Text style={{ color: "white" }}>Liked Songs</Text>
 		</View>
 	);
 }

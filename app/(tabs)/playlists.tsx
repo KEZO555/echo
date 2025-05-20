@@ -11,22 +11,33 @@ import { useAuth, SpotifyPlaylist } from "@/contexts/AuthContext"; // Assuming S
 import { HapticPressable } from "@/components/HapticPressable";
 import { StyledText } from "@/components/StyledText";
 import { MaterialIcons } from "@expo/vector-icons";
+import { useRouter } from "expo-router"; // Added useRouter
 
 export default function PlaylistsScreen() {
-	const { playlists, isLoading, accessToken, fetchPlaylists, user } =
-		useAuth();
+	const {
+		playlists,
+		isLoading,
+		accessToken,
+		fetchPlaylists,
+		user,
+		isRefreshingPlaylists,
+	} = useAuth();
+	const router = useRouter(); // Added useRouter instance
 
 	useEffect(() => {
 		// Fetch playlists when the component mounts if not already loaded and user is logged in
-		if (accessToken && !playlists && user) {
-			fetchPlaylists();
+		// This uses the _fetchInitialPlaylistsAndUpdateGlobalLoading via the initial auth flow,
+		// so we don't need to call a separate fetch here unless playlists are explicitly null
+		// and we have a user and token (e.g. app was backgrounded and state lost, but auth persists).
+		if (accessToken && user && !playlists && !isLoading) {
+			fetchPlaylists(); // This will now use the manual refresh logic, which is fine.
 		}
-	}, [accessToken, playlists, user, fetchPlaylists]);
+	}, [accessToken, user, playlists, fetchPlaylists, isLoading]);
 
 	const renderPlaylistItem = ({ item }: { item: SpotifyPlaylist }) => (
 		<HapticPressable
 			style={styles.itemContainer}
-			// onPress={() => router.push(`/playlist/${item.id}`)} // TODO: Implement navigation to playlist details
+			onPress={() => router.push(`/playlist/${item.id}` as any)}
 		>
 			{item.images && item.images.length > 0 ? (
 				<Image
@@ -53,10 +64,27 @@ export default function PlaylistsScreen() {
 		</HapticPressable>
 	);
 
+	// Show global loading indicator if initial data is loading and no playlists are yet available
 	if (isLoading && !playlists) {
 		return (
 			<View style={styles.centeredMessageContainer}>
 				<ActivityIndicator size="large" color="#1DB954" />
+			</View>
+		);
+	}
+
+	// Show specific refresh indicator if only manual refresh is happening
+	// This is a bit redundant if the TabHeader also shows an indicator, but can be a fallback
+	// or primary if header doesn't have space/icon for it.
+	// For now, let's assume the header icon is the primary indicator and this is for safety.
+	if (isRefreshingPlaylists && !playlists) {
+		// Or perhaps (isRefreshingPlaylists && playlists) if we want to show stale data UNDER the spinner
+		return (
+			<View style={styles.centeredMessageContainer}>
+				<ActivityIndicator size="large" color="#1DB954" />
+				<StyledText style={{ color: "white", marginTop: 10 }}>
+					Refreshing playlists...
+				</StyledText>
 			</View>
 		);
 	}
@@ -93,7 +121,7 @@ const styles = StyleSheet.create({
 		backgroundColor: "black",
 	},
 	listContentContainer: {
-		paddingTop: 0, // Adjusted from 36 for a bit less space at the very top
+		paddingTop: 0,
 		paddingBottom: 0,
 	},
 	centeredMessageContainer: {
@@ -104,15 +132,14 @@ const styles = StyleSheet.create({
 		paddingHorizontal: 20,
 	},
 	emptyText: {
-		fontSize: 22, // Adjusted from 26
+		fontSize: 22,
 		textAlign: "center",
 		marginBottom: 10,
 		color: "white",
 	},
 	emptySubText: {
-		fontSize: 14, // Adjusted from 16
+		fontSize: 14,
 		textAlign: "center",
-		color: "#b3b3b3",
 	},
 	itemContainer: {
 		paddingVertical: 0,

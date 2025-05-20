@@ -15,7 +15,7 @@ export const TABS_CONFIG: ReadonlyArray<TabConfigItem> = [
 ] as const;
 
 export default function TabLayout() {
-	const { fetchPlaylists } = useAuth();
+	const { fetchPlaylists, fetchAlbums } = useAuth();
 
 	return (
 		<Tabs
@@ -30,6 +30,7 @@ export default function TabLayout() {
 						/>
 					);
 				},
+				animation: "none",
 			})}
 			tabBar={(props) => {
 				const activeScreenName =
@@ -56,6 +57,12 @@ export default function TabLayout() {
 									iconName:
 										"refresh" as keyof typeof MaterialIcons.glyphMap,
 									onIconPress: fetchPlaylists,
+								})}
+								/* Conditionally add refresh icon for Albums tab */
+								{...(tab.screenName === "albums" && {
+									iconName:
+										"refresh" as keyof typeof MaterialIcons.glyphMap,
+									onIconPress: fetchAlbums,
 								})}
 							/>
 						),

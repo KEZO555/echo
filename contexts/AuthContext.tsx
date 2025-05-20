@@ -74,14 +74,87 @@ export interface SpotifyPlaylistsResponse {
 	total: number;
 }
 
+// Spotify API Types - Albums
+export interface SpotifyArtistSimple {
+	external_urls: { spotify: string };
+	href: string;
+	id: string;
+	name: string;
+	type: string;
+	uri: string;
+}
+
+export interface SpotifyAlbum {
+	album_type: string;
+	total_tracks: number;
+	available_markets: string[];
+	external_urls: { spotify: string };
+	href: string;
+	id: string;
+	images: SpotifyImage[];
+	name: string;
+	release_date: string;
+	release_date_precision: string;
+	type: string;
+	uri: string;
+	artists: SpotifyArtistSimple[];
+	tracks?: SpotifyAlbumTracks;
+}
+
+export interface SpotifyAlbumTracks {
+	href: string;
+	items: SpotifyTrackSimple[];
+	limit: number;
+	next: string | null;
+	offset: number;
+	previous: string | null;
+	total: number;
+}
+
+export interface SpotifyTrackSimple {
+	artists: SpotifyArtistSimple[];
+	available_markets: string[];
+	disc_number: number;
+	duration_ms: number;
+	explicit: boolean;
+	external_urls: { spotify: string };
+	href: string;
+	id: string;
+	is_local: boolean;
+	name: string;
+	preview_url: string | null;
+	track_number: number;
+	type: string;
+	uri: string;
+}
+
+export interface SpotifySavedAlbum {
+	added_at: string;
+	album: SpotifyAlbum;
+}
+
+export interface SpotifySavedAlbumsResponse {
+	href: string;
+	items: SpotifySavedAlbum[];
+	limit: number;
+	next: string | null;
+	offset: number;
+	previous: string | null;
+	total: number;
+}
+
 interface AuthContextType {
 	accessToken: string | null;
-	user: any | null; // Replace 'any' with a more specific User type if you have one
+	user: any | null;
 	playlists: SpotifyPlaylist[] | null;
+	albums: SpotifySavedAlbum[] | null;
 	isLoading: boolean;
+	isRefreshingPlaylists: boolean;
+	isRefreshingAlbums: boolean;
 	login: () => Promise<void>;
 	logout: () => Promise<void>;
 	fetchPlaylists: () => Promise<void>;
+	fetchAlbums: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -94,7 +167,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 	const [accessToken, setAccessToken] = useState<string | null>(null);
 	const [user, setUser] = useState<any | null>(null);
 	const [playlists, setPlaylists] = useState<SpotifyPlaylist[] | null>(null);
+	const [albums, setAlbums] = useState<SpotifySavedAlbum[] | null>(null);
 	const [isLoading, setIsLoading] = useState(true);
+	const [isRefreshingPlaylists, setIsRefreshingPlaylists] = useState(false);
+	const [isRefreshingAlbums, setIsRefreshingAlbums] = useState(false);
 
 	const [request, response, promptAsync] = AuthSession.useAuthRequest(
 		{
@@ -175,7 +251,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 				// Fetch user info after getting token
 				await fetchUserInfo(tokenResponse.accessToken);
 			} else {
-				setIsLoading(false);
+				setIsLoading(false); // Ensure loading stops if token exchange fails
 			}
 		} catch (e) {
 			console.error("Failed to fetch token:", e);
@@ -184,7 +260,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 	};
 
 	const fetchUserInfo = async (token: string) => {
-		setIsLoading(true); // Ensure loading is true at the start
+		setIsLoading(true);
 		try {
 			const userInfoResponse = await fetch(
 				"https://api.spotify.com/v1/me",
@@ -200,23 +276,28 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 				USER_INFO_KEY,
 				JSON.stringify(userInfo)
 			);
-			// After fetching user, fetch their playlists
-			await fetchPlaylistsInternal(token);
+			// After fetching user, fetch their initial playlists then albums
+			await _fetchInitialPlaylists(token);
+			await _fetchInitialAlbumsAndUpdateGlobalLoading(token);
 		} catch (e) {
-			console.error("Failed to fetch user info:", e);
-		} finally {
-			// setIsLoading(false); // Loading will be set to false after playlists are fetched or fail
+			console.error(
+				"Failed to fetch user info (or initial data failed to initiate properly):",
+				e
+			);
+			setUser(null);
+			setPlaylists(null);
+			setAlbums(null);
+			setIsLoading(false);
 		}
 	};
 
-	const fetchPlaylistsInternal = async (token: string) => {
-		// Renamed to avoid conflict with exported fetchPlaylists
+	// Renamed and modified: Only for initial playlist load, DOES NOT complete global loading.
+	const _fetchInitialPlaylists = async (token: string) => {
 		if (!token) {
+			console.warn("_fetchInitialPlaylists called without a token.");
 			setPlaylists(null);
-			setIsLoading(false);
 			return;
 		}
-		setIsLoading(true);
 		try {
 			const playlistsResponse = await fetch(
 				"https://api.spotify.com/v1/me/playlists?limit=50",
@@ -234,20 +315,106 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 			const playlistsData: SpotifyPlaylistsResponse =
 				await playlistsResponse.json();
 			setPlaylists(playlistsData.items);
-			// Optionally cache playlists
-			// await SecureStore.setItemAsync(PLAYLISTS_KEY, JSON.stringify(playlistsData.items));
 		} catch (e) {
-			console.error("Failed to fetch playlists:", e);
-			setPlaylists(null); // Clear playlists on error
+			console.error("Failed to fetch initial playlists:", e);
+			setPlaylists(null);
+		}
+	};
+
+	// New function: For initial album load, completes global loading.
+	const _fetchInitialAlbumsAndUpdateGlobalLoading = async (token: string) => {
+		if (!token) {
+			console.warn(
+				"_fetchInitialAlbumsAndUpdateGlobalLoading called without a token."
+			);
+			setAlbums(null);
+			setIsLoading(false);
+			return;
+		}
+		try {
+			const albumsResponse = await fetch(
+				"https://api.spotify.com/v1/me/albums?limit=50",
+				{
+					headers: {
+						Authorization: `Bearer ${token}`,
+					},
+				}
+			);
+			if (!albumsResponse.ok) {
+				throw new Error(
+					`Failed to fetch saved albums: ${albumsResponse.status}`
+				);
+			}
+			const albumsData: SpotifySavedAlbumsResponse =
+				await albumsResponse.json();
+			setAlbums(albumsData.items);
+		} catch (e) {
+			console.error("Failed to fetch initial saved albums:", e);
+			setAlbums(null);
 		} finally {
 			setIsLoading(false);
 		}
 	};
 
-	// Exposed function for manual refresh if needed by components
+	// Exposed function for manual playlist refresh - uses isRefreshingPlaylists
 	const fetchPlaylists = async () => {
-		if (accessToken) {
-			await fetchPlaylistsInternal(accessToken);
+		if (!accessToken) {
+			console.log("Cannot refresh playlists: No access token.");
+			return;
+		}
+		setIsRefreshingPlaylists(true);
+		try {
+			const playlistsResponse = await fetch(
+				"https://api.spotify.com/v1/me/playlists?limit=50",
+				{
+					headers: {
+						Authorization: `Bearer ${accessToken}`,
+					},
+				}
+			);
+			if (!playlistsResponse.ok) {
+				throw new Error(
+					`Failed to fetch playlists: ${playlistsResponse.status}`
+				);
+			}
+			const playlistsData: SpotifyPlaylistsResponse =
+				await playlistsResponse.json();
+			setPlaylists(playlistsData.items);
+		} catch (e) {
+			console.error("Failed to refresh playlists:", e);
+		} finally {
+			setIsRefreshingPlaylists(false);
+		}
+	};
+
+	// Exposed function for manual album refresh - uses isRefreshingAlbums
+	const fetchAlbums = async () => {
+		if (!accessToken) {
+			console.log("Cannot refresh albums: No access token.");
+			return;
+		}
+		setIsRefreshingAlbums(true);
+		try {
+			const albumsResponse = await fetch(
+				"https://api.spotify.com/v1/me/albums?limit=50",
+				{
+					headers: {
+						Authorization: `Bearer ${accessToken}`,
+					},
+				}
+			);
+			if (!albumsResponse.ok) {
+				throw new Error(
+					`Failed to refresh saved albums: ${albumsResponse.status}`
+				);
+			}
+			const albumsData: SpotifySavedAlbumsResponse =
+				await albumsResponse.json();
+			setAlbums(albumsData.items);
+		} catch (e) {
+			console.error("Failed to refresh saved albums:", e);
+		} finally {
+			setIsRefreshingAlbums(false);
 		}
 	};
 
@@ -265,10 +432,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 		try {
 			setAccessToken(null);
 			setUser(null);
-			setPlaylists(null); // Clear playlists on logout
+			setPlaylists(null);
+			setAlbums(null);
 			await SecureStore.deleteItemAsync(AUTH_TOKEN_KEY);
 			await SecureStore.deleteItemAsync(USER_INFO_KEY);
-			// await SecureStore.deleteItemAsync(PLAYLISTS_KEY); // Clear cached playlists
+			// await SecureStore.deleteItemAsync(PLAYLISTS_KEY);
 		} catch (e) {
 			console.error("Failed to logout:", e);
 		}
@@ -280,10 +448,14 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 				accessToken,
 				user,
 				playlists,
+				albums,
 				isLoading,
+				isRefreshingPlaylists,
+				isRefreshingAlbums,
 				login,
 				logout,
 				fetchPlaylists,
+				fetchAlbums,
 			}}
 		>
 			{children}
