@@ -21,6 +21,9 @@ export default function PlaylistsScreen() {
 		fetchPlaylists,
 		user,
 		isRefreshingPlaylists,
+		fetchMorePlaylists,
+		isLoadingMorePlaylists,
+		playlistsNextUrl,
 	} = useAuth();
 	const router = useRouter(); // Added useRouter instance
 
@@ -37,7 +40,12 @@ export default function PlaylistsScreen() {
 	const renderPlaylistItem = ({ item }: { item: SpotifyPlaylist }) => (
 		<HapticPressable
 			style={styles.itemContainer}
-			onPress={() => router.push(`/playlist/${item.id}` as any)}
+			onPress={() =>
+				router.push({
+					pathname: `/playlist/${item.id}`,
+					params: { playlistString: JSON.stringify(item) }, // Pass playlist data as a string
+				} as any)
+			}
 		>
 			{item.images && item.images.length > 0 ? (
 				<Image
@@ -102,6 +110,21 @@ export default function PlaylistsScreen() {
 		);
 	}
 
+	const handleLoadMore = () => {
+		if (playlistsNextUrl && !isLoadingMorePlaylists) {
+			fetchMorePlaylists();
+		}
+	};
+
+	const renderFooter = () => {
+		if (!isLoadingMorePlaylists) return null;
+		return (
+			<View style={{ paddingVertical: 20 }}>
+				<ActivityIndicator size="large" color="#1DB954" />
+			</View>
+		);
+	};
+
 	return (
 		<FlatList
 			data={playlists}
@@ -111,6 +134,9 @@ export default function PlaylistsScreen() {
 			contentContainerStyle={styles.listContentContainer}
 			ItemSeparatorComponent={() => <View style={{ height: 8 }} />}
 			overScrollMode={"never"}
+			onEndReached={handleLoadMore}
+			onEndReachedThreshold={0.5}
+			ListFooterComponent={renderFooter}
 		/>
 	);
 }

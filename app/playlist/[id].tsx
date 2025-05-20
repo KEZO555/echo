@@ -45,12 +45,21 @@ interface SpotifyPlaylistFull extends SpotifyPlaylist {
 }
 
 export default function PlaylistDetailScreen() {
-	const { id } = useLocalSearchParams<{ id: string }>();
+	const { id, playlistString } = useLocalSearchParams<{
+		id: string;
+		playlistString?: string;
+	}>();
 	const { accessToken } = useAuth();
 	const router = useRouter();
 
-	const [playlist, setPlaylist] = useState<SpotifyPlaylistFull | null>(null);
-	const [isLoading, setIsLoading] = useState(true);
+	const initialPlaylist = playlistString
+		? (JSON.parse(playlistString) as SpotifyPlaylistFull)
+		: null;
+
+	const [playlist, setPlaylist] = useState<SpotifyPlaylistFull | null>(
+		initialPlaylist
+	);
+	const [isLoading, setIsLoading] = useState(!initialPlaylist);
 	const [error, setError] = useState<string | null>(null);
 
 	const formatDuration = (ms: number) => {
@@ -69,7 +78,9 @@ export default function PlaylistDetailScreen() {
 		}
 
 		const fetchPlaylistDetails = async () => {
-			setIsLoading(true);
+			if (!initialPlaylist) {
+				setIsLoading(true);
+			}
 			setError(null);
 			try {
 				const response = await fetch(
@@ -101,7 +112,7 @@ export default function PlaylistDetailScreen() {
 		fetchPlaylistDetails();
 	}, [id, accessToken]);
 
-	if (isLoading) {
+	if (isLoading && !playlist) {
 		return (
 			<View style={styles.centeredMessageContainer}>
 				<ActivityIndicator size="large" color="#1DB954" />
@@ -121,7 +132,7 @@ export default function PlaylistDetailScreen() {
 		return (
 			<View style={styles.centeredMessageContainer}>
 				<StyledText style={styles.emptyText}>
-					Playlist not found.
+					Playlist data is unavailable.
 				</StyledText>
 			</View>
 		);
@@ -157,6 +168,8 @@ export default function PlaylistDetailScreen() {
 				)}
 
 				{playlist.tracks &&
+					playlist.tracks.items &&
+					Array.isArray(playlist.tracks.items) &&
 					playlist.tracks.items.map((item, index) => {
 						const track = item.track;
 						if (!track) return null; // Skip if track is null (e.g., unavailable)
@@ -192,6 +205,8 @@ export default function PlaylistDetailScreen() {
 						);
 					})}
 				{(!playlist.tracks ||
+					!playlist.tracks.items ||
+					!Array.isArray(playlist.tracks.items) ||
 					playlist.tracks.items.filter((item) => item.track)
 						.length === 0) && (
 					<StyledText style={styles.emptyText}>

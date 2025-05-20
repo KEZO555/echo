@@ -7,7 +7,7 @@ import { Navbar, TabConfigItem } from "@/components/Navbar"; // Import custom Na
 import { TabHeader } from "@/components/TabHeader"; // Import custom TabHeader
 
 export const TABS_CONFIG: ReadonlyArray<TabConfigItem> = [
-	{ name: "Recents", screenName: "index", iconName: "history" },
+	{ name: "Liked Songs", screenName: "index", iconName: "favorite" },
 	{ name: "Albums", screenName: "albums", iconName: "album" },
 	{ name: "Playlists", screenName: "playlists", iconName: "playlist-play" },
 	{ name: "Search", screenName: "search", iconName: "search" },
@@ -15,7 +15,7 @@ export const TABS_CONFIG: ReadonlyArray<TabConfigItem> = [
 ] as const;
 
 export default function TabLayout() {
-	const { fetchPlaylists, fetchAlbums } = useAuth();
+	const { fetchPlaylists, fetchAlbums, fetchSavedTracks } = useAuth();
 
 	return (
 		<Tabs
@@ -44,32 +44,51 @@ export default function TabLayout() {
 				);
 			}}
 		>
-			{TABS_CONFIG.map((tab) => (
-				<Tabs.Screen
-					key={tab.screenName}
-					name={tab.screenName}
-					options={{
-						header: (props) => (
-							<TabHeader
-								headerTitle={tab.name}
-								// Conditionally add refresh icon for Playlists tab
-								{...(tab.screenName === "playlists" && {
-									iconName:
-										"refresh" as keyof typeof MaterialIcons.glyphMap,
-									onIconPress: fetchPlaylists,
-								})}
-								/* Conditionally add refresh icon for Albums tab */
-								{...(tab.screenName === "albums" && {
-									iconName:
-										"refresh" as keyof typeof MaterialIcons.glyphMap,
-									onIconPress: fetchAlbums,
-								})}
-							/>
-						),
-						href: `/${tab.screenName}` as any, // Type assertion to satisfy Expo Router
-					}}
-				/>
-			))}
+			{TABS_CONFIG.map((tab) => {
+				const { fetchPlaylists, fetchAlbums, fetchSavedTracks } =
+					useAuth() || {};
+
+				let onRefresh: (() => Promise<void>) | undefined;
+				let refreshIconName:
+					| keyof typeof MaterialIcons.glyphMap
+					| undefined;
+
+				if (tab.screenName === "index" && fetchSavedTracks) {
+					onRefresh = fetchSavedTracks;
+					refreshIconName = "refresh";
+				} else if (tab.screenName === "playlists" && fetchPlaylists) {
+					onRefresh = fetchPlaylists;
+					refreshIconName = "refresh";
+				} else if (tab.screenName === "albums" && fetchAlbums) {
+					onRefresh = fetchAlbums;
+					refreshIconName = "refresh";
+				}
+
+				return (
+					<Tabs.Screen
+						key={tab.screenName}
+						name={tab.screenName}
+						options={{
+							header: (props) => (
+								<TabHeader
+									headerTitle={tab.name}
+									{...(tab.screenName === "playlists" && {
+										iconName:
+											refreshIconName as keyof typeof MaterialIcons.glyphMap,
+										onIconPress: onRefresh,
+									})}
+									{...(tab.screenName === "albums" && {
+										iconName:
+											refreshIconName as keyof typeof MaterialIcons.glyphMap,
+										onIconPress: onRefresh,
+									})}
+								/>
+							),
+							href: `/${tab.screenName}` as any, // Type assertion to satisfy Expo Router
+						}}
+					/>
+				);
+			})}
 		</Tabs>
 	);
 }

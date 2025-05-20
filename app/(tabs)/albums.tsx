@@ -24,6 +24,9 @@ export default function AlbumsScreen() {
 		fetchAlbums, // Specific fetch function for albums
 		user,
 		isRefreshingAlbums, // Specific refresh state for albums
+		fetchMoreAlbums, // Function to fetch next page
+		isLoadingMoreAlbums, // State for loading more indicator
+		albumsNextUrl, // URL for the next page
 	} = useAuth();
 	const router = useRouter();
 
@@ -42,7 +45,12 @@ export default function AlbumsScreen() {
 	const renderAlbumItem = ({ item }: { item: SpotifySavedAlbum }) => (
 		<HapticPressable
 			style={styles.itemContainer}
-			onPress={() => router.push(`/album/${item.album.id}`)}
+			onPress={() =>
+				router.push({
+					pathname: `/album/${item.album.id}`,
+					params: { albumString: JSON.stringify(item.album) }, // Pass album data as a string
+				} as any)
+			}
 		>
 			{item.album.images && item.album.images.length > 0 ? (
 				<Image
@@ -99,6 +107,21 @@ export default function AlbumsScreen() {
 		);
 	}
 
+	const handleLoadMore = () => {
+		if (albumsNextUrl && !isLoadingMoreAlbums) {
+			fetchMoreAlbums();
+		}
+	};
+
+	const renderFooter = () => {
+		if (!isLoadingMoreAlbums) return null;
+		return (
+			<View style={{ paddingVertical: 20 }}>
+				<ActivityIndicator size="large" color="#1DB954" />
+			</View>
+		);
+	};
+
 	return (
 		<FlatList
 			data={albums}
@@ -108,6 +131,9 @@ export default function AlbumsScreen() {
 			contentContainerStyle={styles.listContentContainer}
 			ItemSeparatorComponent={() => <View style={{ height: 8 }} />}
 			overScrollMode={"never"}
+			onEndReached={handleLoadMore} // Added onEndReached
+			onEndReachedThreshold={0.5} // How far from the end (in units of visible length) the bottom edge of the list must be from the end of the content to trigger the onEndReached callback.
+			ListFooterComponent={renderFooter} // Added ListFooterComponent
 		/>
 	);
 }

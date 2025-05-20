@@ -13,12 +13,21 @@ import { StyledText } from "@/components/StyledText";
 import { MaterialIcons } from "@expo/vector-icons";
 
 export default function AlbumDetailScreen() {
-	const { id } = useLocalSearchParams<{ id: string }>();
+	const { id, albumString } = useLocalSearchParams<{
+		id: string;
+		albumString?: string;
+	}>();
 	const { accessToken } = useAuth();
 	const router = useRouter();
 
-	const [album, setAlbum] = useState<SpotifyAlbum | null>(null);
-	const [isLoading, setIsLoading] = useState(true);
+	// Try to parse the passed album string for initial state
+	const initialAlbum = albumString
+		? (JSON.parse(albumString) as SpotifyAlbum)
+		: null;
+
+	const [album, setAlbum] = useState<SpotifyAlbum | null>(initialAlbum);
+	//isLoading is true only if we don't have an initialAlbum, or if we are fetching more details
+	const [isLoading, setIsLoading] = useState(!initialAlbum);
 	const [error, setError] = useState<string | null>(null);
 
 	// Helper function to format milliseconds to MM:SS
@@ -38,7 +47,11 @@ export default function AlbumDetailScreen() {
 		}
 
 		const fetchAlbumDetails = async () => {
-			setIsLoading(true);
+			// If we already have initial data, we don't need to set main loading to true,
+			// as the main content is already visible. A subtle background refresh is fine.
+			if (!initialAlbum) {
+				setIsLoading(true);
+			}
 			setError(null);
 			try {
 				const response = await fetch(
@@ -70,7 +83,7 @@ export default function AlbumDetailScreen() {
 		fetchAlbumDetails();
 	}, [id, accessToken]);
 
-	if (isLoading) {
+	if (isLoading && !album) {
 		return (
 			<View style={styles.centeredMessageContainer}>
 				<ActivityIndicator size="large" color="#1DB954" />
@@ -91,7 +104,7 @@ export default function AlbumDetailScreen() {
 		return (
 			<View style={styles.centeredMessageContainer}>
 				<StyledText style={styles.emptyText}>
-					Album not found.
+					Album data is unavailable.
 				</StyledText>
 			</View>
 		);
