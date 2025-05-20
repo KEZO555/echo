@@ -11,13 +11,14 @@ import { useAuth, SpotifyAlbum } from "@/contexts/AuthContext";
 import { ItemHeader } from "@/components/ItemHeader";
 import { StyledText } from "@/components/StyledText";
 import { MaterialIcons } from "@expo/vector-icons";
+import { HapticPressable } from "@/components/HapticPressable";
 
 export default function AlbumDetailScreen() {
 	const { id, albumString } = useLocalSearchParams<{
 		id: string;
 		albumString?: string;
 	}>();
-	const { accessToken } = useAuth();
+	const { accessToken, playTrack } = useAuth();
 	const router = useRouter();
 
 	// Try to parse the passed album string for initial state
@@ -131,9 +132,16 @@ export default function AlbumDetailScreen() {
 
 				{album.tracks &&
 					album.tracks.items.map((track, index) => (
-						<View
+						<HapticPressable
 							key={track.id || index.toString()}
 							style={styles.trackItemContainer}
+							onPress={() =>
+								playTrack(
+									track.uri,
+									undefined,
+									`spotify:album:${id}`
+								)
+							}
 						>
 							<StyledText style={styles.trackNumber}>
 								{track.track_number}.
@@ -154,7 +162,7 @@ export default function AlbumDetailScreen() {
 										formatDuration(track.duration_ms)}
 								</StyledText>
 							</View>
-						</View>
+						</HapticPressable>
 					))}
 				{(!album.tracks || album.tracks.items.length === 0) && (
 					<StyledText style={styles.emptyText}>

@@ -4,12 +4,13 @@ import React, {
 	useState,
 	useEffect,
 	ReactNode,
+	useCallback,
 } from "react";
 import * as SecureStore from "expo-secure-store";
 import * as AuthSession from "expo-auth-session";
 import * as WebBrowser from "expo-web-browser";
+import * as Linking from "expo-linking";
 
-// 1. Spotify Configuration - REPLACE WITH YOUR ACTUAL CREDENTIALS
 const SPOTIFY_CLIENT_ID = "2f20bc972e764706956ba7b59648b707";
 const SPOTIFY_SCOPES = [
 	"user-read-email",
@@ -210,7 +211,11 @@ interface AuthContextType {
 	fetchPlaylists: () => Promise<void>; // For initial load / manual refresh of first page
 	fetchAlbums: () => Promise<void>; // For initial load / manual refresh of first page
 	fetchSavedTracks: () => Promise<void>; // For initial load / manual refresh of first page
-	playTrack: (trackUri: string, deviceId?: string) => Promise<void>; // Added playTrack
+	playTrack: (
+		trackUri: string,
+		deviceId?: string,
+		contextUri?: string
+	) => Promise<void>; // Added playTrack with optional contextUri
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -516,416 +521,381 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 		}
 	};
 
-	// Manual refresh / initial fetch for Playlists (first page)
-	const fetchPlaylists = async () => {
-		if (!accessToken) return;
-		console.log("AuthContext: Refreshing playlists (page 1)...");
-		setIsRefreshingPlaylists(true);
-		setPlaylists(null); // Clear existing before refresh
-		setPlaylistsNextUrl(null);
-		try {
-			const response = await fetch(
-				"https://api.spotify.com/v1/me/playlists?limit=50",
-				{ headers: { Authorization: `Bearer ${accessToken}` } }
-			);
-			const data: SpotifyPlaylistsResponse = await response.json();
-			if (!response.ok) {
-				/* ... error handling ... */
-				let errorMessage = response.status.toString();
-				try {
-					const errorData = data as any;
-					if (
-						errorData &&
-						errorData.error &&
-						errorData.error.message
-					) {
-						errorMessage = errorData.error.message;
-					}
-				} catch (e) {
-					/* Ignore */
-				}
-				throw new Error(`Failed to refresh playlists: ${errorMessage}`);
+	// --- Utility for API calls ---
+	const makeApiRequest = useCallback(
+		async (
+			url: string,
+			token: string,
+			errorMessage: string,
+			isRefreshing = false
+		) => {
+			if (!token) {
+				console.error("No access token available for API request.");
+				// Optionally, trigger re-authentication or inform the user
+				// For now, just returning null to prevent further execution without a token
+				return null;
 			}
+			if (isRefreshing)
+				console.log(`Refreshing ${errorMessage.toLowerCase()}...`);
+
+			try {
+				const response = await fetch(url, {
+					headers: {
+						Authorization: `Bearer ${token}`,
+					},
+				});
+				if (!response.ok) {
+					const errorData = await response
+						.json()
+						.catch(() => ({ message: "Unknown error" }));
+					console.error(
+						`Error fetching ${errorMessage.toLowerCase()}: ${
+							response.status
+						}`,
+						errorData
+					);
+					if (response.status === 401) {
+						// Token expired or invalid, attempt to refresh or logout
+						console.log(
+							"Token might be expired. Consider implementing token refresh."
+						);
+						// logout(); // Or a more sophisticated token refresh mechanism
+					}
+					return null;
+				}
+				return await response.json();
+			} catch (error) {
+				console.error(
+					`Network or other error fetching ${errorMessage.toLowerCase()}:`,
+					error
+				);
+				return null;
+			}
+		},
+		[]
+	);
+
+	// --- Playlists ---
+	const fetchPlaylists = useCallback(async () => {
+		if (!accessToken) return;
+		setIsRefreshingPlaylists(true);
+		const data = await makeApiRequest(
+			"https://api.spotify.com/v1/me/playlists?limit=50",
+			accessToken,
+			"Playlists",
+			true
+		);
+		if (data) {
 			setPlaylists(data.items);
 			setPlaylistsNextUrl(data.next);
-		} catch (e: any) {
-			console.error(
-				"AuthContext: Error refreshing playlists:",
-				e.message
-			);
-			setPlaylists(null); // Ensure clear on error
+		} else {
+			// Handle error, maybe set playlists to an empty array or show a message
+			setPlaylists([]); // Example: clear playlists on error
 			setPlaylistsNextUrl(null);
-		} finally {
-			setIsRefreshingPlaylists(false);
 		}
-	};
+		setIsRefreshingPlaylists(false);
+	}, [accessToken, makeApiRequest]);
 
-	// Fetch more playlists
-	const fetchMorePlaylists = async () => {
+	const fetchMorePlaylists = useCallback(async () => {
 		if (!playlistsNextUrl || isLoadingMorePlaylists || !accessToken) return;
-		console.log("AuthContext: Fetching more playlists...");
 		setIsLoadingMorePlaylists(true);
-		try {
-			const response = await fetch(playlistsNextUrl, {
-				headers: { Authorization: `Bearer ${accessToken}` },
-			});
-			const data: SpotifyPlaylistsResponse = await response.json();
-			if (!response.ok) {
-				/* ... error handling ... */
-				let errorMessage = response.status.toString();
-				try {
-					const errorData = data as any;
-					if (
-						errorData &&
-						errorData.error &&
-						errorData.error.message
-					) {
-						errorMessage = errorData.error.message;
-					}
-				} catch (e) {
-					/* Ignore */
-				}
-				throw new Error(
-					`Failed to fetch more playlists: ${errorMessage}`
-				);
-			}
-			setPlaylists((prev) =>
-				prev ? [...prev, ...data.items] : data.items
-			);
+		const data = await makeApiRequest(
+			playlistsNextUrl,
+			accessToken,
+			"More Playlists"
+		);
+		if (data) {
+			setPlaylists((prevPlaylists) => [
+				...(prevPlaylists || []),
+				...data.items,
+			]);
 			setPlaylistsNextUrl(data.next);
-		} catch (e: any) {
-			console.error(
-				"AuthContext: Error fetching more playlists:",
-				e.message
-			);
-		} finally {
-			setIsLoadingMorePlaylists(false);
 		}
-	};
+		setIsLoadingMorePlaylists(false);
+	}, [playlistsNextUrl, isLoadingMorePlaylists, accessToken, makeApiRequest]);
 
-	// Manual refresh / initial fetch for Albums (first page)
-	const fetchAlbums = async () => {
+	// --- Albums ---
+	const fetchAlbums = useCallback(async () => {
 		if (!accessToken) return;
-		console.log("AuthContext: Refreshing albums (page 1)...");
 		setIsRefreshingAlbums(true);
-		setAlbums(null);
-		setAlbumsNextUrl(null);
-		try {
-			const response = await fetch(
-				"https://api.spotify.com/v1/me/albums?limit=50",
-				{ headers: { Authorization: `Bearer ${accessToken}` } }
-			);
-			const data: SpotifySavedAlbumsResponse = await response.json();
-			if (!response.ok) {
-				/* ... error handling ... */
-				let errorMessage = response.status.toString();
-				try {
-					const errorData = data as any;
-					if (
-						errorData &&
-						errorData.error &&
-						errorData.error.message
-					) {
-						errorMessage = errorData.error.message;
-					}
-				} catch (e) {
-					/* Ignore */
-				}
-				throw new Error(`Failed to refresh albums: ${errorMessage}`);
-			}
+		const data = await makeApiRequest(
+			"https://api.spotify.com/v1/me/albums?limit=50",
+			accessToken,
+			"Albums",
+			true
+		);
+		if (data) {
 			setAlbums(data.items);
 			setAlbumsNextUrl(data.next);
-		} catch (e: any) {
-			console.error("AuthContext: Error refreshing albums:", e.message);
-			setAlbums(null);
+		} else {
+			setAlbums([]);
 			setAlbumsNextUrl(null);
-		} finally {
-			setIsRefreshingAlbums(false);
 		}
-	};
+		setIsRefreshingAlbums(false);
+	}, [accessToken, makeApiRequest]);
 
-	// Fetch more albums
-	const fetchMoreAlbums = async () => {
+	const fetchMoreAlbums = useCallback(async () => {
 		if (!albumsNextUrl || isLoadingMoreAlbums || !accessToken) return;
-		console.log("AuthContext: Fetching more albums...");
 		setIsLoadingMoreAlbums(true);
-		try {
-			const response = await fetch(albumsNextUrl, {
-				headers: { Authorization: `Bearer ${accessToken}` },
-			});
-			const data: SpotifySavedAlbumsResponse = await response.json();
-			if (!response.ok) {
-				/* ... error handling ... */
-				let errorMessage = response.status.toString();
-				try {
-					const errorData = data as any;
-					if (
-						errorData &&
-						errorData.error &&
-						errorData.error.message
-					) {
-						errorMessage = errorData.error.message;
-					}
-				} catch (e) {
-					/* Ignore */
-				}
-				throw new Error(`Failed to fetch more albums: ${errorMessage}`);
-			}
-			setAlbums((prev) => (prev ? [...prev, ...data.items] : data.items));
+		const data = await makeApiRequest(
+			albumsNextUrl,
+			accessToken,
+			"More Albums"
+		);
+		if (data) {
+			setAlbums((prevAlbums) => [...(prevAlbums || []), ...data.items]);
 			setAlbumsNextUrl(data.next);
-		} catch (e: any) {
-			console.error(
-				"AuthContext: Error fetching more albums:",
-				e.message
-			);
-		} finally {
-			setIsLoadingMoreAlbums(false);
 		}
-	};
+		setIsLoadingMoreAlbums(false);
+	}, [albumsNextUrl, isLoadingMoreAlbums, accessToken, makeApiRequest]);
 
-	// Manual refresh / initial fetch for Saved Tracks (first page)
-	const fetchSavedTracks = async () => {
+	// --- Saved Tracks ---
+	const fetchSavedTracks = useCallback(async () => {
 		if (!accessToken) return;
-		console.log("AuthContext: Refreshing saved tracks (page 1)...");
 		setIsRefreshingSavedTracks(true);
-		setSavedTracks(null);
-		setSavedTracksNextUrl(null);
-		try {
-			const response = await fetch(
-				"https://api.spotify.com/v1/me/tracks?limit=50",
-				{ headers: { Authorization: `Bearer ${accessToken}` } }
-			);
-			const data: SavedTracksResponse = await response.json();
-			if (!response.ok) {
-				/* ... error handling ... */
-				let errorMessage = response.status.toString();
-				try {
-					const errorData = data as any;
-					if (
-						errorData &&
-						errorData.error &&
-						errorData.error.message
-					) {
-						errorMessage = errorData.error.message;
-					}
-				} catch (e) {
-					/* Ignore */
-				}
-				throw new Error(
-					`Failed to refresh saved tracks: ${errorMessage}`
-				);
-			}
+		const data = await makeApiRequest(
+			"https://api.spotify.com/v1/me/tracks?limit=50",
+			accessToken,
+			"Saved Tracks",
+			true
+		);
+		if (data) {
 			setSavedTracks(data.items);
 			setSavedTracksNextUrl(data.next);
-		} catch (e: any) {
-			console.error(
-				"AuthContext: Error refreshing saved tracks:",
-				e.message
-			);
-			setSavedTracks(null);
+		} else {
+			setSavedTracks([]);
 			setSavedTracksNextUrl(null);
-		} finally {
-			setIsRefreshingSavedTracks(false);
 		}
-	};
+		setIsRefreshingSavedTracks(false);
+	}, [accessToken, makeApiRequest]);
 
-	// Fetch more saved tracks
-	const fetchMoreSavedTracks = async () => {
+	const fetchMoreSavedTracks = useCallback(async () => {
 		if (!savedTracksNextUrl || isLoadingMoreSavedTracks || !accessToken)
 			return;
-		console.log("AuthContext: Fetching more saved tracks...");
 		setIsLoadingMoreSavedTracks(true);
-		try {
-			const response = await fetch(savedTracksNextUrl, {
-				headers: { Authorization: `Bearer ${accessToken}` },
-			});
-			const data: SavedTracksResponse = await response.json();
-			if (!response.ok) {
-				/* ... error handling ... */
-				let errorMessage = response.status.toString();
-				try {
-					const errorData = data as any;
-					if (
-						errorData &&
-						errorData.error &&
-						errorData.error.message
-					) {
-						errorMessage = errorData.error.message;
-					}
-				} catch (e) {
-					/* Ignore */
-				}
-				throw new Error(
-					`Failed to fetch more saved tracks: ${errorMessage}`
-				);
-			}
-			setSavedTracks((prev) =>
-				prev ? [...prev, ...data.items] : data.items
-			);
-			setSavedTracksNextUrl(data.next);
-		} catch (e: any) {
-			console.error(
-				"AuthContext: Error fetching more saved tracks:",
-				e.message
-			);
-		} finally {
-			setIsLoadingMoreSavedTracks(false);
-		}
-	};
-
-	// Helper to get an active device ID
-	const _getAvailableDeviceId = async (
-		token: string
-	): Promise<string | null> => {
-		console.log("AuthContext: Fetching available devices...");
-		try {
-			const response = await fetch(
-				"https://api.spotify.com/v1/me/player/devices",
-				{
-					headers: { Authorization: `Bearer ${token}` },
-				}
-			);
-			const data: SpotifyDevicesResponse = await response.json();
-			if (!response.ok) {
-				let errorMessage = response.status.toString();
-				try {
-					const errorData = data as any; // Cast to any to access potential error property
-					if (
-						errorData &&
-						errorData.error &&
-						errorData.error.message
-					) {
-						errorMessage = errorData.error.message;
-					}
-				} catch (e) {
-					/* Ignore if casting/accessing error fails */
-				}
-				throw new Error(`Failed to fetch devices: ${errorMessage}`);
-			}
-
-			if (data.devices && data.devices.length > 0) {
-				const activeDevice = data.devices.find(
-					(device) => device.is_active
-				);
-				if (activeDevice && activeDevice.id) {
-					console.log(
-						`AuthContext: Found active device: ${activeDevice.name} (ID: ${activeDevice.id})`
-					);
-					return activeDevice.id;
-				}
-				// If no active device, try to return the first available device's ID
-				// This might not always be what the user wants, but it's better than nothing if they have an inactive device.
-				// For a better UX, you might prompt the user to select a device.
-				if (data.devices[0] && data.devices[0].id) {
-					console.log(
-						`AuthContext: No active device found. Using first available device: ${data.devices[0].name} (ID: ${data.devices[0].id})`
-					);
-					return data.devices[0].id;
-				}
-			}
-			console.log("AuthContext: No devices found or available.");
-			return null;
-		} catch (e: any) {
-			console.error(
-				"AuthContext: Error fetching available devices:",
-				e.message
-			);
-			return null;
-		}
-	};
-
-	const playTrack = async (trackUri: string, deviceId?: string) => {
-		if (!accessToken) {
-			console.error("Cannot play track: No access token.");
-			return;
-		}
-
-		let targetDeviceId = deviceId;
-
-		if (!targetDeviceId) {
-			const availableDeviceId = await _getAvailableDeviceId(accessToken);
-			if (availableDeviceId) {
-				targetDeviceId = availableDeviceId;
-			} else {
-				console.error(
-					"AuthContext: Cannot play track. No device ID provided and no active/available device found. Please ensure a Spotify client is active or select a device."
-				);
-				// Here you might want to show a more user-friendly message in the UI
-				// For example, by setting some state that a component can react to.
-				// Alert.alert("Playback Error", "No active Spotify device found. Please open Spotify on one of your devices and try again.");
-				return; // Exit if no device can be targeted
-			}
-		}
-
-		console.log(
-			`AuthContext: Attempting to play track: ${trackUri}` +
-				(targetDeviceId ? ` on device: ${targetDeviceId}` : "")
+		const data = await makeApiRequest(
+			savedTracksNextUrl,
+			accessToken,
+			"More Saved Tracks"
 		);
-		try {
-			const body: { uris: string[]; device_id?: string } = {
-				uris: [trackUri],
-			};
-			// The API expects device_id in the query params for GET, but in the body for PUT (play) if specified.
-			// However, the Spotify API docs for PUT /me/player/play say device_id is a query parameter.
-			// Let's stick to the query parameter for starting/transferring playback based on common usage and docs.
-			// The body is for context_uri, uris, offset, position_ms.
-
-			let playUrl = "https://api.spotify.com/v1/me/player/play";
-			if (targetDeviceId) {
-				playUrl += `?device_id=${targetDeviceId}`;
-			}
-
-			const response = await fetch(playUrl, {
-				method: "PUT",
-				headers: {
-					Authorization: `Bearer ${accessToken}`,
-					"Content-Type": "application/json",
-				},
-				// Only uris is needed in the body if playing specific tracks.
-				// If also transferring playback, device_id is a query param and body contains uris.
-				body: JSON.stringify({ uris: [trackUri] }),
-			});
-
-			if (!response.ok) {
-				let errorBodyText = await response.text(); // Read body as text for more info
-				let errorMessage = `${response.status} - ${response.statusText}`;
-				try {
-					const errorData = JSON.parse(errorBodyText); // Try to parse as JSON
-					if (
-						errorData &&
-						errorData.error &&
-						errorData.error.message
-					) {
-						errorMessage = errorData.error.message;
-						if (errorData.error.reason) {
-							console.error(
-								"Spotify Playback Error Reason:",
-								errorData.error.reason
-							);
-							// NO_ACTIVE_DEVICE is a common reason if device_id is not specified and no device is active
-							// PLAYER_COMMAND_FAILED if device_id is specified but invalid, or other reasons
-						}
-					}
-				} catch (e) {
-					/* Ignore if body is not JSON */
-				}
-				console.error(
-					"Spotify Playback Error Full Response:",
-					errorBodyText
-				);
-				throw new Error(`Failed to play track: ${errorMessage}`);
-			}
-			console.log(
-				"AuthContext: Play command sent successfully for track:",
-				trackUri
-			);
-		} catch (e: any) {
-			console.error("AuthContext: Error playing track:", e.message);
-			// Potentially show a toast or message to the user
+		if (data) {
+			setSavedTracks((prevTracks) => [
+				...(prevTracks || []),
+				...data.items,
+			]);
+			setSavedTracksNextUrl(data.next);
 		}
-	};
+		setIsLoadingMoreSavedTracks(false);
+	}, [
+		savedTracksNextUrl,
+		isLoadingMoreSavedTracks,
+		accessToken,
+		makeApiRequest,
+	]);
 
-	const login = async () => {
+	// --- Device and Playback ---
+	const _getAvailableDeviceId = useCallback(
+		async (token: string): Promise<string | null> => {
+			console.log("AuthContext: Fetching available devices...");
+			try {
+				const response = await fetch(
+					"https://api.spotify.com/v1/me/player/devices",
+					{
+						headers: { Authorization: `Bearer ${token}` },
+					}
+				);
+				const data: SpotifyDevicesResponse = await response.json();
+				if (!response.ok) {
+					let errorMessage = response.status.toString();
+					try {
+						const errorData = data as any; // Cast to any to access potential error property
+						if (
+							errorData &&
+							errorData.error &&
+							errorData.error.message
+						) {
+							errorMessage = errorData.error.message;
+						}
+					} catch (e) {
+						/* Ignore if casting/accessing error fails */
+					}
+					throw new Error(`Failed to fetch devices: ${errorMessage}`);
+				}
+
+				if (data.devices && data.devices.length > 0) {
+					const activeDevice = data.devices.find(
+						(device) => device.is_active
+					);
+					if (activeDevice && activeDevice.id) {
+						console.log(
+							`AuthContext: Found active device: ${activeDevice.name} (ID: ${activeDevice.id})`
+						);
+						return activeDevice.id;
+					}
+					// If no active device, try to return the first available device's ID
+					// This might not always be what the user wants, but it's better than nothing if they have an inactive device.
+					// For a better UX, you might prompt the user to select a device.
+					if (data.devices[0] && data.devices[0].id) {
+						console.log(
+							`AuthContext: No active device found. Using first available device: ${data.devices[0].name} (ID: ${data.devices[0].id})`
+						);
+						return data.devices[0].id;
+					}
+				}
+				console.log("AuthContext: No devices found or available.");
+				return null;
+			} catch (e: any) {
+				console.error(
+					"AuthContext: Error fetching available devices:",
+					e.message
+				);
+				return null;
+			}
+		},
+		[]
+	);
+
+	const playTrack = useCallback(
+		async (
+			trackUri: string,
+			deviceId?: string,
+			contextUri?: string // Allow context URI to be passed
+		) => {
+			if (!accessToken) {
+				console.error("Cannot play track: No access token.");
+				return;
+			}
+
+			let targetDeviceId = deviceId;
+
+			if (!targetDeviceId) {
+				// Custom device selection: prefer TLP301 if available, otherwise open Spotify app
+				console.log(
+					"AuthContext: Fetching devices for custom logic..."
+				);
+				let devices: SpotifyDevicesResponse["devices"] = [];
+				try {
+					const resp = await fetch(
+						"https://api.spotify.com/v1/me/player/devices",
+						{
+							headers: { Authorization: `Bearer ${accessToken}` },
+						}
+					);
+					const data: SpotifyDevicesResponse = await resp.json();
+					if (resp.ok && data.devices) {
+						devices = data.devices;
+					} else {
+						console.error(
+							"AuthContext: Error fetching devices for play logic",
+							data
+						);
+					}
+				} catch (e: any) {
+					console.error(
+						"AuthContext: Exception fetching devices for play logic",
+						e
+					);
+				}
+				// Log all device names for debugging
+				if (devices.length > 0) {
+					console.log(
+						"AuthContext: Available devices:",
+						devices.map((d) => d.name).join(", ")
+					);
+				} else {
+					console.log(
+						"AuthContext: No devices available for custom logic"
+					);
+				}
+				const tlpDevice = devices.find(
+					(device) => device.name === "TLP301"
+				);
+				if (tlpDevice && tlpDevice.id) {
+					console.log(
+						`AuthContext: Found TLP301 device (ID: ${tlpDevice.id}), playing on it.`
+					);
+					targetDeviceId = tlpDevice.id;
+				} else {
+					console.log(
+						"AuthContext: TLP301 not found, opening Spotify app."
+					);
+					Linking.openURL(trackUri).catch((err) => {
+						console.error(
+							"AuthContext: Failed to open Spotify app",
+							err
+						);
+					});
+					return;
+				}
+			}
+
+			console.log(
+				`AuthContext: Attempting to play track: ${trackUri}` +
+					(targetDeviceId ? ` on device: ${targetDeviceId}` : "")
+			);
+			try {
+				// Build payload: use contextUri to queue liked songs, otherwise play single track
+				const payload: any = contextUri
+					? { context_uri: contextUri, offset: { uri: trackUri } }
+					: { uris: [trackUri] };
+
+				let playUrl = "https://api.spotify.com/v1/me/player/play";
+				if (targetDeviceId) {
+					playUrl += `?device_id=${targetDeviceId}`;
+				}
+
+				const response = await fetch(playUrl, {
+					method: "PUT",
+					headers: {
+						Authorization: `Bearer ${accessToken}`,
+						"Content-Type": "application/json",
+					},
+					body: JSON.stringify(payload),
+				});
+
+				if (!response.ok) {
+					let errorBodyText = await response.text(); // Read body as text for more info
+					let errorMessage = `${response.status} - ${response.statusText}`;
+					try {
+						const errorData = JSON.parse(errorBodyText); // Try to parse as JSON
+						if (
+							errorData &&
+							errorData.error &&
+							errorData.error.message
+						) {
+							errorMessage = errorData.error.message;
+							if (errorData.error.reason) {
+								console.error(
+									"Spotify Playback Error Reason:",
+									errorData.error.reason
+								);
+								// NO_ACTIVE_DEVICE is a common reason if device_id is not specified and no device is active
+								// PLAYER_COMMAND_FAILED if device_id is specified but invalid, or other reasons
+							}
+						}
+					} catch (e) {
+						/* Ignore if body is not JSON */
+					}
+					console.error(
+						"Spotify Playback Error Full Response:",
+						errorBodyText
+					);
+					throw new Error(`Failed to play track: ${errorMessage}`);
+				}
+				console.log(
+					"AuthContext: Play command sent successfully for track:",
+					trackUri
+				);
+			} catch (e: any) {
+				console.error("AuthContext: Error playing track:", e.message);
+				// Potentially show a toast or message to the user
+			}
+		},
+		[accessToken, _getAvailableDeviceId]
+	); // Added _getAvailableDeviceId as a dependency
+
+	// --- Authentication Flow ---
+	const login = useCallback(async () => {
 		if (!request) {
 			console.log("Auth request not ready yet");
 			return;
@@ -933,71 +903,52 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 		setIsLoading(true);
 		await promptAsync();
 		// The useEffect hook for 'response' will handle the rest
-	};
+	}, [request, promptAsync]);
 
-	const logout = async () => {
-		try {
-			setAccessToken(null);
-			setUser(null);
+	const logout = useCallback(async () => {
+		console.log("Logging out...");
+		await SecureStore.deleteItemAsync(AUTH_TOKEN_KEY);
+		await SecureStore.deleteItemAsync(USER_INFO_KEY);
+		setAccessToken(null);
+		setUser(null);
+		setPlaylists(null);
+		setPlaylistsNextUrl(null);
+		setAlbums(null);
+		setAlbumsNextUrl(null);
+		setSavedTracks(null);
+		setSavedTracksNextUrl(null);
+		setIsLoading(false); // Reset loading state
+	}, []);
 
-			setPlaylists(null);
-			setPlaylistsNextUrl(null);
-
-			setAlbums(null);
-			setAlbumsNextUrl(null);
-
-			setSavedTracks(null);
-			setSavedTracksNextUrl(null);
-
-			setIsLoading(false); // Reset loading state
-			await SecureStore.deleteItemAsync(AUTH_TOKEN_KEY);
-			await SecureStore.deleteItemAsync(USER_INFO_KEY);
-			// await SecureStore.deleteItemAsync(PLAYLISTS_KEY);
-			// await SecureStore.deleteItemAsync(ALBUMS_KEY);
-			// If you were caching user data, playlists, or albums in SecureStore, clear them here.
-			// For now, we are only clearing what's in memory.
-			// Also clear saved tracks if you decide to cache them
-		} catch (e) {
-			console.error("Failed to logout:", e);
-		}
+	const value = {
+		accessToken,
+		user,
+		playlists,
+		playlistsNextUrl,
+		isLoadingMorePlaylists,
+		fetchMorePlaylists,
+		albums,
+		albumsNextUrl,
+		isLoadingMoreAlbums,
+		fetchMoreAlbums,
+		savedTracks,
+		savedTracksNextUrl,
+		isLoadingMoreSavedTracks,
+		fetchMoreSavedTracks,
+		isLoading, // This is the global one
+		isRefreshingPlaylists,
+		isRefreshingAlbums,
+		isRefreshingSavedTracks,
+		login,
+		logout,
+		fetchPlaylists, // For initial load / manual refresh
+		fetchAlbums, // For initial load / manual refresh
+		fetchSavedTracks, // For initial load / manual refresh
+		playTrack,
 	};
 
 	return (
-		<AuthContext.Provider
-			value={{
-				accessToken,
-				user,
-
-				playlists,
-				playlistsNextUrl,
-				isLoadingMorePlaylists,
-				fetchMorePlaylists,
-
-				albums,
-				albumsNextUrl,
-				isLoadingMoreAlbums,
-				fetchMoreAlbums,
-
-				savedTracks,
-				savedTracksNextUrl,
-				isLoadingMoreSavedTracks,
-				fetchMoreSavedTracks,
-
-				isLoading,
-				isRefreshingPlaylists,
-				isRefreshingAlbums,
-				isRefreshingSavedTracks,
-
-				login,
-				logout,
-				fetchPlaylists,
-				fetchAlbums,
-				fetchSavedTracks,
-				playTrack,
-			}}
-		>
-			{children}
-		</AuthContext.Provider>
+		<AuthContext.Provider value={value}>{children}</AuthContext.Provider>
 	);
 };
 

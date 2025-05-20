@@ -14,7 +14,7 @@ import {
 import { HapticPressable } from "@/components/HapticPressable";
 import { StyledText } from "@/components/StyledText";
 import { MaterialIcons } from "@expo/vector-icons";
-import { useRouter } from "expo-router";
+import { useRouter, useFocusEffect } from "expo-router";
 
 export default function AlbumsScreen() {
 	const {
@@ -33,10 +33,25 @@ export default function AlbumsScreen() {
 	useEffect(() => {
 		// Fetch albums when the component mounts if not already loaded and user is logged in
 		// and global loading is finished.
-		if (accessToken && user && !albums && !isLoading) {
+		if (
+			accessToken &&
+			user &&
+			!albums &&
+			!isLoading &&
+			!isRefreshingAlbums
+		) {
 			fetchAlbums();
 		}
-	}, [accessToken, user, albums, fetchAlbums, isLoading]);
+	}, [accessToken, user, albums, isLoading, isRefreshingAlbums]);
+
+	useFocusEffect(
+		React.useCallback(() => {
+			if (accessToken && user) {
+				console.log("Albums tab focused, refreshing albums...");
+				fetchAlbums();
+			}
+		}, [accessToken, user, fetchAlbums])
+	);
 
 	const getArtistNames = (artists: SpotifyArtistSimple[]) => {
 		return artists.map((artist) => artist.name).join(", ");

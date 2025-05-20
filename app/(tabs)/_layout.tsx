@@ -70,19 +70,7 @@ export default function TabLayout() {
 						name={tab.screenName}
 						options={{
 							header: (props) => (
-								<TabHeader
-									headerTitle={tab.name}
-									{...(tab.screenName === "playlists" && {
-										iconName:
-											refreshIconName as keyof typeof MaterialIcons.glyphMap,
-										onIconPress: onRefresh,
-									})}
-									{...(tab.screenName === "albums" && {
-										iconName:
-											refreshIconName as keyof typeof MaterialIcons.glyphMap,
-										onIconPress: onRefresh,
-									})}
-								/>
+								<TabHeader headerTitle={tab.name} />
 							),
 							href: `/${tab.screenName}` as any, // Type assertion to satisfy Expo Router
 						}}

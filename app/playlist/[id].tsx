@@ -16,6 +16,7 @@ import {
 import { ItemHeader } from "@/components/ItemHeader";
 import { StyledText } from "@/components/StyledText";
 import { MaterialIcons } from "@expo/vector-icons";
+import { HapticPressable } from "@/components/HapticPressable";
 
 // Interface for the structure of a track item within a playlist from Spotify API
 interface PlaylistTrack {
@@ -49,7 +50,7 @@ export default function PlaylistDetailScreen() {
 		id: string;
 		playlistString?: string;
 	}>();
-	const { accessToken } = useAuth();
+	const { accessToken, playTrack } = useAuth();
 	const router = useRouter();
 
 	const initialPlaylist = playlistString
@@ -174,9 +175,16 @@ export default function PlaylistDetailScreen() {
 						const track = item.track;
 						if (!track) return null; // Skip if track is null (e.g., unavailable)
 						return (
-							<View
+							<HapticPressable
 								key={track.id || `${index}-${id}`}
 								style={styles.trackItemContainer}
+								onPress={() =>
+									playTrack(
+										track.uri,
+										undefined,
+										`spotify:playlist:${id}`
+									)
+								}
 							>
 								<StyledText style={styles.trackNumber}>
 									{index + 1}.
@@ -201,7 +209,7 @@ export default function PlaylistDetailScreen() {
 												: "")}
 									</StyledText>
 								</View>
-							</View>
+							</HapticPressable>
 						);
 					})}
 				{(!playlist.tracks ||

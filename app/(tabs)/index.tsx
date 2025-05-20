@@ -14,7 +14,7 @@ import {
 import { HapticPressable } from "@/components/HapticPressable";
 import { StyledText } from "@/components/StyledText";
 import { MaterialIcons } from "@expo/vector-icons";
-import { useRouter } from "expo-router";
+import { useRouter, useFocusEffect } from "expo-router";
 
 export default function LikedSongsScreen() {
 	const {
@@ -37,6 +37,15 @@ export default function LikedSongsScreen() {
 		}
 	}, [accessToken, user, savedTracks, fetchSavedTracks, isLoading]);
 
+	useFocusEffect(
+		React.useCallback(() => {
+			if (accessToken && user) {
+				console.log("Liked Songs tab focused, refreshing tracks...");
+				fetchSavedTracks();
+			}
+		}, [accessToken, user, fetchSavedTracks])
+	);
+
 	const getArtistNames = (artists: SpotifyArtistSimple[]) => {
 		return artists.map((artist) => artist.name).join(", ");
 	};
@@ -44,7 +53,13 @@ export default function LikedSongsScreen() {
 	const renderTrackItem = ({ item }: { item: SavedTrackObject }) => (
 		<HapticPressable
 			style={styles.itemContainer}
-			onPress={() => playTrack(item.track.uri)}
+			onPress={() =>
+				playTrack(
+					item.track.uri,
+					undefined,
+					`spotify:user:${user.id}:collection`
+				)
+			}
 		>
 			{item.track.album?.images && item.track.album.images.length > 0 ? (
 				<Image
@@ -131,7 +146,7 @@ export default function LikedSongsScreen() {
 			ItemSeparatorComponent={() => <View style={{ height: 8 }} />}
 			overScrollMode={"never"}
 			onEndReached={handleLoadMore}
-			onEndReachedThreshold={0.5}
+			onEndReachedThreshold={0.8}
 			ListFooterComponent={renderFooter}
 		/>
 	);

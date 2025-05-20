@@ -11,7 +11,7 @@ import { useAuth, SpotifyPlaylist } from "@/contexts/AuthContext"; // Assuming S
 import { HapticPressable } from "@/components/HapticPressable";
 import { StyledText } from "@/components/StyledText";
 import { MaterialIcons } from "@expo/vector-icons";
-import { useRouter } from "expo-router"; // Added useRouter
+import { useRouter, useFocusEffect } from "expo-router"; // Added useFocusEffect
 
 export default function PlaylistsScreen() {
 	const {
@@ -36,6 +36,15 @@ export default function PlaylistsScreen() {
 			fetchPlaylists(); // This will now use the manual refresh logic, which is fine.
 		}
 	}, [accessToken, user, playlists, fetchPlaylists, isLoading]);
+
+	useFocusEffect(
+		React.useCallback(() => {
+			if (accessToken && user) {
+				console.log("Playlists tab focused, refreshing playlists...");
+				fetchPlaylists();
+			}
+		}, [accessToken, user, fetchPlaylists])
+	);
 
 	const renderPlaylistItem = ({ item }: { item: SpotifyPlaylist }) => (
 		<HapticPressable
