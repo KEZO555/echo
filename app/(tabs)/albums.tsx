@@ -65,7 +65,7 @@ export default function AlbumsScreen() {
                 />
             ) : (
                 <View style={styles.placeholderImageContainer}>
-                    <MaterialIcons name="album" size={24} color="#535353" />
+                    <MaterialIcons name="album" size={24} color="white" />
                 </View>
             )}
             <View style={styles.textContainer}>

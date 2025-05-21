@@ -326,7 +326,7 @@ export default function PlayingScreen() {
                         <MaterialIcons
                             name="music-note"
                             size={100}
-                            color="#535353"
+                            color="white"
                         />
                     </View>
                 )}

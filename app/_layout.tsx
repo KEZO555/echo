@@ -76,6 +76,13 @@ function RootNavigation() {
                     animation: "none",
                 }}
             />
+            <Stack.Screen
+                name="create-playlist"
+                options={{
+                    headerShown: false,
+                    animation: "none",
+                }}
+            />
         </Stack>
     );
 }

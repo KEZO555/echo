@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from "react";
+import React, { useState, useCallback, useEffect } from "react";
 import {
     View,
     StyleSheet,
@@ -22,8 +22,11 @@ export default function AddToPlaylistScreen() {
         user,
         addTrackToPlaylist,
     } = useAuth();
-    const params = useLocalSearchParams<{ trackUri?: string }>();
-    console.log("AddToPlaylistScreen received params:", params); // Added log
+    const params = useLocalSearchParams<{
+        trackUri?: string;
+    }>();
+    const { trackUri } = params;
+    console.log("AddToPlaylistScreen received params:", params);
     const [selectedPlaylists, setSelectedPlaylists] = useState<string[]>([]);
 
     React.useEffect(() => {
@@ -113,7 +116,7 @@ export default function AddToPlaylistScreen() {
                         <MaterialIcons
                             name="music-note"
                             size={24}
-                            color="#535353"
+                            color="white"
                         />
                     </View>
                 )}
@@ -182,7 +185,30 @@ export default function AddToPlaylistScreen() {
                 style={styles.list}
                 contentContainerStyle={styles.listContentContainer}
                 ItemSeparatorComponent={() => <View style={{ height: 8 }} />}
-                overScrollMode={"never"}
+                overScrollMode="never"
+                ListHeaderComponent={() => (
+                    <HapticPressable
+                        style={styles.newPlaylistItemContainer}
+                        onPress={() =>
+                            router.push({
+                                pathname: "/create-playlist",
+                                params: {
+                                    returnTo: "add-to-playlist",
+                                    trackUri,
+                                },
+                            } as any)
+                        }
+                    >
+                        <View style={styles.placeholderImageContainer}>
+                            <MaterialIcons name="add" size={24} color="white" />
+                        </View>
+                        <View style={styles.textContainer}>
+                            <StyledText style={styles.playlistName}>
+                                Create new playlist
+                            </StyledText>
+                        </View>
+                    </HapticPressable>
+                )}
             />
             <HapticPressable style={styles.doneButton} onPress={handleDone}>
                 <StyledText style={styles.doneButtonText}>Done</StyledText>
@@ -233,6 +259,12 @@ const styles = StyleSheet.create({
     },
     itemContainer: {
         paddingVertical: 0,
+        paddingHorizontal: 20,
+        flexDirection: "row",
+        alignItems: "center",
+    },
+    newPlaylistItemContainer: {
+        paddingBottom: 8,
         paddingHorizontal: 20,
         flexDirection: "row",
         alignItems: "center",

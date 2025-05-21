@@ -60,11 +60,7 @@ export default function LikedSongsScreen() {
                 />
             ) : (
                 <View style={styles.placeholderImageContainer}>
-                    <MaterialIcons
-                        name="music-note"
-                        size={24}
-                        color="#535353"
-                    />
+                    <MaterialIcons name="music-note" size={24} color="white" />
                 </View>
             )}
             <View style={styles.textContainer}>
@@ -135,8 +131,8 @@ const styles = StyleSheet.create({
         backgroundColor: "black",
     },
     listContentContainer: {
-        paddingTop: 0, // Adjusted if TabHeader takes space
-        paddingBottom: 0, // Consider Navbar height
+        paddingTop: 0,
+        paddingBottom: 0,
     },
     centeredMessageContainer: {
         flex: 1,
@@ -154,7 +150,7 @@ const styles = StyleSheet.create({
     emptySubText: {
         fontSize: 14,
         textAlign: "center",
-        color: "#b3b3b3",
+        color: "white",
     },
     itemContainer: {
         paddingVertical: 0, // Keep compact
