@@ -283,11 +283,7 @@ export default function PlayingScreen() {
     };
 
     if (isLoading) {
-        return (
-            <View style={[styles.container, styles.centered]}>
-                <ActivityIndicator size="large" color="#1DB954" />
-            </View>
-        );
+        return <View style={[styles.container, styles.centered]}></View>;
     }
 
     if (!playbackState || !playbackState.item) {

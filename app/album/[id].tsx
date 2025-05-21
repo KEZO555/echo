@@ -85,11 +85,7 @@ export default function AlbumDetailScreen() {
     }, [id, accessToken]);
 
     if (isLoading && !album) {
-        return (
-            <View style={styles.centeredMessageContainer}>
-                <ActivityIndicator size="large" color="#1DB954" />
-            </View>
-        );
+        return <View style={styles.centeredMessageContainer}></View>;
     }
 
     if (error) {

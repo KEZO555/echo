@@ -14,7 +14,7 @@ import {
 import { HapticPressable } from "@/components/HapticPressable";
 import { StyledText } from "@/components/StyledText";
 import { MaterialIcons } from "@expo/vector-icons";
-import { useRouter, useFocusEffect } from "expo-router";
+import { useRouter } from "expo-router";
 
 export default function LikedSongsScreen() {
     const {
@@ -36,15 +36,6 @@ export default function LikedSongsScreen() {
             fetchSavedTracks();
         }
     }, [accessToken, user, savedTracks, fetchSavedTracks, isLoading]);
-
-    useFocusEffect(
-        React.useCallback(() => {
-            if (accessToken && user) {
-                console.log("Liked Songs tab focused, refreshing tracks...");
-                fetchSavedTracks();
-            }
-        }, [accessToken, user, fetchSavedTracks])
-    );
 
     const getArtistNames = (artists: SpotifyArtistSimple[]) => {
         return artists.map((artist) => artist.name).join(", ");
@@ -89,24 +80,13 @@ export default function LikedSongsScreen() {
 
     // Show global loading indicator if initial data is loading and no tracks are yet available
     if (isLoading && !savedTracks) {
-        return (
-            <View style={styles.centeredMessageContainer}>
-                <ActivityIndicator size="large" color="#1DB954" />
-            </View>
-        );
+        return <View style={styles.centeredMessageContainer}></View>;
     }
 
     // Show specific refresh indicator if only manual refresh is happening for saved tracks
     if (isRefreshingSavedTracks && !savedTracks) {
         // Or (isRefreshingSavedTracks && savedTracks) if you want to show stale data UNDER the spinner
-        return (
-            <View style={styles.centeredMessageContainer}>
-                <ActivityIndicator size="large" color="#1DB954" />
-                <StyledText style={{ color: "white", marginTop: 10 }}>
-                    Refreshing Liked Songs...
-                </StyledText>
-            </View>
-        );
+        return <View style={styles.centeredMessageContainer}></View>;
     }
 
     if (!savedTracks || savedTracks.length === 0) {
@@ -130,11 +110,7 @@ export default function LikedSongsScreen() {
 
     const renderFooter = () => {
         if (!isLoadingMoreSavedTracks) return null;
-        return (
-            <View style={{ paddingVertical: 20 }}>
-                <ActivityIndicator size="large" color="#1DB954" />
-            </View>
-        );
+        return;
     };
 
     return (
@@ -147,7 +123,7 @@ export default function LikedSongsScreen() {
             ItemSeparatorComponent={() => <View style={{ height: 8 }} />}
             overScrollMode={"never"}
             onEndReached={handleLoadMore}
-            onEndReachedThreshold={0.8}
+            onEndReachedThreshold={6}
             ListFooterComponent={renderFooter}
         />
     );

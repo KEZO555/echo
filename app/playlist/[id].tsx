@@ -114,11 +114,7 @@ export default function PlaylistDetailScreen() {
     }, [id, accessToken]);
 
     if (isLoading && !playlist) {
-        return (
-            <View style={styles.centeredMessageContainer}>
-                <ActivityIndicator size="large" color="#1DB954" />
-            </View>
-        );
+        return <View style={styles.centeredMessageContainer}></View>;
     }
 
     if (error) {

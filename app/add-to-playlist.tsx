@@ -146,9 +146,7 @@ export default function AddToPlaylistScreen() {
                     backEvent={handleHeaderBack}
                     iconName={undefined}
                 />
-                <View style={styles.centeredMessageContainer}>
-                    <ActivityIndicator size="large" color="#1DB954" />
-                </View>
+                <View style={styles.centeredMessageContainer}></View>
             </View>
         );
     }

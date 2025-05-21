@@ -11,7 +11,7 @@ import { useAuth, SpotifyPlaylist } from "@/contexts/AuthContext"; // Assuming S
 import { HapticPressable } from "@/components/HapticPressable";
 import { StyledText } from "@/components/StyledText";
 import { MaterialIcons } from "@expo/vector-icons";
-import { useRouter, useFocusEffect } from "expo-router"; // Added useFocusEffect
+import { useRouter } from "expo-router";
 
 export default function PlaylistsScreen() {
     const {
@@ -36,15 +36,6 @@ export default function PlaylistsScreen() {
             fetchPlaylists(); // This will now use the manual refresh logic, which is fine.
         }
     }, [accessToken, user, playlists, fetchPlaylists, isLoading]);
-
-    useFocusEffect(
-        React.useCallback(() => {
-            if (accessToken && user) {
-                console.log("Playlists tab focused, refreshing playlists...");
-                fetchPlaylists();
-            }
-        }, [accessToken, user, fetchPlaylists])
-    );
 
     const renderPlaylistItem = ({ item }: { item: SpotifyPlaylist }) => (
         <HapticPressable
@@ -83,11 +74,7 @@ export default function PlaylistsScreen() {
 
     // Show global loading indicator if initial data is loading and no playlists are yet available
     if (isLoading && !playlists) {
-        return (
-            <View style={styles.centeredMessageContainer}>
-                <ActivityIndicator size="large" color="#1DB954" />
-            </View>
-        );
+        return <View style={styles.centeredMessageContainer}></View>;
     }
 
     // Show specific refresh indicator if only manual refresh is happening
@@ -96,14 +83,7 @@ export default function PlaylistsScreen() {
     // For now, let's assume the header icon is the primary indicator and this is for safety.
     if (isRefreshingPlaylists && !playlists) {
         // Or perhaps (isRefreshingPlaylists && playlists) if we want to show stale data UNDER the spinner
-        return (
-            <View style={styles.centeredMessageContainer}>
-                <ActivityIndicator size="large" color="#1DB954" />
-                <StyledText style={{ color: "white", marginTop: 10 }}>
-                    Refreshing playlists...
-                </StyledText>
-            </View>
-        );
+        return <View style={styles.centeredMessageContainer}></View>;
     }
 
     if (!playlists || playlists.length === 0) {
@@ -127,11 +107,7 @@ export default function PlaylistsScreen() {
 
     const renderFooter = () => {
         if (!isLoadingMorePlaylists) return null;
-        return (
-            <View style={{ paddingVertical: 20 }}>
-                <ActivityIndicator size="large" color="#1DB954" />
-            </View>
-        );
+        return <View style={{ paddingVertical: 20 }}></View>;
     };
 
     return (
@@ -144,7 +120,7 @@ export default function PlaylistsScreen() {
             ItemSeparatorComponent={() => <View style={{ height: 8 }} />}
             overScrollMode={"never"}
             onEndReached={handleLoadMore}
-            onEndReachedThreshold={0.5}
+            onEndReachedThreshold={6}
             ListFooterComponent={renderFooter}
         />
     );
