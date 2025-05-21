@@ -36,6 +36,7 @@ export default function PlayingScreen() {
         skipToPrevious,
         toggleShuffle,
         toggleRepeat,
+        seekToPosition, // Added seekToPosition
     } = useAuth();
     const [playbackState, setPlaybackState] =
         useState<SpotifyCurrentlyPlaying | null>(null);
@@ -43,14 +44,14 @@ export default function PlayingScreen() {
     const [isCurrentTrackSaved, setIsCurrentTrackSaved] = useState(false); // New state
     const [currentTrackIdChecked, setCurrentTrackIdChecked] = useState<
         string | null
-    >(null); // Keep track of the last checked track ID
+    >(null);
 
     const progress = useRef(new Animated.Value(0)).current;
+    const progressBarWidthRef = useRef(0); // To store the width of the progress bar
 
-    // Function to check if the current track is saved
     const checkIfTrackIsSaved = async (trackId: string) => {
         if (!accessToken || !trackId) return;
-        console.log(`Checking if track ${trackId} is saved.`);
+        // console.log(`Checking if track ${trackId} is saved.`);
         try {
             const response = await fetch(
                 `https://api.spotify.com/v1/me/tracks/contains?ids=${trackId}`,
@@ -80,7 +81,7 @@ export default function PlayingScreen() {
     };
 
     const fetchAndUpdatePlaybackState = async () => {
-        console.log("Fetching playback state for PlayingScreen...");
+        // console.log("Fetching playback state for PlayingScreen...");
         const state = await getPlaybackState();
         setPlaybackState(state);
 
@@ -165,6 +166,31 @@ export default function PlayingScreen() {
             await fetchAndUpdatePlaybackState();
         } catch (error) {
             console.error("Error toggling repeat:", error);
+        }
+    };
+
+    const handleProgressBarSeek = async (event: any) => {
+        if (
+            !playbackState ||
+            !playbackState.item ||
+            !progressBarWidthRef.current
+        )
+            return;
+
+        const tapPositionX = event.nativeEvent.locationX;
+        const totalDurationMs = playbackState.item.duration_ms;
+        const seekPositionMs =
+            (tapPositionX / progressBarWidthRef.current) * totalDurationMs;
+
+        try {
+            await seekToPosition(seekPositionMs);
+            // Optimistically update progress bar, or wait for fetchAndUpdatePlaybackState
+            const progressRatio = seekPositionMs / totalDurationMs;
+            progress.setValue(progressRatio > 0 ? progressRatio : 0);
+            // Fetch updated state to confirm
+            await fetchAndUpdatePlaybackState();
+        } catch (error) {
+            console.error("Error seeking track:", error);
         }
     };
 
@@ -318,14 +344,25 @@ export default function PlayingScreen() {
                 </View>
 
                 <View style={styles.timeIndicatorContainer}>
-                    <View style={styles.progressBarBackground}>
-                        <Animated.View
-                            style={[
-                                styles.progressBarForeground,
-                                { width: animatedWidth },
-                            ]}
-                        />
-                    </View>
+                    <HapticPressable
+                        onPress={handleProgressBarSeek}
+                        style={styles.progressBarPressable}
+                    >
+                        <View
+                            style={styles.progressBarBackground}
+                            onLayout={(event) => {
+                                progressBarWidthRef.current =
+                                    event.nativeEvent.layout.width;
+                            }}
+                        >
+                            <Animated.View
+                                style={[
+                                    styles.progressBarForeground,
+                                    { width: animatedWidth },
+                                ]}
+                            />
+                        </View>
+                    </HapticPressable>
                     <View style={styles.progressBarInfo}>
                         <StyledText style={styles.timeText}>
                             {formatTime(playbackState.progress_ms)}
@@ -463,9 +500,14 @@ const styles = StyleSheet.create({
         width: "100%",
         alignItems: "center",
     },
+    progressBarPressable: {
+        // Added style for the pressable area
+        width: "90%", // Match progressBarBackground width
+        // backgroundColor: 'rgba(255,0,0,0.1)', // For debugging touch area
+    },
     progressBarBackground: {
         height: 2,
-        width: "90%",
+        width: "100%", // Changed from 90% to 100% as parent pressable handles width
         backgroundColor: "white",
         overflow: "visible",
         marginBottom: 3,

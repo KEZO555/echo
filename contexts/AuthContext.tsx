@@ -254,6 +254,7 @@ interface AuthContextType {
         playlistId: string,
         trackUri: string
     ) => Promise<boolean>; // Added
+    seekToPosition: (positionMs: number) => Promise<void>; // Added
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -1420,6 +1421,41 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         }
     };
 
+    const seekToPosition = async (positionMs: number) => {
+        if (!accessToken) return;
+        console.log(`AuthContext: Seeking to ${positionMs}ms`);
+        try {
+            const response = await fetch(
+                `https://api.spotify.com/v1/me/player/seek?position_ms=${Math.round(
+                    positionMs
+                )}`,
+                {
+                    method: "PUT",
+                    headers: {
+                        Authorization: `Bearer ${accessToken}`,
+                    },
+                }
+            );
+            if (!response.ok) {
+                const errorData = await response.text();
+                console.error(
+                    "AuthContext: Failed to seek. Status:",
+                    response.status,
+                    "Error:",
+                    errorData
+                );
+                throw new Error(
+                    `Failed to seek to position: ${response.status}`
+                );
+            }
+            console.log("AuthContext: Seek command sent successfully.");
+        } catch (error) {
+            console.error("AuthContext: Error seeking to position:", error);
+            // Optionally re-throw or handle as needed by the UI
+            throw error;
+        }
+    };
+
     const value = {
         accessToken,
         refreshToken,
@@ -1454,6 +1490,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         toggleShuffle,
         toggleRepeat,
         addTrackToPlaylist, // Added
+        seekToPosition, // Added
     };
 
     return (
