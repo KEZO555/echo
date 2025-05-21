@@ -151,9 +151,15 @@ export default function PlayingScreen() {
 			<View style={styles.container}>
 				<Header />
 				<View style={styles.content}>
-					<StyledText style={styles.emptyText}>
-						Nothing is currently playing.
-					</StyledText>
+					<View style={styles.placeholderImageContainer}></View>
+					<View style={styles.trackInfoContainer}>
+						<StyledText style={styles.trackName} numberOfLines={1}>
+							No song playing
+						</StyledText>
+						<StyledText style={styles.artistName} numberOfLines={1}>
+							Go back and play something!
+						</StyledText>
+					</View>
 				</View>
 			</View>
 		);
@@ -354,14 +360,12 @@ const styles = StyleSheet.create({
 		width: "100%",
 		backgroundColor: "black",
 		overflow: "visible",
-		marginBottom: 3,
 	},
 	activeShuffleIndicator: {
 		height: 1,
 		width: "100%",
 		backgroundColor: "white",
 		overflow: "visible",
-		marginBottom: 3,
 	},
 	timeText: {
 		fontSize: 12,
