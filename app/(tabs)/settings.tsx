@@ -7,8 +7,6 @@ import {
 	ActivityIndicator,
 } from "react-native";
 import { useAuth } from "@/contexts/AuthContext";
-import { HapticPressable } from "@/components/HapticPressable"; // Assuming you want to use your HapticPressable
-import { StyledText } from "@/components/StyledText";
 import { StyledButton } from "@/components/StyledButton";
 
 export default function SettingsScreen() {

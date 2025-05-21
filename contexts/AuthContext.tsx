@@ -181,8 +181,33 @@ export interface SpotifyDevicesResponse {
 	devices: SpotifyDevice[];
 }
 
+export interface SpotifyRepeatState {
+	state: "off" | "track" | "context";
+}
+
+export interface SpotifyCurrentlyPlaying {
+	timestamp: number;
+	context: SpotifyPlaybackContext | null;
+	progress_ms: number | null;
+	is_playing: boolean;
+	item: SpotifyTrackSimple | null; // Can be null if nothing is playing
+	currently_playing_type: "track" | "episode" | "ad" | "unknown";
+	actions: { disallows: Record<string, boolean> };
+	device: SpotifyDevice;
+	shuffle_state: boolean;
+	repeat_state: SpotifyRepeatState["state"];
+}
+
+export interface SpotifyPlaybackContext {
+	type: "album" | "artist" | "playlist" | "show";
+	href: string;
+	external_urls: { spotify: string };
+	uri: string;
+}
+
 interface AuthContextType {
 	accessToken: string | null;
+	refreshToken: string | null;
 	user: any | null;
 
 	playlists: SpotifyPlaylist[] | null;
@@ -208,27 +233,38 @@ interface AuthContextType {
 	login: () => Promise<void>;
 	logout: () => Promise<void>;
 
-	fetchPlaylists: () => Promise<void>; // For initial load / manual refresh of first page
-	fetchAlbums: () => Promise<void>; // For initial load / manual refresh of first page
-	fetchSavedTracks: () => Promise<void>; // For initial load / manual refresh of first page
+	fetchPlaylists: () => Promise<void>;
+	fetchAlbums: () => Promise<void>;
+	fetchSavedTracks: () => Promise<void>;
 	playTrack: (
 		trackUri: string,
 		deviceId?: string,
 		contextUri?: string
-	) => Promise<void>; // Added playTrack with optional contextUri
+	) => Promise<void>;
+	getPlaybackState: () => Promise<SpotifyCurrentlyPlaying | null>;
+	startPlayback: () => Promise<void>;
+	pausePlayback: () => Promise<void>;
+	skipToNext: () => Promise<void>;
+	skipToPrevious: () => Promise<void>;
+	toggleShuffle: (state: boolean) => Promise<void>;
+	toggleRepeat: (state: "off" | "track") => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 const AUTH_TOKEN_KEY = "spotifyAuthToken";
+const REFRESH_TOKEN_KEY = "spotifyRefreshToken";
 const USER_INFO_KEY = "spotifyUserInfo";
+const TOKEN_EXPIRY_KEY = "spotifyTokenExpiry";
 const PLAYLISTS_KEY = "spotifyPlaylists"; // For potential caching
 const ALBUMS_KEY = "spotifyAlbums"; // For potential caching for saved albums
 const SAVED_TRACKS_KEY = "spotifySavedTracks"; // For potential caching for saved tracks
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
 	const [accessToken, setAccessToken] = useState<string | null>(null);
+	const [refreshToken, setRefreshToken] = useState<string | null>(null);
 	const [user, setUser] = useState<any | null>(null);
+	const [tokenExpiry, setTokenExpiry] = useState<number | null>(null);
 
 	// Playlists
 	const [playlists, setPlaylists] = useState<SpotifyPlaylist[] | null>(null);
@@ -277,31 +313,198 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 		}
 	}, [request]);
 
+	// Function to refresh the access token
+	const refreshAccessToken = useCallback(
+		async (currentRefreshToken: string) => {
+			console.log("AuthContext: Attempting to refresh access token...");
+			if (!currentRefreshToken) {
+				console.log(
+					"AuthContext: No refresh token available to refresh access token."
+				);
+				return false;
+			}
+			try {
+				const response = await AuthSession.refreshAsync(
+					{
+						clientId: SPOTIFY_CLIENT_ID,
+						refreshToken: currentRefreshToken,
+					},
+					discovery
+				);
+
+				if (response.accessToken) {
+					setAccessToken(response.accessToken);
+					await SecureStore.setItemAsync(
+						AUTH_TOKEN_KEY,
+						response.accessToken
+					);
+
+					// Set token expiry to 45 minutes from now
+					const expiryTime = Date.now() + 45 * 60 * 1000;
+					setTokenExpiry(expiryTime);
+					await SecureStore.setItemAsync(
+						TOKEN_EXPIRY_KEY,
+						expiryTime.toString()
+					);
+
+					console.log(
+						"AuthContext: Access token refreshed successfully."
+					);
+
+					// Spotify may return a new refresh token
+					if (response.refreshToken) {
+						setRefreshToken(response.refreshToken);
+						await SecureStore.setItemAsync(
+							REFRESH_TOKEN_KEY,
+							response.refreshToken
+						);
+						console.log(
+							"AuthContext: New refresh token received and stored."
+						);
+					}
+					return true;
+				} else {
+					console.error(
+						"AuthContext: Failed to refresh access token. No new token received."
+					);
+					// Clear tokens and user data
+					setAccessToken(null);
+					setRefreshToken(null);
+					setUser(null);
+					setTokenExpiry(null);
+					await SecureStore.deleteItemAsync(AUTH_TOKEN_KEY);
+					await SecureStore.deleteItemAsync(REFRESH_TOKEN_KEY);
+					await SecureStore.deleteItemAsync(USER_INFO_KEY);
+					await SecureStore.deleteItemAsync(TOKEN_EXPIRY_KEY);
+					return false;
+				}
+			} catch (error) {
+				console.error(
+					"AuthContext: Error during token refresh:",
+					error
+				);
+				// Clear tokens and user data
+				setAccessToken(null);
+				setRefreshToken(null);
+				setUser(null);
+				setTokenExpiry(null);
+				await SecureStore.deleteItemAsync(AUTH_TOKEN_KEY);
+				await SecureStore.deleteItemAsync(REFRESH_TOKEN_KEY);
+				await SecureStore.deleteItemAsync(USER_INFO_KEY);
+				await SecureStore.deleteItemAsync(TOKEN_EXPIRY_KEY);
+				return false;
+			}
+		},
+		[setAccessToken, setRefreshToken, setUser]
+	);
+
+	// Add proactive token refresh mechanism
+	useEffect(() => {
+		const checkAndRefreshToken = async () => {
+			if (!tokenExpiry || !refreshToken) return;
+
+			// Refresh token if it's within 5 minutes of expiring
+			const timeUntilExpiry = tokenExpiry - Date.now();
+			if (timeUntilExpiry < 5 * 60 * 1000) {
+				// 5 minutes
+				console.log(
+					"AuthContext: Proactively refreshing token before expiry"
+				);
+				await refreshAccessToken(refreshToken);
+			}
+		};
+
+		// Check token every minute
+		const intervalId = setInterval(checkAndRefreshToken, 60 * 1000);
+		return () => clearInterval(intervalId);
+	}, [tokenExpiry, refreshToken, refreshAccessToken]);
+
+	const logout = useCallback(async () => {
+		console.log("Logging out...");
+		await SecureStore.deleteItemAsync(AUTH_TOKEN_KEY);
+		await SecureStore.deleteItemAsync(REFRESH_TOKEN_KEY);
+		await SecureStore.deleteItemAsync(USER_INFO_KEY);
+		setAccessToken(null);
+		setRefreshToken(null);
+		setUser(null);
+		setPlaylists(null);
+		setPlaylistsNextUrl(null);
+		setAlbums(null);
+		setAlbumsNextUrl(null);
+		setSavedTracks(null);
+		setSavedTracksNextUrl(null);
+		setIsLoading(false); // Reset loading state
+	}, [
+		setAccessToken,
+		setRefreshToken,
+		setUser,
+		setPlaylists,
+		setPlaylistsNextUrl,
+		setAlbums,
+		setAlbumsNextUrl,
+		setSavedTracks,
+		setSavedTracksNextUrl,
+		setIsLoading,
+	]);
+
 	useEffect(() => {
 		const loadStoredAuth = async () => {
 			try {
 				const storedToken = await SecureStore.getItemAsync(
 					AUTH_TOKEN_KEY
 				);
+				const storedRefreshToken = await SecureStore.getItemAsync(
+					REFRESH_TOKEN_KEY
+				);
 				const storedUser = await SecureStore.getItemAsync(
 					USER_INFO_KEY
 				);
-				if (storedToken) {
-					setAccessToken(storedToken);
-					if (storedUser) {
-						setUser(JSON.parse(storedUser));
+				const storedExpiry = await SecureStore.getItemAsync(
+					TOKEN_EXPIRY_KEY
+				);
+
+				if (storedToken && storedExpiry) {
+					const expiryTime = parseInt(storedExpiry);
+					// If token is expired or will expire in next 5 minutes, refresh it
+					if (expiryTime > Date.now() + 5 * 60 * 1000) {
+						setAccessToken(storedToken);
+						setTokenExpiry(expiryTime);
+						if (storedRefreshToken) {
+							setRefreshToken(storedRefreshToken);
+						}
+						if (storedUser) {
+							setUser(JSON.parse(storedUser));
+						}
+					} else if (storedRefreshToken) {
+						// Token expired or about to expire, refresh it
+						const refreshed = await refreshAccessToken(
+							storedRefreshToken
+						);
+						if (!refreshed) {
+							await logout();
+						}
 					}
-					// Optionally, you could add a check here to see if the token is expired
-					// and try to refresh it or log out.
+				} else if (storedRefreshToken) {
+					console.log(
+						"AuthContext: Access token not found or expired, attempting to refresh."
+					);
+					setRefreshToken(storedRefreshToken);
+					const refreshed = await refreshAccessToken(
+						storedRefreshToken
+					);
+					if (!refreshed) {
+						await logout();
+					}
 				}
 			} catch (e) {
 				console.error("Failed to load auth state:", e);
+				await logout();
 			} finally {
 				setIsLoading(false);
 			}
 		};
 		loadStoredAuth();
-	}, []);
+	}, [refreshAccessToken, logout]);
 
 	useEffect(() => {
 		if (response) {
@@ -334,6 +537,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 					AUTH_TOKEN_KEY,
 					tokenResponse.accessToken
 				);
+				if (tokenResponse.refreshToken) {
+					setRefreshToken(tokenResponse.refreshToken);
+					await SecureStore.setItemAsync(
+						REFRESH_TOKEN_KEY,
+						tokenResponse.refreshToken
+					);
+				}
 				// Fetch user info after getting token
 				await fetchUserInfo(tokenResponse.accessToken);
 			} else {
@@ -383,6 +593,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 			setAccessToken(null); // Log out on error
 			setUser(null);
 			await SecureStore.deleteItemAsync(AUTH_TOKEN_KEY);
+			await SecureStore.deleteItemAsync(REFRESH_TOKEN_KEY);
 			await SecureStore.deleteItemAsync(USER_INFO_KEY);
 			setPlaylists(null);
 			setPlaylistsNextUrl(null);
@@ -525,12 +736,30 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 	const makeApiRequest = useCallback(
 		async (
 			url: string,
-			token: string,
 			errorMessage: string,
-			isRefreshing = false
-		) => {
-			if (!token) {
+			isRefreshing = false,
+			retryCount = 0
+		): Promise<any | null> => {
+			if (!accessToken) {
 				console.error("No access token available for API request.");
+				if (refreshToken) {
+					console.log(
+						"Attempting to refresh token before API request..."
+					);
+					const refreshed = await refreshAccessToken(refreshToken);
+					if (refreshed) {
+						// Retry the request once after successful refresh
+						return makeApiRequest(
+							url,
+							errorMessage,
+							isRefreshing,
+							1
+						);
+					} else {
+						await logout();
+						return null;
+					}
+				}
 				// Optionally, trigger re-authentication or inform the user
 				// For now, just returning null to prevent further execution without a token
 				return null;
@@ -541,7 +770,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 			try {
 				const response = await fetch(url, {
 					headers: {
-						Authorization: `Bearer ${token}`,
+						Authorization: `Bearer ${accessToken}`,
 					},
 				});
 				if (!response.ok) {
@@ -554,12 +783,39 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 						}`,
 						errorData
 					);
-					if (response.status === 401) {
-						// Token expired or invalid, attempt to refresh or logout
+					if (
+						response.status === 401 &&
+						retryCount < 1 &&
+						refreshToken
+					) {
 						console.log(
-							"Token might be expired. Consider implementing token refresh."
+							"Token might be expired. Attempting to refresh token."
 						);
-						// logout(); // Or a more sophisticated token refresh mechanism
+						const refreshed = await refreshAccessToken(
+							refreshToken
+						);
+						if (refreshed) {
+							console.log(
+								"Token refreshed successfully. Retrying API request."
+							);
+							return makeApiRequest(
+								url,
+								errorMessage,
+								isRefreshing,
+								1
+							);
+						} else {
+							console.log(
+								"Failed to refresh token. Logging out."
+							);
+							await logout();
+							return null;
+						}
+					} else if (response.status === 401) {
+						console.log(
+							"Token is invalid even after refresh attempt or no refresh token. Logging out."
+						);
+						await logout();
 					}
 					return null;
 				}
@@ -572,7 +828,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 				return null;
 			}
 		},
-		[]
+		[accessToken, refreshToken, refreshAccessToken, logout]
 	);
 
 	// --- Playlists ---
@@ -581,7 +837,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 		setIsRefreshingPlaylists(true);
 		const data = await makeApiRequest(
 			"https://api.spotify.com/v1/me/playlists?limit=50",
-			accessToken,
 			"Playlists",
 			true
 		);
@@ -599,11 +854,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 	const fetchMorePlaylists = useCallback(async () => {
 		if (!playlistsNextUrl || isLoadingMorePlaylists || !accessToken) return;
 		setIsLoadingMorePlaylists(true);
-		const data = await makeApiRequest(
-			playlistsNextUrl,
-			accessToken,
-			"More Playlists"
-		);
+		const data = await makeApiRequest(playlistsNextUrl, "More Playlists");
 		if (data) {
 			setPlaylists((prevPlaylists) => [
 				...(prevPlaylists || []),
@@ -620,7 +871,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 		setIsRefreshingAlbums(true);
 		const data = await makeApiRequest(
 			"https://api.spotify.com/v1/me/albums?limit=50",
-			accessToken,
 			"Albums",
 			true
 		);
@@ -637,11 +887,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 	const fetchMoreAlbums = useCallback(async () => {
 		if (!albumsNextUrl || isLoadingMoreAlbums || !accessToken) return;
 		setIsLoadingMoreAlbums(true);
-		const data = await makeApiRequest(
-			albumsNextUrl,
-			accessToken,
-			"More Albums"
-		);
+		const data = await makeApiRequest(albumsNextUrl, "More Albums");
 		if (data) {
 			setAlbums((prevAlbums) => [...(prevAlbums || []), ...data.items]);
 			setAlbumsNextUrl(data.next);
@@ -655,7 +901,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 		setIsRefreshingSavedTracks(true);
 		const data = await makeApiRequest(
 			"https://api.spotify.com/v1/me/tracks?limit=50",
-			accessToken,
 			"Saved Tracks",
 			true
 		);
@@ -675,7 +920,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 		setIsLoadingMoreSavedTracks(true);
 		const data = await makeApiRequest(
 			savedTracksNextUrl,
-			accessToken,
 			"More Saved Tracks"
 		);
 		if (data) {
@@ -694,66 +938,69 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 	]);
 
 	// --- Device and Playback ---
-	const _getAvailableDeviceId = useCallback(
-		async (token: string): Promise<string | null> => {
-			console.log("AuthContext: Fetching available devices...");
-			try {
-				const response = await fetch(
-					"https://api.spotify.com/v1/me/player/devices",
-					{
-						headers: { Authorization: `Bearer ${token}` },
-					}
-				);
-				const data: SpotifyDevicesResponse = await response.json();
-				if (!response.ok) {
-					let errorMessage = response.status.toString();
-					try {
-						const errorData = data as any; // Cast to any to access potential error property
-						if (
-							errorData &&
-							errorData.error &&
-							errorData.error.message
-						) {
-							errorMessage = errorData.error.message;
-						}
-					} catch (e) {
-						/* Ignore if casting/accessing error fails */
-					}
-					throw new Error(`Failed to fetch devices: ${errorMessage}`);
+	const _getAvailableDeviceId = useCallback(async (): Promise<
+		string | null
+	> => {
+		console.log("AuthContext: Fetching available devices...");
+		if (!accessToken) {
+			console.error("AuthContext: No access token for fetching devices.");
+			return null;
+		}
+		try {
+			const response = await fetch(
+				"https://api.spotify.com/v1/me/player/devices",
+				{
+					headers: { Authorization: `Bearer ${accessToken}` },
 				}
-
-				if (data.devices && data.devices.length > 0) {
-					const activeDevice = data.devices.find(
-						(device) => device.is_active
-					);
-					if (activeDevice && activeDevice.id) {
-						console.log(
-							`AuthContext: Found active device: ${activeDevice.name} (ID: ${activeDevice.id})`
-						);
-						return activeDevice.id;
+			);
+			const data: SpotifyDevicesResponse = await response.json();
+			if (!response.ok) {
+				let errorMessage = response.status.toString();
+				try {
+					const errorData = data as any;
+					if (
+						errorData &&
+						errorData.error &&
+						errorData.error.message
+					) {
+						errorMessage = errorData.error.message;
 					}
-					// If no active device, try to return the first available device's ID
-					// This might not always be what the user wants, but it's better than nothing if they have an inactive device.
-					// For a better UX, you might prompt the user to select a device.
-					if (data.devices[0] && data.devices[0].id) {
-						console.log(
-							`AuthContext: No active device found. Using first available device: ${data.devices[0].name} (ID: ${data.devices[0].id})`
-						);
-						return data.devices[0].id;
-					}
+				} catch (e) {
+					/* Ignore if casting/accessing error fails */
 				}
-				console.log("AuthContext: No devices found or available.");
-				return null;
-			} catch (e: any) {
-				console.error(
-					"AuthContext: Error fetching available devices:",
-					e.message
-				);
-				return null;
+				throw new Error(`Failed to fetch devices: ${errorMessage}`);
 			}
-		},
-		[]
-	);
+
+			if (data.devices && data.devices.length > 0) {
+				const activeDevice = data.devices.find(
+					(device) => device.is_active
+				);
+				if (activeDevice && activeDevice.id) {
+					console.log(
+						`AuthContext: Found active device: ${activeDevice.name} (ID: ${activeDevice.id})`
+					);
+					return activeDevice.id;
+				}
+				// If no active device, try to return the first available device's ID
+				// This might not always be what the user wants, but it's better than nothing if they have an inactive device.
+				// For a better UX, you might prompt the user to select a device.
+				if (data.devices[0] && data.devices[0].id) {
+					console.log(
+						`AuthContext: No active device found. Using first available device: ${data.devices[0].name} (ID: ${data.devices[0].id})`
+					);
+					return data.devices[0].id;
+				}
+			}
+			console.log("AuthContext: No devices found or available.");
+			return null;
+		} catch (e: any) {
+			console.error(
+				"AuthContext: Error fetching available devices:",
+				e.message
+			);
+			return null;
+		}
+	}, [accessToken]);
 
 	const playTrack = useCallback(
 		async (
@@ -905,23 +1152,211 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 		// The useEffect hook for 'response' will handle the rest
 	}, [request, promptAsync]);
 
-	const logout = useCallback(async () => {
-		console.log("Logging out...");
-		await SecureStore.deleteItemAsync(AUTH_TOKEN_KEY);
-		await SecureStore.deleteItemAsync(USER_INFO_KEY);
-		setAccessToken(null);
-		setUser(null);
-		setPlaylists(null);
-		setPlaylistsNextUrl(null);
-		setAlbums(null);
-		setAlbumsNextUrl(null);
-		setSavedTracks(null);
-		setSavedTracksNextUrl(null);
-		setIsLoading(false); // Reset loading state
-	}, []);
+	const getPlaybackState =
+		async (): Promise<SpotifyCurrentlyPlaying | null> => {
+			if (!accessToken) return null;
+
+			try {
+				const response = await fetch(
+					"https://api.spotify.com/v1/me/player",
+					{
+						headers: {
+							Authorization: `Bearer ${accessToken}`,
+						},
+					}
+				);
+
+				if (response.status === 204 || response.status === 202) {
+					// No content or accepted, meaning no active player or nothing playing
+					return null;
+				}
+
+				if (!response.ok) {
+					const errorData = await response.text(); // Use .text() for better error detail
+					console.error(
+						"Error fetching playback state:",
+						response.status,
+						errorData
+					);
+					return null;
+				}
+
+				const data = await response.json();
+				return data as SpotifyCurrentlyPlaying;
+			} catch (error) {
+				console.error("Error in getPlaybackState:", error);
+				return null;
+			}
+		};
+
+	const startPlayback = async () => {
+		if (!accessToken) return;
+
+		try {
+			const response = await fetch(
+				"https://api.spotify.com/v1/me/player/play",
+				{
+					method: "PUT",
+					headers: {
+						Authorization: `Bearer ${accessToken}`,
+					},
+				}
+			);
+
+			if (!response.ok) {
+				throw new Error("Failed to start playback");
+			}
+		} catch (error) {
+			console.error("Error starting playback:", error);
+			throw error;
+		}
+	};
+
+	const pausePlayback = async () => {
+		if (!accessToken) return;
+
+		try {
+			const response = await fetch(
+				"https://api.spotify.com/v1/me/player/pause",
+				{
+					method: "PUT",
+					headers: {
+						Authorization: `Bearer ${accessToken}`,
+					},
+				}
+			);
+
+			if (!response.ok) {
+				throw new Error("Failed to pause playback");
+			}
+		} catch (error) {
+			console.error("Error pausing playback:", error);
+			throw error;
+		}
+	};
+
+	const skipToNext = async () => {
+		if (!accessToken) return;
+
+		try {
+			const response = await fetch(
+				"https://api.spotify.com/v1/me/player/next",
+				{
+					method: "POST",
+					headers: {
+						Authorization: `Bearer ${accessToken}`,
+					},
+				}
+			);
+
+			if (!response.ok) {
+				throw new Error("Failed to skip to next track");
+			}
+		} catch (error) {
+			console.error("Error skipping to next track:", error);
+			throw error;
+		}
+	};
+
+	const skipToPrevious = async () => {
+		if (!accessToken) return;
+
+		try {
+			// First get the current playback state to check progress
+			const currentState = await getPlaybackState();
+			if (!currentState || !currentState.item) return;
+
+			const THRESHOLD_MS = 3000; // 3 seconds threshold
+
+			if (
+				currentState.progress_ms &&
+				currentState.progress_ms > THRESHOLD_MS
+			) {
+				// If we're past the threshold, restart the current track
+				const response = await fetch(
+					"https://api.spotify.com/v1/me/player/seek?position_ms=0",
+					{
+						method: "PUT",
+						headers: {
+							Authorization: `Bearer ${accessToken}`,
+						},
+					}
+				);
+
+				if (!response.ok) {
+					throw new Error("Failed to restart current track");
+				}
+			} else {
+				// If we're within the threshold, go to previous track
+				const response = await fetch(
+					"https://api.spotify.com/v1/me/player/previous",
+					{
+						method: "POST",
+						headers: {
+							Authorization: `Bearer ${accessToken}`,
+						},
+					}
+				);
+
+				if (!response.ok) {
+					throw new Error("Failed to skip to previous track");
+				}
+			}
+		} catch (error) {
+			console.error("Error handling previous track:", error);
+			throw error;
+		}
+	};
+
+	const toggleShuffle = async (state: boolean) => {
+		if (!accessToken) return;
+
+		try {
+			const response = await fetch(
+				`https://api.spotify.com/v1/me/player/shuffle?state=${state}`,
+				{
+					method: "PUT",
+					headers: {
+						Authorization: `Bearer ${accessToken}`,
+					},
+				}
+			);
+
+			if (!response.ok) {
+				throw new Error("Failed to toggle shuffle");
+			}
+		} catch (error) {
+			console.error("Error toggling shuffle:", error);
+			throw error;
+		}
+	};
+
+	const toggleRepeat = async (state: "off" | "track") => {
+		if (!accessToken) return;
+
+		try {
+			const response = await fetch(
+				`https://api.spotify.com/v1/me/player/repeat?state=${state}`,
+				{
+					method: "PUT",
+					headers: {
+						Authorization: `Bearer ${accessToken}`,
+					},
+				}
+			);
+
+			if (!response.ok) {
+				throw new Error("Failed to toggle repeat");
+			}
+		} catch (error) {
+			console.error("Error toggling repeat:", error);
+			throw error;
+		}
+	};
 
 	const value = {
 		accessToken,
+		refreshToken,
 		user,
 		playlists,
 		playlistsNextUrl,
@@ -935,16 +1370,23 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 		savedTracksNextUrl,
 		isLoadingMoreSavedTracks,
 		fetchMoreSavedTracks,
-		isLoading, // This is the global one
+		isLoading,
 		isRefreshingPlaylists,
 		isRefreshingAlbums,
 		isRefreshingSavedTracks,
 		login,
 		logout,
-		fetchPlaylists, // For initial load / manual refresh
-		fetchAlbums, // For initial load / manual refresh
-		fetchSavedTracks, // For initial load / manual refresh
+		fetchPlaylists,
+		fetchAlbums,
+		fetchSavedTracks,
 		playTrack,
+		getPlaybackState,
+		startPlayback,
+		pausePlayback,
+		skipToNext,
+		skipToPrevious,
+		toggleShuffle,
+		toggleRepeat,
 	};
 
 	return (

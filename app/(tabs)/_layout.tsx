@@ -9,7 +9,11 @@ import { TabHeader } from "@/components/TabHeader"; // Import custom TabHeader
 export const TABS_CONFIG: ReadonlyArray<TabConfigItem> = [
 	{ name: "Liked Songs", screenName: "index", iconName: "favorite" },
 	{ name: "Albums", screenName: "albums", iconName: "album" },
-	{ name: "Playlists", screenName: "playlists", iconName: "playlist-play" },
+	{
+		name: "Playlists",
+		screenName: "playlists",
+		iconName: "format-list-bulleted",
+	},
 	{ name: "Search", screenName: "search", iconName: "search" },
 	{ name: "Settings", screenName: "settings", iconName: "more-horiz" },
 ] as const;

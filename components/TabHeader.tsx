@@ -3,6 +3,7 @@ import { MaterialIcons } from "@expo/vector-icons";
 import { StyleSheet, View } from "react-native";
 import { StyledText } from "./StyledText";
 import { HapticPressable } from "./HapticPressable";
+import { useRouter } from "expo-router";
 
 interface TabHeaderProps {
 	iconName?: keyof typeof MaterialIcons.glyphMap;
@@ -17,6 +18,12 @@ export function TabHeader({
 	iconShowLength = 1,
 	headerTitle,
 }: TabHeaderProps) {
+	const router = useRouter();
+
+	const handlePlayingPress = () => {
+		router.push("/playing");
+	};
+
 	return (
 		<View style={styles.header}>
 			<View style={{ width: 32 }} />
@@ -26,7 +33,13 @@ export function TabHeader({
 					<MaterialIcons name={iconName} size={28} color="white" />
 				</HapticPressable>
 			) : (
-				<View style={{ width: 32 }} />
+				<HapticPressable onPress={handlePlayingPress}>
+					<MaterialIcons
+						name="multitrack-audio"
+						size={28}
+						color="white"
+					/>
+				</HapticPressable>
 			)}
 		</View>
 	);
