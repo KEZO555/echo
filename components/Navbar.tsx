@@ -35,7 +35,7 @@ export function Navbar({
 						color={
 							tab.screenName === currentScreenName
 								? "white"
-								: "#CDCDCD"
+								: "#6E6E6E"
 						}
 					/>
 				</HapticPressable>

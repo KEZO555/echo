@@ -1,12 +1,5 @@
 import React, { useEffect, useState } from "react";
-import {
-	View,
-	StyleSheet,
-	Text,
-	FlatList,
-	Image,
-	ActivityIndicator,
-} from "react-native";
+import { View, StyleSheet, Text, FlatList, Image } from "react-native";
 import { useGlobalSearchParams, useRouter } from "expo-router";
 import { Header } from "@/components/Header";
 import {
@@ -179,9 +172,7 @@ export default function SearchResultsScreen() {
 		<View style={styles.container}>
 			<Header headerTitle={`Results for ${routeQuery ?? ""}`} />
 			{loading ? (
-				<View style={styles.centeredMessageContainer}>
-					<ActivityIndicator size="large" color="white" />
-				</View>
+				<View style={styles.centeredMessageContainer}></View>
 			) : results.length > 0 ? (
 				<FlatList
 					data={results}
@@ -196,12 +187,14 @@ export default function SearchResultsScreen() {
 					)}
 					overScrollMode={"never"}
 				/>
-			) : (
+			) : routeQuery ? (
 				<View style={styles.centeredMessageContainer}>
 					<Text style={styles.emptyText}>
 						No results found for "{routeQuery}".
 					</Text>
 				</View>
+			) : (
+				<View style={styles.centeredMessageContainer}></View>
 			)}
 		</View>
 	);

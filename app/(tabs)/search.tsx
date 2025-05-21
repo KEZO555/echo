@@ -27,7 +27,6 @@ export default function SearchScreen() {
 					value={searchQuery}
 					placeholder="Search for something!"
 					onChangeText={setSearchQuery}
-					autoFocus={true}
 					cursorColor="white"
 					selectionColor="white"
 					onSubmitEditing={() => {
