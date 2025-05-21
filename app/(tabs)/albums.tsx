@@ -204,11 +204,11 @@ const styles = StyleSheet.create({
 	},
 	albumName: {
 		fontSize: 22,
-		lineHeight: 22,
+		lineHeight: 24,
 		color: "white",
 	},
 	albumArtist: {
 		fontSize: 16,
-		lineHeight: 16,
+		lineHeight: 18,
 	},
 });

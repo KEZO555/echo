@@ -204,11 +204,11 @@ const styles = StyleSheet.create({
 	},
 	trackName: {
 		fontSize: 22,
-		lineHeight: 22,
+		lineHeight: 24,
 		color: "white",
 	},
 	trackArtist: {
 		fontSize: 16,
-		lineHeight: 16,
+		lineHeight: 18,
 	},
 });

@@ -1,0 +1,269 @@
+import React, { useState, useCallback } from "react";
+import {
+    View,
+    StyleSheet,
+    FlatList,
+    Image,
+    ActivityIndicator,
+} from "react-native";
+import { router, useLocalSearchParams } from "expo-router";
+import { Header } from "@/components/Header";
+import { StyledText } from "@/components/StyledText";
+import { HapticPressable } from "@/components/HapticPressable";
+import { useAuth, SpotifyPlaylist } from "@/contexts/AuthContext";
+import { MaterialIcons } from "@expo/vector-icons";
+
+export default function AddToPlaylistScreen() {
+    const {
+        playlists,
+        isLoading,
+        fetchPlaylists,
+        accessToken,
+        user,
+        addTrackToPlaylist,
+    } = useAuth();
+    const params = useLocalSearchParams<{ trackUri?: string }>();
+    console.log("AddToPlaylistScreen received params:", params); // Added log
+    const [selectedPlaylists, setSelectedPlaylists] = useState<string[]>([]);
+
+    React.useEffect(() => {
+        if (accessToken && user && !playlists && !isLoading) {
+            fetchPlaylists();
+        }
+    }, [accessToken, user, playlists, fetchPlaylists, isLoading]);
+
+    const handleHeaderBack = () => {
+        if (router.canGoBack()) {
+            router.back();
+        } else {
+            router.replace("/playing");
+        }
+    };
+
+    const togglePlaylistSelection = (playlistId: string) => {
+        setSelectedPlaylists((prevSelected) =>
+            prevSelected.includes(playlistId)
+                ? prevSelected.filter((id) => id !== playlistId)
+                : [...prevSelected, playlistId]
+        );
+    };
+
+    const handleDone = async () => {
+        const trackUri = params.trackUri;
+        if (!trackUri) {
+            console.error("Add to playlist: No trackUri provided in params.");
+            return;
+        }
+        if (selectedPlaylists.length === 0) {
+            return;
+        }
+
+        console.log(
+            `Attempting to add track ${trackUri} to playlists: ${selectedPlaylists.join(
+                ", "
+            )}`
+        );
+        let successCount = 0;
+        let failureCount = 0;
+
+        for (const playlistId of selectedPlaylists) {
+            try {
+                const success = await addTrackToPlaylist(playlistId, trackUri);
+                if (success) {
+                    console.log(
+                        `Successfully added track to playlist ${playlistId}`
+                    );
+                    successCount++;
+                } else {
+                    console.warn(
+                        `Failed to add track to playlist ${playlistId}`
+                    );
+                    failureCount++;
+                }
+            } catch (error) {
+                console.error(
+                    `Error adding track to playlist ${playlistId}:`,
+                    error
+                );
+                failureCount++;
+            }
+        }
+
+        if (router.canGoBack()) {
+            router.back();
+        } else {
+            router.replace("/playing");
+        }
+    };
+
+    const renderPlaylistItem = ({ item }: { item: SpotifyPlaylist }) => {
+        const isSelected = selectedPlaylists.includes(item.id);
+        return (
+            <HapticPressable
+                style={styles.itemContainer}
+                onPress={() => togglePlaylistSelection(item.id)}
+            >
+                {item.images && item.images.length > 0 ? (
+                    <Image
+                        source={{ uri: item.images[0].url }}
+                        style={styles.playlistImage}
+                    />
+                ) : (
+                    <View style={styles.placeholderImageContainer}>
+                        <MaterialIcons
+                            name="music-note"
+                            size={24}
+                            color="#535353"
+                        />
+                    </View>
+                )}
+                <View style={styles.textContainer}>
+                    <StyledText style={styles.playlistName} numberOfLines={1}>
+                        {item.name}
+                    </StyledText>
+                    <StyledText style={styles.playlistOwner} numberOfLines={1}>
+                        {item.owner.display_name || item.owner.id}
+                    </StyledText>
+                </View>
+                <MaterialIcons
+                    name={
+                        isSelected
+                            ? "radio-button-checked"
+                            : "radio-button-unchecked"
+                    }
+                    size={24}
+                    color="white"
+                />
+            </HapticPressable>
+        );
+    };
+
+    if (isLoading && !playlists) {
+        return (
+            <View style={styles.container}>
+                <Header
+                    headerTitle="Add to playlist"
+                    backEvent={handleHeaderBack}
+                    iconName={undefined}
+                />
+                <View style={styles.centeredMessageContainer}>
+                    <ActivityIndicator size="large" color="#1DB954" />
+                </View>
+            </View>
+        );
+    }
+
+    if (!playlists || playlists.length === 0) {
+        return (
+            <View style={styles.container}>
+                <Header
+                    headerTitle="Add to playlist"
+                    backEvent={handleHeaderBack}
+                    iconName={undefined}
+                />
+                <View style={styles.centeredMessageContainer}>
+                    <StyledText style={styles.emptyText}>
+                        No playlists found.
+                    </StyledText>
+                </View>
+            </View>
+        );
+    }
+
+    return (
+        <View style={styles.container}>
+            <Header
+                headerTitle="Add to playlist"
+                backEvent={handleHeaderBack}
+                iconName={undefined}
+            />
+            <FlatList
+                data={playlists}
+                renderItem={renderPlaylistItem}
+                keyExtractor={(item) => item.id}
+                style={styles.list}
+                contentContainerStyle={styles.listContentContainer}
+                ItemSeparatorComponent={() => <View style={{ height: 8 }} />}
+                overScrollMode={"never"}
+            />
+            <HapticPressable style={styles.doneButton} onPress={handleDone}>
+                <StyledText style={styles.doneButtonText}>Done</StyledText>
+            </HapticPressable>
+        </View>
+    );
+}
+
+const styles = StyleSheet.create({
+    container: {
+        flex: 1,
+        backgroundColor: "black",
+    },
+    content: {
+        flex: 1,
+        justifyContent: "flex-start",
+    },
+    doneButton: {
+        paddingVertical: 15,
+        paddingHorizontal: 30,
+        alignItems: "center",
+        justifyContent: "center",
+        minWidth: 200,
+    },
+    doneButtonText: {
+        color: "white",
+        fontSize: 40,
+        textTransform: "uppercase",
+    },
+    list: {
+        flex: 1,
+        backgroundColor: "black", // Added
+    },
+    listContentContainer: {
+        paddingTop: 0,
+        paddingBottom: 0,
+    },
+    centeredMessageContainer: {
+        flex: 1,
+        justifyContent: "center",
+        alignItems: "center",
+        paddingHorizontal: 20,
+    },
+    emptyText: {
+        fontSize: 18,
+        textAlign: "center",
+        color: "white",
+    },
+    itemContainer: {
+        paddingVertical: 0,
+        paddingHorizontal: 20,
+        flexDirection: "row",
+        alignItems: "center",
+    },
+    playlistImage: {
+        width: 50,
+        height: 50,
+        marginRight: 15,
+    },
+    placeholderImageContainer: {
+        width: 50,
+        height: 50,
+        marginRight: 15,
+        backgroundColor: "#282828",
+        justifyContent: "center",
+        alignItems: "center",
+    },
+    textContainer: {
+        flex: 1,
+        gap: 0,
+        marginRight: 10,
+    },
+    playlistName: {
+        fontSize: 22,
+        lineHeight: 24,
+        color: "white",
+    },
+    playlistOwner: {
+        fontSize: 16,
+        lineHeight: 18,
+    },
+});

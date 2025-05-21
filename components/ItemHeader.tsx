@@ -69,13 +69,13 @@ const styles = StyleSheet.create({
 	},
 	title: {
 		color: "white",
-		fontFamily: "AkkuratLL-Regular",
+		fontFamily: "PublicSans-Regular",
 		fontSize: 20,
-		lineHeight: 20,
+		lineHeight: 22,
 	},
 	owner: {
 		color: "white",
-		fontFamily: "AkkuratLL-Regular",
+		fontFamily: "PublicSans-Regular",
 		fontSize: 12,
 		lineHeight: 14,
 	},

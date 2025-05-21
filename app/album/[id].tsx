@@ -252,7 +252,7 @@ const styles = StyleSheet.create({
 	trackNumber: {
 		fontSize: 26,
 		paddingRight: 8,
-		width: 36,
+		width: 40,
 		textAlign: "center",
 	},
 	trackNameContainer: {
@@ -266,7 +266,7 @@ const styles = StyleSheet.create({
 	},
 	trackArtistDuration: {
 		fontSize: 16,
-		lineHeight: 15,
+		lineHeight: 18,
 		paddingBottom: 6,
 	},
 });
