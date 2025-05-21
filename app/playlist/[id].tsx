@@ -178,13 +178,14 @@ export default function PlaylistDetailScreen() {
                             <HapticPressable
                                 key={`${track.id || "unknown"}-${index}`}
                                 style={styles.trackItemContainer}
-                                onPress={() =>
+                                onPress={() => {
                                     playTrack(
                                         track.uri,
                                         undefined,
                                         `spotify:playlist:${id}`
-                                    )
-                                }
+                                    );
+                                    router.push("/playing");
+                                }}
                             >
                                 <StyledText style={styles.trackNumber}>
                                     {index + 1}.
