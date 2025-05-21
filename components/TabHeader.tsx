@@ -32,25 +32,33 @@ export function TabHeader({
 		<View style={styles.header}>
 			{leftIconName ? (
 				<HapticPressable onPress={leftOnIconPress}>
-					<View style={{ width: 32, alignItems: "center" }}>
+					<View
+						style={{ width: 32, height: 32, alignItems: "center" }}
+					>
 						<MaterialIcons
 							name={leftIconName}
-							size={26}
+							size={32}
 							color="white"
 						/>
 					</View>
 				</HapticPressable>
 			) : (
-				<View style={{ width: 32 }} />
+				<View style={{ width: 32, height: 32 }} />
 			)}
 			<StyledText style={styles.title}>{headerTitle}</StyledText>
 			{rightIconName ? (
 				iconShowLength > 0 ? (
 					<HapticPressable onPress={rightOnIconPress}>
-						<View style={{ width: 32, alignItems: "center" }}>
+						<View
+							style={{
+								width: 32,
+								height: 32,
+								alignItems: "center",
+							}}
+						>
 							<MaterialIcons
 								name={rightIconName}
-								size={26}
+								size={32}
 								color="white"
 							/>
 						</View>
@@ -60,10 +68,12 @@ export function TabHeader({
 				)
 			) : (
 				<HapticPressable onPress={handlePlayingPress}>
-					<View style={{ width: 32, alignItems: "center" }}>
+					<View
+						style={{ width: 32, height: 32, alignItems: "center" }}
+					>
 						<MaterialIcons
 							name="multitrack-audio"
-							size={26}
+							size={32}
 							color="white"
 						/>
 					</View>
