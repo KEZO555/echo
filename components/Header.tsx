@@ -6,61 +6,63 @@ import { StyledText } from "./StyledText";
 import { HapticPressable } from "./HapticPressable";
 
 interface HeaderProps {
-    iconName?: keyof typeof MaterialIcons.glyphMap;
-    onIconPress?: () => void;
-    iconShowLength?: number;
-    headerTitle?: string;
-    backEvent?: () => void;
+	iconName?: keyof typeof MaterialIcons.glyphMap;
+	onIconPress?: () => void;
+	iconShowLength?: number;
+	headerTitle?: string;
+	backEvent?: () => void;
 }
 
 export function Header({
-    iconName,
-    onIconPress,
-    iconShowLength = 1,
-    headerTitle,
-    backEvent,
+	iconName,
+	onIconPress,
+	iconShowLength = 1,
+	headerTitle,
+	backEvent,
 }: HeaderProps) {
-    const handleBack = backEvent
-        ? backEvent
-        : () => {
-              if (router.canGoBack()) {
-                  router.back();
-              } else {
-                  router.replace("/");
-              }
-          };
+	const handleBack = backEvent
+		? backEvent
+		: () => {
+				if (router.canGoBack()) {
+					router.back();
+				} else {
+					router.replace("/");
+				}
+		  };
 
-    return (
-        <View style={styles.header}>
-            <HapticPressable onPress={handleBack}>
-                <MaterialIcons name="arrow-back-ios" size={28} color="white" />
-            </HapticPressable>
-            <StyledText style={styles.title}>{headerTitle}</StyledText>
-            {iconShowLength > 0 && iconName ? (
-                <HapticPressable onPress={onIconPress}>
-                    <MaterialIcons name={iconName} size={28} color="white" />
-                </HapticPressable>
-            ) : (
-                <View style={{ width: 28 }} />
-            )}
-        </View>
-    );
+	return (
+		<View style={styles.header}>
+			<HapticPressable onPress={handleBack}>
+				<MaterialIcons name="arrow-back-ios" size={28} color="white" />
+			</HapticPressable>
+			<StyledText style={styles.title} numberOfLines={1}>
+				{headerTitle}
+			</StyledText>
+			{iconShowLength > 0 && iconName ? (
+				<HapticPressable onPress={onIconPress}>
+					<MaterialIcons name={iconName} size={28} color="white" />
+				</HapticPressable>
+			) : (
+				<View style={{ width: 28 }} />
+			)}
+		</View>
+	);
 }
 
 const styles = StyleSheet.create({
-    header: {
-        flexDirection: "row",
-        alignItems: "center",
-        justifyContent: "space-between",
-        paddingHorizontal: 22,
-        paddingVertical: 10,
-        backgroundColor: "black",
-        zIndex: 1,
-    },
-    title: {
-        color: "white",
-        fontSize: 20,
-        fontFamily: "PublicSans-Regular",
-        paddingBottom: 5,
-    },
+	header: {
+		flexDirection: "row",
+		alignItems: "center",
+		justifyContent: "space-between",
+		paddingHorizontal: 22,
+		paddingVertical: 10,
+		backgroundColor: "black",
+		zIndex: 1,
+	},
+	title: {
+		color: "white",
+		fontSize: 20,
+		fontFamily: "PublicSans-Regular",
+		maxWidth: "75%",
+	},
 });
