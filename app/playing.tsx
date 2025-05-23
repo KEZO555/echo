@@ -17,6 +17,7 @@ import {
 import { MaterialIcons } from "@expo/vector-icons";
 import { useFocusEffect, router } from "expo-router"; // Import router
 import { HapticPressable } from "@/components/HapticPressable";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 const formatTime = (ms: number | null | undefined): string => {
 	if (ms === null || ms === undefined) return "0:00";
@@ -50,8 +51,39 @@ export default function PlayingScreen() {
 	const progressBarWidthRef = useRef(0); // To store the width of the progress bar
 
 	const checkIfTrackIsSaved = async (trackId: string) => {
-		if (!accessToken || !trackId) return;
-		// console.log(`Checking if track ${trackId} is saved.`);
+		if (!trackId) return;
+
+		// First, check cached saved tracks (works offline)
+		try {
+			const cachedSavedTracks = await AsyncStorage.getItem(
+				"spotifySavedTracks"
+			);
+			if (cachedSavedTracks) {
+				const parsedTracks = JSON.parse(cachedSavedTracks);
+				const isTrackInCache = parsedTracks.some(
+					(savedTrack: any) => savedTrack.track?.id === trackId
+				);
+				setIsCurrentTrackSaved(isTrackInCache);
+
+				// If found in cache, we're done (works offline)
+				if (isTrackInCache) {
+					console.log(
+						`Track ${trackId} found in offline cache - it's saved`
+					);
+					return;
+				}
+			}
+		} catch (error) {
+			console.error("Error checking cached saved tracks:", error);
+		}
+
+		// Only make API call if we have access token and the track wasn't found in cache
+		if (!accessToken) {
+			// No access token and not in cache - assume not saved
+			setIsCurrentTrackSaved(false);
+			return;
+		}
+
 		try {
 			const response = await fetch(
 				`https://api.spotify.com/v1/me/tracks/contains?ids=${trackId}`,
@@ -73,10 +105,15 @@ export default function PlayingScreen() {
 			const data: boolean[] = await response.json();
 			if (data && data.length > 0) {
 				setIsCurrentTrackSaved(data[0]);
+				console.log(`Track ${trackId} API check - saved: ${data[0]}`);
 			}
 		} catch (error) {
-			console.error("Error checking if track is saved:", error);
-			setIsCurrentTrackSaved(false); // Assume not saved on error
+			// Network error (likely offline) - gracefully handle
+			console.log(
+				"Error checking if track is saved (likely offline):",
+				error
+			);
+			setIsCurrentTrackSaved(false); // Assume not saved on network error
 		}
 	};
 
@@ -196,16 +233,20 @@ export default function PlayingScreen() {
 
 	// Add these functions to handle saving/removing tracks
 	const handleToggleSaveTrack = async () => {
-		if (
-			!playbackState ||
-			!playbackState.item ||
-			!playbackState.item.id ||
-			!accessToken
-		)
+		if (!playbackState || !playbackState.item || !playbackState.item.id)
 			return;
 
 		const trackId = playbackState.item.id;
 		const currentlySaved = isCurrentTrackSaved;
+
+		// Check if we're offline by testing access token availability
+		if (!accessToken) {
+			console.warn(
+				"Cannot save/unsave track - no access token (likely offline)"
+			);
+			return;
+		}
+
 		const method = currentlySaved ? "DELETE" : "PUT";
 		const url = `https://api.spotify.com/v1/me/tracks?ids=${trackId}`;
 
@@ -225,6 +266,46 @@ export default function PlayingScreen() {
 						currentlySaved ? "unsaved" : "saved"
 					} successfully.`
 				);
+
+				// Update local cache to reflect the change
+				try {
+					const cachedSavedTracks = await AsyncStorage.getItem(
+						"spotifySavedTracks"
+					);
+					if (cachedSavedTracks) {
+						let parsedTracks = JSON.parse(cachedSavedTracks);
+
+						if (currentlySaved) {
+							// Remove track from cache
+							parsedTracks = parsedTracks.filter(
+								(savedTrack: any) =>
+									savedTrack.track?.id !== trackId
+							);
+						} else {
+							// Add track to cache (create a SavedTrackObject-like structure)
+							const newSavedTrack = {
+								added_at: new Date().toISOString(),
+								track: playbackState.item,
+							};
+							parsedTracks.unshift(newSavedTrack); // Add to beginning
+						}
+
+						await AsyncStorage.setItem(
+							"spotifySavedTracks",
+							JSON.stringify(parsedTracks)
+						);
+						console.log(
+							`Updated local saved tracks cache: ${
+								currentlySaved ? "removed" : "added"
+							} track ${trackId}`
+						);
+					}
+				} catch (cacheError) {
+					console.error(
+						"Error updating saved tracks cache:",
+						cacheError
+					);
+				}
 			} else {
 				const errorData = await response.json();
 				console.error(
@@ -233,8 +314,11 @@ export default function PlayingScreen() {
 				);
 			}
 		} catch (error) {
-			console.error(
-				`Error ${currentlySaved ? "unsaving" : "saving"} track:`,
+			// Network error (likely offline)
+			console.log(
+				`Error ${
+					currentlySaved ? "unsaving" : "saving"
+				} track (likely offline):`,
 				error
 			);
 		}
