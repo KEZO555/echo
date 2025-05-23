@@ -25,6 +25,9 @@ export interface SpotifyAuthConfig {
 	clientId: string;
 	redirectUri: string;
 	scopes: string[];
+	showDialog?: boolean;
+	state?: string;
+	responseType?: "code" | "token";
 }
 
 export interface SpotifyAuthResponse {
@@ -32,6 +35,35 @@ export interface SpotifyAuthResponse {
 	authorizationCode?: string;
 	error?: string;
 	state?: string;
+	type: "TOKEN" | "CODE" | "ERROR" | "EMPTY";
+}
+
+export interface SpotifyAuthRequest {
+	clientId: string;
+	redirectUri: string;
+	responseType: "TOKEN" | "CODE";
+	scopes: string[];
+	state?: string;
+	showDialog?: boolean;
+}
+
+// User Profile Types
+export interface SpotifyUser {
+	id: string;
+	displayName?: string;
+	email?: string;
+	country?: string;
+	product?: string;
+	followers?: {
+		total: number;
+	};
+	images?: SpotifyImage[];
+}
+
+export interface SpotifyImage {
+	url: string;
+	width?: number;
+	height?: number;
 }
 
 // App Remote Library Types
@@ -81,10 +113,84 @@ export interface SpotifyPlaybackOptions {
 	repeatMode?: number; // 0 = off, 1 = context, 2 = track
 }
 
+// Content API Types
+export interface SpotifyPlaylist {
+	uri: string;
+	name: string;
+	description?: string;
+	owner: {
+		id: string;
+		displayName?: string;
+	};
+	images?: SpotifyImage[];
+	tracks: {
+		total: number;
+	};
+	collaborative: boolean;
+	public?: boolean;
+}
+
+export interface SpotifyAlbum {
+	uri: string;
+	name: string;
+	artists: SpotifyArtist[];
+	images?: SpotifyImage[];
+	releaseDate?: string;
+	totalTracks: number;
+}
+
+export interface SpotifyArtist {
+	uri: string;
+	name: string;
+	images?: SpotifyImage[];
+	followers?: {
+		total: number;
+	};
+	genres?: string[];
+	popularity?: number;
+}
+
+export interface SpotifyListItem {
+	id: string;
+	uri: string;
+	name: string;
+	subtitle?: string;
+	playable: boolean;
+	imageUri?: string;
+}
+
+export interface SpotifyRecommendation {
+	uri: string;
+	title: string;
+	subtitle?: string;
+	imageUri?: string;
+}
+
 // Error types
 export interface SpotifyError {
 	message: string;
 	code?: string;
+	details?: any;
+}
+
+// Connection State
+export interface SpotifyConnectionState {
+	isLoggedIn: boolean;
+	accessToken?: string;
+	expiresAt?: number;
+}
+
+// Playback Context Types
+export interface SpotifyPlaybackContext {
+	uri: string;
+	title: string;
+	subtitle?: string;
+	type: string;
+}
+
+// Subscribe Types for Capabilities
+export interface SpotifyCapabilities {
+	canPlayOnDemand: boolean;
 }
 
 // Event types
@@ -93,6 +199,7 @@ export type SpotifyPlayerStateCallback = (
 ) => void;
 export type SpotifyErrorCallback = (error: SpotifyError) => void;
 export type SpotifyConnectionCallback = () => void;
+export type SpotifyAuthCallback = (response: SpotifyAuthResponse) => void;
 
 // Module Events
 export interface SpotifySdkEvents {
@@ -100,5 +207,33 @@ export interface SpotifySdkEvents {
 	onConnectionError: (event: { error: string }) => void;
 	onConnected: (event: { connected: boolean }) => void;
 	onDisconnected: (event: { disconnected: boolean }) => void;
+	onAuthComplete: (event: { response: SpotifyAuthResponse }) => void;
+	onCapabilitiesChanged: (event: {
+		capabilities: SpotifyCapabilities;
+	}) => void;
+	onUserLoggedIn: (event: { user: SpotifyUser }) => void;
+	onUserLoggedOut: (event: { loggedOut: boolean }) => void;
 	[key: string]: (...args: any[]) => void;
+}
+
+// API Response Types
+export interface SpotifyApiResponse<T> {
+	success: boolean;
+	data?: T;
+	error?: SpotifyError;
+}
+
+// Search Types
+export interface SpotifySearchResult {
+	tracks?: SpotifyTrack[];
+	albums?: SpotifyAlbum[];
+	artists?: SpotifyArtist[];
+	playlists?: SpotifyPlaylist[];
+}
+
+// Queue Types
+export interface SpotifyQueue {
+	currentTrack: SpotifyTrack;
+	nextTracks: SpotifyTrack[];
+	previousTracks: SpotifyTrack[];
 }
