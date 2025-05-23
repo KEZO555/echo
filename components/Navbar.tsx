@@ -31,7 +31,7 @@ export function Navbar({
 				>
 					<MaterialIcons
 						name={tab.iconName}
-						size={40} // Slightly reduced size for a typical navbar
+						size={48} // Increased size for better visibility
 						color={
 							tab.screenName === currentScreenName
 								? "white"
