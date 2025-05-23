@@ -322,6 +322,15 @@ interface AuthContextType {
 		deviceId?: string,
 		contextUri?: string
 	) => Promise<void>;
+	playTrackWithContext: (
+		trackUri: string,
+		sourceContext?: {
+			type: "album" | "playlist" | "liked" | "artist";
+			uri?: string;
+			tracks?: any[];
+			currentIndex?: number;
+		}
+	) => Promise<void>;
 	getPlaybackState: () => Promise<SpotifyCurrentlyPlaying | null>;
 	getCurrentTrack: () => Promise<any | null>;
 	getAlbumArt: (uri?: string, size?: string) => Promise<string | null>;
@@ -1152,7 +1161,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 			contextUri?: string // Context URI for playlists/albums
 		) => {
 			console.log(
-				`AuthContext: Playing track with native SDK: ${trackUri}`,
+				`AuthContext: Playing track with hybrid approach: ${trackUri}`,
 				{
 					contextUri,
 					hasContext: !!contextUri,
@@ -1187,25 +1196,131 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 					return;
 				}
 
-				// For now, just play the individual track directly
-				// Context playback with offset is complex in native SDK
-				console.log(
-					`AuthContext: Playing individual track: ${trackUri}`
-				);
-				const playResult = await SpotifySdk.play(trackUri);
-
-				if (playResult.playing) {
+				// HYBRID APPROACH: Use Web API for context, Native SDK for control
+				if (contextUri && accessToken) {
 					console.log(
-						"AuthContext: Native SDK playback started successfully"
+						`AuthContext: Using hybrid approach - Web API for context: ${contextUri}`
 					);
+
+					try {
+						// Method 1: Use Web API to set context and start from specific track
+						const response = await fetch(
+							"https://api.spotify.com/v1/me/player/play",
+							{
+								method: "PUT",
+								headers: {
+									Authorization: `Bearer ${accessToken}`,
+									"Content-Type": "application/json",
+								},
+								body: JSON.stringify({
+									context_uri: contextUri,
+									offset: {
+										uri: trackUri, // Start from this specific track
+									},
+								}),
+							}
+						);
+
+						if (response.ok) {
+							console.log(
+								"AuthContext: Successfully set context via Web API, now using Native SDK"
+							);
+
+							// Wait a moment for Spotify to process the context
+							await new Promise((resolve) =>
+								setTimeout(resolve, 500)
+							);
+
+							// Now use Native SDK for immediate control
+							const playResult = await SpotifySdk.play();
+
+							if (playResult.playing) {
+								console.log(
+									"AuthContext: Hybrid playback started successfully"
+								);
+							} else {
+								console.log(
+									"AuthContext: Context set via Web API, Native SDK play may be redundant"
+								);
+							}
+							return;
+						} else {
+							console.log(
+								"AuthContext: Web API context failed, falling back to Native SDK only"
+							);
+							throw new Error("Web API context failed");
+						}
+					} catch (webApiError: any) {
+						console.log(
+							"AuthContext: Web API error, using fallback method:",
+							webApiError.message
+						);
+
+						// Method 2: Fallback - Play context then queue target track
+						try {
+							console.log(
+								`AuthContext: Fallback - Playing context ${contextUri} and queueing target track`
+							);
+
+							// First, play the context to establish it
+							const contextResult = await SpotifySdk.play(
+								contextUri
+							);
+
+							if (contextResult.playing) {
+								// Wait for context to load
+								await new Promise((resolve) =>
+									setTimeout(resolve, 1000)
+								);
+
+								// Now queue the specific track we want
+								await SpotifySdk.addToQueue(trackUri);
+
+								// Skip to the queued track
+								await SpotifySdk.skipNext();
+
+								console.log(
+									"AuthContext: Fallback method completed - context set and track queued"
+								);
+							} else {
+								throw new Error("Context playback failed");
+							}
+						} catch (fallbackError: any) {
+							console.log(
+								"AuthContext: Fallback method failed, using direct track play:",
+								fallbackError.message
+							);
+
+							// Method 3: Last resort - Direct track play (no context)
+							const playResult = await SpotifySdk.play(trackUri);
+
+							if (playResult.playing) {
+								console.log(
+									"AuthContext: Direct track playback started (no context)"
+								);
+							}
+						}
+					}
 				} else {
-					console.error(
-						"AuthContext: Native SDK reported playback failed"
+					// No context provided or no access token - direct track play
+					console.log(
+						`AuthContext: Playing individual track directly: ${trackUri}`
 					);
+					const playResult = await SpotifySdk.play(trackUri);
+
+					if (playResult.playing) {
+						console.log(
+							"AuthContext: Native SDK direct playback started successfully"
+						);
+					} else {
+						console.error(
+							"AuthContext: Native SDK reported playback failed"
+						);
+					}
 				}
 			} catch (error: any) {
 				console.error(
-					"AuthContext: Error with native SDK playback:",
+					"AuthContext: Error with hybrid playback approach:",
 					error
 				);
 
@@ -1213,7 +1328,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 				setIsConnectedToAppRemote(false);
 			}
 		},
-		[ensureAppRemoteConnection, forceAppRemoteConnection]
+		[ensureAppRemoteConnection, forceAppRemoteConnection, accessToken]
 	);
 
 	const searchItems = async (
@@ -1966,6 +2081,139 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 		}
 	};
 
+	// Helper function to build context URIs for different scenarios
+	const buildContextUri = useCallback(
+		(trackUri: string, sourceContext?: any): string | null => {
+			// If explicit context is provided, use it
+			if (sourceContext && typeof sourceContext === "string") {
+				return sourceContext;
+			}
+
+			// Try to determine context from the track's source
+			if (sourceContext?.type === "album") {
+				return sourceContext.uri;
+			}
+
+			if (sourceContext?.type === "playlist") {
+				return sourceContext.uri;
+			}
+
+			// For saved tracks, we can't reliably create a context since
+			// "liked songs" isn't a real playlist URI that works with play()
+			// Instead, we'll use the queue method
+			return null;
+		},
+		[]
+	);
+
+	// Enhanced playback function for different source types
+	const playTrackWithContext = useCallback(
+		async (
+			trackUri: string,
+			sourceContext?: {
+				type: "album" | "playlist" | "liked" | "artist";
+				uri?: string;
+				tracks?: any[];
+				currentIndex?: number;
+			}
+		) => {
+			console.log("AuthContext: Enhanced playback with context:", {
+				trackUri,
+				sourceContext,
+			});
+
+			try {
+				const connected = await ensureAppRemoteConnection();
+				if (!connected) {
+					console.error("AuthContext: Cannot play - not connected");
+					return;
+				}
+
+				// Handle different source types
+				switch (sourceContext?.type) {
+					case "album":
+					case "playlist":
+						if (sourceContext.uri) {
+							// Use the hybrid approach with Web API context
+							await playTrack(
+								trackUri,
+								undefined,
+								sourceContext.uri
+							);
+							return;
+						}
+						break;
+
+					case "liked":
+						// For liked songs, build a queue from the available tracks
+						if (
+							sourceContext.tracks &&
+							sourceContext.currentIndex !== undefined
+						) {
+							console.log(
+								"AuthContext: Building queue for liked songs"
+							);
+
+							// Play the target track first
+							const playResult = await SpotifySdk.play(trackUri);
+
+							if (playResult.playing) {
+								// Queue subsequent tracks for skip-next functionality
+								const tracksToQueue =
+									sourceContext.tracks.slice(
+										sourceContext.currentIndex + 1,
+										sourceContext.currentIndex + 10
+									); // Queue next 10 tracks
+
+								for (const track of tracksToQueue) {
+									try {
+										await SpotifySdk.addToQueue(
+											track.track?.uri || track.uri
+										);
+									} catch (queueError) {
+										console.log(
+											"AuthContext: Queue error (continuing):",
+											queueError
+										);
+									}
+								}
+
+								console.log(
+									`AuthContext: Queued ${tracksToQueue.length} tracks for context`
+								);
+							}
+							return;
+						}
+						break;
+
+					case "artist":
+						// For artist context, we could queue popular tracks
+						console.log(
+							"AuthContext: Artist context - using direct play"
+						);
+						await playTrack(trackUri);
+						return;
+
+					default:
+						// Fallback to direct track play
+						console.log(
+							"AuthContext: Unknown context type, playing directly"
+						);
+						await playTrack(trackUri);
+						return;
+				}
+			} catch (error: any) {
+				console.error(
+					"AuthContext: Error in enhanced playback:",
+					error
+				);
+				// Fallback to simple play
+				await playTrack(trackUri);
+			}
+		},
+		[playTrack, ensureAppRemoteConnection]
+	);
+
 	const value = {
 		accessToken,
 		refreshToken,
@@ -1993,6 +2241,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 		fetchAlbums,
 		fetchSavedTracks,
 		playTrack,
+		playTrackWithContext,
 		getPlaybackState,
 		getCurrentTrack,
 		getAlbumArt,
