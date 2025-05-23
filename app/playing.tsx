@@ -38,6 +38,7 @@ export default function PlayingScreen() {
 		toggleShuffle,
 		toggleRepeat,
 		seekToPosition, // Added seekToPosition
+		refreshSavedTracksFromCache, // Add this function
 	} = useAuth();
 	const [playbackState, setPlaybackState] =
 		useState<SpotifyCurrentlyPlaying | null>(null);
@@ -310,6 +311,9 @@ export default function PlayingScreen() {
 								currentlySaved ? "removed" : "added"
 							} track ${trackId}`
 						);
+
+						// Refresh the saved tracks state to update the UI
+						await refreshSavedTracksFromCache();
 					}
 				} catch (cacheError) {
 					console.error(

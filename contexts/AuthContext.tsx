@@ -317,6 +317,7 @@ interface AuthContextType {
 	fetchPlaylists: () => Promise<void>;
 	fetchAlbums: () => Promise<void>;
 	fetchSavedTracks: () => Promise<void>;
+	refreshSavedTracksFromCache: () => Promise<void>;
 	playTrack: (
 		trackUri: string,
 		deviceId?: string,
@@ -2110,6 +2111,27 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 		[]
 	);
 
+	// Function to refresh saved tracks state from cache
+	const refreshSavedTracksFromCache = useCallback(async () => {
+		try {
+			const cachedSavedTracks = await AsyncStorage.getItem(
+				SAVED_TRACKS_KEY
+			);
+			if (cachedSavedTracks) {
+				const parsedTracks = JSON.parse(cachedSavedTracks);
+				setSavedTracks(parsedTracks);
+				console.log(
+					`AuthContext: Refreshed saved tracks state from cache - ${parsedTracks.length} tracks`
+				);
+			}
+		} catch (error) {
+			console.error(
+				"AuthContext: Error refreshing saved tracks from cache:",
+				error
+			);
+		}
+	}, []);
+
 	// Enhanced playback function for different source types
 	const playTrackWithContext = useCallback(
 		async (
@@ -2244,6 +2266,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 		fetchPlaylists,
 		fetchAlbums,
 		fetchSavedTracks,
+		refreshSavedTracksFromCache,
 		playTrack,
 		playTrackWithContext,
 		getPlaybackState,
