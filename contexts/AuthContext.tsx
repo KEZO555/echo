@@ -403,6 +403,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
 	const [isLoading, setIsLoading] = useState(true); // Global initial loading
 
+	// Track if initial load has been completed to prevent re-runs during authentication
+	const [hasInitiallyLoaded, setHasInitiallyLoaded] = useState(false);
+	// Track if authentication is in progress to prevent interference
+	const [isAuthenticating, setIsAuthenticating] = useState(false);
+
 	// --- Native SDK App Remote Connection State ---
 	const [isConnectedToAppRemote, setIsConnectedToAppRemote] = useState(false);
 	const [appState, setAppState] = useState<AppStateStatus>(
@@ -546,7 +551,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
 		const handleActivityStopped = (event: any) => {
 			console.log("AuthContext: Activity stopped (background):", event);
-			setIsConnectedToAppRemote(false);
+			if (event.skipDisconnect) {
+				console.log(
+					"AuthContext: Skipping connection state reset - authentication in progress"
+				);
+			} else {
+				setIsConnectedToAppRemote(false);
+			}
 		};
 
 		const appStateSubscription = AppState.addEventListener(
@@ -793,6 +804,14 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 	);
 
 	const logout = useCallback(async () => {
+		// Don't logout during authentication
+		if (isAuthenticating) {
+			console.log(
+				"AuthContext: Logout blocked - authentication in progress"
+			);
+			return;
+		}
+
 		console.log("Logging out...");
 		// Disable auto-connect and clear native SDK session
 		try {
@@ -822,6 +841,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 		setIsConnectedToAppRemote(false); // Reset connection state
 		setIsLoading(false); // Reset loading state
 	}, [
+		isAuthenticating,
 		setAccessToken,
 		setRefreshToken,
 		setUser,
@@ -836,6 +856,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 	]);
 
 	useEffect(() => {
+		// Only run this effect once on mount, not during authentication
+		if (hasInitiallyLoaded || isAuthenticating) return;
+
 		const loadStoredAuth = async () => {
 			try {
 				// First check if user is logged in via native SDK
@@ -868,6 +891,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 							"AuthContext: Loading fresh data in background..."
 						);
 						await fetchUserInfo(token);
+						setHasInitiallyLoaded(true);
 						return;
 					}
 				}
@@ -908,8 +932,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 							"AuthContext: Loading fresh data in background..."
 						);
 						await _fetchInitialPlaylists(storedToken);
-					} else if (storedRefreshToken) {
-						// Token expired or about to expire, refresh it
+					} else if (storedRefreshToken && !isAuthenticating) {
+						// Token expired or about to expire, refresh it (but not during active authentication)
 						const refreshed = await refreshAccessToken(
 							storedRefreshToken
 						);
@@ -917,8 +941,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 							await logout();
 						}
 					}
-				} else {
-					// No stored auth, load any cached data and ensure we're logged out
+				} else if (!isAuthenticating) {
+					// No stored auth, load any cached data and ensure we're logged out (but not during authentication)
 					await loadCachedData();
 					await logout();
 				}
@@ -926,16 +950,20 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 				console.error("Failed to load auth state:", e);
 				// Still try to load cached data even if auth fails
 				await loadCachedData();
-				await logout();
+				// Only logout if not actively authenticating
+				if (!isAuthenticating) {
+					await logout();
+				}
 			} finally {
 				// Ensure loading is false even if something goes wrong
 				if (isLoading) {
 					setIsLoading(false);
 				}
+				setHasInitiallyLoaded(true);
 			}
 		};
 		loadStoredAuth();
-	}, [refreshAccessToken, logout, loadCachedData, isLoading]);
+	}, [isAuthenticating]); // Watch isAuthenticating to prevent interference
 
 	// --- Utility for API calls ---
 	const makeApiRequest = useCallback(
@@ -1480,6 +1508,14 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
 	// --- Authentication Flow - Updated for Native SDK ---
 	const login = useCallback(async () => {
+		if (isAuthenticating) {
+			console.log(
+				"AuthContext: Authentication already in progress, ignoring duplicate request"
+			);
+			return;
+		}
+
+		setIsAuthenticating(true);
 		setIsLoading(true);
 		try {
 			console.log(
@@ -1508,6 +1544,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 					expiryTime.toString()
 				);
 
+				// Small delay to allow authentication state to settle
+				await new Promise((resolve) => setTimeout(resolve, 500));
+
 				// Enable auto-connect for proper lifecycle management
 				console.log(
 					"AuthContext: Successfully authenticated, enabling auto-connect"
@@ -1534,8 +1573,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 				error
 			);
 			setIsLoading(false);
+		} finally {
+			setIsAuthenticating(false);
 		}
-	}, []);
+	}, [isAuthenticating]);
 
 	const getPlaybackState =
 		async (): Promise<SpotifyCurrentlyPlaying | null> => {

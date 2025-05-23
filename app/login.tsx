@@ -14,7 +14,10 @@ export default function LoginScreen() {
 
 	return (
 		<View style={styles.container}>
-			<TabHeader headerTitle="Login to Spotify" />
+			<TabHeader
+				headerTitle="Login to Spotify"
+				hideWaveformButton={true}
+			/>
 			<View style={styles.content}>
 				<StyledText style={styles.informationText}>
 					We'll need to access to your Spotify account to continue.

@@ -36,6 +36,7 @@ class SpotifySdkModule : Module() {
   // Connection parameters for lifecycle management
   private var lastConnectionParams: ConnectionParams? = null
   private var shouldAutoConnect: Boolean = false
+  private var isAuthenticating: Boolean = false
 
   // Preferences for storing auth data
   private val prefsName = "spotify_sdk_prefs"
@@ -80,9 +81,15 @@ class SpotifySdkModule : Module() {
     }
 
     OnActivityEntersBackground {
-      Log.d(TAG, "Activity entered background - disconnecting from Spotify App Remote")
-      disconnectInternal()
-      sendEvent("onActivityStopped", mapOf("background" to true))
+      Log.d(TAG, "Activity entered background - checking if authentication is in progress")
+      if (isAuthenticating) {
+        Log.d(TAG, "Authentication in progress - skipping disconnect to prevent auth interference")
+        sendEvent("onActivityStopped", mapOf("background" to true, "skipDisconnect" to true))
+      } else {
+        Log.d(TAG, "Disconnecting from Spotify App Remote")
+        disconnectInternal()
+        sendEvent("onActivityStopped", mapOf("background" to true))
+      }
     }
 
     // ========================
@@ -105,6 +112,7 @@ class SpotifySdkModule : Module() {
         val responseType = config["responseType"] as? String ?: "token"
 
         currentAuthPromise = promise
+        isAuthenticating = true // Set flag to prevent lifecycle disconnection during auth
 
         val requestType = if (responseType == "code") {
           AuthorizationResponse.Type.CODE
@@ -125,6 +133,7 @@ class SpotifySdkModule : Module() {
         // Promise will be resolved in activity result handler
       } catch (e: Exception) {
         Log.e(TAG, "Authorization error", e)
+        isAuthenticating = false // Clear flag on error
         promise.reject("AUTH_ERROR", e.message, e)
       }
     }
@@ -138,6 +147,7 @@ class SpotifySdkModule : Module() {
         }
 
         currentAuthPromise = promise
+        isAuthenticating = true // Set flag to prevent lifecycle disconnection during auth
 
         val builder = AuthorizationRequest.Builder(clientId, AuthorizationResponse.Type.CODE, redirectUri)
         builder.setScopes(scopes)
@@ -148,6 +158,7 @@ class SpotifySdkModule : Module() {
         AuthorizationClient.openLoginActivity(activity, AUTH_CODE_REQUEST_CODE, request)
       } catch (e: Exception) {
         Log.e(TAG, "Authorization error", e)
+        isAuthenticating = false // Clear flag on error
         promise.reject("AUTH_ERROR", e.message, e)
       }
     }
@@ -161,6 +172,7 @@ class SpotifySdkModule : Module() {
         }
 
         currentAuthPromise = promise
+        isAuthenticating = true // Set flag to prevent lifecycle disconnection during auth
 
         val builder = AuthorizationRequest.Builder(clientId, AuthorizationResponse.Type.TOKEN, redirectUri)
         builder.setScopes(scopes)
@@ -171,6 +183,7 @@ class SpotifySdkModule : Module() {
         AuthorizationClient.openLoginActivity(activity, AUTH_TOKEN_REQUEST_CODE, request)
       } catch (e: Exception) {
         Log.e(TAG, "Authorization error", e)
+        isAuthenticating = false // Clear flag on error
         promise.reject("AUTH_ERROR", e.message, e)
       }
     }
@@ -793,6 +806,8 @@ class SpotifySdkModule : Module() {
           }
         }
 
+        // Clear authentication flag after auth completes (success or failure)
+        isAuthenticating = false
         currentAuthPromise = null
       }
     }
