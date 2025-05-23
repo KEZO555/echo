@@ -22,7 +22,13 @@ export default function AlbumDetailScreen() {
 		id: string;
 		albumString?: string;
 	}>();
-	const { accessToken, playTrack } = useAuth();
+	const {
+		accessToken,
+		playTrack,
+		saveAlbum,
+		removeAlbum,
+		checkIfAlbumIsSaved,
+	} = useAuth();
 	const router = useRouter();
 
 	// Try to parse the passed album string for initial state
@@ -35,6 +41,8 @@ export default function AlbumDetailScreen() {
 	const [isLoading, setIsLoading] = useState(!initialAlbum);
 	const [error, setError] = useState<string | null>(null);
 	const [isLoadingMoreTracks, setIsLoadingMoreTracks] = useState(false);
+	const [isAlbumSaved, setIsAlbumSaved] = useState(false);
+	const [isCheckingAlbumSaved, setIsCheckingAlbumSaved] = useState(false);
 
 	// Helper function to format milliseconds to MM:SS
 	const formatDuration = (ms: number) => {
@@ -43,6 +51,43 @@ export default function AlbumDetailScreen() {
 		const seconds = totalSeconds % 60;
 		return `${minutes}:${seconds < 10 ? "0" : ""}${seconds}`;
 	};
+
+	// Check if album is saved
+	const checkAlbumSavedStatus = useCallback(async () => {
+		if (!id) return;
+
+		setIsCheckingAlbumSaved(true);
+		try {
+			const isSaved = await checkIfAlbumIsSaved(id);
+			setIsAlbumSaved(isSaved);
+		} catch (error) {
+			console.error("Error checking if album is saved:", error);
+			setIsAlbumSaved(false);
+		} finally {
+			setIsCheckingAlbumSaved(false);
+		}
+	}, [id, checkIfAlbumIsSaved]);
+
+	// Toggle album save status
+	const handleToggleAlbumSave = useCallback(async () => {
+		if (!id) return;
+
+		try {
+			if (isAlbumSaved) {
+				const success = await removeAlbum(id);
+				if (success) {
+					setIsAlbumSaved(false);
+				}
+			} else {
+				const success = await saveAlbum(id);
+				if (success) {
+					setIsAlbumSaved(true);
+				}
+			}
+		} catch (error) {
+			console.error("Error toggling album save status:", error);
+		}
+	}, [id, isAlbumSaved, saveAlbum, removeAlbum]);
 
 	useEffect(() => {
 		if (!id || !accessToken) {
@@ -88,6 +133,13 @@ export default function AlbumDetailScreen() {
 
 		fetchAlbumDetails();
 	}, [id, accessToken]);
+
+	// Check if album is saved when component mounts or album changes
+	useEffect(() => {
+		if (id && accessToken) {
+			checkAlbumSavedStatus();
+		}
+	}, [id, accessToken, checkAlbumSavedStatus]);
 
 	const loadMoreTracks = useCallback(async () => {
 		if (!album?.tracks?.next || isLoadingMoreTracks || !accessToken) {
@@ -196,7 +248,13 @@ export default function AlbumDetailScreen() {
 
 	return (
 		<View style={styles.container}>
-			<ItemHeader headerTitle={album.name} artist={artistNames} />
+			<ItemHeader
+				headerTitle={album.name}
+				artist={artistNames}
+				iconName={isAlbumSaved ? "remove" : "add"}
+				onIconPress={handleToggleAlbumSave}
+				iconShowLength={isCheckingAlbumSaved ? 0 : 1}
+			/>
 			<FlatList
 				ListHeaderComponent={
 					<>

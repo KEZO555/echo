@@ -318,6 +318,10 @@ interface AuthContextType {
 	fetchAlbums: () => Promise<void>;
 	fetchSavedTracks: () => Promise<void>;
 	refreshSavedTracksFromCache: () => Promise<void>;
+	saveAlbum: (albumId: string) => Promise<boolean>;
+	removeAlbum: (albumId: string) => Promise<boolean>;
+	checkIfAlbumIsSaved: (albumId: string) => Promise<boolean>;
+	refreshSavedAlbumsFromCache: () => Promise<void>;
 	playTrack: (
 		trackUri: string,
 		deviceId?: string,
@@ -2171,6 +2175,230 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 		[]
 	);
 
+	// Album save/remove functions
+	const saveAlbum = useCallback(
+		async (albumId: string): Promise<boolean> => {
+			if (!accessToken) {
+				console.warn("Cannot save album - no access token available");
+				return false;
+			}
+
+			try {
+				const response = await fetch(
+					`https://api.spotify.com/v1/me/albums?ids=${albumId}`,
+					{
+						method: "PUT",
+						headers: {
+							Authorization: `Bearer ${accessToken}`,
+							"Content-Type": "application/json",
+						},
+					}
+				);
+
+				if (response.ok) {
+					console.log(`Album ${albumId} saved successfully`);
+					// Update local cache to reflect the change
+					try {
+						// First, we need to get the album details to add to cache
+						const albumResponse = await fetch(
+							`https://api.spotify.com/v1/albums/${albumId}`,
+							{
+								headers: {
+									Authorization: `Bearer ${accessToken}`,
+								},
+							}
+						);
+
+						if (albumResponse.ok) {
+							const albumData = await albumResponse.json();
+							const cachedAlbums = await AsyncStorage.getItem(
+								ALBUMS_KEY
+							);
+							let parsedAlbums = cachedAlbums
+								? JSON.parse(cachedAlbums)
+								: [];
+
+							// Add the new saved album to the beginning of the cache
+							const newSavedAlbum = {
+								added_at: new Date().toISOString(),
+								album: albumData,
+							};
+							parsedAlbums.unshift(newSavedAlbum);
+
+							await AsyncStorage.setItem(
+								ALBUMS_KEY,
+								JSON.stringify(parsedAlbums)
+							);
+							setAlbums(parsedAlbums);
+							console.log(
+								`Updated cached albums: added album ${albumId}`
+							);
+						}
+					} catch (cacheError) {
+						console.error(
+							"Error updating albums cache:",
+							cacheError
+						);
+						// If cache update fails, fall back to full refresh
+						await fetchAlbums();
+					}
+					return true;
+				} else {
+					const errorData = await response.json();
+					console.error("Failed to save album:", errorData);
+					return false;
+				}
+			} catch (error) {
+				console.error("Error saving album:", error);
+				return false;
+			}
+		},
+		[accessToken, fetchAlbums]
+	);
+
+	const removeAlbum = useCallback(
+		async (albumId: string): Promise<boolean> => {
+			if (!accessToken) {
+				console.warn("Cannot remove album - no access token available");
+				return false;
+			}
+
+			try {
+				const response = await fetch(
+					`https://api.spotify.com/v1/me/albums?ids=${albumId}`,
+					{
+						method: "DELETE",
+						headers: {
+							Authorization: `Bearer ${accessToken}`,
+							"Content-Type": "application/json",
+						},
+					}
+				);
+
+				if (response.ok) {
+					console.log(`Album ${albumId} removed successfully`);
+					// Update cached albums to remove the deleted album
+					try {
+						const cachedAlbums = await AsyncStorage.getItem(
+							ALBUMS_KEY
+						);
+						if (cachedAlbums) {
+							let parsedAlbums = JSON.parse(cachedAlbums);
+							parsedAlbums = parsedAlbums.filter(
+								(savedAlbum: any) =>
+									savedAlbum.album?.id !== albumId
+							);
+							await AsyncStorage.setItem(
+								ALBUMS_KEY,
+								JSON.stringify(parsedAlbums)
+							);
+							setAlbums(parsedAlbums);
+							console.log(
+								`Updated cached albums: removed album ${albumId}`
+							);
+						}
+					} catch (cacheError) {
+						console.error(
+							"Error updating albums cache:",
+							cacheError
+						);
+					}
+					return true;
+				} else {
+					const errorData = await response.json();
+					console.error("Failed to remove album:", errorData);
+					return false;
+				}
+			} catch (error) {
+				console.error("Error removing album:", error);
+				return false;
+			}
+		},
+		[accessToken]
+	);
+
+	const checkIfAlbumIsSaved = useCallback(
+		async (albumId: string): Promise<boolean> => {
+			// First, check cached saved albums (works offline)
+			try {
+				const cachedSavedAlbums = await AsyncStorage.getItem(
+					ALBUMS_KEY
+				);
+				if (cachedSavedAlbums) {
+					const parsedAlbums = JSON.parse(cachedSavedAlbums);
+					const isAlbumInCache = parsedAlbums.some(
+						(savedAlbum: any) => savedAlbum.album?.id === albumId
+					);
+					if (isAlbumInCache) {
+						console.log(
+							`Album ${albumId} found in offline cache - it's saved`
+						);
+						return true;
+					}
+				}
+			} catch (error) {
+				console.error("Error checking cached saved albums:", error);
+			}
+
+			// Only make API call if we have access token and the album wasn't found in cache
+			if (!accessToken) {
+				// No access token and not in cache - assume not saved
+				return false;
+			}
+
+			try {
+				const response = await fetch(
+					`https://api.spotify.com/v1/me/albums/contains?ids=${albumId}`,
+					{
+						headers: {
+							Authorization: `Bearer ${accessToken}`,
+						},
+					}
+				);
+				if (!response.ok) {
+					console.error(
+						"Failed to check if album is saved",
+						await response.json()
+					);
+					return false;
+				}
+				const data: boolean[] = await response.json();
+				if (data && data.length > 0) {
+					console.log(
+						`Album ${albumId} API check - saved: ${data[0]}`
+					);
+					return data[0];
+				}
+				return false;
+			} catch (error) {
+				console.log(
+					"Error checking if album is saved (likely offline):",
+					error
+				);
+				return false;
+			}
+		},
+		[accessToken]
+	);
+
+	const refreshSavedAlbumsFromCache = useCallback(async () => {
+		try {
+			const cachedSavedAlbums = await AsyncStorage.getItem(ALBUMS_KEY);
+			if (cachedSavedAlbums) {
+				const parsedAlbums = JSON.parse(cachedSavedAlbums);
+				setAlbums(parsedAlbums);
+				console.log(
+					`AuthContext: Refreshed saved albums state from cache - ${parsedAlbums.length} albums`
+				);
+			}
+		} catch (error) {
+			console.error(
+				"AuthContext: Error refreshing saved albums from cache:",
+				error
+			);
+		}
+	}, []);
+
 	// Function to refresh saved tracks state from cache
 	const refreshSavedTracksFromCache = useCallback(async () => {
 		try {
@@ -2327,6 +2555,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 		fetchAlbums,
 		fetchSavedTracks,
 		refreshSavedTracksFromCache,
+		saveAlbum,
+		removeAlbum,
+		checkIfAlbumIsSaved,
+		refreshSavedAlbumsFromCache,
 		playTrack,
 		playTrackWithContext,
 		getPlaybackState,
