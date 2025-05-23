@@ -588,9 +588,18 @@ class SpotifySdkModule : Module() {
         val imageUri = ImageUri(uri)
 
         spotifyAppRemote?.imagesApi?.getImage(imageUri, imageSize)?.setResultCallback { bitmap ->
-          // For now, return the URI as placeholder
-          // In production, you might want to save bitmap to file or convert to base64
-          promise.resolve(uri)
+          try {
+            // Convert bitmap to base64 data URI for React Native
+            val outputStream = java.io.ByteArrayOutputStream()
+            bitmap.compress(android.graphics.Bitmap.CompressFormat.JPEG, 90, outputStream)
+            val byteArray = outputStream.toByteArray()
+            val base64String = android.util.Base64.encodeToString(byteArray, android.util.Base64.NO_WRAP)
+            val dataUri = "data:image/jpeg;base64,$base64String"
+
+            promise.resolve(dataUri)
+          } catch (e: Exception) {
+            promise.reject("IMAGE_PROCESSING_ERROR", "Failed to process bitmap: ${e.message}", e)
+          }
         }?.setErrorCallback { error ->
           promise.reject("IMAGE_ERROR", error.message, error)
         } ?: promise.reject("NOT_CONNECTED", "Spotify not connected", null)

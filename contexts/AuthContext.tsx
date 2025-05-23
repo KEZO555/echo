@@ -7,9 +7,10 @@ import React, {
 	useCallback,
 } from "react";
 import * as SecureStore from "expo-secure-store";
-import * as AuthSession from "expo-auth-session";
-import * as WebBrowser from "expo-web-browser";
 import * as Linking from "expo-linking";
+import SpotifySdk from "../modules/spotify-sdk";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { AppState, AppStateStatus } from "react-native";
 
 const SPOTIFY_CLIENT_ID = "2f20bc972e764706956ba7b59648b707";
 const SPOTIFY_SCOPES = [
@@ -27,20 +28,8 @@ const SPOTIFY_SCOPES = [
 	"streaming",
 ];
 
-// Use `AuthSession.makeRedirectUri()` to automatically generate the redirect URI
-// Ensure this URI is added to your Spotify app's allowed redirect URIs in the Spotify Developer Dashboard.
-const redirectUri = AuthSession.makeRedirectUri({
-	native: "spotify-light://callback", // Force this for native builds
-	// scheme: 'spotify-light', // Your custom scheme defined in app.json
-	// path: 'callback',       // The path component of your redirect URI
-});
-
-const discovery = {
-	authorizationEndpoint: "https://accounts.spotify.com/authorize",
-	tokenEndpoint: "https://accounts.spotify.com/api/token",
-};
-
-WebBrowser.maybeCompleteAuthSession();
+// Use the same redirect URI that's configured in the Android manifest
+const REDIRECT_URI = "spotify-light://callback";
 
 // Spotify API Types
 export interface SpotifyImage {
@@ -320,6 +309,7 @@ interface AuthContextType {
 	isRefreshingPlaylists: boolean;
 	isRefreshingAlbums: boolean;
 	isRefreshingSavedTracks: boolean;
+	isConnectedToAppRemote: boolean;
 
 	login: () => Promise<void>;
 	logout: () => Promise<void>;
@@ -333,6 +323,8 @@ interface AuthContextType {
 		contextUri?: string
 	) => Promise<void>;
 	getPlaybackState: () => Promise<SpotifyCurrentlyPlaying | null>;
+	getCurrentTrack: () => Promise<any | null>;
+	getAlbumArt: (uri?: string, size?: string) => Promise<string | null>;
 	startPlayback: () => Promise<void>;
 	pausePlayback: () => Promise<void>;
 	skipToNext: () => Promise<void>;
@@ -342,12 +334,14 @@ interface AuthContextType {
 	addTrackToPlaylist: (
 		playlistId: string,
 		trackUri: string
-	) => Promise<boolean>; // Added
-	seekToPosition: (positionMs: number) => Promise<void>; // Added
+	) => Promise<boolean>;
+	seekToPosition: (positionMs: number) => Promise<void>;
 	searchItems: (
 		query: string,
 		types: string[]
-	) => Promise<SpotifySearchResults | null>; // Added search function
+	) => Promise<SpotifySearchResults | null>;
+	clearCachedData: () => Promise<void>;
+	forceAppRemoteConnection: () => Promise<boolean>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -359,6 +353,7 @@ const TOKEN_EXPIRY_KEY = "spotifyTokenExpiry";
 const PLAYLISTS_KEY = "spotifyPlaylists"; // For potential caching
 const ALBUMS_KEY = "spotifyAlbums"; // For potential caching for saved albums
 const SAVED_TRACKS_KEY = "spotifySavedTracks"; // For potential caching for saved tracks
+const ALBUM_ART_CACHE_KEY = "spotifyAlbumArtCache"; // For caching album art URLs
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
 	const [accessToken, setAccessToken] = useState<string | null>(null);
@@ -394,26 +389,283 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
 	const [isLoading, setIsLoading] = useState(true); // Global initial loading
 
-	const [request, response, promptAsync] = AuthSession.useAuthRequest(
-		{
-			clientId: SPOTIFY_CLIENT_ID,
-			scopes: SPOTIFY_SCOPES,
-			usePKCE: true, // Recommended for mobile apps
-			redirectUri: redirectUri,
-		},
-		discovery
+	// --- Native SDK App Remote Connection State ---
+	const [isConnectedToAppRemote, setIsConnectedToAppRemote] = useState(false);
+	const [appState, setAppState] = useState<AppStateStatus>(
+		AppState.currentState
 	);
 
-	useEffect(() => {
-		if (request) {
-			console.log(
-				"AuthContext: Generated redirectUri for Spotify request:",
-				request.redirectUri
-			);
-		}
-	}, [request]);
+	// Ensure App Remote connection
+	const ensureAppRemoteConnection =
+		useCallback(async (): Promise<boolean> => {
+			try {
+				// Check if already connected
+				const connected = await SpotifySdk.isConnected();
+				if (connected) {
+					setIsConnectedToAppRemote(true);
+					// Removed verbose logging since this gets called frequently
+					return true;
+				}
 
-	// Function to refresh the access token
+				// Reset connection state since we're not connected
+				setIsConnectedToAppRemote(false);
+
+				// Connect to App Remote
+				console.log("AuthContext: Connecting to Spotify App Remote...");
+				const connectionResult = await SpotifySdk.connect(
+					SPOTIFY_CLIENT_ID,
+					REDIRECT_URI
+				);
+
+				if (connectionResult.connected) {
+					setIsConnectedToAppRemote(true);
+					console.log(
+						"AuthContext: Successfully connected to App Remote"
+					);
+					return true;
+				} else {
+					console.log(
+						"AuthContext: Failed to connect to App Remote - connectionResult.connected is false"
+					);
+					return false;
+				}
+			} catch (error) {
+				console.log(
+					"AuthContext: Error connecting to App Remote (this is normal in airplane mode):",
+					error
+				);
+				setIsConnectedToAppRemote(false);
+				return false;
+			}
+		}, []);
+
+	// More aggressive connection attempt for critical operations
+	const forceAppRemoteConnection = useCallback(async (): Promise<boolean> => {
+		console.log("AuthContext: Force connecting to App Remote...");
+
+		// First, try to disconnect cleanly (in case of stale connection)
+		try {
+			await SpotifySdk.disconnect();
+		} catch (error) {
+			// Ignore disconnect errors
+		}
+
+		setIsConnectedToAppRemote(false);
+
+		// Try to connect multiple times
+		for (let i = 0; i < 3; i++) {
+			console.log(`AuthContext: Connection attempt ${i + 1}/3`);
+
+			try {
+				const connectionResult = await SpotifySdk.connect(
+					SPOTIFY_CLIENT_ID,
+					REDIRECT_URI
+				);
+
+				if (connectionResult.connected) {
+					setIsConnectedToAppRemote(true);
+					console.log(
+						"AuthContext: Successfully force-connected to App Remote"
+					);
+					return true;
+				}
+			} catch (error) {
+				console.log(
+					`AuthContext: Connection attempt ${i + 1} failed:`,
+					error
+				);
+			}
+
+			// Wait before retry (except for last attempt)
+			if (i < 2) {
+				await new Promise((resolve) => setTimeout(resolve, 500));
+			}
+		}
+
+		console.log("AuthContext: All connection attempts failed");
+		setIsConnectedToAppRemote(false);
+		return false;
+	}, []);
+
+	// Handle app state changes for connection management
+	useEffect(() => {
+		const handleAppStateChange = (nextAppState: AppStateStatus) => {
+			console.log(
+				`AuthContext: App state changed from ${appState} to ${nextAppState}`
+			);
+
+			if (
+				appState.match(/inactive|background/) &&
+				nextAppState === "active"
+			) {
+				console.log(
+					"AuthContext: App came to foreground - ensuring App Remote connection"
+				);
+				// App came to foreground, ensure we're connected
+				if (accessToken) {
+					ensureAppRemoteConnection();
+				}
+			}
+
+			setAppState(nextAppState);
+		};
+
+		const subscription = AppState.addEventListener(
+			"change",
+			handleAppStateChange
+		);
+		return () => subscription?.remove();
+	}, [appState, accessToken, ensureAppRemoteConnection]);
+
+	// --- Cache Management Functions ---
+	const loadCachedData = useCallback(async () => {
+		console.log("AuthContext: Loading cached data for offline support...");
+		try {
+			// Load cached playlists
+			const cachedPlaylists = await AsyncStorage.getItem(PLAYLISTS_KEY);
+			if (cachedPlaylists) {
+				const parsedPlaylists = JSON.parse(cachedPlaylists);
+				setPlaylists(parsedPlaylists);
+				console.log(
+					`AuthContext: Loaded ${parsedPlaylists.length} cached playlists`
+				);
+			}
+
+			// Load cached albums
+			const cachedAlbums = await AsyncStorage.getItem(ALBUMS_KEY);
+			if (cachedAlbums) {
+				const parsedAlbums = JSON.parse(cachedAlbums);
+				setAlbums(parsedAlbums);
+				console.log(
+					`AuthContext: Loaded ${parsedAlbums.length} cached albums`
+				);
+			}
+
+			// Load cached saved tracks
+			const cachedSavedTracks = await AsyncStorage.getItem(
+				SAVED_TRACKS_KEY
+			);
+			if (cachedSavedTracks) {
+				const parsedTracks = JSON.parse(cachedSavedTracks);
+				setSavedTracks(parsedTracks);
+				console.log(
+					`AuthContext: Loaded ${parsedTracks.length} cached saved tracks`
+				);
+			}
+		} catch (error) {
+			console.error("AuthContext: Error loading cached data:", error);
+		}
+	}, []);
+
+	const saveCachedData = useCallback(
+		async (
+			playlistsData?: SpotifyPlaylist[],
+			albumsData?: SpotifySavedAlbum[],
+			tracksData?: SavedTrackObject[]
+		) => {
+			try {
+				if (playlistsData) {
+					await AsyncStorage.setItem(
+						PLAYLISTS_KEY,
+						JSON.stringify(playlistsData)
+					);
+					console.log(
+						`AuthContext: Cached ${playlistsData.length} playlists for offline use`
+					);
+				}
+				if (albumsData) {
+					await AsyncStorage.setItem(
+						ALBUMS_KEY,
+						JSON.stringify(albumsData)
+					);
+					console.log(
+						`AuthContext: Cached ${albumsData.length} albums for offline use`
+					);
+				}
+				if (tracksData) {
+					await AsyncStorage.setItem(
+						SAVED_TRACKS_KEY,
+						JSON.stringify(tracksData)
+					);
+					console.log(
+						`AuthContext: Cached ${tracksData.length} saved tracks for offline use`
+					);
+				}
+			} catch (error) {
+				console.error("AuthContext: Error saving cached data:", error);
+			}
+		},
+		[]
+	);
+
+	// Album art cache management
+	const loadCachedAlbumArt = useCallback(
+		async (albumId: string): Promise<SpotifyImage[] | null> => {
+			try {
+				const cachedAlbumArt = await AsyncStorage.getItem(
+					ALBUM_ART_CACHE_KEY
+				);
+				if (cachedAlbumArt) {
+					const albumArtCache = JSON.parse(cachedAlbumArt);
+					return albumArtCache[albumId] || null;
+				}
+			} catch (error) {
+				console.error(
+					"AuthContext: Error loading cached album art:",
+					error
+				);
+			}
+			return null;
+		},
+		[]
+	);
+
+	const saveCachedAlbumArt = useCallback(
+		async (albumId: string, images: SpotifyImage[]) => {
+			try {
+				const cachedAlbumArt = await AsyncStorage.getItem(
+					ALBUM_ART_CACHE_KEY
+				);
+				const albumArtCache = cachedAlbumArt
+					? JSON.parse(cachedAlbumArt)
+					: {};
+				albumArtCache[albumId] = images;
+				await AsyncStorage.setItem(
+					ALBUM_ART_CACHE_KEY,
+					JSON.stringify(albumArtCache)
+				);
+			} catch (error) {
+				console.error(
+					"AuthContext: Error saving cached album art:",
+					error
+				);
+			}
+		},
+		[]
+	);
+
+	const clearCachedData = useCallback(async () => {
+		console.log("AuthContext: Clearing cached data...");
+		try {
+			await AsyncStorage.removeItem(PLAYLISTS_KEY);
+			await AsyncStorage.removeItem(ALBUMS_KEY);
+			await AsyncStorage.removeItem(SAVED_TRACKS_KEY);
+			await AsyncStorage.removeItem(ALBUM_ART_CACHE_KEY);
+			console.log("AuthContext: Cached data cleared successfully");
+		} catch (error) {
+			console.error("AuthContext: Error clearing cached data:", error);
+		}
+	}, []);
+
+	// Remove the useAuthRequest hook as we'll use native authentication
+	useEffect(() => {
+		console.log(
+			"AuthContext: Using native Spotify SDK authentication with redirect URI:",
+			REDIRECT_URI
+		);
+	}, []);
+
+	// Function to refresh the access token - Updated for native SDK
 	const refreshAccessToken = useCallback(
 		async (currentRefreshToken: string) => {
 			console.log("AuthContext: Attempting to refresh access token...");
@@ -424,66 +676,49 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 				return false;
 			}
 			try {
-				const response = await AuthSession.refreshAsync(
-					{
-						clientId: SPOTIFY_CLIENT_ID,
-						refreshToken: currentRefreshToken,
-					},
-					discovery
-				);
-
-				if (response.accessToken) {
-					setAccessToken(response.accessToken);
-					await SecureStore.setItemAsync(
-						AUTH_TOKEN_KEY,
-						response.accessToken
-					);
-
-					// Set token expiry to 45 minutes from now
-					const expiryTime = Date.now() + 45 * 60 * 1000;
-					setTokenExpiry(expiryTime);
-					await SecureStore.setItemAsync(
-						TOKEN_EXPIRY_KEY,
-						expiryTime.toString()
-					);
-
-					console.log(
-						"AuthContext: Access token refreshed successfully."
-					);
-
-					// Spotify may return a new refresh token
-					if (response.refreshToken) {
-						setRefreshToken(response.refreshToken);
+				// For native SDK, we'll need to check if the stored token is still valid
+				// and re-authenticate if needed. The native SDK handles token management internally.
+				const isLoggedIn = await SpotifySdk.isUserLoggedIn();
+				if (isLoggedIn) {
+					const token = await SpotifySdk.getAccessToken();
+					if (token) {
+						setAccessToken(token);
+						await SecureStore.setItemAsync(AUTH_TOKEN_KEY, token);
+						// Set token expiry to 45 minutes from now
+						const expiryTime = Date.now() + 45 * 60 * 1000;
+						setTokenExpiry(expiryTime);
 						await SecureStore.setItemAsync(
-							REFRESH_TOKEN_KEY,
-							response.refreshToken
+							TOKEN_EXPIRY_KEY,
+							expiryTime.toString()
 						);
 						console.log(
-							"AuthContext: New refresh token received and stored."
+							"AuthContext: Access token refreshed successfully from native SDK."
 						);
+						return true;
 					}
-					return true;
-				} else {
-					console.error(
-						"AuthContext: Failed to refresh access token. No new token received."
-					);
-					// Clear tokens and user data
-					setAccessToken(null);
-					setRefreshToken(null);
-					setUser(null);
-					setTokenExpiry(null);
-					await SecureStore.deleteItemAsync(AUTH_TOKEN_KEY);
-					await SecureStore.deleteItemAsync(REFRESH_TOKEN_KEY);
-					await SecureStore.deleteItemAsync(USER_INFO_KEY);
-					await SecureStore.deleteItemAsync(TOKEN_EXPIRY_KEY);
-					return false;
 				}
+
+				// If no valid token, clear everything and require re-authentication
+				console.log(
+					"AuthContext: No valid token from native SDK, clearing session."
+				);
+				await SpotifySdk.clearSession();
+				setAccessToken(null);
+				setRefreshToken(null);
+				setUser(null);
+				setTokenExpiry(null);
+				await SecureStore.deleteItemAsync(AUTH_TOKEN_KEY);
+				await SecureStore.deleteItemAsync(REFRESH_TOKEN_KEY);
+				await SecureStore.deleteItemAsync(USER_INFO_KEY);
+				await SecureStore.deleteItemAsync(TOKEN_EXPIRY_KEY);
+				return false;
 			} catch (error) {
 				console.error(
 					"AuthContext: Error during token refresh:",
 					error
 				);
 				// Clear tokens and user data
+				await SpotifySdk.clearSession();
 				setAccessToken(null);
 				setRefreshToken(null);
 				setUser(null);
@@ -498,32 +733,22 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 		[setAccessToken, setRefreshToken, setUser]
 	);
 
-	// Add proactive token refresh mechanism
-	useEffect(() => {
-		const checkAndRefreshToken = async () => {
-			if (!tokenExpiry || !refreshToken) return;
-
-			// Refresh token if it's within 5 minutes of expiring
-			const timeUntilExpiry = tokenExpiry - Date.now();
-			if (timeUntilExpiry < 5 * 60 * 1000) {
-				// 5 minutes
-				console.log(
-					"AuthContext: Proactively refreshing token before expiry"
-				);
-				await refreshAccessToken(refreshToken);
-			}
-		};
-
-		// Check token every minute
-		const intervalId = setInterval(checkAndRefreshToken, 60 * 1000);
-		return () => clearInterval(intervalId);
-	}, [tokenExpiry, refreshToken, refreshAccessToken]);
-
 	const logout = useCallback(async () => {
 		console.log("Logging out...");
+		// Clear native SDK session
+		try {
+			await SpotifySdk.clearSession();
+		} catch (error) {
+			console.error("Error clearing native SDK session:", error);
+		}
+
 		await SecureStore.deleteItemAsync(AUTH_TOKEN_KEY);
 		await SecureStore.deleteItemAsync(REFRESH_TOKEN_KEY);
 		await SecureStore.deleteItemAsync(USER_INFO_KEY);
+
+		// Clear cached data
+		await clearCachedData();
+
 		setAccessToken(null);
 		setRefreshToken(null);
 		setUser(null);
@@ -545,11 +770,41 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 		setSavedTracks,
 		setSavedTracksNextUrl,
 		setIsLoading,
+		clearCachedData,
 	]);
 
 	useEffect(() => {
 		const loadStoredAuth = async () => {
 			try {
+				// First check if user is logged in via native SDK
+				const isLoggedIn = await SpotifySdk.isUserLoggedIn();
+				if (isLoggedIn) {
+					const token = await SpotifySdk.getAccessToken();
+					if (token) {
+						setAccessToken(token);
+						await SecureStore.setItemAsync(AUTH_TOKEN_KEY, token);
+						// Set token expiry to 45 minutes from now
+						const expiryTime = Date.now() + 45 * 60 * 1000;
+						setTokenExpiry(expiryTime);
+						await SecureStore.setItemAsync(
+							TOKEN_EXPIRY_KEY,
+							expiryTime.toString()
+						);
+
+						// CACHE-FIRST STRATEGY: Load cached data immediately for instant UI
+						await loadCachedData();
+						setIsLoading(false); // Show UI with cached data immediately
+
+						// Fetch fresh data in background and update cache
+						console.log(
+							"AuthContext: Loading fresh data in background..."
+						);
+						await fetchUserInfo(token);
+						return;
+					}
+				}
+
+				// Fallback to checking stored tokens
 				const storedToken = await SecureStore.getItemAsync(
 					AUTH_TOKEN_KEY
 				);
@@ -575,6 +830,16 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 						if (storedUser) {
 							setUser(JSON.parse(storedUser));
 						}
+
+						// CACHE-FIRST STRATEGY: Load cached data immediately
+						await loadCachedData();
+						setIsLoading(false); // Show UI with cached data
+
+						// Fetch fresh data in background
+						console.log(
+							"AuthContext: Loading fresh data in background..."
+						);
+						await _fetchInitialPlaylists(storedToken);
 					} else if (storedRefreshToken) {
 						// Token expired or about to expire, refresh it
 						const refreshed = await refreshAccessToken(
@@ -584,253 +849,25 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 							await logout();
 						}
 					}
-				} else if (storedRefreshToken) {
-					console.log(
-						"AuthContext: Access token not found or expired, attempting to refresh."
-					);
-					setRefreshToken(storedRefreshToken);
-					const refreshed = await refreshAccessToken(
-						storedRefreshToken
-					);
-					if (!refreshed) {
-						await logout();
-					}
+				} else {
+					// No stored auth, load any cached data and ensure we're logged out
+					await loadCachedData();
+					await logout();
 				}
 			} catch (e) {
 				console.error("Failed to load auth state:", e);
+				// Still try to load cached data even if auth fails
+				await loadCachedData();
 				await logout();
 			} finally {
-				setIsLoading(false);
+				// Ensure loading is false even if something goes wrong
+				if (isLoading) {
+					setIsLoading(false);
+				}
 			}
 		};
 		loadStoredAuth();
-	}, [refreshAccessToken, logout]);
-
-	useEffect(() => {
-		if (response) {
-			if (response.type === "success") {
-				const { code } = response.params;
-				fetchToken(code);
-			} else if (response.type === "error") {
-				console.error("Spotify Authentication Error:", response.error);
-				setIsLoading(false);
-			}
-		}
-	}, [response]);
-
-	const fetchToken = async (code: string) => {
-		try {
-			const tokenResponse = await AuthSession.exchangeCodeAsync(
-				{
-					clientId: SPOTIFY_CLIENT_ID,
-					code: code,
-					redirectUri: redirectUri,
-					extraParams: {
-						code_verifier: request?.codeVerifier || "",
-					},
-				},
-				discovery
-			);
-			if (tokenResponse.accessToken) {
-				setAccessToken(tokenResponse.accessToken);
-				await SecureStore.setItemAsync(
-					AUTH_TOKEN_KEY,
-					tokenResponse.accessToken
-				);
-				if (tokenResponse.refreshToken) {
-					setRefreshToken(tokenResponse.refreshToken);
-					await SecureStore.setItemAsync(
-						REFRESH_TOKEN_KEY,
-						tokenResponse.refreshToken
-					);
-				}
-				// Fetch user info after getting token
-				await fetchUserInfo(tokenResponse.accessToken);
-			} else {
-				setIsLoading(false); // Ensure loading stops if token exchange fails
-			}
-		} catch (e) {
-			console.error("Failed to fetch token:", e);
-			setIsLoading(false);
-		}
-	};
-
-	const fetchUserInfo = async (token: string) => {
-		console.log("AuthContext: Fetching user info...");
-		try {
-			const response = await fetch("https://api.spotify.com/v1/me", {
-				headers: { Authorization: `Bearer ${token}` },
-			});
-			const userData = await response.json();
-			if (!response.ok) {
-				throw new Error(
-					`Failed to fetch user info: ${
-						userData?.error?.message || response.status
-					}`
-				);
-			}
-			setUser(userData);
-			await SecureStore.setItemAsync(
-				USER_INFO_KEY,
-				JSON.stringify(userData)
-			);
-			// Start fetching other data after user info is successfully retrieved
-			await _fetchInitialPlaylists(token);
-		} catch (e: any) {
-			console.error("AuthContext: Error fetching user info:", e.message);
-			// Attempt to parse more detailed error from Spotify if it's an HTTP error like object
-			if (e.response && typeof e.response.json === "function") {
-				try {
-					const errorData = await e.response.json();
-					console.error("Spotify API Error Details:", errorData);
-				} catch (parseError) {
-					console.error(
-						"Error parsing Spotify API error response:",
-						parseError
-					);
-				}
-			}
-			setAccessToken(null); // Log out on error
-			setUser(null);
-			await SecureStore.deleteItemAsync(AUTH_TOKEN_KEY);
-			await SecureStore.deleteItemAsync(REFRESH_TOKEN_KEY);
-			await SecureStore.deleteItemAsync(USER_INFO_KEY);
-			setPlaylists(null);
-			setPlaylistsNextUrl(null);
-			setAlbums(null);
-			setAlbumsNextUrl(null);
-			setSavedTracks(null);
-			setSavedTracksNextUrl(null);
-			setIsLoading(false); // Ensure loading stops on error
-		}
-	};
-
-	const _fetchInitialPlaylists = async (token: string) => {
-		console.log("AuthContext: Fetching initial playlists (page 1)...");
-		try {
-			const response = await fetch(
-				"https://api.spotify.com/v1/me/playlists?limit=50", // Fetch first page
-				{
-					headers: { Authorization: `Bearer ${token}` },
-				}
-			);
-			const data: SpotifyPlaylistsResponse = await response.json();
-			if (!response.ok) {
-				let errorMessage = response.status.toString();
-				try {
-					const errorData = data as any;
-					if (
-						errorData &&
-						errorData.error &&
-						errorData.error.message
-					) {
-						errorMessage = errorData.error.message;
-					}
-				} catch (e) {
-					/* Ignore */
-				}
-				throw new Error(`Failed to fetch playlists: ${errorMessage}`);
-			}
-			setPlaylists(data.items);
-			setPlaylistsNextUrl(data.next);
-			await _fetchInitialAlbums(token); // Chain loading
-		} catch (e: any) {
-			console.error(
-				"AuthContext: Error fetching initial playlists:",
-				e.message
-			);
-			setPlaylists(null);
-			setPlaylistsNextUrl(null);
-			await _fetchInitialAlbums(token); // Still try to load next set of data
-		}
-	};
-
-	const _fetchInitialAlbums = async (token: string) => {
-		console.log("AuthContext: Fetching initial albums (page 1)...");
-		try {
-			const response = await fetch(
-				"https://api.spotify.com/v1/me/albums?limit=50", // Fetch first page
-				{
-					headers: { Authorization: `Bearer ${token}` },
-				}
-			);
-			const data: SpotifySavedAlbumsResponse = await response.json();
-			if (!response.ok) {
-				let errorMessage = response.status.toString();
-				try {
-					const errorData = data as any;
-					if (
-						errorData &&
-						errorData.error &&
-						errorData.error.message
-					) {
-						errorMessage = errorData.error.message;
-					}
-				} catch (e) {
-					/* Ignore */
-				}
-				throw new Error(`Failed to fetch albums: ${errorMessage}`);
-			}
-			setAlbums(data.items);
-			setAlbumsNextUrl(data.next);
-			await _fetchInitialSavedTracksAndUpdateGlobalLoading(token); // Chain loading
-		} catch (e: any) {
-			console.error(
-				"AuthContext: Error fetching initial albums:",
-				e.message
-			);
-			setAlbums(null);
-			setAlbumsNextUrl(null);
-			await _fetchInitialSavedTracksAndUpdateGlobalLoading(token); // Still try to load next
-		}
-	};
-
-	const _fetchInitialSavedTracksAndUpdateGlobalLoading = async (
-		token: string
-	) => {
-		console.log("AuthContext: Fetching initial saved tracks (page 1)...");
-		try {
-			const response = await fetch(
-				"https://api.spotify.com/v1/me/tracks?limit=50", // Fetch first page
-				{
-					headers: { Authorization: `Bearer ${token}` },
-				}
-			);
-			const data: SavedTracksResponse = await response.json();
-			if (!response.ok) {
-				let errorMessage = response.status.toString();
-				try {
-					const errorData = data as any;
-					if (
-						errorData &&
-						errorData.error &&
-						errorData.error.message
-					) {
-						errorMessage = errorData.error.message;
-					}
-				} catch (e) {
-					/* Ignore */
-				}
-				throw new Error(
-					`Failed to fetch saved tracks: ${errorMessage}`
-				);
-			}
-			setSavedTracks(data.items);
-			setSavedTracksNextUrl(data.next);
-		} catch (e: any) {
-			console.error(
-				"AuthContext: Error fetching initial saved tracks:",
-				e.message
-			);
-			setSavedTracks(null);
-			setSavedTracksNextUrl(null);
-		} finally {
-			console.log(
-				"AuthContext: Finished all initial data fetches (page 1 of each). Setting global loading to false."
-			);
-			setIsLoading(false);
-		}
-	};
+	}, [refreshAccessToken, logout, loadCachedData, isLoading]);
 
 	// --- Utility for API calls ---
 	const makeApiRequest = useCallback(
@@ -943,13 +980,15 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 		if (data) {
 			setPlaylists(data.items);
 			setPlaylistsNextUrl(data.next);
+			// Cache the playlists for offline use
+			await saveCachedData(data.items, undefined, undefined);
 		} else {
 			// Handle error, maybe set playlists to an empty array or show a message
 			setPlaylists([]); // Example: clear playlists on error
 			setPlaylistsNextUrl(null);
 		}
 		setIsRefreshingPlaylists(false);
-	}, [accessToken, makeApiRequest]);
+	}, [accessToken, makeApiRequest, saveCachedData]);
 
 	const fetchMorePlaylists = useCallback(async () => {
 		if (!playlistsNextUrl || isLoadingMorePlaylists || !accessToken) return;
@@ -977,12 +1016,14 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 		if (data) {
 			setAlbums(data.items);
 			setAlbumsNextUrl(data.next);
+			// Cache the albums for offline use
+			await saveCachedData(undefined, data.items, undefined);
 		} else {
 			setAlbums([]);
 			setAlbumsNextUrl(null);
 		}
 		setIsRefreshingAlbums(false);
-	}, [accessToken, makeApiRequest]);
+	}, [accessToken, makeApiRequest, saveCachedData]);
 
 	const fetchMoreAlbums = useCallback(async () => {
 		if (!albumsNextUrl || isLoadingMoreAlbums || !accessToken) return;
@@ -1007,12 +1048,14 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 		if (data) {
 			setSavedTracks(data.items);
 			setSavedTracksNextUrl(data.next);
+			// Cache the saved tracks for offline use
+			await saveCachedData(undefined, undefined, data.items);
 		} else {
 			setSavedTracks([]);
 			setSavedTracksNextUrl(null);
 		}
 		setIsRefreshingSavedTracks(false);
-	}, [accessToken, makeApiRequest]);
+	}, [accessToken, makeApiRequest, saveCachedData]);
 
 	const fetchMoreSavedTracks = useCallback(async () => {
 		if (!savedTracksNextUrl || isLoadingMoreSavedTracks || !accessToken)
@@ -1105,141 +1148,73 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 	const playTrack = useCallback(
 		async (
 			trackUri: string,
-			deviceId?: string,
-			contextUri?: string // Allow context URI to be passed
+			deviceId?: string, // Keep for API compatibility but not used in native SDK
+			contextUri?: string // Context URI for playlists/albums
 		) => {
-			if (!accessToken) {
-				console.error("Cannot play track: No access token.");
-				return;
-			}
+			console.log(
+				`AuthContext: Playing track with native SDK: ${trackUri}`,
+				{
+					contextUri,
+					hasContext: !!contextUri,
+				}
+			);
 
-			let targetDeviceId = deviceId;
+			try {
+				// Ensure we're connected to App Remote
+				let connected = await ensureAppRemoteConnection();
 
-			if (!targetDeviceId) {
-				// Custom device selection: prefer TLP301 if available, otherwise open Spotify app
-				console.log(
-					"AuthContext: Fetching devices for custom logic..."
-				);
-				let devices: SpotifyDevicesResponse["devices"] = [];
-				try {
-					const resp = await fetch(
-						"https://api.spotify.com/v1/me/player/devices",
-						{
-							headers: { Authorization: `Bearer ${accessToken}` },
-						}
+				// If connection failed, try one more time (important for offline scenarios)
+				if (!connected) {
+					console.log(
+						"AuthContext: First connection attempt failed, retrying..."
 					);
-					const data: SpotifyDevicesResponse = await resp.json();
-					if (resp.ok && data.devices) {
-						devices = data.devices;
-					} else {
-						console.error(
-							"AuthContext: Error fetching devices for play logic",
-							data
-						);
-					}
-				} catch (e: any) {
+					await new Promise((resolve) => setTimeout(resolve, 1000)); // Wait 1 second
+					connected = await ensureAppRemoteConnection();
+				}
+
+				// If still not connected, try force connection as last resort
+				if (!connected) {
+					console.log(
+						"AuthContext: Normal connection failed, trying force connection..."
+					);
+					connected = await forceAppRemoteConnection();
+				}
+
+				if (!connected) {
 					console.error(
-						"AuthContext: Exception fetching devices for play logic",
-						e
+						"AuthContext: Cannot play - App Remote not connected after all attempts"
 					);
-				}
-				// Log all device names for debugging
-				if (devices.length > 0) {
-					console.log(
-						"AuthContext: Available devices:",
-						devices.map((d) => d.name).join(", ")
-					);
-				} else {
-					console.log(
-						"AuthContext: No devices available for custom logic"
-					);
-				}
-				const tlpDevice = devices.find(
-					(device) => device.name === "TLP301"
-				);
-				if (tlpDevice && tlpDevice.id) {
-					console.log(
-						`AuthContext: Found TLP301 device (ID: ${tlpDevice.id}), playing on it.`
-					);
-					targetDeviceId = tlpDevice.id;
-				} else {
-					console.log(
-						"AuthContext: TLP301 not found, opening Spotify app."
-					);
-					Linking.openURL(trackUri).catch((err) => {
-						console.error(
-							"AuthContext: Failed to open Spotify app",
-							err
-						);
-					});
 					return;
 				}
-			}
 
-			console.log(
-				`AuthContext: Attempting to play track: ${trackUri}` +
-					(targetDeviceId ? ` on device: ${targetDeviceId}` : "")
-			);
-			try {
-				// Build payload: use contextUri to queue liked songs, otherwise play single track
-				const payload: any = contextUri
-					? { context_uri: contextUri, offset: { uri: trackUri } }
-					: { uris: [trackUri] };
-
-				let playUrl = "https://api.spotify.com/v1/me/player/play";
-				if (targetDeviceId) {
-					playUrl += `?device_id=${targetDeviceId}`;
-				}
-
-				const response = await fetch(playUrl, {
-					method: "PUT",
-					headers: {
-						Authorization: `Bearer ${accessToken}`,
-						"Content-Type": "application/json",
-					},
-					body: JSON.stringify(payload),
-				});
-
-				if (!response.ok) {
-					let errorBodyText = await response.text(); // Read body as text for more info
-					let errorMessage = `${response.status} - ${response.statusText}`;
-					try {
-						const errorData = JSON.parse(errorBodyText); // Try to parse as JSON
-						if (
-							errorData &&
-							errorData.error &&
-							errorData.error.message
-						) {
-							errorMessage = errorData.error.message;
-							if (errorData.error.reason) {
-								console.error(
-									"Spotify Playback Error Reason:",
-									errorData.error.reason
-								);
-								// NO_ACTIVE_DEVICE is a common reason if device_id is not specified and no device is active
-								// PLAYER_COMMAND_FAILED if device_id is specified but invalid, or other reasons
-							}
-						}
-					} catch (e) {
-						/* Ignore if body is not JSON */
-					}
-					console.error(
-						"Spotify Playback Error Full Response:",
-						errorBodyText
-					);
-					throw new Error(`Failed to play track: ${errorMessage}`);
-				}
+				// For now, just play the individual track directly
+				// Context playback with offset is complex in native SDK
 				console.log(
-					"AuthContext: Play command sent successfully for track:",
-					trackUri
+					`AuthContext: Playing individual track: ${trackUri}`
 				);
-			} catch (e: any) {
-				console.error("AuthContext: Error playing track:", e.message);
-				// Potentially show a toast or message to the user
+				const playResult = await SpotifySdk.play(trackUri);
+
+				if (playResult.playing) {
+					console.log(
+						"AuthContext: Native SDK playback started successfully"
+					);
+				} else {
+					console.error(
+						"AuthContext: Native SDK reported playback failed"
+					);
+				}
+			} catch (error: any) {
+				console.error(
+					"AuthContext: Error with native SDK playback:",
+					error
+				);
+
+				// If playback failed, the connection might be stale - reset connection state
+				setIsConnectedToAppRemote(false);
 			}
 		},
-		[accessToken, _getAvailableDeviceId]
-	); // Added _getAvailableDeviceId as a dependency
+		[ensureAppRemoteConnection, forceAppRemoteConnection]
+	);
 
 	const searchItems = async (
 		query: string,
@@ -1325,251 +1300,669 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 		}
 	};
 
-	// --- Authentication Flow ---
+	// --- Authentication Flow - Updated for Native SDK ---
 	const login = useCallback(async () => {
-		if (!request) {
-			console.log("Auth request not ready yet");
-			return;
-		}
 		setIsLoading(true);
-		await promptAsync();
-		// The useEffect hook for 'response' will handle the rest
-	}, [request, promptAsync]);
+		try {
+			console.log(
+				"AuthContext: Starting native Spotify authentication..."
+			);
+
+			// Use native SDK token-based authorization (recommended for mobile)
+			const authResult = await SpotifySdk.authorizeWithToken(
+				SPOTIFY_CLIENT_ID,
+				REDIRECT_URI,
+				SPOTIFY_SCOPES
+			);
+
+			console.log("AuthContext: Authentication result:", authResult);
+
+			if (authResult.success && authResult.data?.accessToken) {
+				const accessToken = authResult.data.accessToken;
+				setAccessToken(accessToken);
+				await SecureStore.setItemAsync(AUTH_TOKEN_KEY, accessToken);
+
+				// Set token expiry - native SDK handles expiry internally, use default 45 minutes
+				const expiryTime = Date.now() + 45 * 60 * 1000; // 45 minutes default
+				setTokenExpiry(expiryTime);
+				await SecureStore.setItemAsync(
+					TOKEN_EXPIRY_KEY,
+					expiryTime.toString()
+				);
+
+				// Native SDK handles refresh tokens internally, so we don't need to store them
+				console.log(
+					"AuthContext: Successfully authenticated with native SDK"
+				);
+
+				// Fetch user info after successful authentication
+				await fetchUserInfo(accessToken);
+			} else {
+				console.error(
+					"AuthContext: Authentication failed:",
+					authResult.error || "Unknown error"
+				);
+				setIsLoading(false);
+			}
+		} catch (error) {
+			console.error(
+				"AuthContext: Error during native authentication:",
+				error
+			);
+			setIsLoading(false);
+		}
+	}, []);
 
 	const getPlaybackState =
 		async (): Promise<SpotifyCurrentlyPlaying | null> => {
-			if (!accessToken) return null;
-
 			try {
-				const response = await fetch(
-					"https://api.spotify.com/v1/me/player",
-					{
-						headers: {
-							Authorization: `Bearer ${accessToken}`,
-						},
-					}
-				);
-
-				if (response.status === 204 || response.status === 202) {
-					// No content or accepted, meaning no active player or nothing playing
-					return null;
-				}
-
-				if (!response.ok) {
-					const errorData = await response.text(); // Use .text() for better error detail
-					console.error(
-						"Error fetching playback state:",
-						response.status,
-						errorData
+				// Use native SDK instead of Web API for offline compatibility
+				const connected = await ensureAppRemoteConnection();
+				if (!connected) {
+					console.log(
+						"AuthContext: Cannot get playback state - App Remote not connected"
 					);
 					return null;
 				}
 
-				const data = await response.json();
-				return data as SpotifyCurrentlyPlaying;
+				const playerState = await SpotifySdk.getPlayerState();
+				if (!playerState || !playerState.track) {
+					console.log(
+						"AuthContext: No player state or track available"
+					);
+					return null;
+				}
+
+				// Get album art - try native SDK first for better offline support
+				let albumImages: SpotifyImage[] = [];
+
+				const albumId = playerState.track.album.uri.split(":").pop();
+				if (albumId) {
+					// First, try to load from cache for offline support
+					const cachedImages = await loadCachedAlbumArt(albumId);
+					if (cachedImages) {
+						albumImages = cachedImages;
+					} else {
+						// Try native SDK first (works offline)
+						try {
+							const nativeImageUrl = await SpotifySdk.getImage(
+								playerState.track.album.uri,
+								"LARGE"
+							);
+							if (
+								nativeImageUrl &&
+								nativeImageUrl.startsWith("data:image/")
+							) {
+								// Native SDK returned a data URI
+								albumImages = [
+									{
+										url: nativeImageUrl,
+										height: 640,
+										width: 640,
+									},
+								];
+								// Cache the native image for offline use
+								await saveCachedAlbumArt(albumId, albumImages);
+							} else {
+								throw new Error(
+									"Native SDK did not return valid image data"
+								);
+							}
+						} catch (nativeError) {
+							// If native SDK fails, try Web API as fallback
+							if (accessToken) {
+								try {
+									const response = await fetch(
+										`https://api.spotify.com/v1/albums/${albumId}`,
+										{
+											headers: {
+												Authorization: `Bearer ${accessToken}`,
+											},
+										}
+									);
+
+									if (response.ok) {
+										const albumData = await response.json();
+										if (
+											albumData.images &&
+											albumData.images.length > 0
+										) {
+											albumImages = albumData.images.map(
+												(img: any) => ({
+													url: img.url,
+													height: img.height,
+													width: img.width,
+												})
+											);
+											// Cache the Web API images for offline use
+											await saveCachedAlbumArt(
+												albumId,
+												albumImages
+											);
+										}
+									}
+								} catch (webApiError) {
+									// Both native SDK and Web API failed - no album art available
+								}
+							}
+						}
+					}
+				}
+
+				// Convert native SDK player state to Web API format for compatibility
+				const convertedState: SpotifyCurrentlyPlaying = {
+					timestamp: Date.now(),
+					context: null, // Native SDK doesn't provide context in the same format
+					progress_ms: playerState.playbackPosition,
+					is_playing: !playerState.isPaused,
+					item: {
+						// Convert native track to Web API track format
+						artists: [
+							{
+								external_urls: { spotify: "" },
+								href: "",
+								id:
+									playerState.track.artist.uri
+										.split(":")
+										.pop() || "",
+								name: playerState.track.artist.name,
+								type: "artist",
+								uri: playerState.track.artist.uri,
+							},
+						],
+						available_markets: [],
+						disc_number: 1,
+						duration_ms: playerState.track.duration,
+						explicit: false,
+						external_urls: { spotify: "" },
+						href: "",
+						id: playerState.track.uri.split(":").pop() || "",
+						is_local: false,
+						name: playerState.track.name,
+						preview_url: null,
+						track_number: 1,
+						type: "track",
+						uri: playerState.track.uri,
+						album: {
+							album_type: "album",
+							total_tracks: 1,
+							available_markets: [],
+							external_urls: { spotify: "" },
+							href: "",
+							id:
+								playerState.track.album.uri.split(":").pop() ||
+								"",
+							images: albumImages, // HTTP URLs from Web API or empty array
+							name: playerState.track.album.name,
+							release_date: "",
+							release_date_precision: "day",
+							type: "album",
+							uri: playerState.track.album.uri,
+							artists: [
+								{
+									external_urls: { spotify: "" },
+									href: "",
+									id:
+										playerState.track.artist.uri
+											.split(":")
+											.pop() || "",
+									name: playerState.track.artist.name,
+									type: "artist",
+									uri: playerState.track.artist.uri,
+								},
+							],
+						},
+					},
+					currently_playing_type: "track",
+					actions: { disallows: {} },
+					device: {
+						id: "spotify_app_remote",
+						is_active: true,
+						is_private_session: false,
+						is_restricted: false,
+						name: "Spotify App Remote",
+						type: "smartphone",
+						volume_percent: 100,
+						supports_volume: false,
+						uri: "spotify:device:app_remote",
+					},
+					shuffle_state: playerState.playbackOptions.isShuffling,
+					repeat_state:
+						playerState.playbackOptions.repeatMode === 0
+							? "off"
+							: playerState.playbackOptions.repeatMode === 1
+							? "context"
+							: "track",
+				};
+
+				return convertedState;
 			} catch (error) {
-				console.error("Error in getPlaybackState:", error);
+				console.log(
+					"AuthContext: Error getting playback state from native SDK (normal if nothing playing):",
+					error
+				);
 				return null;
 			}
 		};
 
 	const startPlayback = async () => {
-		if (!accessToken) return;
-
 		try {
-			const response = await fetch(
-				"https://api.spotify.com/v1/me/player/play",
-				{
-					method: "PUT",
-					headers: {
-						Authorization: `Bearer ${accessToken}`,
-					},
-				}
-			);
+			const connected = await ensureAppRemoteConnection();
+			if (!connected) {
+				console.error(
+					"AuthContext: Cannot start playback - App Remote not connected"
+				);
+				return;
+			}
 
-			if (!response.ok) {
-				throw new Error("Failed to start playback");
+			const result = await SpotifySdk.resume();
+			if (result.resumed) {
+				console.log("AuthContext: Playback resumed via native SDK");
+			} else {
+				console.error("AuthContext: Failed to resume playback");
 			}
 		} catch (error) {
-			console.error("Error starting playback:", error);
-			throw error;
+			console.error("AuthContext: Error starting playback:", error);
 		}
 	};
 
 	const pausePlayback = async () => {
-		if (!accessToken) return;
-
 		try {
-			const response = await fetch(
-				"https://api.spotify.com/v1/me/player/pause",
-				{
-					method: "PUT",
-					headers: {
-						Authorization: `Bearer ${accessToken}`,
-					},
-				}
-			);
+			const connected = await ensureAppRemoteConnection();
+			if (!connected) {
+				console.error(
+					"AuthContext: Cannot pause playback - App Remote not connected"
+				);
+				return;
+			}
 
-			if (!response.ok) {
-				throw new Error("Failed to pause playback");
+			const result = await SpotifySdk.pause();
+			if (result.paused) {
+				console.log("AuthContext: Playback paused via native SDK");
+			} else {
+				console.error("AuthContext: Failed to pause playback");
 			}
 		} catch (error) {
-			console.error("Error pausing playback:", error);
-			throw error;
+			console.error("AuthContext: Error pausing playback:", error);
 		}
 	};
 
 	const skipToNext = async () => {
-		if (!accessToken) return;
-
 		try {
-			const response = await fetch(
-				"https://api.spotify.com/v1/me/player/next",
-				{
-					method: "POST",
-					headers: {
-						Authorization: `Bearer ${accessToken}`,
-					},
-				}
-			);
+			const connected = await ensureAppRemoteConnection();
+			if (!connected) {
+				console.error(
+					"AuthContext: Cannot skip - App Remote not connected"
+				);
+				return;
+			}
 
-			if (!response.ok) {
-				throw new Error("Failed to skip to next track");
+			const result = await SpotifySdk.skipNext();
+			if (result.skipped) {
+				console.log(
+					"AuthContext: Skipped to next track via native SDK"
+				);
+			} else {
+				console.error("AuthContext: Failed to skip to next track");
 			}
 		} catch (error) {
-			console.error("Error skipping to next track:", error);
-			throw error;
+			console.error("AuthContext: Error skipping to next track:", error);
 		}
 	};
 
 	const skipToPrevious = async () => {
-		if (!accessToken) return;
-
 		try {
-			// First get the current playback state to check progress
-			const currentState = await getPlaybackState();
-			if (!currentState || !currentState.item) return;
-
-			const THRESHOLD_MS = 3000; // 3 seconds threshold
-
-			if (
-				currentState.progress_ms &&
-				currentState.progress_ms > THRESHOLD_MS
-			) {
-				// If we're past the threshold, restart the current track
-				const response = await fetch(
-					"https://api.spotify.com/v1/me/player/seek?position_ms=0",
-					{
-						method: "PUT",
-						headers: {
-							Authorization: `Bearer ${accessToken}`,
-						},
-					}
+			const connected = await ensureAppRemoteConnection();
+			if (!connected) {
+				console.error(
+					"AuthContext: Cannot skip to previous - App Remote not connected"
 				);
+				return;
+			}
 
-				if (!response.ok) {
-					throw new Error("Failed to restart current track");
-				}
+			const result = await SpotifySdk.skipPrevious();
+			if (result.skipped) {
+				console.log(
+					"AuthContext: Skipped to previous track via native SDK"
+				);
 			} else {
-				// If we're within the threshold, go to previous track
-				const response = await fetch(
-					"https://api.spotify.com/v1/me/player/previous",
-					{
-						method: "POST",
-						headers: {
-							Authorization: `Bearer ${accessToken}`,
-						},
-					}
-				);
-
-				if (!response.ok) {
-					throw new Error("Failed to skip to previous track");
-				}
+				console.error("AuthContext: Failed to skip to previous track");
 			}
 		} catch (error) {
-			console.error("Error handling previous track:", error);
-			throw error;
+			console.error(
+				"AuthContext: Error skipping to previous track:",
+				error
+			);
 		}
 	};
 
 	const toggleShuffle = async (state: boolean) => {
-		if (!accessToken) return;
-
 		try {
-			const response = await fetch(
-				`https://api.spotify.com/v1/me/player/shuffle?state=${state}`,
-				{
-					method: "PUT",
-					headers: {
-						Authorization: `Bearer ${accessToken}`,
-					},
-				}
-			);
+			const connected = await ensureAppRemoteConnection();
+			if (!connected) {
+				console.error(
+					"AuthContext: Cannot toggle shuffle - App Remote not connected"
+				);
+				return;
+			}
 
-			if (!response.ok) {
-				throw new Error("Failed to toggle shuffle");
+			const result = await SpotifySdk.setShuffle(state);
+			if (result.shuffleSet) {
+				console.log(
+					`AuthContext: Shuffle set to ${state} via native SDK`
+				);
+			} else {
+				console.error("AuthContext: Failed to toggle shuffle");
 			}
 		} catch (error) {
-			console.error("Error toggling shuffle:", error);
-			throw error;
+			console.error("AuthContext: Error toggling shuffle:", error);
 		}
 	};
 
 	const toggleRepeat = async (state: "off" | "track") => {
-		if (!accessToken) return;
-
 		try {
-			const response = await fetch(
-				`https://api.spotify.com/v1/me/player/repeat?state=${state}`,
-				{
-					method: "PUT",
-					headers: {
-						Authorization: `Bearer ${accessToken}`,
-					},
-				}
-			);
+			const connected = await ensureAppRemoteConnection();
+			if (!connected) {
+				console.error(
+					"AuthContext: Cannot toggle repeat - App Remote not connected"
+				);
+				return;
+			}
 
-			if (!response.ok) {
-				throw new Error("Failed to toggle repeat");
+			// Convert state to repeat mode number (0: off, 1: context, 2: track)
+			const repeatMode = state === "off" ? 0 : 2; // track repeat
+			const result = await SpotifySdk.setRepeat(repeatMode);
+			if (result.repeatSet) {
+				console.log(
+					`AuthContext: Repeat set to ${state} (mode: ${repeatMode}) via native SDK`
+				);
+			} else {
+				console.error("AuthContext: Failed to toggle repeat");
 			}
 		} catch (error) {
-			console.error("Error toggling repeat:", error);
-			throw error;
+			console.error("AuthContext: Error toggling repeat:", error);
 		}
 	};
 
 	const seekToPosition = async (positionMs: number) => {
-		if (!accessToken) return;
-		console.log(`AuthContext: Seeking to ${positionMs}ms`);
 		try {
-			const response = await fetch(
-				`https://api.spotify.com/v1/me/player/seek?position_ms=${Math.round(
-					positionMs
-				)}`,
-				{
-					method: "PUT",
-					headers: {
-						Authorization: `Bearer ${accessToken}`,
-					},
-				}
-			);
-			if (!response.ok) {
-				const errorData = await response.text();
+			const connected = await ensureAppRemoteConnection();
+			if (!connected) {
 				console.error(
-					"AuthContext: Failed to seek. Status:",
-					response.status,
-					"Error:",
-					errorData
+					"AuthContext: Cannot seek - App Remote not connected"
 				);
-				throw new Error(
-					`Failed to seek to position: ${response.status}`
-				);
+				return;
 			}
-			console.log("AuthContext: Seek command sent successfully.");
+
+			console.log(
+				`AuthContext: Seeking to ${positionMs}ms via native SDK`
+			);
+			const result = await SpotifySdk.seekTo(positionMs);
+			if (result.seeked) {
+				console.log("AuthContext: Seek completed via native SDK");
+			} else {
+				console.error("AuthContext: Failed to seek to position");
+			}
 		} catch (error) {
 			console.error("AuthContext: Error seeking to position:", error);
-			// Optionally re-throw or handle as needed by the UI
-			throw error;
+		}
+	};
+
+	const fetchUserInfo = async (token: string) => {
+		console.log("AuthContext: Fetching user info...");
+		try {
+			const response = await fetch("https://api.spotify.com/v1/me", {
+				headers: { Authorization: `Bearer ${token}` },
+			});
+			const userData = await response.json();
+			if (!response.ok) {
+				throw new Error(
+					`Failed to fetch user info: ${
+						userData?.error?.message || response.status
+					}`
+				);
+			}
+			setUser(userData);
+			await SecureStore.setItemAsync(
+				USER_INFO_KEY,
+				JSON.stringify(userData)
+			);
+			// Start fetching other data after user info is successfully retrieved
+			await _fetchInitialPlaylists(token);
+		} catch (e: any) {
+			console.error("AuthContext: Error fetching user info:", e.message);
+			// Attempt to parse more detailed error from Spotify if it's an HTTP error like object
+			if (e.response && typeof e.response.json === "function") {
+				try {
+					const errorData = await e.response.json();
+					console.error("Spotify API Error Details:", errorData);
+				} catch (parseError) {
+					console.error(
+						"Error parsing Spotify API error response:",
+						parseError
+					);
+				}
+			}
+			setAccessToken(null); // Log out on error
+			setUser(null);
+			await SecureStore.deleteItemAsync(AUTH_TOKEN_KEY);
+			await SecureStore.deleteItemAsync(REFRESH_TOKEN_KEY);
+			await SecureStore.deleteItemAsync(USER_INFO_KEY);
+			setPlaylists(null);
+			setPlaylistsNextUrl(null);
+			setAlbums(null);
+			setAlbumsNextUrl(null);
+			setSavedTracks(null);
+			setSavedTracksNextUrl(null);
+			setIsLoading(false); // Ensure loading stops on error
+		}
+	};
+
+	const _fetchInitialPlaylists = async (token: string) => {
+		console.log("AuthContext: Fetching initial playlists (page 1)...");
+		try {
+			const response = await fetch(
+				"https://api.spotify.com/v1/me/playlists?limit=50", // Fetch first page
+				{
+					headers: { Authorization: `Bearer ${token}` },
+				}
+			);
+			const data: SpotifyPlaylistsResponse = await response.json();
+			if (!response.ok) {
+				let errorMessage = response.status.toString();
+				try {
+					const errorData = data as any;
+					if (
+						errorData &&
+						errorData.error &&
+						errorData.error.message
+					) {
+						errorMessage = errorData.error.message;
+					}
+				} catch (e) {
+					/* Ignore */
+				}
+				throw new Error(`Failed to fetch playlists: ${errorMessage}`);
+			}
+			setPlaylists(data.items);
+			setPlaylistsNextUrl(data.next);
+			// Cache the playlists for offline use
+			await saveCachedData(data.items, undefined, undefined);
+			await _fetchInitialAlbums(token); // Chain loading
+		} catch (e: any) {
+			console.error(
+				"AuthContext: Error fetching initial playlists:",
+				e.message
+			);
+			setPlaylists(null);
+			setPlaylistsNextUrl(null);
+			await _fetchInitialAlbums(token); // Still try to load next set of data
+		}
+	};
+
+	const _fetchInitialAlbums = async (token: string) => {
+		console.log("AuthContext: Fetching initial albums (page 1)...");
+		try {
+			const response = await fetch(
+				"https://api.spotify.com/v1/me/albums?limit=50", // Fetch first page
+				{
+					headers: { Authorization: `Bearer ${token}` },
+				}
+			);
+			const data: SpotifySavedAlbumsResponse = await response.json();
+			if (!response.ok) {
+				let errorMessage = response.status.toString();
+				try {
+					const errorData = data as any;
+					if (
+						errorData &&
+						errorData.error &&
+						errorData.error.message
+					) {
+						errorMessage = errorData.error.message;
+					}
+				} catch (e) {
+					/* Ignore */
+				}
+				throw new Error(`Failed to fetch albums: ${errorMessage}`);
+			}
+			setAlbums(data.items);
+			setAlbumsNextUrl(data.next);
+			// Cache the albums for offline use
+			await saveCachedData(undefined, data.items, undefined);
+			await _fetchInitialSavedTracksAndUpdateGlobalLoading(token); // Chain loading
+		} catch (e: any) {
+			console.error(
+				"AuthContext: Error fetching initial albums:",
+				e.message
+			);
+			setAlbums(null);
+			setAlbumsNextUrl(null);
+			await _fetchInitialSavedTracksAndUpdateGlobalLoading(token); // Still try to load next
+		}
+	};
+
+	const _fetchInitialSavedTracksAndUpdateGlobalLoading = async (
+		token: string
+	) => {
+		console.log("AuthContext: Fetching initial saved tracks (page 1)...");
+		try {
+			const response = await fetch(
+				"https://api.spotify.com/v1/me/tracks?limit=50", // Fetch first page
+				{
+					headers: { Authorization: `Bearer ${token}` },
+				}
+			);
+			const data: SavedTracksResponse = await response.json();
+			if (!response.ok) {
+				let errorMessage = response.status.toString();
+				try {
+					const errorData = data as any;
+					if (
+						errorData &&
+						errorData.error &&
+						errorData.error.message
+					) {
+						errorMessage = errorData.error.message;
+					}
+				} catch (e) {
+					/* Ignore */
+				}
+				throw new Error(
+					`Failed to fetch saved tracks: ${errorMessage}`
+				);
+			}
+			setSavedTracks(data.items);
+			setSavedTracksNextUrl(data.next);
+			// Cache the saved tracks for offline use
+			await saveCachedData(undefined, undefined, data.items);
+		} catch (e: any) {
+			console.error(
+				"AuthContext: Error fetching initial saved tracks:",
+				e.message
+			);
+			setSavedTracks(null);
+			setSavedTracksNextUrl(null);
+		} finally {
+			console.log(
+				"AuthContext: Finished all initial data fetches (page 1 of each). Setting global loading to false."
+			);
+			setIsLoading(false);
+		}
+	};
+
+	const getCurrentTrack = async () => {
+		try {
+			const connected = await ensureAppRemoteConnection();
+			if (!connected) {
+				console.log(
+					"AuthContext: Cannot get current track - App Remote not connected"
+				);
+				return null;
+			}
+
+			const playerState = await SpotifySdk.getPlayerState();
+			if (!playerState || !playerState.track) {
+				console.log("AuthContext: No current track available");
+				return null;
+			}
+
+			console.log(
+				"AuthContext: Got current track from native SDK:",
+				playerState.track.name
+			);
+
+			// Return enhanced track with album art
+			return {
+				...playerState.track,
+				albumArt: playerState.track.imageUri, // Direct album art URL
+				position: playerState.playbackPosition,
+				isPaused: playerState.isPaused,
+				isShuffling: playerState.playbackOptions.isShuffling,
+				repeatMode: playerState.playbackOptions.repeatMode,
+			};
+		} catch (error) {
+			console.log(
+				"AuthContext: Error getting current track from native SDK:",
+				error
+			);
+			return null;
+		}
+	};
+
+	const getAlbumArt = async (
+		uri?: string,
+		size: string = "LARGE"
+	): Promise<string | null> => {
+		try {
+			const connected = await ensureAppRemoteConnection();
+			if (!connected) {
+				console.log(
+					"AuthContext: Cannot get album art - App Remote not connected"
+				);
+				return null;
+			}
+
+			// If no URI provided, get current track's album art
+			if (!uri) {
+				const playerState = await SpotifySdk.getPlayerState();
+				if (!playerState || !playerState.track) {
+					console.log("AuthContext: No current track for album art");
+					return null;
+				}
+				uri = playerState.track.album.uri;
+			}
+
+			// Use native SDK to get high-quality album art
+			const imageUrl = await SpotifySdk.getImage(uri, size);
+			console.log("AuthContext: Got album art from native SDK");
+			return imageUrl;
+		} catch (error) {
+			console.log(
+				"AuthContext: Error getting album art from native SDK:",
+				error
+			);
+			return null;
 		}
 	};
 
@@ -1593,6 +1986,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 		isRefreshingPlaylists,
 		isRefreshingAlbums,
 		isRefreshingSavedTracks,
+		isConnectedToAppRemote,
 		login,
 		logout,
 		fetchPlaylists,
@@ -1600,6 +1994,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 		fetchSavedTracks,
 		playTrack,
 		getPlaybackState,
+		getCurrentTrack,
+		getAlbumArt,
 		startPlayback,
 		pausePlayback,
 		skipToNext,
@@ -1609,6 +2005,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 		addTrackToPlaylist,
 		seekToPosition,
 		searchItems,
+		clearCachedData,
+		forceAppRemoteConnection,
 	};
 
 	return (
