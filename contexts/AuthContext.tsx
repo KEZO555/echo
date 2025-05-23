@@ -441,6 +441,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 					console.log(
 						"AuthContext: Successfully connected to App Remote"
 					);
+
+					// Give the connection a moment to fully stabilize before returning
+					// This helps with fresh app loads where the connection might report as connected
+					// but not be fully ready for playback operations
+					await new Promise((resolve) => setTimeout(resolve, 250));
+
 					return true;
 				} else {
 					console.log(
@@ -523,6 +529,14 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 				// App came to foreground, enable auto-connect for proper lifecycle management
 				if (accessToken) {
 					SpotifySdk.enableAutoConnect(true);
+
+					// Proactively establish connection after coming to foreground
+					setTimeout(async () => {
+						console.log(
+							"AuthContext: Proactively establishing connection after foreground..."
+						);
+						await ensureAppRemoteConnection();
+					}, 200); // Slight delay to ensure lifecycle events are processed
 				}
 			} else if (
 				appState === "active" &&
@@ -880,7 +894,15 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 						console.log(
 							"AuthContext: Found stored token, enabling auto-connect"
 						);
-						SpotifySdk.enableAutoConnect(true);
+						await SpotifySdk.enableAutoConnect(true);
+
+						// Establish initial connection to prevent first-play issues
+						setTimeout(async () => {
+							console.log(
+								"AuthContext: Establishing initial App Remote connection..."
+							);
+							await ensureAppRemoteConnection();
+						}, 100); // Small delay to ensure the context is fully set up
 
 						// CACHE-FIRST STRATEGY: Load cached data immediately for instant UI
 						await loadCachedData();
@@ -1274,6 +1296,16 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 						"AuthContext: Normal connection failed, trying force connection..."
 					);
 					connected = await forceAppRemoteConnection();
+
+					// For fresh app loads, give extra time for the forced connection to stabilize
+					if (connected) {
+						console.log(
+							"AuthContext: Force connection succeeded, allowing stabilization time..."
+						);
+						await new Promise((resolve) =>
+							setTimeout(resolve, 500)
+						);
+					}
 				}
 
 				if (!connected) {
