@@ -123,11 +123,6 @@ export default function PlayingScreen() {
 		setPlaybackState(state);
 
 		if (state && state.item && state.item.id) {
-			// If the track has changed since the last check, or if no track was previously checked
-			if (state.item.id !== currentTrackIdChecked) {
-				await checkIfTrackIsSaved(state.item.id);
-				setCurrentTrackIdChecked(state.item.id);
-			}
 			if (state.progress_ms !== null) {
 				const progressRatio =
 					state.progress_ms / state.item.duration_ms;
@@ -137,11 +132,27 @@ export default function PlayingScreen() {
 			}
 		} else {
 			progress.setValue(0);
-			setIsCurrentTrackSaved(false); // No track playing, so not saved
-			setCurrentTrackIdChecked(null); // Reset checked track ID
 		}
 		setIsLoading(false);
 	};
+
+	// Separate function to check if track is saved - only called when track changes
+	const checkCurrentTrackSavedStatus = async (trackId: string) => {
+		if (trackId !== currentTrackIdChecked) {
+			await checkIfTrackIsSaved(trackId);
+			setCurrentTrackIdChecked(trackId);
+		}
+	};
+
+	// Effect to watch for track changes and check saved status
+	useEffect(() => {
+		if (playbackState && playbackState.item && playbackState.item.id) {
+			checkCurrentTrackSavedStatus(playbackState.item.id);
+		} else {
+			setIsCurrentTrackSaved(false);
+			setCurrentTrackIdChecked(null);
+		}
+	}, [playbackState?.item?.id]); // Only run when track ID changes
 
 	const handlePlayPause = async () => {
 		if (!playbackState) return;
@@ -344,7 +355,6 @@ export default function PlayingScreen() {
 	useFocusEffect(
 		React.useCallback(() => {
 			setIsLoading(true);
-			setCurrentTrackIdChecked(null); // Reset on focus to ensure check runs
 			fetchAndUpdatePlaybackState(); // Initial fetch when screen comes into focus
 
 			// Set up an interval to refresh playback state every second
