@@ -1,8 +1,4 @@
-import type { StyleProp, ViewStyle } from "react-native";
-
-export type OnLoadEventPayload = {
-	url: string;
-};
+// Removed React Native view imports as they're not needed for this module
 
 export type SpotifySdkModuleEvents = {
 	onChange: (params: ChangeEventPayload) => void;
@@ -12,11 +8,7 @@ export type ChangeEventPayload = {
 	value: string;
 };
 
-export type SpotifySdkViewProps = {
-	url: string;
-	onLoad: (event: { nativeEvent: OnLoadEventPayload }) => void;
-	style?: StyleProp<ViewStyle>;
-};
+// SpotifySdkViewProps removed - module doesn't export view components
 
 // Spotify Android SDK Types
 
