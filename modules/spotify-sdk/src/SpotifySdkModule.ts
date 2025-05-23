@@ -45,6 +45,7 @@ declare class SpotifySdkModule extends NativeModule<SpotifySdkEvents> {
 	): Promise<{ connected: boolean }>;
 	disconnect(): Promise<{ disconnected: boolean }>;
 	isConnected(): Promise<boolean>;
+	enableAutoConnect(enable: boolean): Promise<{ autoConnect: boolean }>;
 
 	// Playback control methods
 	play(uri?: string): Promise<{ playing: boolean }>;

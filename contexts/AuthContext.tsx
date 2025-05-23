@@ -497,7 +497,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 		return false;
 	}, []);
 
-	// Handle app state changes for connection management
+	// Handle app state changes and native lifecycle events for connection management
 	useEffect(() => {
 		const handleAppStateChange = (nextAppState: AppStateStatus) => {
 			console.log(
@@ -509,23 +509,68 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 				nextAppState === "active"
 			) {
 				console.log(
-					"AuthContext: App came to foreground - ensuring App Remote connection"
+					"AuthContext: App came to foreground - enabling auto-connect"
 				);
-				// App came to foreground, ensure we're connected
+				// App came to foreground, enable auto-connect for proper lifecycle management
 				if (accessToken) {
-					ensureAppRemoteConnection();
+					SpotifySdk.enableAutoConnect(true);
 				}
+			} else if (
+				appState === "active" &&
+				nextAppState.match(/inactive|background/)
+			) {
+				console.log(
+					"AuthContext: App going to background - auto-disconnect will be handled by native lifecycle"
+				);
+				// The native module will automatically disconnect when the activity goes to background
+				setIsConnectedToAppRemote(false);
 			}
 
 			setAppState(nextAppState);
 		};
 
-		const subscription = AppState.addEventListener(
+		// Handle native lifecycle events
+		const handleNativeConnected = (event: any) => {
+			console.log("AuthContext: Native SDK connected:", event);
+			setIsConnectedToAppRemote(true);
+		};
+
+		const handleNativeDisconnected = (event: any) => {
+			console.log("AuthContext: Native SDK disconnected:", event);
+			setIsConnectedToAppRemote(false);
+		};
+
+		const handleActivityStopped = (event: any) => {
+			console.log("AuthContext: Activity stopped (background):", event);
+			setIsConnectedToAppRemote(false);
+		};
+
+		const appStateSubscription = AppState.addEventListener(
 			"change",
 			handleAppStateChange
 		);
-		return () => subscription?.remove();
-	}, [appState, accessToken, ensureAppRemoteConnection]);
+
+		// Listen to native lifecycle events
+		const connectedSubscription = SpotifySdk.addListener(
+			"onConnected",
+			handleNativeConnected
+		);
+		const disconnectedSubscription = SpotifySdk.addListener(
+			"onDisconnected",
+			handleNativeDisconnected
+		);
+		const activityStoppedSubscription = SpotifySdk.addListener(
+			"onActivityStopped",
+			handleActivityStopped
+		);
+
+		return () => {
+			appStateSubscription?.remove();
+			connectedSubscription?.remove();
+			disconnectedSubscription?.remove();
+			activityStoppedSubscription?.remove();
+		};
+	}, [appState, accessToken]);
 
 	// --- Cache Management Functions ---
 	const loadCachedData = useCallback(async () => {
@@ -745,8 +790,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
 	const logout = useCallback(async () => {
 		console.log("Logging out...");
-		// Clear native SDK session
+		// Disable auto-connect and clear native SDK session
 		try {
+			await SpotifySdk.enableAutoConnect(false);
+			await SpotifySdk.disconnect();
 			await SpotifySdk.clearSession();
 		} catch (error) {
 			console.error("Error clearing native SDK session:", error);
@@ -768,6 +815,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 		setAlbumsNextUrl(null);
 		setSavedTracks(null);
 		setSavedTracksNextUrl(null);
+		setIsConnectedToAppRemote(false); // Reset connection state
 		setIsLoading(false); // Reset loading state
 	}, [
 		setAccessToken,
@@ -800,6 +848,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 							TOKEN_EXPIRY_KEY,
 							expiryTime.toString()
 						);
+
+						// Enable auto-connect for proper lifecycle management
+						console.log(
+							"AuthContext: Found stored token, enabling auto-connect"
+						);
+						SpotifySdk.enableAutoConnect(true);
 
 						// CACHE-FIRST STRATEGY: Load cached data immediately for instant UI
 						await loadCachedData();
@@ -1449,6 +1503,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 					TOKEN_EXPIRY_KEY,
 					expiryTime.toString()
 				);
+
+				// Enable auto-connect for proper lifecycle management
+				console.log(
+					"AuthContext: Successfully authenticated, enabling auto-connect"
+				);
+				SpotifySdk.enableAutoConnect(true);
 
 				// Native SDK handles refresh tokens internally, so we don't need to store them
 				console.log(
