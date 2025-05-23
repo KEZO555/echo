@@ -1,0 +1,4 @@
+<resources>
+  <string name="app_name">Spotify (Light)</string>
+  <string name="expo_navigation_bar_legacy_visible" translatable="false">immersive</string>
+</resources>
