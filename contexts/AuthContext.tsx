@@ -1256,31 +1256,35 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 							webApiError.message
 						);
 
-						// Method 2: Fallback - Play context then queue target track
+						// Method 2: Fallback - Aggressive context establishment with minimal wrong track audio
 						try {
 							console.log(
-								`AuthContext: Fallback - Playing context ${contextUri} and queueing target track`
+								`AuthContext: Fallback - Establishing context ${contextUri} with aggressive timing`
 							);
 
-							// First, play the context to establish it
+							// Play the context to establish it (brief first track playback)
 							const contextResult = await SpotifySdk.play(
 								contextUri
 							);
 
 							if (contextResult.playing) {
-								// Wait for context to load
-								await new Promise((resolve) =>
-									setTimeout(resolve, 1000)
+								// Immediately pause to minimize wrong track audio (within ~50ms)
+								await SpotifySdk.pause();
+								console.log(
+									"AuthContext: Context established and immediately paused"
 								);
 
-								// Now queue the specific track we want
+								// Queue the target track immediately
 								await SpotifySdk.addToQueue(trackUri);
 
-								// Skip to the queued track
+								// Skip to the queued track (no delay)
 								await SpotifySdk.skipNext();
 
+								// Resume playback of the correct track
+								await SpotifySdk.play();
+
 								console.log(
-									"AuthContext: Fallback method completed - context set and track queued"
+									"AuthContext: Context maintained with minimal wrong track audio"
 								);
 							} else {
 								throw new Error("Context playback failed");
