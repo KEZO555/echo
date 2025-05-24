@@ -18,11 +18,7 @@ export class SpotifySDK {
 
 	// Auth methods
 	async authorize(config: SpotifyAuthConfig): Promise<{ success: boolean }> {
-		return SpotifySdkModule.authorize(
-			config.clientId,
-			config.redirectUri,
-			config.scopes
-		);
+		return SpotifySdkModule.authorize(config);
 	}
 
 	// Connection methods
@@ -72,6 +68,25 @@ export class SpotifySDK {
 	// State methods
 	async getPlayerState(): Promise<SpotifyPlayerState> {
 		return SpotifySdkModule.getPlayerState();
+	}
+
+	// Native SDK specific methods
+	async isConnected(): Promise<boolean> {
+		return SpotifySdkModule.isConnected();
+	}
+
+	async enableAutoConnect(
+		enable: boolean
+	): Promise<{ autoConnect: boolean }> {
+		return SpotifySdkModule.enableAutoConnect(enable);
+	}
+
+	async clearSession(): Promise<{ cleared: boolean }> {
+		return SpotifySdkModule.clearSession();
+	}
+
+	async getImage(uri: string, size?: string): Promise<string> {
+		return SpotifySdkModule.getImage(uri, size);
 	}
 
 	// Event listeners

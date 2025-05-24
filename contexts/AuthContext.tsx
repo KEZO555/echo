@@ -603,8 +603,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
 	// --- Cache Management Functions ---
 	const loadCachedData = useCallback(async () => {
-		console.log("AuthContext: Loading cached data for offline support...");
 		try {
+			let hasAnyCache = false;
+
 			// Load cached playlists
 			const cachedPlaylists = await AsyncStorage.getItem(PLAYLISTS_KEY);
 			if (cachedPlaylists) {
@@ -613,6 +614,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 				console.log(
 					`AuthContext: Loaded ${parsedPlaylists.length} cached playlists`
 				);
+				hasAnyCache = true;
 			}
 
 			// Load cached albums
@@ -623,6 +625,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 				console.log(
 					`AuthContext: Loaded ${parsedAlbums.length} cached albums`
 				);
+				hasAnyCache = true;
 			}
 
 			// Load cached saved tracks
@@ -634,6 +637,18 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 				setSavedTracks(parsedTracks);
 				console.log(
 					`AuthContext: Loaded ${parsedTracks.length} cached saved tracks`
+				);
+				hasAnyCache = true;
+			}
+
+			// Only log cache loading message if we actually found cached data
+			if (hasAnyCache) {
+				console.log(
+					"AuthContext: Cached data loaded for offline support"
+				);
+			} else {
+				console.log(
+					"AuthContext: No cached data found - fresh install or cleared cache"
 				);
 			}
 		} catch (error) {
@@ -964,17 +979,39 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 						}
 					}
 				} else if (!isAuthenticating) {
-					// No stored auth, load any cached data and ensure we're logged out (but not during authentication)
+					// No stored auth on fresh install - just load any cached data and set logged out state
+					console.log(
+						"AuthContext: No stored authentication found - fresh install or cleared data"
+					);
 					await loadCachedData();
-					await logout();
+					// Don't call logout() on fresh install - just ensure we're in logged out state
+					setAccessToken(null);
+					setRefreshToken(null);
+					setUser(null);
+					setIsConnectedToAppRemote(false);
+					setIsLoading(false);
 				}
 			} catch (e) {
 				console.error("Failed to load auth state:", e);
 				// Still try to load cached data even if auth fails
 				await loadCachedData();
-				// Only logout if not actively authenticating
+				// Only logout if not actively authenticating AND we had some stored data
 				if (!isAuthenticating) {
-					await logout();
+					// Check if we had any stored tokens that failed to load
+					const hadStoredData = await SecureStore.getItemAsync(
+						AUTH_TOKEN_KEY
+					);
+					if (hadStoredData) {
+						// Only call logout if we had data that failed to load
+						await logout();
+					} else {
+						// Fresh install with error - just set logged out state
+						setAccessToken(null);
+						setRefreshToken(null);
+						setUser(null);
+						setIsConnectedToAppRemote(false);
+						setIsLoading(false);
+					}
 				}
 			} finally {
 				// Ensure loading is false even if something goes wrong
