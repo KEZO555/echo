@@ -44,6 +44,7 @@ declare class SpotifySdkModule extends NativeModule<SpotifySdkEvents> {
 		redirectUri: string
 	): Promise<{ connected: boolean }>;
 	disconnect(): Promise<{ disconnected: boolean }>;
+	forceDisconnect(): Promise<{ disconnected: boolean; forced: boolean }>;
 	isConnected(): Promise<boolean>;
 	enableAutoConnect(enable: boolean): Promise<{ autoConnect: boolean }>;
 

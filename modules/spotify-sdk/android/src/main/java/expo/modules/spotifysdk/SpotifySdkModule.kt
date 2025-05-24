@@ -74,9 +74,14 @@ class SpotifySdkModule : Module() {
     // Activity lifecycle handlers for proper connection management
     OnActivityEntersForeground {
       Log.d(TAG, "Activity entered foreground - checking for auto-reconnect")
-      if (shouldAutoConnect && lastConnectionParams != null) {
+      sendEvent("onActivityStarted", mapOf("foreground" to true))
+
+      // Only reconnect if we should auto-connect, have connection params, and are NOT already connected
+      if (shouldAutoConnect && lastConnectionParams != null && spotifyAppRemote?.isConnected != true) {
         Log.d(TAG, "Auto-reconnecting to Spotify App Remote")
         connectInternal(lastConnectionParams!!)
+      } else if (spotifyAppRemote?.isConnected == true) {
+        Log.d(TAG, "Already connected to Spotify App Remote, skipping reconnect")
       }
     }
 
@@ -86,7 +91,7 @@ class SpotifySdkModule : Module() {
         Log.d(TAG, "Authentication in progress - skipping disconnect to prevent auth interference")
         sendEvent("onActivityStopped", mapOf("background" to true, "skipDisconnect" to true))
       } else {
-        Log.d(TAG, "Disconnecting from Spotify App Remote")
+        Log.d(TAG, "Disconnecting from Spotify App Remote due to background state")
         disconnectInternal()
         sendEvent("onActivityStopped", mapOf("background" to true))
       }
@@ -272,13 +277,15 @@ class SpotifySdkModule : Module() {
 
     AsyncFunction("disconnect") { promise: Promise ->
       try {
+        Log.d(TAG, "Manual disconnect requested - disabling auto-reconnect")
         // Disable auto-reconnect when manually disconnecting
         shouldAutoConnect = false
+        lastConnectionParams = null
         currentAuthPromise = promise
 
         disconnectInternal()
       } catch (e: Exception) {
-        Log.e(TAG, "Disconnect error", e)
+        Log.e(TAG, "Manual disconnect error", e)
         promise.reject("DISCONNECT_ERROR", e.message, e)
       }
     }
@@ -286,6 +293,7 @@ class SpotifySdkModule : Module() {
     AsyncFunction("isConnected") { promise: Promise ->
       try {
         val connected = spotifyAppRemote?.isConnected ?: false
+        Log.d(TAG, "Connection status check: $connected")
         promise.resolve(connected)
       } catch (e: Exception) {
         promise.reject("CONNECTION_CHECK_ERROR", e.message, e)
@@ -299,6 +307,43 @@ class SpotifySdkModule : Module() {
         promise.resolve(mapOf("autoConnect" to enable))
       } catch (e: Exception) {
         promise.reject("AUTO_CONNECT_ERROR", e.message, e)
+      }
+    }
+
+    AsyncFunction("forceDisconnect") { promise: Promise ->
+      try {
+        Log.d(TAG, "Force disconnect requested - clearing all state")
+        shouldAutoConnect = false
+        lastConnectionParams = null
+        isAuthenticating = false
+        currentAuthPromise = promise
+
+        // Force cleanup everything
+        try {
+          playerStateSubscription?.cancel()
+          capabilitiesSubscription?.cancel()
+        } catch (e: Exception) {
+          Log.w(TAG, "Error cancelling subscriptions during force disconnect", e)
+        }
+
+        playerStateSubscription = null
+        capabilitiesSubscription = null
+
+        if (spotifyAppRemote != null) {
+          try {
+            SpotifyAppRemote.disconnect(spotifyAppRemote)
+          } catch (e: Exception) {
+            Log.w(TAG, "Error during SpotifyAppRemote.disconnect", e)
+          }
+          spotifyAppRemote = null
+        }
+
+        Log.d(TAG, "Force disconnect completed")
+        sendEvent("onDisconnected", mapOf("disconnected" to true, "forced" to true))
+        promise.resolve(mapOf("disconnected" to true, "forced" to true))
+      } catch (e: Exception) {
+        Log.e(TAG, "Force disconnect error", e)
+        promise.reject("FORCE_DISCONNECT_ERROR", e.message, e)
       }
     }
 
@@ -809,17 +854,34 @@ class SpotifySdkModule : Module() {
         // Clear authentication flag after auth completes (success or failure)
         isAuthenticating = false
         currentAuthPromise = null
+
+        Log.d(TAG, "Authentication completed, flag cleared")
       }
     }
   }
 
   private fun connectInternal(connectionParams: ConnectionParams) {
     try {
+      // Check if already connected - avoid duplicate connections
+      if (spotifyAppRemote?.isConnected == true) {
+        Log.d(TAG, "Already connected to Spotify App Remote, skipping connection attempt")
+        currentAuthPromise?.resolve(mapOf("connected" to true))
+        return
+      }
+
+      // Ensure we disconnect any existing connection before creating a new one
+      if (spotifyAppRemote != null) {
+        Log.d(TAG, "Disconnecting existing connection before reconnecting")
+        SpotifyAppRemote.disconnect(spotifyAppRemote)
+        spotifyAppRemote = null
+      }
+
+      Log.d(TAG, "Attempting to connect to Spotify App Remote")
       SpotifyAppRemote.connect(appContext.reactContext, connectionParams, object : Connector.ConnectionListener {
         override fun onConnected(remote: SpotifyAppRemote) {
           spotifyAppRemote = remote
 
-          Log.d(TAG, "Connected to Spotify App Remote")
+          Log.d(TAG, "Successfully connected to Spotify App Remote")
 
           // Auto-subscribe to player state
           subscribeToPlayerStateInternal()
@@ -832,7 +894,7 @@ class SpotifySdkModule : Module() {
         }
 
         override fun onFailure(error: Throwable) {
-          Log.e(TAG, "Failed to connect to Spotify App Remote", error)
+          Log.e(TAG, "Failed to connect to Spotify App Remote: ${error.message}", error)
           sendEvent("onConnectionError", mapOf("error" to error.message))
           currentAuthPromise?.reject("CONNECTION_ERROR", error.message, error)
         }
@@ -845,20 +907,35 @@ class SpotifySdkModule : Module() {
 
   private fun disconnectInternal() {
     try {
-      // Cancel all subscriptions
+      // Only disconnect if we have an active connection
+      if (spotifyAppRemote == null) {
+        Log.d(TAG, "No active Spotify App Remote connection to disconnect")
+        currentAuthPromise?.resolve(mapOf("disconnected" to true))
+        return
+      }
+
+      Log.d(TAG, "Disconnecting from Spotify App Remote and cleaning up subscriptions")
+
+      // Cancel all subscriptions first
       playerStateSubscription?.cancel()
       capabilitiesSubscription?.cancel()
 
       playerStateSubscription = null
       capabilitiesSubscription = null
 
+      // Disconnect from Spotify App Remote
       SpotifyAppRemote.disconnect(spotifyAppRemote)
       spotifyAppRemote = null
 
+      Log.d(TAG, "Successfully disconnected from Spotify App Remote")
       sendEvent("onDisconnected", mapOf("disconnected" to true))
       currentAuthPromise?.resolve(mapOf("disconnected" to true))
     } catch (e: Exception) {
-      Log.e(TAG, "Disconnect error", e)
+      Log.e(TAG, "Disconnect error: ${e.message}", e)
+      // Still clean up the reference even if disconnect failed
+      spotifyAppRemote = null
+      playerStateSubscription = null
+      capabilitiesSubscription = null
       currentAuthPromise?.reject("DISCONNECT_ERROR", e.message, e)
     }
   }

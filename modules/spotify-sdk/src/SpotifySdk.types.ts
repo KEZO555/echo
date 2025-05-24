@@ -198,7 +198,15 @@ export interface SpotifySdkEvents {
 	onPlayerStateChanged: (event: { playerState: SpotifyPlayerState }) => void;
 	onConnectionError: (event: { error: string }) => void;
 	onConnected: (event: { connected: boolean }) => void;
-	onDisconnected: (event: { disconnected: boolean }) => void;
+	onDisconnected: (event: {
+		disconnected: boolean;
+		forced?: boolean;
+	}) => void;
+	onActivityStarted: (event: { foreground: boolean }) => void;
+	onActivityStopped: (event: {
+		background: boolean;
+		skipDisconnect?: boolean;
+	}) => void;
 	onAuthComplete: (event: { response: SpotifyAuthResponse }) => void;
 	onCapabilitiesChanged: (event: {
 		capabilities: SpotifyCapabilities;
