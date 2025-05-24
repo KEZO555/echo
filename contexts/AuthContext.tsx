@@ -1615,6 +1615,14 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 				// Enable auto-connect for proper lifecycle management
 				SpotifySdk.enableAutoConnect(true);
 
+				// Establish initial connection to prevent first-play issues
+				setTimeout(async () => {
+					console.log(
+						"AuthContext: Establishing initial App Remote connection after fresh login..."
+					);
+					await ensureAppRemoteConnection();
+				}, 100); // Small delay to ensure the context is fully set up
+
 				console.log("AuthContext: Authentication successful");
 				// Fetch user info after successful authentication
 				await fetchUserInfo(accessToken);
