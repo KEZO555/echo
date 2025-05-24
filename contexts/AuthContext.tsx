@@ -968,7 +968,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 						console.log(
 							"AuthContext: Loading fresh data in background..."
 						);
-						await _fetchInitialPlaylists(storedToken);
+						await _fetchInitialDataInParallel(storedToken);
 					} else if (storedRefreshToken && !isAuthenticating) {
 						// Token expired or about to expire, refresh it (but not during active authentication)
 						const refreshed = await refreshAccessToken(
@@ -2022,7 +2022,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 				JSON.stringify(userData)
 			);
 			// Start fetching other data after user info is successfully retrieved
-			await _fetchInitialPlaylists(token);
+			await _fetchInitialDataInParallel(token);
 		} catch (e: any) {
 			console.error("AuthContext: Error fetching user info:", e.message);
 			// Attempt to parse more detailed error from Spotify if it's an HTTP error like object
@@ -2049,6 +2049,118 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 			setSavedTracks(null);
 			setSavedTracksNextUrl(null);
 			setIsLoading(false); // Ensure loading stops on error
+		}
+	};
+
+	const _fetchInitialDataInParallel = async (token: string) => {
+		console.log("AuthContext: Fetching initial data in parallel...");
+
+		const fetchPlaylists = async () => {
+			try {
+				const response = await fetch(
+					"https://api.spotify.com/v1/me/playlists?limit=50",
+					{
+						headers: { Authorization: `Bearer ${token}` },
+					}
+				);
+				const data: SpotifyPlaylistsResponse = await response.json();
+				if (!response.ok) {
+					throw new Error(
+						`Failed to fetch playlists: ${response.status}`
+					);
+				}
+				setPlaylists(data.items);
+				setPlaylistsNextUrl(data.next);
+				await saveCachedData(data.items, undefined, undefined);
+				console.log(
+					`AuthContext: Fetched and cached ${data.items.length} playlists`
+				);
+			} catch (e: any) {
+				console.error(
+					"AuthContext: Error fetching playlists:",
+					e.message
+				);
+				setPlaylists(null);
+				setPlaylistsNextUrl(null);
+			}
+		};
+
+		const fetchAlbums = async () => {
+			try {
+				const response = await fetch(
+					"https://api.spotify.com/v1/me/albums?limit=50",
+					{
+						headers: { Authorization: `Bearer ${token}` },
+					}
+				);
+				const data: SpotifySavedAlbumsResponse = await response.json();
+				if (!response.ok) {
+					throw new Error(
+						`Failed to fetch albums: ${response.status}`
+					);
+				}
+				setAlbums(data.items);
+				setAlbumsNextUrl(data.next);
+				await saveCachedData(undefined, data.items, undefined);
+				console.log(
+					`AuthContext: Fetched and cached ${data.items.length} albums`
+				);
+			} catch (e: any) {
+				console.error("AuthContext: Error fetching albums:", e.message);
+				setAlbums(null);
+				setAlbumsNextUrl(null);
+			}
+		};
+
+		const fetchSavedTracks = async () => {
+			try {
+				const response = await fetch(
+					"https://api.spotify.com/v1/me/tracks?limit=50",
+					{
+						headers: { Authorization: `Bearer ${token}` },
+					}
+				);
+				const data: SavedTracksResponse = await response.json();
+				if (!response.ok) {
+					throw new Error(
+						`Failed to fetch saved tracks: ${response.status}`
+					);
+				}
+				setSavedTracks(data.items);
+				setSavedTracksNextUrl(data.next);
+				await saveCachedData(undefined, undefined, data.items);
+				console.log(
+					`AuthContext: Fetched and cached ${data.items.length} saved tracks`
+				);
+			} catch (e: any) {
+				console.error(
+					"AuthContext: Error fetching saved tracks:",
+					e.message
+				);
+				setSavedTracks(null);
+				setSavedTracksNextUrl(null);
+			}
+		};
+
+		try {
+			// Execute all data fetches in parallel for faster loading
+			await Promise.all([
+				fetchPlaylists(),
+				fetchAlbums(),
+				fetchSavedTracks(),
+			]);
+			console.log("AuthContext: All initial data fetches completed");
+		} catch (error) {
+			console.error(
+				"AuthContext: Error in parallel data fetching:",
+				error
+			);
+		} finally {
+			// Ensure loading state is turned off regardless of success/failure
+			console.log(
+				"AuthContext: Setting global loading to false after parallel fetch"
+			);
+			setIsLoading(false);
 		}
 	};
 
