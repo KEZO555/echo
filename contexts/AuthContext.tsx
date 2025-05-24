@@ -519,8 +519,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 				if (accessToken) {
 					SpotifySdk.enableAutoConnect(true);
 
-					// Let auto-connect handle the connection instead of manual intervention
-					// Manual connection is only needed for critical operations like playback
+					// Proactively establish connection to prevent first-play issues
+					setTimeout(async () => {
+						console.log(
+							"AuthContext: Establishing App Remote connection after foreground return..."
+						);
+						await ensureAppRemoteConnection();
+					}, 200); // Slight delay to ensure lifecycle events are processed
 				}
 			} else if (
 				appState === "active" &&
