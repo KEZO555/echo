@@ -50,7 +50,7 @@ export default function PlaylistDetailScreen() {
 		id: string;
 		playlistString?: string;
 	}>();
-	const { accessToken, playTrack, makeApiRequest } = useAuth();
+	const { accessToken, playTrackWithContext, makeApiRequest } = useAuth();
 	const router = useRouter();
 
 	// Try to parse the passed playlist string for initial state
@@ -178,7 +178,10 @@ export default function PlaylistDetailScreen() {
 				key={`${track.id || "unknown"}-${index}`}
 				style={styles.trackItemContainer}
 				onPress={() => {
-					playTrack(track.uri, undefined, `spotify:playlist:${id}`);
+					playTrackWithContext(track.uri, {
+						type: "playlist",
+						uri: `spotify:playlist:${id}`,
+					});
 					router.push("/playing");
 				}}
 			>

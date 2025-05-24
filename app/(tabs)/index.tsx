@@ -27,7 +27,7 @@ export default function LikedSongsScreen() {
 		fetchMoreSavedTracks,
 		isLoadingMoreSavedTracks,
 		savedTracksNextUrl,
-		playTrack,
+		playTrackWithContext,
 	} = useAuth();
 	const router = useRouter();
 
@@ -41,38 +41,62 @@ export default function LikedSongsScreen() {
 		return artists.map((artist) => artist.name).join(", ");
 	};
 
-	const renderTrackItem = ({ item }: { item: SavedTrackObject }) => (
-		<HapticPressable
-			style={styles.itemContainer}
-			onPress={() => {
-				playTrack(
-					item.track.uri,
-					undefined,
-					`spotify:user:${user.id}:collection`
-				);
-				router.push("/playing");
-			}}
-		>
-			{item.track.album?.images && item.track.album.images.length > 0 ? (
-				<Image
-					source={{ uri: item.track.album.images[0].url }}
-					style={styles.trackImage}
-				/>
-			) : (
-				<View style={styles.placeholderImageContainer}>
-					<MaterialIcons name="music-note" size={24} color="white" />
+	const renderTrackItem = ({
+		item,
+		index,
+	}: {
+		item: SavedTrackObject;
+		index: number;
+	}) => {
+		// Safety check for null track
+		if (!item.track) {
+			console.warn("Track is null for item:", item);
+			return null;
+		}
+
+		return (
+			<HapticPressable
+				style={styles.itemContainer}
+				onPress={() => {
+					const collectionUri = user?.id
+						? `spotify:user:${user.id}:collection`
+						: undefined;
+
+					playTrackWithContext(item.track.uri, {
+						type: "liked",
+						uri: collectionUri,
+						tracks: savedTracks || [],
+						currentIndex: index,
+					});
+					router.push("/playing");
+				}}
+			>
+				{item.track.album?.images &&
+				item.track.album.images.length > 0 ? (
+					<Image
+						source={{ uri: item.track.album.images[0].url }}
+						style={styles.trackImage}
+					/>
+				) : (
+					<View style={styles.placeholderImageContainer}>
+						<MaterialIcons
+							name="music-note"
+							size={24}
+							color="white"
+						/>
+					</View>
+				)}
+				<View style={styles.textContainer}>
+					<StyledText style={styles.trackName} numberOfLines={1}>
+						{item.track.name}
+					</StyledText>
+					<StyledText style={styles.trackArtist} numberOfLines={1}>
+						{getArtistNames(item.track.artists)}
+					</StyledText>
 				</View>
-			)}
-			<View style={styles.textContainer}>
-				<StyledText style={styles.trackName} numberOfLines={1}>
-					{item.track.name}
-				</StyledText>
-				<StyledText style={styles.trackArtist} numberOfLines={1}>
-					{getArtistNames(item.track.artists)}
-				</StyledText>
-			</View>
-		</HapticPressable>
-	);
+			</HapticPressable>
+		);
+	};
 
 	// Show global loading indicator if initial data is loading and no tracks are yet available
 	if (isLoading && !savedTracks) {
@@ -111,9 +135,11 @@ export default function LikedSongsScreen() {
 
 	return (
 		<FlatList
-			data={savedTracks}
+			data={savedTracks?.filter((item) => item.track !== null) || []}
 			renderItem={renderTrackItem}
-			keyExtractor={(item) => `${item.added_at}-${item.track.id}`}
+			keyExtractor={(item) =>
+				`${item.added_at}-${item.track?.id || "unknown"}`
+			}
 			style={styles.list}
 			contentContainerStyle={styles.listContentContainer}
 			ItemSeparatorComponent={() => <View style={{ height: 8 }} />}

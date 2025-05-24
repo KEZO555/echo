@@ -24,7 +24,7 @@ export default function AlbumDetailScreen() {
 	}>();
 	const {
 		accessToken,
-		playTrack,
+		playTrackWithContext,
 		saveAlbum,
 		removeAlbum,
 		checkIfAlbumIsSaved,
@@ -199,7 +199,10 @@ export default function AlbumDetailScreen() {
 			key={track.id || index.toString()}
 			style={styles.trackItemContainer}
 			onPress={() => {
-				playTrack(track.uri, undefined, `spotify:album:${id}`);
+				playTrackWithContext(track.uri, {
+					type: "album",
+					uri: `spotify:album:${id}`,
+				});
 				router.push("/playing");
 			}}
 		>
