@@ -422,7 +422,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 				const connected = await SpotifySdk.isConnected();
 				if (connected) {
 					setIsConnectedToAppRemote(true);
-					// Removed verbose logging since this gets called frequently
 					return true;
 				}
 
@@ -430,7 +429,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 				setIsConnectedToAppRemote(false);
 
 				// Connect to App Remote
-				console.log("AuthContext: Connecting to Spotify App Remote...");
 				const connectionResult = await SpotifySdk.connect(
 					SPOTIFY_CLIENT_ID,
 					REDIRECT_URI
@@ -438,9 +436,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
 				if (connectionResult.connected) {
 					setIsConnectedToAppRemote(true);
-					console.log(
-						"AuthContext: Successfully connected to App Remote"
-					);
+					// Connection success is logged by native event handler
 
 					// Give the connection a moment to fully stabilize before returning
 					// This helps with fresh app loads where the connection might report as connected
@@ -449,9 +445,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
 					return true;
 				} else {
-					console.log(
-						"AuthContext: Failed to connect to App Remote - connectionResult.connected is false"
-					);
+					console.log("AuthContext: Failed to connect to App Remote");
 					return false;
 				}
 			} catch (error) {
@@ -466,7 +460,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
 	// More aggressive connection attempt for critical operations
 	const forceAppRemoteConnection = useCallback(async (): Promise<boolean> => {
-		console.log("AuthContext: Force connecting to App Remote...");
+		console.log("AuthContext: Attempting force connection...");
 
 		// First, try to disconnect cleanly (in case of stale connection)
 		try {
@@ -479,8 +473,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
 		// Try to connect multiple times
 		for (let i = 0; i < 3; i++) {
-			console.log(`AuthContext: Connection attempt ${i + 1}/3`);
-
 			try {
 				const connectionResult = await SpotifySdk.connect(
 					SPOTIFY_CLIENT_ID,
@@ -489,16 +481,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
 				if (connectionResult.connected) {
 					setIsConnectedToAppRemote(true);
-					console.log(
-						"AuthContext: Successfully force-connected to App Remote"
-					);
+					// Connection success is logged by native event handler
 					return true;
 				}
 			} catch (error) {
-				console.log(
-					`AuthContext: Connection attempt ${i + 1} failed:`,
-					error
-				);
+				console.log(`AuthContext: Connection attempt ${i + 1} failed`);
 			}
 
 			// Wait before retry (except for last attempt)
@@ -507,7 +494,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 			}
 		}
 
-		console.log("AuthContext: All connection attempts failed");
+		console.log("AuthContext: Force connection failed");
 		setIsConnectedToAppRemote(false);
 		return false;
 	}, []);
@@ -515,36 +502,24 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 	// Handle app state changes and native lifecycle events for connection management
 	useEffect(() => {
 		const handleAppStateChange = (nextAppState: AppStateStatus) => {
-			console.log(
-				`AuthContext: App state changed from ${appState} to ${nextAppState}`
-			);
-
 			if (
 				appState.match(/inactive|background/) &&
 				nextAppState === "active"
 			) {
 				console.log(
-					"AuthContext: App came to foreground - enabling auto-connect"
+					"AuthContext: App resumed - establishing connection"
 				);
 				// App came to foreground, enable auto-connect for proper lifecycle management
 				if (accessToken) {
 					SpotifySdk.enableAutoConnect(true);
 
-					// Proactively establish connection after coming to foreground
-					setTimeout(async () => {
-						console.log(
-							"AuthContext: Proactively establishing connection after foreground..."
-						);
-						await ensureAppRemoteConnection();
-					}, 200); // Slight delay to ensure lifecycle events are processed
+					// Let auto-connect handle the connection instead of manual intervention
+					// Manual connection is only needed for critical operations like playback
 				}
 			} else if (
 				appState === "active" &&
 				nextAppState.match(/inactive|background/)
 			) {
-				console.log(
-					"AuthContext: App going to background - auto-disconnect will be handled by native lifecycle"
-				);
 				// The native module will automatically disconnect when the activity goes to background
 				setIsConnectedToAppRemote(false);
 			}
@@ -554,20 +529,19 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
 		// Handle native lifecycle events
 		const handleNativeConnected = (event: any) => {
-			console.log("AuthContext: Native SDK connected:", event);
+			console.log("AuthContext: Connected to Spotify");
 			setIsConnectedToAppRemote(true);
 		};
 
 		const handleNativeDisconnected = (event: any) => {
-			console.log("AuthContext: Native SDK disconnected:", event);
+			console.log("AuthContext: Disconnected from Spotify");
 			setIsConnectedToAppRemote(false);
 		};
 
 		const handleActivityStopped = (event: any) => {
-			console.log("AuthContext: Activity stopped (background):", event);
 			if (event.skipDisconnect) {
 				console.log(
-					"AuthContext: Skipping connection state reset - authentication in progress"
+					"AuthContext: Auth in progress - maintaining connection"
 				);
 			} else {
 				setIsConnectedToAppRemote(false);
@@ -611,9 +585,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 			if (cachedPlaylists) {
 				const parsedPlaylists = JSON.parse(cachedPlaylists);
 				setPlaylists(parsedPlaylists);
-				console.log(
-					`AuthContext: Loaded ${parsedPlaylists.length} cached playlists`
-				);
 				hasAnyCache = true;
 			}
 
@@ -622,9 +593,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 			if (cachedAlbums) {
 				const parsedAlbums = JSON.parse(cachedAlbums);
 				setAlbums(parsedAlbums);
-				console.log(
-					`AuthContext: Loaded ${parsedAlbums.length} cached albums`
-				);
 				hasAnyCache = true;
 			}
 
@@ -635,21 +603,14 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 			if (cachedSavedTracks) {
 				const parsedTracks = JSON.parse(cachedSavedTracks);
 				setSavedTracks(parsedTracks);
-				console.log(
-					`AuthContext: Loaded ${parsedTracks.length} cached saved tracks`
-				);
 				hasAnyCache = true;
 			}
 
 			// Only log cache loading message if we actually found cached data
 			if (hasAnyCache) {
-				console.log(
-					"AuthContext: Cached data loaded for offline support"
-				);
+				console.log("AuthContext: Loaded cached data");
 			} else {
-				console.log(
-					"AuthContext: No cached data found - fresh install or cleared cache"
-				);
+				console.log("AuthContext: No cached data found");
 			}
 		} catch (error) {
 			console.error("AuthContext: Error loading cached data:", error);
@@ -668,26 +629,17 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 						PLAYLISTS_KEY,
 						JSON.stringify(playlistsData)
 					);
-					console.log(
-						`AuthContext: Cached ${playlistsData.length} playlists for offline use`
-					);
 				}
 				if (albumsData) {
 					await AsyncStorage.setItem(
 						ALBUMS_KEY,
 						JSON.stringify(albumsData)
 					);
-					console.log(
-						`AuthContext: Cached ${albumsData.length} albums for offline use`
-					);
 				}
 				if (tracksData) {
 					await AsyncStorage.setItem(
 						SAVED_TRACKS_KEY,
 						JSON.stringify(tracksData)
-					);
-					console.log(
-						`AuthContext: Cached ${tracksData.length} saved tracks for offline use`
 					);
 				}
 			} catch (error) {
@@ -744,79 +696,116 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 	);
 
 	const clearCachedData = useCallback(async () => {
-		console.log("AuthContext: Clearing cached data...");
 		try {
 			await AsyncStorage.removeItem(PLAYLISTS_KEY);
 			await AsyncStorage.removeItem(ALBUMS_KEY);
 			await AsyncStorage.removeItem(SAVED_TRACKS_KEY);
 			await AsyncStorage.removeItem(ALBUM_ART_CACHE_KEY);
-			console.log("AuthContext: Cached data cleared successfully");
+			console.log("AuthContext: Cache cleared");
 		} catch (error) {
-			console.error("AuthContext: Error clearing cached data:", error);
+			console.error("AuthContext: Error clearing cache:", error);
 		}
 	}, []);
 
 	// Remove the useAuthRequest hook as we'll use native authentication
+
 	useEffect(() => {
-		console.log(
-			"AuthContext: Using native Spotify SDK authentication with redirect URI:",
-			REDIRECT_URI
-		);
+		console.log("AuthContext: SDK initialized with redirect URI");
 	}, []);
 
-	// Function to refresh the access token - Updated for native SDK
+	// Function to refresh the access token - Using Web API refresh token endpoint
 	const refreshAccessToken = useCallback(
-		async (currentRefreshToken: string) => {
+		async (currentRefreshToken?: string) => {
 			console.log("AuthContext: Attempting to refresh access token...");
-			if (!currentRefreshToken) {
-				console.log(
-					"AuthContext: No refresh token available to refresh access token."
-				);
-				return false;
-			}
+
 			try {
-				// For native SDK, we'll need to check if the stored token is still valid
-				// and re-authenticate if needed. The native SDK handles token management internally.
+				// Strategy 1: Try to get fresh token from native SDK (silent refresh)
 				const isLoggedIn = await SpotifySdk.isUserLoggedIn();
 				if (isLoggedIn) {
 					const token = await SpotifySdk.getAccessToken();
-					if (token) {
+					if (token && token !== accessToken) {
+						console.log(
+							"AuthContext: Got fresh token from native SDK (silent refresh)"
+						);
 						setAccessToken(token);
 						await SecureStore.setItemAsync(AUTH_TOKEN_KEY, token);
-						// Set token expiry to 45 minutes from now
-						const expiryTime = Date.now() + 45 * 60 * 1000;
+
+						// Set token expiry to 50 minutes from now
+						const expiryTime = Date.now() + 50 * 60 * 1000;
 						setTokenExpiry(expiryTime);
 						await SecureStore.setItemAsync(
 							TOKEN_EXPIRY_KEY,
 							expiryTime.toString()
 						);
+
 						console.log(
-							"AuthContext: Access token refreshed successfully from native SDK."
+							"AuthContext: Access token refreshed successfully via silent refresh"
 						);
 						return true;
 					}
 				}
 
-				// If no valid token, clear everything and require re-authentication
+				// Strategy 2: Try background token refresh via native SDK (more aggressive)
 				console.log(
-					"AuthContext: No valid token from native SDK, clearing session."
+					"AuthContext: Attempting background token refresh via native SDK..."
 				);
-				await SpotifySdk.clearSession();
-				setAccessToken(null);
-				setRefreshToken(null);
-				setUser(null);
-				setTokenExpiry(null);
-				await SecureStore.deleteItemAsync(AUTH_TOKEN_KEY);
-				await SecureStore.deleteItemAsync(REFRESH_TOKEN_KEY);
-				await SecureStore.deleteItemAsync(USER_INFO_KEY);
-				await SecureStore.deleteItemAsync(TOKEN_EXPIRY_KEY);
-				return false;
+
+				// Force a new authentication request in the background (silent)
+				try {
+					const backgroundAuth = await SpotifySdk.authorizeWithToken(
+						SPOTIFY_CLIENT_ID,
+						REDIRECT_URI,
+						SPOTIFY_SCOPES,
+						undefined, // state
+						false // showDialog = false for silent refresh
+					);
+
+					if (
+						backgroundAuth.success &&
+						backgroundAuth.data?.accessToken
+					) {
+						const newToken = backgroundAuth.data.accessToken;
+						console.log(
+							"AuthContext: Successfully refreshed token via background auth"
+						);
+
+						setAccessToken(newToken);
+						await SecureStore.setItemAsync(
+							AUTH_TOKEN_KEY,
+							newToken
+						);
+
+						const expiryTime = Date.now() + 50 * 60 * 1000;
+						setTokenExpiry(expiryTime);
+						await SecureStore.setItemAsync(
+							TOKEN_EXPIRY_KEY,
+							expiryTime.toString()
+						);
+
+						return true;
+					}
+				} catch (backgroundAuthError) {
+					console.log(
+						"AuthContext: Background auth failed (expected):",
+						backgroundAuthError
+					);
+				}
+
+				// Strategy 3: If all silent methods fail, user needs to re-authenticate
+				console.log(
+					"AuthContext: Silent refresh failed - user needs to re-authenticate"
+				);
+				throw new Error("Re-authentication required");
 			} catch (error) {
 				console.error(
 					"AuthContext: Error during token refresh:",
 					error
 				);
-				// Clear tokens and user data
+
+				// Clear invalid tokens and require re-authentication
+				console.log(
+					"AuthContext: Clearing invalid session, user needs to re-authenticate"
+				);
 				await SpotifySdk.clearSession();
 				setAccessToken(null);
 				setRefreshToken(null);
@@ -829,8 +818,34 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 				return false;
 			}
 		},
-		[setAccessToken, setRefreshToken, setUser]
+		[accessToken, setAccessToken, setRefreshToken, setUser]
 	);
+
+	// Proactive token refresh system to minimize re-authentication
+	useEffect(() => {
+		if (!accessToken || !tokenExpiry) return;
+
+		const checkAndRefreshToken = async () => {
+			const timeUntilExpiry = tokenExpiry - Date.now();
+			const fifteenMinutes = 15 * 60 * 1000;
+
+			// If token expires in less than 15 minutes, try to refresh it proactively
+			if (timeUntilExpiry < fifteenMinutes && timeUntilExpiry > 0) {
+				console.log(
+					"AuthContext: Token expires soon, attempting proactive refresh..."
+				);
+				await refreshAccessToken();
+			}
+		};
+
+		// Check every 5 minutes
+		const interval = setInterval(checkAndRefreshToken, 5 * 60 * 1000);
+
+		// Also check immediately if token is close to expiry
+		checkAndRefreshToken();
+
+		return () => clearInterval(interval);
+	}, [accessToken, tokenExpiry, refreshAccessToken]);
 
 	const logout = useCallback(async () => {
 		// Don't logout during authentication
@@ -897,8 +912,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 					if (token) {
 						setAccessToken(token);
 						await SecureStore.setItemAsync(AUTH_TOKEN_KEY, token);
-						// Set token expiry to 45 minutes from now
-						const expiryTime = Date.now() + 45 * 60 * 1000;
+						// Set token expiry to 50 minutes from now
+						const expiryTime = Date.now() + 50 * 60 * 1000;
 						setTokenExpiry(expiryTime);
 						await SecureStore.setItemAsync(
 							TOKEN_EXPIRY_KEY,
@@ -924,9 +939,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 						setIsLoading(false); // Show UI with cached data immediately
 
 						// Fetch fresh data in background and update cache
-						console.log(
-							"AuthContext: Loading fresh data in background..."
-						);
 						await fetchUserInfo(token);
 						setHasInitiallyLoaded(true);
 						return;
@@ -949,8 +961,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
 				if (storedToken && storedExpiry) {
 					const expiryTime = parseInt(storedExpiry);
-					// If token is expired or will expire in next 5 minutes, refresh it
-					if (expiryTime > Date.now() + 5 * 60 * 1000) {
+					// If token is valid and not expiring soon (within 10 minutes), use it
+					if (expiryTime > Date.now() + 10 * 60 * 1000) {
 						setAccessToken(storedToken);
 						setTokenExpiry(expiryTime);
 						if (storedRefreshToken) {
@@ -965,9 +977,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 						setIsLoading(false); // Show UI with cached data
 
 						// Fetch fresh data in background
-						console.log(
-							"AuthContext: Loading fresh data in background..."
-						);
 						await _fetchInitialDataInParallel(storedToken);
 					} else if (storedRefreshToken && !isAuthenticating) {
 						// Token expired or about to expire, refresh it (but not during active authentication)
@@ -980,9 +989,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 					}
 				} else if (!isAuthenticating) {
 					// No stored auth on fresh install - just load any cached data and set logged out state
-					console.log(
-						"AuthContext: No stored authentication found - fresh install or cleared data"
-					);
 					await loadCachedData();
 					// Don't call logout() on fresh install - just ensure we're in logged out state
 					setAccessToken(null);
@@ -1032,6 +1038,28 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 			isRefreshing = false,
 			retryCount = 0
 		): Promise<any | null> => {
+			// Check if token is about to expire (within 5 minutes) and refresh proactively
+			if (
+				accessToken &&
+				tokenExpiry &&
+				refreshToken &&
+				retryCount === 0
+			) {
+				const timeUntilExpiry = tokenExpiry - Date.now();
+				if (timeUntilExpiry < 5 * 60 * 1000) {
+					// Less than 5 minutes
+					console.log(
+						"AuthContext: Token expires soon, refreshing proactively..."
+					);
+					const refreshed = await refreshAccessToken(refreshToken);
+					if (!refreshed) {
+						console.log(
+							"AuthContext: Proactive refresh failed, proceeding with current token"
+						);
+					}
+				}
+			}
+
 			if (!accessToken) {
 				console.error("No access token available for API request.");
 				if (refreshToken) {
@@ -1307,11 +1335,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 			contextUri?: string // Context URI for playlists/albums
 		) => {
 			console.log(
-				`AuthContext: Playing track with hybrid approach: ${trackUri}`,
-				{
-					contextUri,
-					hasContext: !!contextUri,
-				}
+				`AuthContext: Playing track: ${trackUri.split(":").pop()}`
 			);
 
 			try {
@@ -1320,25 +1344,16 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
 				// If connection failed, try one more time (important for offline scenarios)
 				if (!connected) {
-					console.log(
-						"AuthContext: First connection attempt failed, retrying..."
-					);
 					await new Promise((resolve) => setTimeout(resolve, 1000)); // Wait 1 second
 					connected = await ensureAppRemoteConnection();
 				}
 
 				// If still not connected, try force connection as last resort
 				if (!connected) {
-					console.log(
-						"AuthContext: Normal connection failed, trying force connection..."
-					);
 					connected = await forceAppRemoteConnection();
 
 					// For fresh app loads, give extra time for the forced connection to stabilize
 					if (connected) {
-						console.log(
-							"AuthContext: Force connection succeeded, allowing stabilization time..."
-						);
 						await new Promise((resolve) =>
 							setTimeout(resolve, 500)
 						);
@@ -1347,17 +1362,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
 				if (!connected) {
 					console.error(
-						"AuthContext: Cannot play - App Remote not connected after all attempts"
+						"AuthContext: Cannot play - not connected to Spotify"
 					);
 					return;
 				}
 
 				// HYBRID APPROACH: Use Web API for context, Native SDK for control
 				if (contextUri && accessToken) {
-					console.log(
-						`AuthContext: Using hybrid approach - Web API for context: ${contextUri}`
-					);
-
 					try {
 						// Method 1: Use Web API to set context and start from specific track
 						const response = await fetch(
@@ -1378,10 +1389,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 						);
 
 						if (response.ok) {
-							console.log(
-								"AuthContext: Successfully set context via Web API, now using Native SDK"
-							);
-
 							// Wait a moment for Spotify to process the context
 							await new Promise((resolve) =>
 								setTimeout(resolve, 500)
@@ -1392,18 +1399,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
 							if (playResult.playing) {
 								console.log(
-									"AuthContext: Hybrid playback started successfully"
-								);
-							} else {
-								console.log(
-									"AuthContext: Context set via Web API, Native SDK play may be redundant"
+									"AuthContext: Playback started with context"
 								);
 							}
 							return;
 						} else {
-							console.log(
-								"AuthContext: Web API context failed, falling back to Native SDK only"
-							);
 							throw new Error("Web API context failed");
 						}
 					} catch (webApiError: any) {
@@ -1575,7 +1575,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 		}
 	};
 
-	// --- Authentication Flow - Updated for Native SDK ---
+	// --- Authentication Flow - Using TOKEN flow (recommended for mobile apps) ---
 	const login = useCallback(async () => {
 		if (isAuthenticating) {
 			console.log(
@@ -1587,26 +1587,22 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 		setIsAuthenticating(true);
 		setIsLoading(true);
 		try {
-			console.log(
-				"AuthContext: Starting native Spotify authentication..."
-			);
+			console.log("AuthContext: Starting authentication...");
 
-			// Use native SDK token-based authorization (recommended for mobile)
+			// Use TOKEN flow (works without client secret) but implement smarter session management
 			const authResult = await SpotifySdk.authorizeWithToken(
 				SPOTIFY_CLIENT_ID,
 				REDIRECT_URI,
 				SPOTIFY_SCOPES
 			);
 
-			console.log("AuthContext: Authentication result:", authResult);
-
 			if (authResult.success && authResult.data?.accessToken) {
 				const accessToken = authResult.data.accessToken;
 				setAccessToken(accessToken);
 				await SecureStore.setItemAsync(AUTH_TOKEN_KEY, accessToken);
 
-				// Set token expiry - native SDK handles expiry internally, use default 45 minutes
-				const expiryTime = Date.now() + 45 * 60 * 1000; // 45 minutes default
+				// Set token expiry to 50 minutes from now (be more conservative about expiry)
+				const expiryTime = Date.now() + 50 * 60 * 1000;
 				setTokenExpiry(expiryTime);
 				await SecureStore.setItemAsync(
 					TOKEN_EXPIRY_KEY,
@@ -1617,16 +1613,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 				await new Promise((resolve) => setTimeout(resolve, 500));
 
 				// Enable auto-connect for proper lifecycle management
-				console.log(
-					"AuthContext: Successfully authenticated, enabling auto-connect"
-				);
 				SpotifySdk.enableAutoConnect(true);
 
-				// Native SDK handles refresh tokens internally, so we don't need to store them
-				console.log(
-					"AuthContext: Successfully authenticated with native SDK"
-				);
-
+				console.log("AuthContext: Authentication successful");
 				// Fetch user info after successful authentication
 				await fetchUserInfo(accessToken);
 			} else {
@@ -2003,7 +1992,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 	};
 
 	const fetchUserInfo = async (token: string) => {
-		console.log("AuthContext: Fetching user info...");
 		try {
 			const response = await fetch("https://api.spotify.com/v1/me", {
 				headers: { Authorization: `Bearer ${token}` },
@@ -2053,7 +2041,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 	};
 
 	const _fetchInitialDataInParallel = async (token: string) => {
-		console.log("AuthContext: Fetching initial data in parallel...");
+		console.log("AuthContext: Loading user data...");
 
 		const fetchPlaylists = async () => {
 			try {
@@ -2072,9 +2060,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 				setPlaylists(data.items);
 				setPlaylistsNextUrl(data.next);
 				await saveCachedData(data.items, undefined, undefined);
-				console.log(
-					`AuthContext: Fetched and cached ${data.items.length} playlists`
-				);
 			} catch (e: any) {
 				console.error(
 					"AuthContext: Error fetching playlists:",
@@ -2102,9 +2087,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 				setAlbums(data.items);
 				setAlbumsNextUrl(data.next);
 				await saveCachedData(undefined, data.items, undefined);
-				console.log(
-					`AuthContext: Fetched and cached ${data.items.length} albums`
-				);
 			} catch (e: any) {
 				console.error("AuthContext: Error fetching albums:", e.message);
 				setAlbums(null);
@@ -2129,9 +2111,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 				setSavedTracks(data.items);
 				setSavedTracksNextUrl(data.next);
 				await saveCachedData(undefined, undefined, data.items);
-				console.log(
-					`AuthContext: Fetched and cached ${data.items.length} saved tracks`
-				);
 			} catch (e: any) {
 				console.error(
 					"AuthContext: Error fetching saved tracks:",
@@ -2149,7 +2128,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 				fetchAlbums(),
 				fetchSavedTracks(),
 			]);
-			console.log("AuthContext: All initial data fetches completed");
+			console.log("AuthContext: Data loaded successfully");
 		} catch (error) {
 			console.error(
 				"AuthContext: Error in parallel data fetching:",
@@ -2157,9 +2136,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 			);
 		} finally {
 			// Ensure loading state is turned off regardless of success/failure
-			console.log(
-				"AuthContext: Setting global loading to false after parallel fetch"
-			);
 			setIsLoading(false);
 		}
 	};
