@@ -356,6 +356,12 @@ interface AuthContextType {
 	) => Promise<SpotifySearchResults | null>;
 	clearCachedData: () => Promise<void>;
 	forceAppRemoteConnection: () => Promise<boolean>;
+	makeApiRequest: (
+		url: string,
+		errorMessage: string,
+		isRefreshing?: boolean,
+		retryCount?: number
+	) => Promise<any | null>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -719,83 +725,77 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 			console.log("AuthContext: Attempting to refresh access token...");
 
 			try {
-				// Strategy 1: Try to get fresh token from native SDK (silent refresh)
-				const isLoggedIn = await SpotifySdk.isUserLoggedIn();
-				if (isLoggedIn) {
-					const token = await SpotifySdk.getAccessToken();
-					if (token && token !== accessToken) {
-						console.log(
-							"AuthContext: Got fresh token from native SDK (silent refresh)"
-						);
-						setAccessToken(token);
-						await SecureStore.setItemAsync(AUTH_TOKEN_KEY, token);
-
-						// Set token expiry to 50 minutes from now
-						const expiryTime = Date.now() + 50 * 60 * 1000;
-						setTokenExpiry(expiryTime);
-						await SecureStore.setItemAsync(
-							TOKEN_EXPIRY_KEY,
-							expiryTime.toString()
-						);
-
-						console.log(
-							"AuthContext: Access token refreshed successfully via silent refresh"
-						);
-						return true;
-					}
+				const tokenToUse = currentRefreshToken || refreshToken;
+				if (!tokenToUse) {
+					console.log("AuthContext: No refresh token available");
+					throw new Error("No refresh token available");
 				}
 
-				// Strategy 2: Try background token refresh via native SDK (more aggressive)
 				console.log(
-					"AuthContext: Attempting background token refresh via native SDK..."
+					"AuthContext: Using Web API token refresh endpoint..."
 				);
 
-				// Force a new authentication request in the background (silent)
-				try {
-					const backgroundAuth = await SpotifySdk.authorizeWithToken(
-						SPOTIFY_CLIENT_ID,
-						REDIRECT_URI,
-						SPOTIFY_SCOPES,
-						undefined, // state
-						false // showDialog = false for silent refresh
-					);
-
-					if (
-						backgroundAuth.success &&
-						backgroundAuth.data?.accessToken
-					) {
-						const newToken = backgroundAuth.data.accessToken;
-						console.log(
-							"AuthContext: Successfully refreshed token via background auth"
-						);
-
-						setAccessToken(newToken);
-						await SecureStore.setItemAsync(
-							AUTH_TOKEN_KEY,
-							newToken
-						);
-
-						const expiryTime = Date.now() + 50 * 60 * 1000;
-						setTokenExpiry(expiryTime);
-						await SecureStore.setItemAsync(
-							TOKEN_EXPIRY_KEY,
-							expiryTime.toString()
-						);
-
-						return true;
+				const response = await fetch(
+					"https://accounts.spotify.com/api/token",
+					{
+						method: "POST",
+						headers: {
+							"Content-Type": "application/x-www-form-urlencoded",
+						},
+						body: `grant_type=refresh_token&refresh_token=${encodeURIComponent(
+							tokenToUse
+						)}&client_id=${SPOTIFY_CLIENT_ID}`,
 					}
-				} catch (backgroundAuthError) {
-					console.log(
-						"AuthContext: Background auth failed (expected):",
-						backgroundAuthError
+				);
+
+				if (!response.ok) {
+					const errorData = await response.json();
+					console.error(
+						"AuthContext: Token refresh failed:",
+						errorData
+					);
+					throw new Error(
+						`Token refresh failed: ${response.status} ${
+							errorData.error_description || errorData.error
+						}`
 					);
 				}
 
-				// Strategy 3: If all silent methods fail, user needs to re-authenticate
+				const data = await response.json();
+
+				if (!data.access_token) {
+					throw new Error("No access token in refresh response");
+				}
+
 				console.log(
-					"AuthContext: Silent refresh failed - user needs to re-authenticate"
+					"AuthContext: Access token refreshed successfully via Web API"
 				);
-				throw new Error("Re-authentication required");
+
+				// Update tokens
+				setAccessToken(data.access_token);
+				await SecureStore.setItemAsync(
+					AUTH_TOKEN_KEY,
+					data.access_token
+				);
+
+				// Update refresh token if a new one was provided
+				if (data.refresh_token) {
+					setRefreshToken(data.refresh_token);
+					await SecureStore.setItemAsync(
+						REFRESH_TOKEN_KEY,
+						data.refresh_token
+					);
+				}
+
+				// Set token expiry based on expires_in from response
+				const expiryTime = Date.now() + data.expires_in * 1000;
+				setTokenExpiry(expiryTime);
+				await SecureStore.setItemAsync(
+					TOKEN_EXPIRY_KEY,
+					expiryTime.toString()
+				);
+
+				return true;
 			} catch (error) {
 				console.error(
 					"AuthContext: Error during token refresh:",
@@ -818,7 +818,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 				return false;
 			}
 		},
-		[accessToken, setAccessToken, setRefreshToken, setUser]
+		[accessToken, refreshToken, setAccessToken, setRefreshToken, setUser]
 	);
 
 	// Proactive token refresh system to minimize re-authentication
@@ -2773,6 +2773,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 		searchItems,
 		clearCachedData,
 		forceAppRemoteConnection,
+		makeApiRequest,
 	};
 
 	return (

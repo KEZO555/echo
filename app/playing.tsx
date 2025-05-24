@@ -29,7 +29,7 @@ const formatTime = (ms: number | null | undefined): string => {
 
 export default function PlayingScreen() {
 	const {
-		accessToken, // Add accessToken
+		accessToken,
 		getPlaybackState,
 		startPlayback,
 		pausePlayback,
@@ -37,19 +37,20 @@ export default function PlayingScreen() {
 		skipToPrevious,
 		toggleShuffle,
 		toggleRepeat,
-		seekToPosition, // Added seekToPosition
-		refreshSavedTracksFromCache, // Add this function
+		seekToPosition,
+		refreshSavedTracksFromCache,
+		makeApiRequest,
 	} = useAuth();
 	const [playbackState, setPlaybackState] =
 		useState<SpotifyCurrentlyPlaying | null>(null);
 	const [isLoading, setIsLoading] = useState(true);
-	const [isCurrentTrackSaved, setIsCurrentTrackSaved] = useState(false); // New state
+	const [isCurrentTrackSaved, setIsCurrentTrackSaved] = useState(false);
 	const [currentTrackIdChecked, setCurrentTrackIdChecked] = useState<
 		string | null
 	>(null);
 
 	const progress = useRef(new Animated.Value(0)).current;
-	const progressBarWidthRef = useRef(0); // To store the width of the progress bar
+	const progressBarWidthRef = useRef<number | null>(null);
 
 	const checkIfTrackIsSaved = async (trackId: string) => {
 		if (!trackId) return;
@@ -86,27 +87,15 @@ export default function PlayingScreen() {
 		}
 
 		try {
-			const response = await fetch(
+			const data = await makeApiRequest(
 				`https://api.spotify.com/v1/me/tracks/contains?ids=${trackId}`,
-				{
-					headers: {
-						Authorization: `Bearer ${accessToken}`,
-					},
-				}
+				"Track saved status check"
 			);
-			if (!response.ok) {
-				// Don't throw an error that stops other UI updates, just log it
-				console.error(
-					"Failed to check if track is saved",
-					await response.json()
-				);
-				setIsCurrentTrackSaved(false); // Assume not saved if check fails
-				return;
-			}
-			const data: boolean[] = await response.json();
 			if (data && data.length > 0) {
 				setIsCurrentTrackSaved(data[0]);
 				console.log(`Track ${trackId} API check - saved: ${data[0]}`);
+			} else {
+				setIsCurrentTrackSaved(false);
 			}
 		} catch (error) {
 			// Network error (likely offline) - gracefully handle
@@ -263,6 +252,7 @@ export default function PlayingScreen() {
 		const url = `https://api.spotify.com/v1/me/tracks?ids=${trackId}`;
 
 		try {
+			// Use makeApiRequest with custom method
 			const response = await fetch(url, {
 				method,
 				headers: {

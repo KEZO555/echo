@@ -50,20 +50,20 @@ export default function PlaylistDetailScreen() {
 		id: string;
 		playlistString?: string;
 	}>();
-	const { accessToken, playTrack } = useAuth();
+	const { accessToken, playTrack, makeApiRequest } = useAuth();
 	const router = useRouter();
 
+	// Try to parse the passed playlist string for initial state
 	const initialPlaylist = playlistString
-		? (JSON.parse(playlistString) as SpotifyPlaylistFull)
+		? (JSON.parse(playlistString) as SpotifyPlaylist)
 		: null;
 
-	const [playlist, setPlaylist] = useState<SpotifyPlaylistFull | null>(
-		initialPlaylist
-	);
+	const [playlist, setPlaylist] = useState<SpotifyPlaylistFull | null>(null);
 	const [isLoading, setIsLoading] = useState(!initialPlaylist);
 	const [error, setError] = useState<string | null>(null);
 	const [isLoadingMoreTracks, setIsLoadingMoreTracks] = useState(false);
 
+	// Helper function to format milliseconds to MM:SS
 	const formatDuration = (ms: number) => {
 		const totalSeconds = Math.floor(ms / 1000);
 		const minutes = Math.floor(totalSeconds / 60);
@@ -72,10 +72,9 @@ export default function PlaylistDetailScreen() {
 	};
 
 	useEffect(() => {
-		if (!id || !accessToken) {
+		if (!id) {
 			setIsLoading(false);
-			if (!id) setError("Playlist ID is missing.");
-			if (!accessToken) setError("Access token is missing.");
+			setError("Playlist ID is missing.");
 			return;
 		}
 
@@ -85,24 +84,15 @@ export default function PlaylistDetailScreen() {
 			}
 			setError(null);
 			try {
-				const response = await fetch(
+				const data = await makeApiRequest(
 					`https://api.spotify.com/v1/playlists/${id}`,
-					{
-						headers: {
-							Authorization: `Bearer ${accessToken}`,
-						},
-					}
+					"Playlist details"
 				);
-				if (!response.ok) {
-					const errorData = await response.json();
-					throw new Error(
-						`Failed to fetch playlist details: ${response.status} ${
-							errorData?.error?.message || ""
-						}`
-					);
+				if (data) {
+					setPlaylist(data);
+				} else {
+					throw new Error("Failed to fetch playlist details");
 				}
-				const data: SpotifyPlaylistFull = await response.json();
-				setPlaylist(data);
 			} catch (e: any) {
 				console.error(e);
 				setError(e.message || "An unexpected error occurred.");
@@ -112,44 +102,41 @@ export default function PlaylistDetailScreen() {
 		};
 
 		fetchPlaylistDetails();
-	}, [id, accessToken]);
+	}, [id, makeApiRequest]);
 
 	const loadMoreTracks = useCallback(async () => {
-		if (!playlist?.tracks?.next || isLoadingMoreTracks || !accessToken) {
+		if (!playlist?.tracks?.next || isLoadingMoreTracks) {
 			return;
 		}
 		setIsLoadingMoreTracks(true);
 		try {
-			const response = await fetch(playlist.tracks.next, {
-				headers: { Authorization: `Bearer ${accessToken}` },
-			});
-			if (!response.ok) {
-				const errorData = await response.json();
-				throw new Error(
-					`Failed to fetch more tracks: ${response.status} ${
-						errorData?.error?.message || ""
-					}`
-				);
+			const data = await makeApiRequest(
+				playlist.tracks.next,
+				"More playlist tracks"
+			);
+			if (data) {
+				setPlaylist((prevPlaylist) => {
+					if (!prevPlaylist || !prevPlaylist.tracks)
+						return prevPlaylist;
+					return {
+						...prevPlaylist,
+						tracks: {
+							...prevPlaylist.tracks,
+							items: [
+								...prevPlaylist.tracks.items,
+								...data.items,
+							],
+							next: data.next,
+						},
+					};
+				});
 			}
-			// The response for playlist tracks is directly the paginated track object
-			const data = await response.json();
-			setPlaylist((prevPlaylist) => {
-				if (!prevPlaylist || !prevPlaylist.tracks) return prevPlaylist;
-				return {
-					...prevPlaylist,
-					tracks: {
-						...prevPlaylist.tracks,
-						items: [...prevPlaylist.tracks.items, ...data.items],
-						next: data.next,
-					},
-				};
-			});
 		} catch (e: any) {
 			console.error("Error fetching more playlist tracks:", e);
 		} finally {
 			setIsLoadingMoreTracks(false);
 		}
-	}, [playlist, isLoadingMoreTracks, accessToken]);
+	}, [playlist, isLoadingMoreTracks, makeApiRequest]);
 
 	if (isLoading && !playlist) {
 		return <View style={styles.centeredMessageContainer}></View>;

@@ -28,6 +28,7 @@ export default function AlbumDetailScreen() {
 		saveAlbum,
 		removeAlbum,
 		checkIfAlbumIsSaved,
+		makeApiRequest,
 	} = useAuth();
 	const router = useRouter();
 
@@ -90,10 +91,9 @@ export default function AlbumDetailScreen() {
 	}, [id, isAlbumSaved, saveAlbum, removeAlbum]);
 
 	useEffect(() => {
-		if (!id || !accessToken) {
+		if (!id) {
 			setIsLoading(false);
-			if (!id) setError("Album ID is missing.");
-			if (!accessToken) setError("Access token is missing."); // Should not happen if routed from authenticated state
+			setError("Album ID is missing.");
 			return;
 		}
 
@@ -105,24 +105,15 @@ export default function AlbumDetailScreen() {
 			}
 			setError(null);
 			try {
-				const response = await fetch(
+				const data = await makeApiRequest(
 					`https://api.spotify.com/v1/albums/${id}`,
-					{
-						headers: {
-							Authorization: `Bearer ${accessToken}`,
-						},
-					}
+					"Album details"
 				);
-				if (!response.ok) {
-					const errorData = await response.json();
-					throw new Error(
-						`Failed to fetch album details: ${response.status} ${
-							errorData?.error?.message || ""
-						}`
-					);
+				if (data) {
+					setAlbum(data);
+				} else {
+					throw new Error("Failed to fetch album details");
 				}
-				const data: SpotifyAlbum = await response.json();
-				setAlbum(data);
 			} catch (e: any) {
 				console.error(e);
 				setError(e.message || "An unexpected error occurred.");
@@ -132,7 +123,7 @@ export default function AlbumDetailScreen() {
 		};
 
 		fetchAlbumDetails();
-	}, [id, accessToken]);
+	}, [id, makeApiRequest]);
 
 	// Check if album is saved when component mounts or album changes
 	useEffect(() => {
@@ -142,41 +133,35 @@ export default function AlbumDetailScreen() {
 	}, [id, accessToken, checkAlbumSavedStatus]);
 
 	const loadMoreTracks = useCallback(async () => {
-		if (!album?.tracks?.next || isLoadingMoreTracks || !accessToken) {
+		if (!album?.tracks?.next || isLoadingMoreTracks) {
 			return;
 		}
 		setIsLoadingMoreTracks(true);
 		try {
-			const response = await fetch(album.tracks.next, {
-				headers: { Authorization: `Bearer ${accessToken}` },
-			});
-			if (!response.ok) {
-				const errorData = await response.json();
-				throw new Error(
-					`Failed to fetch more tracks: ${response.status} ${
-						errorData?.error?.message || ""
-					}`
-				);
+			const data = await makeApiRequest(
+				album.tracks.next,
+				"More album tracks"
+			);
+			if (data) {
+				setAlbum((prevAlbum) => {
+					if (!prevAlbum || !prevAlbum.tracks) return prevAlbum;
+					return {
+						...prevAlbum,
+						tracks: {
+							...prevAlbum.tracks,
+							items: [...prevAlbum.tracks.items, ...data.items],
+							next: data.next,
+						},
+					};
+				});
 			}
-			const data = await response.json(); // Should be of type SpotifyAlbumTracks
-			setAlbum((prevAlbum) => {
-				if (!prevAlbum || !prevAlbum.tracks) return prevAlbum;
-				return {
-					...prevAlbum,
-					tracks: {
-						...prevAlbum.tracks,
-						items: [...prevAlbum.tracks.items, ...data.items],
-						next: data.next,
-					},
-				};
-			});
 		} catch (e: any) {
 			console.error("Error fetching more album tracks:", e);
 			// Optionally set an error state for more tracks loading
 		} finally {
 			setIsLoadingMoreTracks(false);
 		}
-	}, [album, isLoadingMoreTracks, accessToken]);
+	}, [album, isLoadingMoreTracks, makeApiRequest]);
 
 	if (isLoading && !album) {
 		return <View style={styles.centeredMessageContainer}></View>;
