@@ -22,7 +22,14 @@ export default function AlbumDetailScreen() {
 		id: string;
 		albumString?: string;
 	}>();
-	const { accessToken, playTrack } = useAuth();
+	const {
+		accessToken,
+		playTrackWithContext,
+		saveAlbum,
+		removeAlbum,
+		checkIfAlbumIsSaved,
+		makeApiRequest,
+	} = useAuth();
 	const router = useRouter();
 
 	// Try to parse the passed album string for initial state
@@ -35,6 +42,8 @@ export default function AlbumDetailScreen() {
 	const [isLoading, setIsLoading] = useState(!initialAlbum);
 	const [error, setError] = useState<string | null>(null);
 	const [isLoadingMoreTracks, setIsLoadingMoreTracks] = useState(false);
+	const [isAlbumSaved, setIsAlbumSaved] = useState(false);
+	const [isCheckingAlbumSaved, setIsCheckingAlbumSaved] = useState(false);
 
 	// Helper function to format milliseconds to MM:SS
 	const formatDuration = (ms: number) => {
@@ -44,11 +53,47 @@ export default function AlbumDetailScreen() {
 		return `${minutes}:${seconds < 10 ? "0" : ""}${seconds}`;
 	};
 
+	// Check if album is saved
+	const checkAlbumSavedStatus = useCallback(async () => {
+		if (!id) return;
+
+		setIsCheckingAlbumSaved(true);
+		try {
+			const isSaved = await checkIfAlbumIsSaved(id);
+			setIsAlbumSaved(isSaved);
+		} catch (error) {
+			console.error("Error checking if album is saved:", error);
+			setIsAlbumSaved(false);
+		} finally {
+			setIsCheckingAlbumSaved(false);
+		}
+	}, [id, checkIfAlbumIsSaved]);
+
+	// Toggle album save status
+	const handleToggleAlbumSave = useCallback(async () => {
+		if (!id) return;
+
+		try {
+			if (isAlbumSaved) {
+				const success = await removeAlbum(id);
+				if (success) {
+					setIsAlbumSaved(false);
+				}
+			} else {
+				const success = await saveAlbum(id);
+				if (success) {
+					setIsAlbumSaved(true);
+				}
+			}
+		} catch (error) {
+			console.error("Error toggling album save status:", error);
+		}
+	}, [id, isAlbumSaved, saveAlbum, removeAlbum]);
+
 	useEffect(() => {
-		if (!id || !accessToken) {
+		if (!id) {
 			setIsLoading(false);
-			if (!id) setError("Album ID is missing.");
-			if (!accessToken) setError("Access token is missing."); // Should not happen if routed from authenticated state
+			setError("Album ID is missing.");
 			return;
 		}
 
@@ -60,24 +105,15 @@ export default function AlbumDetailScreen() {
 			}
 			setError(null);
 			try {
-				const response = await fetch(
+				const data = await makeApiRequest(
 					`https://api.spotify.com/v1/albums/${id}`,
-					{
-						headers: {
-							Authorization: `Bearer ${accessToken}`,
-						},
-					}
+					"Album details"
 				);
-				if (!response.ok) {
-					const errorData = await response.json();
-					throw new Error(
-						`Failed to fetch album details: ${response.status} ${
-							errorData?.error?.message || ""
-						}`
-					);
+				if (data) {
+					setAlbum(data);
+				} else {
+					throw new Error("Failed to fetch album details");
 				}
-				const data: SpotifyAlbum = await response.json();
-				setAlbum(data);
 			} catch (e: any) {
 				console.error(e);
 				setError(e.message || "An unexpected error occurred.");
@@ -87,44 +123,45 @@ export default function AlbumDetailScreen() {
 		};
 
 		fetchAlbumDetails();
-	}, [id, accessToken]);
+	}, [id, makeApiRequest]);
+
+	// Check if album is saved when component mounts or album changes
+	useEffect(() => {
+		if (id && accessToken) {
+			checkAlbumSavedStatus();
+		}
+	}, [id, accessToken, checkAlbumSavedStatus]);
 
 	const loadMoreTracks = useCallback(async () => {
-		if (!album?.tracks?.next || isLoadingMoreTracks || !accessToken) {
+		if (!album?.tracks?.next || isLoadingMoreTracks) {
 			return;
 		}
 		setIsLoadingMoreTracks(true);
 		try {
-			const response = await fetch(album.tracks.next, {
-				headers: { Authorization: `Bearer ${accessToken}` },
-			});
-			if (!response.ok) {
-				const errorData = await response.json();
-				throw new Error(
-					`Failed to fetch more tracks: ${response.status} ${
-						errorData?.error?.message || ""
-					}`
-				);
+			const data = await makeApiRequest(
+				album.tracks.next,
+				"More album tracks"
+			);
+			if (data) {
+				setAlbum((prevAlbum) => {
+					if (!prevAlbum || !prevAlbum.tracks) return prevAlbum;
+					return {
+						...prevAlbum,
+						tracks: {
+							...prevAlbum.tracks,
+							items: [...prevAlbum.tracks.items, ...data.items],
+							next: data.next,
+						},
+					};
+				});
 			}
-			const data = await response.json(); // Should be of type SpotifyAlbumTracks
-			setAlbum((prevAlbum) => {
-				if (!prevAlbum || !prevAlbum.tracks) return prevAlbum;
-				return {
-					...prevAlbum,
-					tracks: {
-						...prevAlbum.tracks,
-						items: [...prevAlbum.tracks.items, ...data.items],
-						next: data.next,
-					},
-				};
-			});
 		} catch (e: any) {
 			console.error("Error fetching more album tracks:", e);
 			// Optionally set an error state for more tracks loading
 		} finally {
 			setIsLoadingMoreTracks(false);
 		}
-	}, [album, isLoadingMoreTracks, accessToken]);
+	}, [album, isLoadingMoreTracks, makeApiRequest]);
 
 	if (isLoading && !album) {
 		return <View style={styles.centeredMessageContainer}></View>;
@@ -162,7 +199,10 @@ export default function AlbumDetailScreen() {
 			key={track.id || index.toString()}
 			style={styles.trackItemContainer}
 			onPress={() => {
-				playTrack(track.uri, undefined, `spotify:album:${id}`);
+				playTrackWithContext(track.uri, {
+					type: "album",
+					uri: `spotify:album:${id}`,
+				});
 				router.push("/playing");
 			}}
 		>
@@ -196,7 +236,13 @@ export default function AlbumDetailScreen() {
 
 	return (
 		<View style={styles.container}>
-			<ItemHeader headerTitle={album.name} artist={artistNames} />
+			<ItemHeader
+				headerTitle={album.name}
+				artist={artistNames}
+				iconName={isAlbumSaved ? "remove" : "add"}
+				onIconPress={handleToggleAlbumSave}
+				iconShowLength={isCheckingAlbumSaved ? 0 : 1}
+			/>
 			<FlatList
 				ListHeaderComponent={
 					<>

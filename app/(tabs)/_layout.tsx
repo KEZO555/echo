@@ -81,6 +81,10 @@ export default function TabLayout() {
 												headerTitle={tab.name}
 												leftIconName={refreshIconName}
 												leftOnIconPress={onRefresh}
+												hideWaveformButton={
+													tab.screenName ===
+													"settings"
+												}
 											/>
 									  ),
 							href: `/${tab.screenName}` as any,

@@ -19,7 +19,6 @@ export default function SettingsScreen() {
 	return (
 		<View style={styles.container}>
 			<View style={styles.content}>
-				<StyledButton text="Equaliser" />
 				<StyledButton text="Logout" onPress={handleLogout} />
 			</View>
 		</View>

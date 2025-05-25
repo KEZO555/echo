@@ -1,15 +1,15 @@
 import React, { useEffect } from "react";
 import {
-    View,
-    StyleSheet,
-    FlatList,
-    Image,
-    ActivityIndicator,
+	View,
+	StyleSheet,
+	FlatList,
+	Image,
+	ActivityIndicator,
 } from "react-native";
 import {
-    useAuth,
-    SavedTrackObject,
-    SpotifyArtistSimple,
+	useAuth,
+	SavedTrackObject,
+	SpotifyArtistSimple,
 } from "@/contexts/AuthContext";
 import { HapticPressable } from "@/components/HapticPressable";
 import { StyledText } from "@/components/StyledText";
@@ -17,171 +17,197 @@ import { MaterialIcons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 
 export default function LikedSongsScreen() {
-    const {
-        savedTracks,
-        isLoading,
-        accessToken,
-        fetchSavedTracks,
-        user,
-        isRefreshingSavedTracks,
-        fetchMoreSavedTracks,
-        isLoadingMoreSavedTracks,
-        savedTracksNextUrl,
-        playTrack,
-    } = useAuth();
-    const router = useRouter();
+	const {
+		savedTracks,
+		isLoading,
+		accessToken,
+		fetchSavedTracks,
+		user,
+		isRefreshingSavedTracks,
+		fetchMoreSavedTracks,
+		isLoadingMoreSavedTracks,
+		savedTracksNextUrl,
+		playTrackWithContext,
+	} = useAuth();
+	const router = useRouter();
 
-    useEffect(() => {
-        if (accessToken && user && !savedTracks && !isLoading) {
-            fetchSavedTracks();
-        }
-    }, [accessToken, user, savedTracks, fetchSavedTracks, isLoading]);
+	useEffect(() => {
+		if (accessToken && user && !savedTracks && !isLoading) {
+			fetchSavedTracks();
+		}
+	}, [accessToken, user, savedTracks, fetchSavedTracks, isLoading]);
 
-    const getArtistNames = (artists: SpotifyArtistSimple[]) => {
-        return artists.map((artist) => artist.name).join(", ");
-    };
+	const getArtistNames = (artists: SpotifyArtistSimple[]) => {
+		return artists.map((artist) => artist.name).join(", ");
+	};
 
-    const renderTrackItem = ({ item }: { item: SavedTrackObject }) => (
-        <HapticPressable
-            style={styles.itemContainer}
-            onPress={() => {
-                playTrack(
-                    item.track.uri,
-                    undefined,
-                    `spotify:user:${user.id}:collection`
-                );
-                router.push("/playing");
-            }}
-        >
-            {item.track.album?.images && item.track.album.images.length > 0 ? (
-                <Image
-                    source={{ uri: item.track.album.images[0].url }}
-                    style={styles.trackImage}
-                />
-            ) : (
-                <View style={styles.placeholderImageContainer}>
-                    <MaterialIcons name="music-note" size={24} color="white" />
-                </View>
-            )}
-            <View style={styles.textContainer}>
-                <StyledText style={styles.trackName} numberOfLines={1}>
-                    {item.track.name}
-                </StyledText>
-                <StyledText style={styles.trackArtist} numberOfLines={1}>
-                    {getArtistNames(item.track.artists)}
-                </StyledText>
-            </View>
-        </HapticPressable>
-    );
+	const renderTrackItem = ({
+		item,
+		index,
+	}: {
+		item: SavedTrackObject;
+		index: number;
+	}) => {
+		// Safety check for null track
+		if (!item.track) {
+			console.warn("Track is null for item:", item);
+			return null;
+		}
 
-    // Show global loading indicator if initial data is loading and no tracks are yet available
-    if (isLoading && !savedTracks) {
-        return <View style={styles.centeredMessageContainer}></View>;
-    }
+		return (
+			<HapticPressable
+				style={styles.itemContainer}
+				onPress={() => {
+					const collectionUri = user?.id
+						? `spotify:user:${user.id}:collection`
+						: undefined;
 
-    // Show specific refresh indicator if only manual refresh is happening for saved tracks
-    if (isRefreshingSavedTracks && !savedTracks) {
-        // Or (isRefreshingSavedTracks && savedTracks) if you want to show stale data UNDER the spinner
-        return <View style={styles.centeredMessageContainer}></View>;
-    }
+					playTrackWithContext(item.track.uri, {
+						type: "liked",
+						uri: collectionUri,
+						tracks: savedTracks || [],
+						currentIndex: index,
+					});
+					router.push("/playing");
+				}}
+			>
+				{item.track.album?.images &&
+				item.track.album.images.length > 0 ? (
+					<Image
+						source={{ uri: item.track.album.images[0].url }}
+						style={styles.trackImage}
+					/>
+				) : (
+					<View style={styles.placeholderImageContainer}>
+						<MaterialIcons
+							name="music-note"
+							size={24}
+							color="white"
+						/>
+					</View>
+				)}
+				<View style={styles.textContainer}>
+					<StyledText style={styles.trackName} numberOfLines={1}>
+						{item.track.name}
+					</StyledText>
+					<StyledText style={styles.trackArtist} numberOfLines={1}>
+						{getArtistNames(item.track.artists)}
+					</StyledText>
+				</View>
+			</HapticPressable>
+		);
+	};
 
-    if (!savedTracks || savedTracks.length === 0) {
-        return (
-            <View style={styles.centeredMessageContainer}>
-                <StyledText style={styles.emptyText}>
-                    No liked songs found.
-                </StyledText>
-                <StyledText style={styles.emptySubText}>
-                    Like some songs in Spotify to see them here.
-                </StyledText>
-            </View>
-        );
-    }
+	// Show global loading indicator if initial data is loading and no tracks are yet available
+	if (isLoading && !savedTracks) {
+		return <View style={styles.centeredMessageContainer}></View>;
+	}
 
-    const handleLoadMore = () => {
-        if (savedTracksNextUrl && !isLoadingMoreSavedTracks) {
-            fetchMoreSavedTracks();
-        }
-    };
+	// Show specific refresh indicator if only manual refresh is happening for saved tracks
+	if (isRefreshingSavedTracks && !savedTracks) {
+		// Or (isRefreshingSavedTracks && savedTracks) if you want to show stale data UNDER the spinner
+		return <View style={styles.centeredMessageContainer}></View>;
+	}
 
-    const renderFooter = () => {
-        if (!isLoadingMoreSavedTracks) return null;
-        return;
-    };
+	if (!savedTracks || savedTracks.length === 0) {
+		return (
+			<View style={styles.centeredMessageContainer}>
+				<StyledText style={styles.emptyText}>
+					No liked songs found.
+				</StyledText>
+				<StyledText style={styles.emptySubText}>
+					Like some songs in Spotify to see them here.
+				</StyledText>
+			</View>
+		);
+	}
 
-    return (
-        <FlatList
-            data={savedTracks}
-            renderItem={renderTrackItem}
-            keyExtractor={(item) => `${item.added_at}-${item.track.id}`}
-            style={styles.list}
-            contentContainerStyle={styles.listContentContainer}
-            ItemSeparatorComponent={() => <View style={{ height: 8 }} />}
-            overScrollMode={"never"}
-            onEndReached={handleLoadMore}
-            onEndReachedThreshold={6}
-            ListFooterComponent={renderFooter}
-        />
-    );
+	const handleLoadMore = () => {
+		if (savedTracksNextUrl && !isLoadingMoreSavedTracks) {
+			fetchMoreSavedTracks();
+		}
+	};
+
+	const renderFooter = () => {
+		if (!isLoadingMoreSavedTracks) return null;
+		return;
+	};
+
+	return (
+		<FlatList
+			data={savedTracks?.filter((item) => item.track !== null) || []}
+			renderItem={renderTrackItem}
+			keyExtractor={(item) =>
+				`${item.added_at}-${item.track?.id || "unknown"}`
+			}
+			style={styles.list}
+			contentContainerStyle={styles.listContentContainer}
+			ItemSeparatorComponent={() => <View style={{ height: 8 }} />}
+			overScrollMode={"never"}
+			onEndReached={handleLoadMore}
+			onEndReachedThreshold={6}
+			ListFooterComponent={renderFooter}
+		/>
+	);
 }
 
 const styles = StyleSheet.create({
-    list: {
-        flex: 1,
-        backgroundColor: "black",
-    },
-    listContentContainer: {
-        paddingTop: 0,
-        paddingBottom: 0,
-    },
-    centeredMessageContainer: {
-        flex: 1,
-        backgroundColor: "black",
-        justifyContent: "center",
-        alignItems: "center",
-        paddingHorizontal: 20,
-    },
-    emptyText: {
-        fontSize: 22,
-        textAlign: "center",
-        marginBottom: 10,
-        color: "white",
-    },
-    emptySubText: {
-        fontSize: 14,
-        textAlign: "center",
-        color: "white",
-    },
-    itemContainer: {
-        paddingVertical: 0, // Keep compact
-        paddingHorizontal: 20,
-        flexDirection: "row",
-        alignItems: "center",
-    },
-    trackImage: {
-        width: 50,
-        height: 50,
-        marginRight: 15,
-    },
-    placeholderImageContainer: {
-        width: 50,
-        height: 50,
-        marginRight: 15,
-        backgroundColor: "#282828",
-        justifyContent: "center",
-        alignItems: "center",
-    },
-    textContainer: {
-        flex: 1,
-        gap: 0,
-    },
-    trackName: {
-        fontSize: 22,
-        lineHeight: 24,
-        color: "white",
-    },
-    trackArtist: {
-        fontSize: 16,
-        lineHeight: 18,
-    },
+	list: {
+		flex: 1,
+		backgroundColor: "black",
+	},
+	listContentContainer: {
+		paddingTop: 0,
+		paddingBottom: 0,
+	},
+	centeredMessageContainer: {
+		flex: 1,
+		backgroundColor: "black",
+		justifyContent: "center",
+		alignItems: "center",
+		paddingHorizontal: 20,
+	},
+	emptyText: {
+		fontSize: 22,
+		textAlign: "center",
+		marginBottom: 10,
+		color: "white",
+	},
+	emptySubText: {
+		fontSize: 14,
+		textAlign: "center",
+		color: "white",
+	},
+	itemContainer: {
+		paddingVertical: 0, // Keep compact
+		paddingHorizontal: 20,
+		flexDirection: "row",
+		alignItems: "center",
+	},
+	trackImage: {
+		width: 50,
+		height: 50,
+		marginRight: 15,
+	},
+	placeholderImageContainer: {
+		width: 50,
+		height: 50,
+		marginRight: 15,
+		backgroundColor: "#282828",
+		justifyContent: "center",
+		alignItems: "center",
+	},
+	textContainer: {
+		flex: 1,
+		gap: 0,
+	},
+	trackName: {
+		fontSize: 22,
+		lineHeight: 24,
+		color: "white",
+	},
+	trackArtist: {
+		fontSize: 16,
+		lineHeight: 18,
+	},
 });

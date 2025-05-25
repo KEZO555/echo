@@ -6,367 +6,75 @@ import React, {
 	ReactNode,
 	useCallback,
 } from "react";
-import * as SecureStore from "expo-secure-store";
-import * as AuthSession from "expo-auth-session";
-import * as WebBrowser from "expo-web-browser";
-import * as Linking from "expo-linking";
+import SpotifySdk from "../modules/spotify-sdk";
+import { AppState, AppStateStatus } from "react-native";
 
-const SPOTIFY_CLIENT_ID = "2f20bc972e764706956ba7b59648b707";
-const SPOTIFY_SCOPES = [
-	"user-read-email",
-	"user-library-read",
-	"user-library-modify",
-	"user-read-recently-played",
-	"user-top-read",
-	"playlist-read-private",
-	"playlist-read-collaborative",
-	"playlist-modify-public",
-	"playlist-modify-private",
-	"user-modify-playback-state",
-	"user-read-playback-state",
-	"streaming",
-];
+// Import types
+import type {
+	AuthContextType,
+	SpotifyPlaylist,
+	SpotifySavedAlbum,
+	SavedTrackObject,
+	SpotifyCurrentlyPlaying,
+} from "../types/spotify";
 
-// Use `AuthSession.makeRedirectUri()` to automatically generate the redirect URI
-// Ensure this URI is added to your Spotify app's allowed redirect URIs in the Spotify Developer Dashboard.
-const redirectUri = AuthSession.makeRedirectUri({
-	native: "spotify-light://callback", // Force this for native builds
-	// scheme: 'spotify-light', // Your custom scheme defined in app.json
-	// path: 'callback',       // The path component of your redirect URI
-});
+// Import services
+import {
+	loginWithSpotify,
+	logoutFromSpotify,
+	loadStoredAuth,
+	fetchInitialDataInParallel,
+} from "../services/spotifyAuth";
+import {
+	fetchPlaylists as fetchPlaylistsService,
+	fetchMorePlaylists as fetchMorePlaylistsService,
+	fetchAlbums as fetchAlbumsService,
+	fetchMoreAlbums as fetchMoreAlbumsService,
+	fetchSavedTracks as fetchSavedTracksService,
+	fetchMoreSavedTracks as fetchMoreSavedTracksService,
+	saveAlbum as saveAlbumService,
+	removeAlbum as removeAlbumService,
+	checkIfAlbumIsSaved as checkIfAlbumIsSavedService,
+} from "../services/spotifyData";
+import {
+	ensureAppRemoteConnection,
+	forceAppRemoteConnection,
+	playTrackWithNativeSdk,
+	getPlaybackStateFromNativeSdk,
+	startPlayback as startPlaybackService,
+	pausePlayback as pausePlaybackService,
+	skipToNext as skipToNextService,
+	skipToPrevious as skipToPreviousService,
+	toggleShuffle as toggleShuffleService,
+	toggleRepeat as toggleRepeatService,
+	seekToPosition as seekToPositionService,
+	getCurrentTrack as getCurrentTrackService,
+	getAlbumArt as getAlbumArtService,
+	searchItems as searchItemsService,
+	addTrackToPlaylist as addTrackToPlaylistService,
+	playTrackWithContext as playTrackWithContextService,
+} from "../services/spotifyPlayback";
 
-const discovery = {
-	authorizationEndpoint: "https://accounts.spotify.com/authorize",
-	tokenEndpoint: "https://accounts.spotify.com/api/token",
-};
-
-WebBrowser.maybeCompleteAuthSession();
-
-// Spotify API Types
-export interface SpotifyImage {
-	url: string;
-	height?: number;
-	width?: number;
-}
-
-export interface SpotifyPlaylistOwner {
-	display_name?: string;
-	id: string;
-}
-
-export interface SpotifyPlaylist {
-	id: string;
-	name: string;
-	description: string | null;
-	images: SpotifyImage[];
-	owner: SpotifyPlaylistOwner;
-	tracks: {
-		href: string;
-		total: number;
-	};
-	public?: boolean;
-	collaborative: boolean;
-	uri: string;
-	href: string;
-}
-
-export interface SpotifyPlaylistsResponse {
-	href: string;
-	items: SpotifyPlaylist[];
-	limit: number;
-	next: string | null;
-	offset: number;
-	previous: string | null;
-	total: number;
-}
-
-// Spotify API Types - Albums
-export interface SpotifyArtistSimple {
-	external_urls: { spotify: string };
-	href: string;
-	id: string;
-	name: string;
-	type: string;
-	uri: string;
-}
-
-export interface SpotifyAlbum {
-	album_type: string;
-	total_tracks: number;
-	available_markets: string[];
-	external_urls: { spotify: string };
-	href: string;
-	id: string;
-	images: SpotifyImage[];
-	name: string;
-	release_date: string;
-	release_date_precision: string;
-	type: string;
-	uri: string;
-	artists: SpotifyArtistSimple[];
-	tracks?: SpotifyAlbumTracks;
-}
-
-export interface SpotifyAlbumTracks {
-	href: string;
-	items: SpotifyTrackSimple[];
-	limit: number;
-	next: string | null;
-	offset: number;
-	previous: string | null;
-	total: number;
-	uri: string;
-}
-
-export interface SpotifyTrackSimple {
-	artists: SpotifyArtistSimple[];
-	available_markets: string[];
-	disc_number: number;
-	duration_ms: number;
-	explicit: boolean;
-	external_urls: { spotify: string };
-	href: string;
-	id: string;
-	is_local: boolean;
-	name: string;
-	preview_url: string | null;
-	track_number: number;
-	type: string;
-	uri: string;
-	album?: SpotifyAlbum;
-}
-
-export interface SpotifySavedAlbum {
-	added_at: string;
-	album: SpotifyAlbum;
-}
-
-export interface SpotifySavedAlbumsResponse {
-	href: string;
-	items: SpotifySavedAlbum[];
-	limit: number;
-	next: string | null;
-	offset: number;
-	previous: string | null;
-	total: number;
-}
-
-// Spotify API Types - Saved Tracks
-export interface SavedTrackObject {
-	added_at: string;
-	track: SpotifyTrackSimple; // Reusing SpotifyTrackSimple, ensure it has album images
-}
-
-export interface SavedTracksResponse {
-	href: string;
-	items: SavedTrackObject[];
-	limit: number;
-	next: string | null;
-	offset: number;
-	previous: string | null;
-	total: number;
-}
-
-// Spotify API Types - Player / Devices
-export interface SpotifyDevice {
-	id: string | null; // Can be null if no device is active
-	is_active: boolean;
-	is_private_session: boolean;
-	is_restricted: boolean;
-	name: string;
-	type: string; // e.g., "computer", "smartphone", "speaker"
-	volume_percent: number | null; // Can be null
-	supports_volume: boolean;
-	uri: string;
-}
-
-export interface SpotifyDevicesResponse {
-	devices: SpotifyDevice[];
-}
-
-export interface SpotifyRepeatState {
-	state: "off" | "track" | "context";
-}
-
-export interface SpotifyCurrentlyPlaying {
-	timestamp: number;
-	context: SpotifyPlaybackContext | null;
-	progress_ms: number | null;
-	is_playing: boolean;
-	item: SpotifyTrackSimple | null; // Can be null if nothing is playing
-	currently_playing_type: "track" | "episode" | "ad" | "unknown";
-	actions: { disallows: Record<string, boolean> };
-	device: SpotifyDevice;
-	shuffle_state: boolean;
-	repeat_state: SpotifyRepeatState["state"];
-}
-
-export interface SpotifyPlaybackContext {
-	type: "album" | "artist" | "playlist" | "show";
-	href: string;
-	external_urls: { spotify: string };
-	uri: string;
-}
-
-// Spotify API Types - Search
-export interface SpotifyAlbumSimple {
-	// Simplified Album for search results
-	album_type: string;
-	total_tracks: number;
-	href: string;
-	id: string;
-	images: SpotifyImage[];
-	name: string;
-	release_date: string;
-	release_date_precision: string;
-	type: "album";
-	uri: string;
-	artists: SpotifyArtistSimple[];
-}
-
-export interface SpotifyTrack {
-	// More complete track for search results if needed, or use SpotifyTrackSimple
-	album: SpotifyAlbumSimple;
-	artists: SpotifyArtistSimple[];
-	available_markets: string[];
-	disc_number: number;
-	duration_ms: number;
-	explicit: boolean;
-	external_ids: { isrc?: string; ean?: string; upc?: string };
-	external_urls: { spotify: string };
-	href: string;
-	id: string;
-	is_local: boolean;
-	name: string;
-	popularity: number;
-	preview_url: string | null;
-	track_number: number;
-	type: "track";
-	uri: string;
-}
-
-export interface SpotifyPlaylistSimple {
-	// Simplified Playlist for search results
-	collaborative: boolean;
-	description: string | null;
-	external_urls: { spotify: string };
-	href: string;
-	id: string;
-	images: SpotifyImage[];
-	name: string;
-	owner: SpotifyPlaylistOwner; // Ensure SpotifyPlaylistOwner is exported or accessible
-	public: boolean | null;
-	snapshot_id: string;
-	tracks: {
-		href: string;
-		total: number;
-	};
-	type: "playlist";
-	uri: string;
-}
-
-export interface SpotifySearchResults {
-	tracks?: {
-		href: string;
-		items: SpotifyTrack[];
-		limit: number;
-		next: string | null;
-		offset: number;
-		previous: string | null;
-		total: number;
-	};
-	albums?: {
-		href: string;
-		items: SpotifyAlbumSimple[];
-		limit: number;
-		next: string | null;
-		offset: number;
-		previous: string | null;
-		total: number;
-	};
-	playlists?: {
-		href: string;
-		items: SpotifyPlaylistSimple[];
-		limit: number;
-		next: string | null;
-		offset: number;
-		previous: string | null;
-		total: number;
-	};
-	// artists, shows, episodes, audiobooks can be added if needed
-}
-
-interface AuthContextType {
-	accessToken: string | null;
-	refreshToken: string | null;
-	user: any | null;
-
-	playlists: SpotifyPlaylist[] | null;
-	playlistsNextUrl: string | null;
-	isLoadingMorePlaylists: boolean;
-	fetchMorePlaylists: () => Promise<void>;
-
-	albums: SpotifySavedAlbum[] | null;
-	albumsNextUrl: string | null;
-	isLoadingMoreAlbums: boolean;
-	fetchMoreAlbums: () => Promise<void>;
-
-	savedTracks: SavedTrackObject[] | null;
-	savedTracksNextUrl: string | null;
-	isLoadingMoreSavedTracks: boolean;
-	fetchMoreSavedTracks: () => Promise<void>;
-
-	isLoading: boolean;
-	isRefreshingPlaylists: boolean;
-	isRefreshingAlbums: boolean;
-	isRefreshingSavedTracks: boolean;
-
-	login: () => Promise<void>;
-	logout: () => Promise<void>;
-
-	fetchPlaylists: () => Promise<void>;
-	fetchAlbums: () => Promise<void>;
-	fetchSavedTracks: () => Promise<void>;
-	playTrack: (
-		trackUri: string,
-		deviceId?: string,
-		contextUri?: string
-	) => Promise<void>;
-	getPlaybackState: () => Promise<SpotifyCurrentlyPlaying | null>;
-	startPlayback: () => Promise<void>;
-	pausePlayback: () => Promise<void>;
-	skipToNext: () => Promise<void>;
-	skipToPrevious: () => Promise<void>;
-	toggleShuffle: (state: boolean) => Promise<void>;
-	toggleRepeat: (state: "off" | "track") => Promise<void>;
-	addTrackToPlaylist: (
-		playlistId: string,
-		trackUri: string
-	) => Promise<boolean>; // Added
-	seekToPosition: (positionMs: number) => Promise<void>; // Added
-	searchItems: (
-		query: string,
-		types: string[]
-	) => Promise<SpotifySearchResults | null>; // Added search function
-}
+// Import utilities
+import {
+	loadCachedData,
+	saveCachedData,
+	clearCachedData,
+	refreshSavedAlbumsFromCache,
+	refreshSavedTracksFromCache,
+} from "../utils/cache";
+import { makeApiRequest } from "../utils/spotifyApi";
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-const AUTH_TOKEN_KEY = "spotifyAuthToken";
-const REFRESH_TOKEN_KEY = "spotifyRefreshToken";
-const USER_INFO_KEY = "spotifyUserInfo";
-const TOKEN_EXPIRY_KEY = "spotifyTokenExpiry";
-const PLAYLISTS_KEY = "spotifyPlaylists"; // For potential caching
-const ALBUMS_KEY = "spotifyAlbums"; // For potential caching for saved albums
-const SAVED_TRACKS_KEY = "spotifySavedTracks"; // For potential caching for saved tracks
-
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
+	// Authentication state
 	const [accessToken, setAccessToken] = useState<string | null>(null);
 	const [refreshToken, setRefreshToken] = useState<string | null>(null);
 	const [user, setUser] = useState<any | null>(null);
 	const [tokenExpiry, setTokenExpiry] = useState<number | null>(null);
 
-	// Playlists
+	// Playlists state
 	const [playlists, setPlaylists] = useState<SpotifyPlaylist[] | null>(null);
 	const [playlistsNextUrl, setPlaylistsNextUrl] = useState<string | null>(
 		null
@@ -374,13 +82,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 	const [isLoadingMorePlaylists, setIsLoadingMorePlaylists] = useState(false);
 	const [isRefreshingPlaylists, setIsRefreshingPlaylists] = useState(false);
 
-	// Albums
+	// Albums state
 	const [albums, setAlbums] = useState<SpotifySavedAlbum[] | null>(null);
 	const [albumsNextUrl, setAlbumsNextUrl] = useState<string | null>(null);
 	const [isLoadingMoreAlbums, setIsLoadingMoreAlbums] = useState(false);
 	const [isRefreshingAlbums, setIsRefreshingAlbums] = useState(false);
 
-	// Saved Tracks
+	// Saved Tracks state
 	const [savedTracks, setSavedTracks] = useState<SavedTrackObject[] | null>(
 		null
 	);
@@ -392,1188 +100,502 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 	const [isRefreshingSavedTracks, setIsRefreshingSavedTracks] =
 		useState(false);
 
-	const [isLoading, setIsLoading] = useState(true); // Global initial loading
-
-	const [request, response, promptAsync] = AuthSession.useAuthRequest(
-		{
-			clientId: SPOTIFY_CLIENT_ID,
-			scopes: SPOTIFY_SCOPES,
-			usePKCE: true, // Recommended for mobile apps
-			redirectUri: redirectUri,
-		},
-		discovery
+	// Loading and connection state
+	const [isLoading, setIsLoading] = useState(true);
+	const [hasInitiallyLoaded, setHasInitiallyLoaded] = useState(false);
+	const [isAuthenticating, setIsAuthenticating] = useState(false);
+	const [isConnectedToAppRemote, setIsConnectedToAppRemote] = useState(false);
+	const [appState, setAppState] = useState<AppStateStatus>(
+		AppState.currentState
 	);
 
-	useEffect(() => {
-		if (request) {
-			console.log(
-				"AuthContext: Generated redirectUri for Spotify request:",
-				request.redirectUri
-			);
-		}
-	}, [request]);
-
-	// Function to refresh the access token
-	const refreshAccessToken = useCallback(
-		async (currentRefreshToken: string) => {
-			console.log("AuthContext: Attempting to refresh access token...");
-			if (!currentRefreshToken) {
-				console.log(
-					"AuthContext: No refresh token available to refresh access token."
-				);
-				return false;
-			}
-			try {
-				const response = await AuthSession.refreshAsync(
-					{
-						clientId: SPOTIFY_CLIENT_ID,
-						refreshToken: currentRefreshToken,
-					},
-					discovery
-				);
-
-				if (response.accessToken) {
-					setAccessToken(response.accessToken);
-					await SecureStore.setItemAsync(
-						AUTH_TOKEN_KEY,
-						response.accessToken
-					);
-
-					// Set token expiry to 45 minutes from now
-					const expiryTime = Date.now() + 45 * 60 * 1000;
-					setTokenExpiry(expiryTime);
-					await SecureStore.setItemAsync(
-						TOKEN_EXPIRY_KEY,
-						expiryTime.toString()
-					);
-
-					console.log(
-						"AuthContext: Access token refreshed successfully."
-					);
-
-					// Spotify may return a new refresh token
-					if (response.refreshToken) {
-						setRefreshToken(response.refreshToken);
-						await SecureStore.setItemAsync(
-							REFRESH_TOKEN_KEY,
-							response.refreshToken
-						);
-						console.log(
-							"AuthContext: New refresh token received and stored."
-						);
-					}
-					return true;
-				} else {
-					console.error(
-						"AuthContext: Failed to refresh access token. No new token received."
-					);
-					// Clear tokens and user data
-					setAccessToken(null);
-					setRefreshToken(null);
-					setUser(null);
-					setTokenExpiry(null);
-					await SecureStore.deleteItemAsync(AUTH_TOKEN_KEY);
-					await SecureStore.deleteItemAsync(REFRESH_TOKEN_KEY);
-					await SecureStore.deleteItemAsync(USER_INFO_KEY);
-					await SecureStore.deleteItemAsync(TOKEN_EXPIRY_KEY);
-					return false;
-				}
-			} catch (error) {
-				console.error(
-					"AuthContext: Error during token refresh:",
-					error
-				);
-				// Clear tokens and user data
-				setAccessToken(null);
-				setRefreshToken(null);
-				setUser(null);
-				setTokenExpiry(null);
-				await SecureStore.deleteItemAsync(AUTH_TOKEN_KEY);
-				await SecureStore.deleteItemAsync(REFRESH_TOKEN_KEY);
-				await SecureStore.deleteItemAsync(USER_INFO_KEY);
-				await SecureStore.deleteItemAsync(TOKEN_EXPIRY_KEY);
-				return false;
-			}
+	// Token update callback
+	const handleTokenUpdate = useCallback(
+		(newAccessToken: string, newRefreshToken?: string, expiry?: number) => {
+			setAccessToken(newAccessToken);
+			if (newRefreshToken) setRefreshToken(newRefreshToken);
+			if (expiry) setTokenExpiry(expiry);
 		},
-		[setAccessToken, setRefreshToken, setUser]
+		[]
 	);
 
-	// Add proactive token refresh mechanism
-	useEffect(() => {
-		const checkAndRefreshToken = async () => {
-			if (!tokenExpiry || !refreshToken) return;
+	// User update callback
+	const handleUserUpdate = useCallback((userData: any) => {
+		setUser(userData);
+	}, []);
 
-			// Refresh token if it's within 5 minutes of expiring
-			const timeUntilExpiry = tokenExpiry - Date.now();
-			if (timeUntilExpiry < 5 * 60 * 1000) {
-				// 5 minutes
-				console.log(
-					"AuthContext: Proactively refreshing token before expiry"
-				);
-				await refreshAccessToken(refreshToken);
-			}
-		};
-
-		// Check token every minute
-		const intervalId = setInterval(checkAndRefreshToken, 60 * 1000);
-		return () => clearInterval(intervalId);
-	}, [tokenExpiry, refreshToken, refreshAccessToken]);
-
-	const logout = useCallback(async () => {
-		console.log("Logging out...");
-		await SecureStore.deleteItemAsync(AUTH_TOKEN_KEY);
-		await SecureStore.deleteItemAsync(REFRESH_TOKEN_KEY);
-		await SecureStore.deleteItemAsync(USER_INFO_KEY);
+	// Clear state callback for logout
+	const clearState = useCallback(() => {
 		setAccessToken(null);
 		setRefreshToken(null);
 		setUser(null);
+		setTokenExpiry(null);
 		setPlaylists(null);
 		setPlaylistsNextUrl(null);
 		setAlbums(null);
 		setAlbumsNextUrl(null);
 		setSavedTracks(null);
 		setSavedTracksNextUrl(null);
-		setIsLoading(false); // Reset loading state
-	}, [
-		setAccessToken,
-		setRefreshToken,
-		setUser,
-		setPlaylists,
-		setPlaylistsNextUrl,
-		setAlbums,
-		setAlbumsNextUrl,
-		setSavedTracks,
-		setSavedTracksNextUrl,
-		setIsLoading,
-	]);
+		setIsConnectedToAppRemote(false);
+		setIsLoading(false);
+	}, []);
 
-	useEffect(() => {
-		const loadStoredAuth = async () => {
-			try {
-				const storedToken = await SecureStore.getItemAsync(
-					AUTH_TOKEN_KEY
-				);
-				const storedRefreshToken = await SecureStore.getItemAsync(
-					REFRESH_TOKEN_KEY
-				);
-				const storedUser = await SecureStore.getItemAsync(
-					USER_INFO_KEY
-				);
-				const storedExpiry = await SecureStore.getItemAsync(
-					TOKEN_EXPIRY_KEY
-				);
-
-				if (storedToken && storedExpiry) {
-					const expiryTime = parseInt(storedExpiry);
-					// If token is expired or will expire in next 5 minutes, refresh it
-					if (expiryTime > Date.now() + 5 * 60 * 1000) {
-						setAccessToken(storedToken);
-						setTokenExpiry(expiryTime);
-						if (storedRefreshToken) {
-							setRefreshToken(storedRefreshToken);
-						}
-						if (storedUser) {
-							setUser(JSON.parse(storedUser));
-						}
-					} else if (storedRefreshToken) {
-						// Token expired or about to expire, refresh it
-						const refreshed = await refreshAccessToken(
-							storedRefreshToken
-						);
-						if (!refreshed) {
-							await logout();
-						}
-					}
-				} else if (storedRefreshToken) {
-					console.log(
-						"AuthContext: Access token not found or expired, attempting to refresh."
-					);
-					setRefreshToken(storedRefreshToken);
-					const refreshed = await refreshAccessToken(
-						storedRefreshToken
-					);
-					if (!refreshed) {
-						await logout();
-					}
-				}
-			} catch (e) {
-				console.error("Failed to load auth state:", e);
-				await logout();
-			} finally {
-				setIsLoading(false);
-			}
-		};
-		loadStoredAuth();
-	}, [refreshAccessToken, logout]);
-
-	useEffect(() => {
-		if (response) {
-			if (response.type === "success") {
-				const { code } = response.params;
-				fetchToken(code);
-			} else if (response.type === "error") {
-				console.error("Spotify Authentication Error:", response.error);
-				setIsLoading(false);
-			}
-		}
-	}, [response]);
-
-	const fetchToken = async (code: string) => {
-		try {
-			const tokenResponse = await AuthSession.exchangeCodeAsync(
-				{
-					clientId: SPOTIFY_CLIENT_ID,
-					code: code,
-					redirectUri: redirectUri,
-					extraParams: {
-						code_verifier: request?.codeVerifier || "",
-					},
-				},
-				discovery
-			);
-			if (tokenResponse.accessToken) {
-				setAccessToken(tokenResponse.accessToken);
-				await SecureStore.setItemAsync(
-					AUTH_TOKEN_KEY,
-					tokenResponse.accessToken
-				);
-				if (tokenResponse.refreshToken) {
-					setRefreshToken(tokenResponse.refreshToken);
-					await SecureStore.setItemAsync(
-						REFRESH_TOKEN_KEY,
-						tokenResponse.refreshToken
-					);
-				}
-				// Fetch user info after getting token
-				await fetchUserInfo(tokenResponse.accessToken);
-			} else {
-				setIsLoading(false); // Ensure loading stops if token exchange fails
-			}
-		} catch (e) {
-			console.error("Failed to fetch token:", e);
-			setIsLoading(false);
-		}
-	};
-
-	const fetchUserInfo = async (token: string) => {
-		console.log("AuthContext: Fetching user info...");
-		try {
-			const response = await fetch("https://api.spotify.com/v1/me", {
-				headers: { Authorization: `Bearer ${token}` },
-			});
-			const userData = await response.json();
-			if (!response.ok) {
-				throw new Error(
-					`Failed to fetch user info: ${
-						userData?.error?.message || response.status
-					}`
-				);
-			}
-			setUser(userData);
-			await SecureStore.setItemAsync(
-				USER_INFO_KEY,
-				JSON.stringify(userData)
-			);
-			// Start fetching other data after user info is successfully retrieved
-			await _fetchInitialPlaylists(token);
-		} catch (e: any) {
-			console.error("AuthContext: Error fetching user info:", e.message);
-			// Attempt to parse more detailed error from Spotify if it's an HTTP error like object
-			if (e.response && typeof e.response.json === "function") {
-				try {
-					const errorData = await e.response.json();
-					console.error("Spotify API Error Details:", errorData);
-				} catch (parseError) {
-					console.error(
-						"Error parsing Spotify API error response:",
-						parseError
-					);
-				}
-			}
-			setAccessToken(null); // Log out on error
-			setUser(null);
-			await SecureStore.deleteItemAsync(AUTH_TOKEN_KEY);
-			await SecureStore.deleteItemAsync(REFRESH_TOKEN_KEY);
-			await SecureStore.deleteItemAsync(USER_INFO_KEY);
-			setPlaylists(null);
-			setPlaylistsNextUrl(null);
-			setAlbums(null);
-			setAlbumsNextUrl(null);
-			setSavedTracks(null);
-			setSavedTracksNextUrl(null);
-			setIsLoading(false); // Ensure loading stops on error
-		}
-	};
-
-	const _fetchInitialPlaylists = async (token: string) => {
-		console.log("AuthContext: Fetching initial playlists (page 1)...");
-		try {
-			const response = await fetch(
-				"https://api.spotify.com/v1/me/playlists?limit=50", // Fetch first page
-				{
-					headers: { Authorization: `Bearer ${token}` },
-				}
-			);
-			const data: SpotifyPlaylistsResponse = await response.json();
-			if (!response.ok) {
-				let errorMessage = response.status.toString();
-				try {
-					const errorData = data as any;
-					if (
-						errorData &&
-						errorData.error &&
-						errorData.error.message
-					) {
-						errorMessage = errorData.error.message;
-					}
-				} catch (e) {
-					/* Ignore */
-				}
-				throw new Error(`Failed to fetch playlists: ${errorMessage}`);
-			}
-			setPlaylists(data.items);
-			setPlaylistsNextUrl(data.next);
-			await _fetchInitialAlbums(token); // Chain loading
-		} catch (e: any) {
-			console.error(
-				"AuthContext: Error fetching initial playlists:",
-				e.message
-			);
-			setPlaylists(null);
-			setPlaylistsNextUrl(null);
-			await _fetchInitialAlbums(token); // Still try to load next set of data
-		}
-	};
-
-	const _fetchInitialAlbums = async (token: string) => {
-		console.log("AuthContext: Fetching initial albums (page 1)...");
-		try {
-			const response = await fetch(
-				"https://api.spotify.com/v1/me/albums?limit=50", // Fetch first page
-				{
-					headers: { Authorization: `Bearer ${token}` },
-				}
-			);
-			const data: SpotifySavedAlbumsResponse = await response.json();
-			if (!response.ok) {
-				let errorMessage = response.status.toString();
-				try {
-					const errorData = data as any;
-					if (
-						errorData &&
-						errorData.error &&
-						errorData.error.message
-					) {
-						errorMessage = errorData.error.message;
-					}
-				} catch (e) {
-					/* Ignore */
-				}
-				throw new Error(`Failed to fetch albums: ${errorMessage}`);
-			}
-			setAlbums(data.items);
-			setAlbumsNextUrl(data.next);
-			await _fetchInitialSavedTracksAndUpdateGlobalLoading(token); // Chain loading
-		} catch (e: any) {
-			console.error(
-				"AuthContext: Error fetching initial albums:",
-				e.message
-			);
-			setAlbums(null);
-			setAlbumsNextUrl(null);
-			await _fetchInitialSavedTracksAndUpdateGlobalLoading(token); // Still try to load next
-		}
-	};
-
-	const _fetchInitialSavedTracksAndUpdateGlobalLoading = async (
-		token: string
-	) => {
-		console.log("AuthContext: Fetching initial saved tracks (page 1)...");
-		try {
-			const response = await fetch(
-				"https://api.spotify.com/v1/me/tracks?limit=50", // Fetch first page
-				{
-					headers: { Authorization: `Bearer ${token}` },
-				}
-			);
-			const data: SavedTracksResponse = await response.json();
-			if (!response.ok) {
-				let errorMessage = response.status.toString();
-				try {
-					const errorData = data as any;
-					if (
-						errorData &&
-						errorData.error &&
-						errorData.error.message
-					) {
-						errorMessage = errorData.error.message;
-					}
-				} catch (e) {
-					/* Ignore */
-				}
-				throw new Error(
-					`Failed to fetch saved tracks: ${errorMessage}`
-				);
-			}
-			setSavedTracks(data.items);
-			setSavedTracksNextUrl(data.next);
-		} catch (e: any) {
-			console.error(
-				"AuthContext: Error fetching initial saved tracks:",
-				e.message
-			);
-			setSavedTracks(null);
-			setSavedTracksNextUrl(null);
-		} finally {
-			console.log(
-				"AuthContext: Finished all initial data fetches (page 1 of each). Setting global loading to false."
-			);
-			setIsLoading(false);
-		}
-	};
-
-	// --- Utility for API calls ---
-	const makeApiRequest = useCallback(
-		async (
+	// Wrapped makeApiRequest with context
+	const makeApiRequestWithContext = useCallback(
+		(
 			url: string,
 			errorMessage: string,
 			isRefreshing = false,
 			retryCount = 0
-		): Promise<any | null> => {
-			if (!accessToken) {
-				console.error("No access token available for API request.");
-				if (refreshToken) {
-					console.log(
-						"Attempting to refresh token before API request..."
-					);
-					const refreshed = await refreshAccessToken(refreshToken);
-					if (refreshed) {
-						// Retry the request once after successful refresh
-						return makeApiRequest(
-							url,
-							errorMessage,
-							isRefreshing,
-							1
-						);
-					} else {
-						await logout();
-						return null;
-					}
-				}
-				// Optionally, trigger re-authentication or inform the user
-				// For now, just returning null to prevent further execution without a token
-				return null;
-			}
-			if (isRefreshing)
-				console.log(`Refreshing ${errorMessage.toLowerCase()}...`);
-
-			try {
-				const response = await fetch(url, {
-					headers: {
-						Authorization: `Bearer ${accessToken}`,
-					},
-				});
-				if (!response.ok) {
-					const errorData = await response
-						.json()
-						.catch(() => ({ message: "Unknown error" }));
-					console.error(
-						`Error fetching ${errorMessage.toLowerCase()}: ${
-							response.status
-						}`,
-						errorData
-					);
-					if (
-						response.status === 401 &&
-						retryCount < 1 &&
-						refreshToken
-					) {
-						console.log(
-							"Token might be expired. Attempting to refresh token."
-						);
-						const refreshed = await refreshAccessToken(
-							refreshToken
-						);
-						if (refreshed) {
-							console.log(
-								"Token refreshed successfully. Retrying API request."
-							);
-							return makeApiRequest(
-								url,
-								errorMessage,
-								isRefreshing,
-								1
-							);
-						} else {
-							console.log(
-								"Failed to refresh token. Logging out."
-							);
-							await logout();
-							return null;
-						}
-					} else if (response.status === 401) {
-						console.log(
-							"Token is invalid even after refresh attempt or no refresh token. Logging out."
-						);
-						await logout();
-					}
-					return null;
-				}
-				return await response.json();
-			} catch (error) {
-				console.error(
-					`Network or other error fetching ${errorMessage.toLowerCase()}:`,
-					error
-				);
-				return null;
-			}
-		},
-		[accessToken, refreshToken, refreshAccessToken, logout]
+		) =>
+			makeApiRequest(
+				url,
+				errorMessage,
+				accessToken,
+				refreshToken,
+				tokenExpiry,
+				handleTokenUpdate,
+				logout,
+				isRefreshing,
+				retryCount
+			),
+		[accessToken, refreshToken, tokenExpiry, handleTokenUpdate]
 	);
 
-	// --- Playlists ---
+	// Initial data fetch callback
+	const fetchInitialData = useCallback(async (token: string) => {
+		await fetchInitialDataInParallel(
+			token,
+			(playlists, nextUrl) => {
+				setPlaylists(playlists);
+				setPlaylistsNextUrl(nextUrl);
+			},
+			(albums, nextUrl) => {
+				setAlbums(albums);
+				setAlbumsNextUrl(nextUrl);
+			},
+			(tracks, nextUrl) => {
+				setSavedTracks(tracks);
+				setSavedTracksNextUrl(nextUrl);
+			},
+			saveCachedData
+		);
+		setIsLoading(false);
+	}, []);
+
+	// Authentication methods
+	const login = useCallback(async () => {
+		if (isAuthenticating) {
+			console.log("AuthContext: Authentication already in progress");
+			return;
+		}
+
+		setIsAuthenticating(true);
+		setIsLoading(true);
+
+		try {
+			await loginWithSpotify(
+				handleTokenUpdate,
+				handleUserUpdate,
+				fetchInitialData
+			);
+		} catch (error) {
+			console.error("AuthContext: Error during authentication:", error);
+			setIsLoading(false);
+		} finally {
+			setIsAuthenticating(false);
+		}
+	}, [
+		isAuthenticating,
+		handleTokenUpdate,
+		handleUserUpdate,
+		fetchInitialData,
+	]);
+
+	const logout = useCallback(async () => {
+		if (isAuthenticating) {
+			console.log(
+				"AuthContext: Logout blocked - authentication in progress"
+			);
+			return;
+		}
+
+		await logoutFromSpotify(clearState);
+	}, [isAuthenticating, clearState]);
+
+	// Data fetching methods
 	const fetchPlaylists = useCallback(async () => {
 		if (!accessToken) return;
 		setIsRefreshingPlaylists(true);
-		const data = await makeApiRequest(
-			"https://api.spotify.com/v1/me/playlists?limit=50",
-			"Playlists",
-			true
+
+		const result = await fetchPlaylistsService(
+			accessToken,
+			makeApiRequestWithContext,
+			saveCachedData
 		);
-		if (data) {
-			setPlaylists(data.items);
-			setPlaylistsNextUrl(data.next);
-		} else {
-			// Handle error, maybe set playlists to an empty array or show a message
-			setPlaylists([]); // Example: clear playlists on error
-			setPlaylistsNextUrl(null);
-		}
+
+		setPlaylists(result.playlists || []);
+		setPlaylistsNextUrl(result.nextUrl);
 		setIsRefreshingPlaylists(false);
-	}, [accessToken, makeApiRequest]);
+	}, [accessToken, makeApiRequestWithContext]);
 
 	const fetchMorePlaylists = useCallback(async () => {
-		if (!playlistsNextUrl || isLoadingMorePlaylists || !accessToken) return;
 		setIsLoadingMorePlaylists(true);
-		const data = await makeApiRequest(playlistsNextUrl, "More Playlists");
-		if (data) {
-			setPlaylists((prevPlaylists) => [
-				...(prevPlaylists || []),
-				...data.items,
-			]);
-			setPlaylistsNextUrl(data.next);
+
+		const result = await fetchMorePlaylistsService(
+			playlistsNextUrl,
+			isLoadingMorePlaylists,
+			accessToken,
+			makeApiRequestWithContext
+		);
+
+		if (result.playlists) {
+			setPlaylists((prev) => [...(prev || []), ...result.playlists!]);
+			setPlaylistsNextUrl(result.nextUrl);
 		}
 		setIsLoadingMorePlaylists(false);
-	}, [playlistsNextUrl, isLoadingMorePlaylists, accessToken, makeApiRequest]);
+	}, [
+		playlistsNextUrl,
+		isLoadingMorePlaylists,
+		accessToken,
+		makeApiRequestWithContext,
+	]);
 
-	// --- Albums ---
 	const fetchAlbums = useCallback(async () => {
 		if (!accessToken) return;
 		setIsRefreshingAlbums(true);
-		const data = await makeApiRequest(
-			"https://api.spotify.com/v1/me/albums?limit=50",
-			"Albums",
-			true
+
+		const result = await fetchAlbumsService(
+			accessToken,
+			makeApiRequestWithContext,
+			saveCachedData
 		);
-		if (data) {
-			setAlbums(data.items);
-			setAlbumsNextUrl(data.next);
-		} else {
-			setAlbums([]);
-			setAlbumsNextUrl(null);
-		}
+
+		setAlbums(result.albums || []);
+		setAlbumsNextUrl(result.nextUrl);
 		setIsRefreshingAlbums(false);
-	}, [accessToken, makeApiRequest]);
+	}, [accessToken, makeApiRequestWithContext]);
 
 	const fetchMoreAlbums = useCallback(async () => {
-		if (!albumsNextUrl || isLoadingMoreAlbums || !accessToken) return;
 		setIsLoadingMoreAlbums(true);
-		const data = await makeApiRequest(albumsNextUrl, "More Albums");
-		if (data) {
-			setAlbums((prevAlbums) => [...(prevAlbums || []), ...data.items]);
-			setAlbumsNextUrl(data.next);
+
+		const result = await fetchMoreAlbumsService(
+			albumsNextUrl,
+			isLoadingMoreAlbums,
+			accessToken,
+			makeApiRequestWithContext
+		);
+
+		if (result.albums) {
+			setAlbums((prev) => [...(prev || []), ...result.albums!]);
+			setAlbumsNextUrl(result.nextUrl);
 		}
 		setIsLoadingMoreAlbums(false);
-	}, [albumsNextUrl, isLoadingMoreAlbums, accessToken, makeApiRequest]);
+	}, [
+		albumsNextUrl,
+		isLoadingMoreAlbums,
+		accessToken,
+		makeApiRequestWithContext,
+	]);
 
-	// --- Saved Tracks ---
 	const fetchSavedTracks = useCallback(async () => {
 		if (!accessToken) return;
 		setIsRefreshingSavedTracks(true);
-		const data = await makeApiRequest(
-			"https://api.spotify.com/v1/me/tracks?limit=50",
-			"Saved Tracks",
-			true
+
+		const result = await fetchSavedTracksService(
+			accessToken,
+			makeApiRequestWithContext,
+			saveCachedData
 		);
-		if (data) {
-			setSavedTracks(data.items);
-			setSavedTracksNextUrl(data.next);
-		} else {
-			setSavedTracks([]);
-			setSavedTracksNextUrl(null);
-		}
+
+		setSavedTracks(result.savedTracks || []);
+		setSavedTracksNextUrl(result.nextUrl);
 		setIsRefreshingSavedTracks(false);
-	}, [accessToken, makeApiRequest]);
+	}, [accessToken, makeApiRequestWithContext]);
 
 	const fetchMoreSavedTracks = useCallback(async () => {
-		if (!savedTracksNextUrl || isLoadingMoreSavedTracks || !accessToken)
-			return;
 		setIsLoadingMoreSavedTracks(true);
-		const data = await makeApiRequest(
+
+		const result = await fetchMoreSavedTracksService(
 			savedTracksNextUrl,
-			"More Saved Tracks"
+			isLoadingMoreSavedTracks,
+			accessToken,
+			makeApiRequestWithContext
 		);
-		if (data) {
-			setSavedTracks((prevTracks) => [
-				...(prevTracks || []),
-				...data.items,
-			]);
-			setSavedTracksNextUrl(data.next);
+
+		if (result.savedTracks) {
+			setSavedTracks((prev) => [...(prev || []), ...result.savedTracks!]);
+			setSavedTracksNextUrl(result.nextUrl);
 		}
 		setIsLoadingMoreSavedTracks(false);
 	}, [
 		savedTracksNextUrl,
 		isLoadingMoreSavedTracks,
 		accessToken,
-		makeApiRequest,
+		makeApiRequestWithContext,
 	]);
 
-	// --- Device and Playback ---
-	const _getAvailableDeviceId = useCallback(async (): Promise<
-		string | null
-	> => {
-		console.log("AuthContext: Fetching available devices...");
-		if (!accessToken) {
-			console.error("AuthContext: No access token for fetching devices.");
-			return null;
-		}
-		try {
-			const response = await fetch(
-				"https://api.spotify.com/v1/me/player/devices",
-				{
-					headers: { Authorization: `Bearer ${accessToken}` },
-				}
-			);
-			const data: SpotifyDevicesResponse = await response.json();
-			if (!response.ok) {
-				let errorMessage = response.status.toString();
-				try {
-					const errorData = data as any;
-					if (
-						errorData &&
-						errorData.error &&
-						errorData.error.message
-					) {
-						errorMessage = errorData.error.message;
-					}
-				} catch (e) {
-					/* Ignore if casting/accessing error fails */
-				}
-				throw new Error(`Failed to fetch devices: ${errorMessage}`);
+	// Album management methods
+	const saveAlbum = useCallback(
+		async (albumId: string): Promise<boolean> => {
+			const result = await saveAlbumService(albumId, accessToken);
+			if (result) {
+				// Refresh albums from cache to update UI
+				const cachedAlbums = await refreshSavedAlbumsFromCache();
+				if (cachedAlbums) setAlbums(cachedAlbums);
 			}
+			return result;
+		},
+		[accessToken]
+	);
 
-			if (data.devices && data.devices.length > 0) {
-				const activeDevice = data.devices.find(
-					(device) => device.is_active
-				);
-				if (activeDevice && activeDevice.id) {
-					console.log(
-						`AuthContext: Found active device: ${activeDevice.name} (ID: ${activeDevice.id})`
-					);
-					return activeDevice.id;
-				}
-				// If no active device, try to return the first available device's ID
-				// This might not always be what the user wants, but it's better than nothing if they have an inactive device.
-				// For a better UX, you might prompt the user to select a device.
-				if (data.devices[0] && data.devices[0].id) {
-					console.log(
-						`AuthContext: No active device found. Using first available device: ${data.devices[0].name} (ID: ${data.devices[0].id})`
-					);
-					return data.devices[0].id;
-				}
+	const removeAlbum = useCallback(
+		async (albumId: string): Promise<boolean> => {
+			const result = await removeAlbumService(albumId, accessToken);
+			if (result) {
+				// Refresh albums from cache to update UI
+				const cachedAlbums = await refreshSavedAlbumsFromCache();
+				if (cachedAlbums) setAlbums(cachedAlbums);
 			}
-			console.log("AuthContext: No devices found or available.");
-			return null;
-		} catch (e: any) {
-			console.error(
-				"AuthContext: Error fetching available devices:",
-				e.message
-			);
-			return null;
-		}
-	}, [accessToken]);
+			return result;
+		},
+		[accessToken]
+	);
 
+	const checkIfAlbumIsSaved = useCallback(
+		(albumId: string) => checkIfAlbumIsSavedService(albumId, accessToken),
+		[accessToken]
+	);
+
+	// Cache refresh methods
+	const refreshSavedAlbumsFromCacheMethod = useCallback(async () => {
+		const cachedAlbums = await refreshSavedAlbumsFromCache();
+		if (cachedAlbums) setAlbums(cachedAlbums);
+	}, []);
+
+	const refreshSavedTracksFromCacheMethod = useCallback(async () => {
+		const cachedTracks = await refreshSavedTracksFromCache();
+		if (cachedTracks) setSavedTracks(cachedTracks);
+	}, []);
+
+	// Playback methods
 	const playTrack = useCallback(
-		async (
-			trackUri: string,
-			deviceId?: string,
-			contextUri?: string // Allow context URI to be passed
-		) => {
-			if (!accessToken) {
-				console.error("Cannot play track: No access token.");
-				return;
-			}
-
-			let targetDeviceId = deviceId;
-
-			if (!targetDeviceId) {
-				// Custom device selection: prefer TLP301 if available, otherwise open Spotify app
-				console.log(
-					"AuthContext: Fetching devices for custom logic..."
-				);
-				let devices: SpotifyDevicesResponse["devices"] = [];
-				try {
-					const resp = await fetch(
-						"https://api.spotify.com/v1/me/player/devices",
-						{
-							headers: { Authorization: `Bearer ${accessToken}` },
-						}
-					);
-					const data: SpotifyDevicesResponse = await resp.json();
-					if (resp.ok && data.devices) {
-						devices = data.devices;
-					} else {
-						console.error(
-							"AuthContext: Error fetching devices for play logic",
-							data
-						);
-					}
-				} catch (e: any) {
-					console.error(
-						"AuthContext: Exception fetching devices for play logic",
-						e
-					);
-				}
-				// Log all device names for debugging
-				if (devices.length > 0) {
-					console.log(
-						"AuthContext: Available devices:",
-						devices.map((d) => d.name).join(", ")
-					);
-				} else {
-					console.log(
-						"AuthContext: No devices available for custom logic"
-					);
-				}
-				const tlpDevice = devices.find(
-					(device) => device.name === "TLP301"
-				);
-				if (tlpDevice && tlpDevice.id) {
-					console.log(
-						`AuthContext: Found TLP301 device (ID: ${tlpDevice.id}), playing on it.`
-					);
-					targetDeviceId = tlpDevice.id;
-				} else {
-					console.log(
-						"AuthContext: TLP301 not found, opening Spotify app."
-					);
-					Linking.openURL(trackUri).catch((err) => {
-						console.error(
-							"AuthContext: Failed to open Spotify app",
-							err
-						);
-					});
-					return;
-				}
-			}
-
-			console.log(
-				`AuthContext: Attempting to play track: ${trackUri}` +
-					(targetDeviceId ? ` on device: ${targetDeviceId}` : "")
-			);
+		async (trackUri: string, deviceId?: string, contextUri?: string) => {
 			try {
-				// Build payload: use contextUri to queue liked songs, otherwise play single track
-				const payload: any = contextUri
-					? { context_uri: contextUri, offset: { uri: trackUri } }
-					: { uris: [trackUri] };
-
-				let playUrl = "https://api.spotify.com/v1/me/player/play";
-				if (targetDeviceId) {
-					playUrl += `?device_id=${targetDeviceId}`;
-				}
-
-				const response = await fetch(playUrl, {
-					method: "PUT",
-					headers: {
-						Authorization: `Bearer ${accessToken}`,
-						"Content-Type": "application/json",
-					},
-					body: JSON.stringify(payload),
-				});
-
-				if (!response.ok) {
-					let errorBodyText = await response.text(); // Read body as text for more info
-					let errorMessage = `${response.status} - ${response.statusText}`;
-					try {
-						const errorData = JSON.parse(errorBodyText); // Try to parse as JSON
-						if (
-							errorData &&
-							errorData.error &&
-							errorData.error.message
-						) {
-							errorMessage = errorData.error.message;
-							if (errorData.error.reason) {
-								console.error(
-									"Spotify Playback Error Reason:",
-									errorData.error.reason
-								);
-								// NO_ACTIVE_DEVICE is a common reason if device_id is not specified and no device is active
-								// PLAYER_COMMAND_FAILED if device_id is specified but invalid, or other reasons
-							}
-						}
-					} catch (e) {
-						/* Ignore if body is not JSON */
-					}
-					console.error(
-						"Spotify Playback Error Full Response:",
-						errorBodyText
-					);
-					throw new Error(`Failed to play track: ${errorMessage}`);
-				}
-				console.log(
-					"AuthContext: Play command sent successfully for track:",
-					trackUri
+				await playTrackWithNativeSdk(
+					trackUri,
+					deviceId,
+					contextUri,
+					accessToken
 				);
-			} catch (e: any) {
-				console.error("AuthContext: Error playing track:", e.message);
-				// Potentially show a toast or message to the user
+			} catch (error) {
+				setIsConnectedToAppRemote(false);
+				throw error;
 			}
 		},
-		[accessToken, _getAvailableDeviceId]
-	); // Added _getAvailableDeviceId as a dependency
+		[accessToken]
+	);
 
-	const searchItems = async (
-		query: string,
-		types: string[]
-	): Promise<SpotifySearchResults | null> => {
-		if (!accessToken) {
-			console.error("AuthContext: Cannot search, no access token.");
-			return null;
-		}
-		if (!query.trim()) {
-			console.error("AuthContext: Search query cannot be empty.");
-			return null;
-		}
-		const typeString = types.join(",");
-		const url = `https://api.spotify.com/v1/search?q=${encodeURIComponent(
-			query
-		)}&type=${encodeURIComponent(typeString)}&limit=10`; // Limit to 10 for each type for now
-
-		console.log(
-			`AuthContext: Searching for "${query}" (types: ${typeString})`
-		);
-		const data = await makeApiRequest(url, "Search Results");
-		return data as SpotifySearchResults | null;
-	};
-
-	const addTrackToPlaylist = async (
-		playlistId: string,
-		trackUri: string
-	): Promise<boolean> => {
-		if (!accessToken) {
-			console.error(
-				"AuthContext: Cannot add track to playlist, no access token."
-			);
-			return false;
-		}
-		if (!playlistId || !trackUri) {
-			console.error(
-				"AuthContext: Playlist ID and Track URI are required."
-			);
-			return false;
-		}
-
-		console.log(
-			`AuthContext: Adding track ${trackUri} to playlist ${playlistId}`
-		);
-		try {
-			const response = await fetch(
-				`https://api.spotify.com/v1/playlists/${playlistId}/tracks`,
-				{
-					method: "POST",
-					headers: {
-						Authorization: `Bearer ${accessToken}`,
-						"Content-Type": "application/json",
-					},
-					body: JSON.stringify({
-						uris: [trackUri],
-					}),
-				}
-			);
-
-			if (!response.ok) {
-				const errorData = await response.json().catch(() => ({
-					message: "Failed to parse error response",
-				}));
-				console.error(
-					`AuthContext: Failed to add track to playlist ${playlistId}. Status: ${response.status}`,
-					errorData
-				);
-				// Consider more specific error handling based on status or errorData.error.reason
-				return false;
+	const playTrackWithContext = useCallback(
+		(
+			trackUri: string,
+			sourceContext?: {
+				type: "album" | "playlist" | "liked" | "artist";
+				uri?: string;
+				tracks?: any[];
+				currentIndex?: number;
 			}
+		) => playTrackWithContextService(trackUri, accessToken, sourceContext),
+		[accessToken]
+	);
 
-			console.log(
-				`AuthContext: Successfully added track ${trackUri} to playlist ${playlistId}`
-			);
-			return true;
-		} catch (error: any) {
-			console.error(
-				`AuthContext: Error adding track to playlist ${playlistId}:`,
-				error.message
-			);
-			return false;
-		}
-	};
+	const getPlaybackState = useCallback(
+		(): Promise<SpotifyCurrentlyPlaying | null> =>
+			getPlaybackStateFromNativeSdk(accessToken),
+		[accessToken]
+	);
 
-	// --- Authentication Flow ---
-	const login = useCallback(async () => {
-		if (!request) {
-			console.log("Auth request not ready yet");
-			return;
-		}
-		setIsLoading(true);
-		await promptAsync();
-		// The useEffect hook for 'response' will handle the rest
-	}, [request, promptAsync]);
+	const getCurrentTrack = useCallback(() => getCurrentTrackService(), []);
 
-	const getPlaybackState =
-		async (): Promise<SpotifyCurrentlyPlaying | null> => {
-			if (!accessToken) return null;
+	const getAlbumArt = useCallback(
+		(uri?: string, size?: string) => getAlbumArtService(uri, size),
+		[]
+	);
 
-			try {
-				const response = await fetch(
-					"https://api.spotify.com/v1/me/player",
-					{
-						headers: {
-							Authorization: `Bearer ${accessToken}`,
-						},
-					}
+	const startPlayback = useCallback(() => startPlaybackService(), []);
+	const pausePlayback = useCallback(() => pausePlaybackService(), []);
+	const skipToNext = useCallback(() => skipToNextService(), []);
+	const skipToPrevious = useCallback(() => skipToPreviousService(), []);
+	const toggleShuffle = useCallback(
+		(state: boolean) => toggleShuffleService(state),
+		[]
+	);
+	const toggleRepeat = useCallback(
+		(state: "off" | "track") => toggleRepeatService(state),
+		[]
+	);
+	const seekToPosition = useCallback(
+		(positionMs: number) => seekToPositionService(positionMs),
+		[]
+	);
+
+	const searchItems = useCallback(
+		(query: string, types: string[]) =>
+			searchItemsService(query, types, accessToken),
+		[accessToken]
+	);
+
+	const addTrackToPlaylist = useCallback(
+		(playlistId: string, trackUri: string) =>
+			addTrackToPlaylistService(playlistId, trackUri, accessToken),
+		[accessToken]
+	);
+
+	const forceAppRemoteConnectionMethod =
+		useCallback(async (): Promise<boolean> => {
+			const result = await forceAppRemoteConnection();
+			setIsConnectedToAppRemote(result);
+			return result;
+		}, []);
+
+	// App state and connection management effects
+	useEffect(() => {
+		const handleAppStateChange = (nextAppState: AppStateStatus) => {
+			if (
+				appState.match(/inactive|background/) &&
+				nextAppState === "active"
+			) {
+				console.log(
+					"AuthContext: App resumed - relying on auto-connect"
 				);
-
-				if (response.status === 204 || response.status === 202) {
-					// No content or accepted, meaning no active player or nothing playing
-					return null;
+				// Just ensure auto-connect is enabled, let native SDK handle connection
+				if (accessToken) {
+					SpotifySdk.enableAutoConnect(true);
 				}
+			} else if (
+				appState === "active" &&
+				nextAppState.match(/inactive|background/)
+			) {
+				setIsConnectedToAppRemote(false);
+			}
+			setAppState(nextAppState);
+		};
 
-				if (!response.ok) {
-					const errorData = await response.text(); // Use .text() for better error detail
-					console.error(
-						"Error fetching playback state:",
-						response.status,
-						errorData
-					);
-					return null;
+		const handleNativeConnected = () => {
+			console.log("AuthContext: Connected to Spotify");
+			setIsConnectedToAppRemote(true);
+		};
+
+		const handleNativeDisconnected = () => {
+			console.log("AuthContext: Disconnected from Spotify");
+			setIsConnectedToAppRemote(false);
+		};
+
+		const appStateSubscription = AppState.addEventListener(
+			"change",
+			handleAppStateChange
+		);
+		const connectedSubscription = SpotifySdk.addListener(
+			"onConnected",
+			handleNativeConnected
+		);
+		const disconnectedSubscription = SpotifySdk.addListener(
+			"onDisconnected",
+			handleNativeDisconnected
+		);
+
+		return () => {
+			appStateSubscription?.remove();
+			connectedSubscription?.remove();
+			disconnectedSubscription?.remove();
+		};
+	}, [appState, accessToken]);
+
+	// Initial load effect
+	useEffect(() => {
+		if (hasInitiallyLoaded || isAuthenticating) return;
+
+		const loadInitialAuth = async () => {
+			try {
+				const authData = await loadStoredAuth();
+
+				if (authData.accessToken) {
+					setAccessToken(authData.accessToken);
+					setRefreshToken(authData.refreshToken);
+					setUser(authData.user);
+					setTokenExpiry(authData.tokenExpiry);
+
+					// Load cached data while fetching fresh data
+					const cachedData = await loadCachedData();
+					setPlaylists(cachedData.playlists);
+					setAlbums(cachedData.albums);
+					setSavedTracks(cachedData.savedTracks);
+					setIsLoading(false);
+
+					// Connection is already established in loadStoredAuth()
+
+					// Fetch fresh data if we have user info, or if we have a token but no user (stored token case)
+					if (authData.user) {
+						await fetchInitialData(authData.accessToken);
+					} else if (authData.accessToken) {
+						// Stored token case - fetch user info first, then other data
+						console.log(
+							"AuthContext: Fetching user info for stored token..."
+						);
+						try {
+							const response = await fetch(
+								"https://api.spotify.com/v1/me",
+								{
+									headers: {
+										Authorization: `Bearer ${authData.accessToken}`,
+									},
+								}
+							);
+							const userData = await response.json();
+							if (response.ok) {
+								setUser(userData);
+								console.log(
+									"AuthContext: User info fetched for stored token"
+								);
+								await fetchInitialData(authData.accessToken);
+							} else {
+								console.error(
+									"AuthContext: Failed to fetch user info:",
+									userData
+								);
+							}
+						} catch (error) {
+							console.error(
+								"AuthContext: Error fetching user info:",
+								error
+							);
+						}
+					}
+				} else {
+					// No stored auth - load cached data and stay logged out
+					const cachedData = await loadCachedData();
+					setPlaylists(cachedData.playlists);
+					setAlbums(cachedData.albums);
+					setSavedTracks(cachedData.savedTracks);
+					setIsLoading(false);
 				}
-
-				const data = await response.json();
-				return data as SpotifyCurrentlyPlaying;
 			} catch (error) {
-				console.error("Error in getPlaybackState:", error);
-				return null;
+				console.error("AuthContext: Failed to load auth state:", error);
+				const cachedData = await loadCachedData();
+				setPlaylists(cachedData.playlists);
+				setAlbums(cachedData.albums);
+				setSavedTracks(cachedData.savedTracks);
+				setIsLoading(false);
+			} finally {
+				setHasInitiallyLoaded(true);
 			}
 		};
 
-	const startPlayback = async () => {
-		if (!accessToken) return;
+		loadInitialAuth();
+	}, [isAuthenticating, hasInitiallyLoaded, fetchInitialData]);
 
-		try {
-			const response = await fetch(
-				"https://api.spotify.com/v1/me/player/play",
-				{
-					method: "PUT",
-					headers: {
-						Authorization: `Bearer ${accessToken}`,
-					},
-				}
-			);
-
-			if (!response.ok) {
-				throw new Error("Failed to start playback");
-			}
-		} catch (error) {
-			console.error("Error starting playback:", error);
-			throw error;
-		}
-	};
-
-	const pausePlayback = async () => {
-		if (!accessToken) return;
-
-		try {
-			const response = await fetch(
-				"https://api.spotify.com/v1/me/player/pause",
-				{
-					method: "PUT",
-					headers: {
-						Authorization: `Bearer ${accessToken}`,
-					},
-				}
-			);
-
-			if (!response.ok) {
-				throw new Error("Failed to pause playback");
-			}
-		} catch (error) {
-			console.error("Error pausing playback:", error);
-			throw error;
-		}
-	};
-
-	const skipToNext = async () => {
-		if (!accessToken) return;
-
-		try {
-			const response = await fetch(
-				"https://api.spotify.com/v1/me/player/next",
-				{
-					method: "POST",
-					headers: {
-						Authorization: `Bearer ${accessToken}`,
-					},
-				}
-			);
-
-			if (!response.ok) {
-				throw new Error("Failed to skip to next track");
-			}
-		} catch (error) {
-			console.error("Error skipping to next track:", error);
-			throw error;
-		}
-	};
-
-	const skipToPrevious = async () => {
-		if (!accessToken) return;
-
-		try {
-			// First get the current playback state to check progress
-			const currentState = await getPlaybackState();
-			if (!currentState || !currentState.item) return;
-
-			const THRESHOLD_MS = 3000; // 3 seconds threshold
-
-			if (
-				currentState.progress_ms &&
-				currentState.progress_ms > THRESHOLD_MS
-			) {
-				// If we're past the threshold, restart the current track
-				const response = await fetch(
-					"https://api.spotify.com/v1/me/player/seek?position_ms=0",
-					{
-						method: "PUT",
-						headers: {
-							Authorization: `Bearer ${accessToken}`,
-						},
-					}
-				);
-
-				if (!response.ok) {
-					throw new Error("Failed to restart current track");
-				}
-			} else {
-				// If we're within the threshold, go to previous track
-				const response = await fetch(
-					"https://api.spotify.com/v1/me/player/previous",
-					{
-						method: "POST",
-						headers: {
-							Authorization: `Bearer ${accessToken}`,
-						},
-					}
-				);
-
-				if (!response.ok) {
-					throw new Error("Failed to skip to previous track");
-				}
-			}
-		} catch (error) {
-			console.error("Error handling previous track:", error);
-			throw error;
-		}
-	};
-
-	const toggleShuffle = async (state: boolean) => {
-		if (!accessToken) return;
-
-		try {
-			const response = await fetch(
-				`https://api.spotify.com/v1/me/player/shuffle?state=${state}`,
-				{
-					method: "PUT",
-					headers: {
-						Authorization: `Bearer ${accessToken}`,
-					},
-				}
-			);
-
-			if (!response.ok) {
-				throw new Error("Failed to toggle shuffle");
-			}
-		} catch (error) {
-			console.error("Error toggling shuffle:", error);
-			throw error;
-		}
-	};
-
-	const toggleRepeat = async (state: "off" | "track") => {
-		if (!accessToken) return;
-
-		try {
-			const response = await fetch(
-				`https://api.spotify.com/v1/me/player/repeat?state=${state}`,
-				{
-					method: "PUT",
-					headers: {
-						Authorization: `Bearer ${accessToken}`,
-					},
-				}
-			);
-
-			if (!response.ok) {
-				throw new Error("Failed to toggle repeat");
-			}
-		} catch (error) {
-			console.error("Error toggling repeat:", error);
-			throw error;
-		}
-	};
-
-	const seekToPosition = async (positionMs: number) => {
-		if (!accessToken) return;
-		console.log(`AuthContext: Seeking to ${positionMs}ms`);
-		try {
-			const response = await fetch(
-				`https://api.spotify.com/v1/me/player/seek?position_ms=${Math.round(
-					positionMs
-				)}`,
-				{
-					method: "PUT",
-					headers: {
-						Authorization: `Bearer ${accessToken}`,
-					},
-				}
-			);
-			if (!response.ok) {
-				const errorData = await response.text();
-				console.error(
-					"AuthContext: Failed to seek. Status:",
-					response.status,
-					"Error:",
-					errorData
-				);
-				throw new Error(
-					`Failed to seek to position: ${response.status}`
-				);
-			}
-			console.log("AuthContext: Seek command sent successfully.");
-		} catch (error) {
-			console.error("AuthContext: Error seeking to position:", error);
-			// Optionally re-throw or handle as needed by the UI
-			throw error;
-		}
-	};
-
-	const value = {
+	// Provide context value
+	const value: AuthContextType = {
 		accessToken,
 		refreshToken,
 		user,
@@ -1593,13 +615,22 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 		isRefreshingPlaylists,
 		isRefreshingAlbums,
 		isRefreshingSavedTracks,
+		isConnectedToAppRemote,
 		login,
 		logout,
 		fetchPlaylists,
 		fetchAlbums,
 		fetchSavedTracks,
+		refreshSavedTracksFromCache: refreshSavedTracksFromCacheMethod,
+		saveAlbum,
+		removeAlbum,
+		checkIfAlbumIsSaved,
+		refreshSavedAlbumsFromCache: refreshSavedAlbumsFromCacheMethod,
 		playTrack,
+		playTrackWithContext,
 		getPlaybackState,
+		getCurrentTrack,
+		getAlbumArt,
 		startPlayback,
 		pausePlayback,
 		skipToNext,
@@ -1609,6 +640,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 		addTrackToPlaylist,
 		seekToPosition,
 		searchItems,
+		clearCachedData,
+		forceAppRemoteConnection: forceAppRemoteConnectionMethod,
+		makeApiRequest: makeApiRequestWithContext,
 	};
 
 	return (
@@ -1623,3 +657,28 @@ export const useAuth = () => {
 	}
 	return context;
 };
+
+// Re-export types for backwards compatibility
+export type {
+	SpotifyImage,
+	SpotifyPlaylist,
+	SpotifyPlaylistOwner,
+	SpotifyPlaylistsResponse,
+	SpotifyArtistSimple,
+	SpotifyAlbum,
+	SpotifyAlbumTracks,
+	SpotifyTrackSimple,
+	SpotifySavedAlbum,
+	SpotifySavedAlbumsResponse,
+	SavedTrackObject,
+	SavedTracksResponse,
+	SpotifyDevice,
+	SpotifyDevicesResponse,
+	SpotifyRepeatState,
+	SpotifyCurrentlyPlaying,
+	SpotifyPlaybackContext,
+	SpotifyAlbumSimple,
+	SpotifyTrack,
+	SpotifyPlaylistSimple,
+	SpotifySearchResults,
+} from "../types/spotify";
