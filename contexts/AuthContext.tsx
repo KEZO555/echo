@@ -431,7 +431,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 		[]
 	);
 	const toggleRepeat = useCallback(
-		(state: "off" | "track") => toggleRepeatService(state),
+		(state: "off" | "context" | "track") => toggleRepeatService(state),
 		[]
 	);
 	const seekToPosition = useCallback(

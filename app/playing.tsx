@@ -196,9 +196,15 @@ export default function PlayingScreen() {
 		if (!playbackState) return;
 
 		try {
-			// Toggle between 'off' and 'track' states
-			const newState =
-				playbackState.repeat_state === "track" ? "off" : "track";
+			// Cycle through three states: off -> context -> track -> off
+			let newState: "off" | "context" | "track";
+			if (playbackState.repeat_state === "off") {
+				newState = "context";
+			} else if (playbackState.repeat_state === "context") {
+				newState = "track";
+			} else {
+				newState = "off";
+			}
 			await toggleRepeat(newState);
 			// Fetch updated state immediately after the action
 			await fetchAndUpdatePlaybackState();
@@ -498,14 +504,19 @@ export default function PlayingScreen() {
 					</HapticPressable>
 					<HapticPressable onPress={handleRepeatToggle}>
 						<MaterialIcons
-							name={"repeat"}
+							name={
+								playbackState?.repeat_state === "track"
+									? "repeat-one"
+									: "repeat"
+							}
 							size={30}
 							color={"white"}
 						/>
 						<View
 							style={[
 								styles.shuffleIndicator,
-								playbackState?.repeat_state === "track" &&
+								(playbackState?.repeat_state === "context" ||
+									playbackState?.repeat_state === "track") &&
 									styles.activeShuffleIndicator,
 							]}
 						></View>

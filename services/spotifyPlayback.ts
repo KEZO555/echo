@@ -314,8 +314,8 @@ export const getPlaybackStateFromNativeSdk = async (
 				playerState.playbackOptions.repeatMode === 0
 					? "off"
 					: playerState.playbackOptions.repeatMode === 1
-					? "context"
-					: "track",
+					? "track"
+					: "context",
 		};
 	} catch (error) {
 		console.log("Playback: Error getting playback state:", error);
@@ -378,11 +378,15 @@ export const toggleShuffle = async (state: boolean): Promise<void> => {
 	}
 };
 
-export const toggleRepeat = async (state: "off" | "track"): Promise<void> => {
+export const toggleRepeat = async (
+	state: "off" | "context" | "track"
+): Promise<void> => {
 	try {
 		const connected = await ensureAppRemoteConnection();
 		if (!connected) return;
-		const repeatMode = state === "off" ? 0 : 2;
+		// Map Web API states to Android SDK repeat modes
+		// OFF = 0, ONE = 1 (track), ALL = 2 (context)
+		const repeatMode = state === "off" ? 0 : state === "track" ? 1 : 2;
 		const result = await SpotifySdk.setRepeat(repeatMode);
 		if (result.repeatSet) console.log(`Playback: Repeat set to ${state}`);
 	} catch (error) {
