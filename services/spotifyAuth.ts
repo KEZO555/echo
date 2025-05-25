@@ -58,6 +58,11 @@ export const loginWithSpotify = async (
 				AUTH_TOKEN_KEY,
 				tokenResponse.access_token
 			);
+
+			if (!tokenResponse.refresh_token) {
+				throw new Error("No refresh token received from server");
+			}
+
 			await SecureStore.setItemAsync(
 				REFRESH_TOKEN_KEY,
 				tokenResponse.refresh_token
