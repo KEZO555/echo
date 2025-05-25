@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import {
 	View,
 	StyleSheet,
@@ -6,6 +6,7 @@ import {
 	FlatList,
 	Image,
 	ActivityIndicator,
+	RefreshControl,
 } from "react-native";
 import { useAuth, SpotifyPlaylist } from "@/contexts/AuthContext"; // Assuming SpotifyPlaylist is exported from AuthContext
 import { HapticPressable } from "@/components/HapticPressable";
@@ -65,6 +66,12 @@ export default function PlaylistsScreen() {
 			setSortedPlaylists(newSortedPlaylists);
 		}
 	}, [playlists]);
+
+	const handleRefresh = useCallback(() => {
+		if (!isRefreshingPlaylists) {
+			fetchPlaylists();
+		}
+	}, [fetchPlaylists, isRefreshingPlaylists]);
 
 	const renderPlaylistItem = ({ item }: { item: SpotifyPlaylist }) => {
 		if (item.id === CREATE_NEW_PLAYLIST_ID) {
@@ -168,6 +175,15 @@ export default function PlaylistsScreen() {
 				contentContainerStyle={styles.listContentContainer}
 				ItemSeparatorComponent={() => <View style={{ height: 8 }} />}
 				overScrollMode={"never"}
+				refreshControl={
+					<RefreshControl
+						refreshing={isRefreshingPlaylists}
+						onRefresh={handleRefresh}
+						colors={["white"]}
+						progressBackgroundColor={"black"}
+						size={"large" as any}
+					/>
+				}
 			/>
 		);
 	}
@@ -195,6 +211,15 @@ export default function PlaylistsScreen() {
 			onEndReached={handleLoadMore}
 			onEndReachedThreshold={6}
 			ListFooterComponent={renderFooter}
+			refreshControl={
+				<RefreshControl
+					refreshing={isRefreshingPlaylists}
+					onRefresh={handleRefresh}
+					colors={["white"]}
+					progressBackgroundColor={"black"}
+					size={"large" as any}
+				/>
+			}
 		/>
 	);
 }

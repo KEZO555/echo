@@ -1,10 +1,11 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import {
 	View,
 	StyleSheet,
 	FlatList,
 	Image,
 	ActivityIndicator,
+	RefreshControl,
 } from "react-native";
 import {
 	useAuth,
@@ -59,6 +60,12 @@ export default function AlbumsScreen() {
 			setSortedAlbums(newSortedAlbums);
 		}
 	}, [albums]);
+
+	const handleRefresh = useCallback(() => {
+		if (!isRefreshingAlbums) {
+			fetchAlbums();
+		}
+	}, [fetchAlbums, isRefreshingAlbums]);
 
 	const getArtistNames = (artists: SpotifyArtistSimple[]) => {
 		return artists.map((artist) => artist.name).join(", ");
@@ -141,6 +148,15 @@ export default function AlbumsScreen() {
 			onEndReached={handleLoadMore} // Added onEndReached
 			onEndReachedThreshold={6}
 			ListFooterComponent={renderFooter} // Added ListFooterComponent
+			refreshControl={
+				<RefreshControl
+					refreshing={isRefreshingAlbums}
+					onRefresh={handleRefresh}
+					colors={["white"]}
+					progressBackgroundColor={"black"}
+					size={"large" as any}
+				/>
+			}
 		/>
 	);
 }

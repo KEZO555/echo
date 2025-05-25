@@ -20,7 +20,6 @@ export const TABS_CONFIG: ReadonlyArray<TabConfigItem> = [
 ] as const;
 
 export default function TabLayout() {
-	const { fetchPlaylists, fetchAlbums, fetchSavedTracks } = useAuth();
 	const { preferences } = useTabPreferences();
 
 	// Filter tabs based on user preferences
@@ -84,22 +83,6 @@ export default function TabLayout() {
 			}}
 		>
 			{visibleTabs.map((tab) => {
-				let onRefresh: (() => Promise<void>) | undefined;
-				let refreshIconName:
-					| keyof typeof MaterialIcons.glyphMap
-					| undefined;
-
-				if (tab.screenName === "index" && fetchSavedTracks) {
-					onRefresh = fetchSavedTracks;
-					refreshIconName = "refresh";
-				} else if (tab.screenName === "playlists" && fetchPlaylists) {
-					onRefresh = fetchPlaylists;
-					refreshIconName = "refresh";
-				} else if (tab.screenName === "albums" && fetchAlbums) {
-					onRefresh = fetchAlbums;
-					refreshIconName = "refresh";
-				}
-
 				return (
 					<Tabs.Screen
 						key={tab.screenName}
@@ -111,8 +94,6 @@ export default function TabLayout() {
 									: (props) => (
 											<TabHeader
 												headerTitle={tab.name}
-												leftIconName={refreshIconName}
-												leftOnIconPress={onRefresh}
 												hideWaveformButton={
 													tab.screenName ===
 													"settings"

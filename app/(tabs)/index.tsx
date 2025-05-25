@@ -1,10 +1,11 @@
-import React, { useEffect } from "react";
+import React, { useEffect, useCallback } from "react";
 import {
 	View,
 	StyleSheet,
 	FlatList,
 	Image,
 	ActivityIndicator,
+	RefreshControl,
 } from "react-native";
 import {
 	useAuth,
@@ -36,6 +37,12 @@ export default function LikedSongsScreen() {
 			fetchSavedTracks();
 		}
 	}, [accessToken, user, savedTracks, fetchSavedTracks, isLoading]);
+
+	const handleRefresh = useCallback(() => {
+		if (!isRefreshingSavedTracks) {
+			fetchSavedTracks();
+		}
+	}, [fetchSavedTracks, isRefreshingSavedTracks]);
 
 	const getArtistNames = (artists: SpotifyArtistSimple[]) => {
 		return artists.map((artist) => artist.name).join(", ");
@@ -147,6 +154,15 @@ export default function LikedSongsScreen() {
 			onEndReached={handleLoadMore}
 			onEndReachedThreshold={6}
 			ListFooterComponent={renderFooter}
+			refreshControl={
+				<RefreshControl
+					refreshing={isRefreshingSavedTracks}
+					onRefresh={handleRefresh}
+					colors={["white"]}
+					progressBackgroundColor={"black"}
+					size={"large" as any}
+				/>
+			}
 		/>
 	);
 }
