@@ -7,6 +7,7 @@ import {
 	SPOTIFY_CLIENT_ID,
 } from "../constants/spotify";
 import { clearCachedData } from "./cache";
+import { refreshAccessToken as refreshTokenService } from "../services/tokenExchange";
 
 export const makeApiRequest = async (
 	url: string,
@@ -155,48 +156,32 @@ export const refreshAccessToken = async (
 			throw new Error("No refresh token available");
 		}
 
-		console.log("API: Using Web API token refresh endpoint...");
+		console.log("API: Using new token exchange service for refresh...");
 
-		const response = await fetch("https://accounts.spotify.com/api/token", {
-			method: "POST",
-			headers: {
-				"Content-Type": "application/x-www-form-urlencoded",
-			},
-			body: `grant_type=refresh_token&refresh_token=${encodeURIComponent(
-				currentRefreshToken
-			)}&client_id=${SPOTIFY_CLIENT_ID}`,
-		});
+		// Use the new token exchange service
+		const tokenResponse = await refreshTokenService(currentRefreshToken);
 
-		if (!response.ok) {
-			const errorData = await response.json();
-			console.error("API: Token refresh failed:", errorData);
-			throw new Error(
-				`Token refresh failed: ${response.status} ${
-					errorData.error_description || errorData.error
-				}`
-			);
-		}
+		console.log("API: Access token refreshed successfully");
 
-		const data = await response.json();
+		// Update tokens in secure storage
+		await SecureStore.setItemAsync(
+			AUTH_TOKEN_KEY,
+			tokenResponse.access_token
+		);
+		await SecureStore.setItemAsync(
+			REFRESH_TOKEN_KEY,
+			tokenResponse.refresh_token
+		);
 
-		if (!data.access_token) {
-			throw new Error("No access token in refresh response");
-		}
-
-		console.log("API: Access token refreshed successfully via Web API");
-
-		// Update tokens
-		await SecureStore.setItemAsync(AUTH_TOKEN_KEY, data.access_token);
-
-		// Update refresh token if a new one was provided
-		const newRefreshToken = data.refresh_token || currentRefreshToken;
-		await SecureStore.setItemAsync(REFRESH_TOKEN_KEY, newRefreshToken);
-
-		// Set token expiry based on expires_in from response
-		const expiryTime = Date.now() + data.expires_in * 1000;
+		// Set token expiry with 10-minute buffer for safety
+		const expiryTime = Date.now() + (tokenResponse.expires_in - 600) * 1000;
 		await SecureStore.setItemAsync(TOKEN_EXPIRY_KEY, expiryTime.toString());
 
-		onTokenUpdate(data.access_token, newRefreshToken, expiryTime);
+		onTokenUpdate(
+			tokenResponse.access_token,
+			tokenResponse.refresh_token,
+			expiryTime
+		);
 
 		return true;
 	} catch (error) {

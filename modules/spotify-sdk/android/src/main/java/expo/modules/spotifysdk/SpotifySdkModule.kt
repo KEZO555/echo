@@ -159,6 +159,8 @@ class SpotifySdkModule : Module() {
         if (showDialog == true) builder.setShowDialog(true)
         if (state != null) builder.setState(state)
 
+        // Server handles PKCE, no need for client-side code challenge
+
         val request = builder.build()
         AuthorizationClient.openLoginActivity(activity, AUTH_CODE_REQUEST_CODE, request)
       } catch (e: Exception) {
