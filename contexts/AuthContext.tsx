@@ -335,10 +335,41 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 		makeApiRequestWithContext,
 	]);
 
+	// Token validation method
+	const ensureValidToken = useCallback(async (): Promise<string | null> => {
+		if (!accessToken || !refreshToken || !tokenExpiry) {
+			return null;
+		}
+
+		// Check if token expires within 5 minutes
+		const timeUntilExpiry = tokenExpiry - Date.now();
+		if (timeUntilExpiry < 5 * 60 * 1000) {
+			console.log("AuthContext: Token expires soon, refreshing...");
+			try {
+				const refreshed = await makeApiRequestWithContext(
+					"https://api.spotify.com/v1/me", // Simple endpoint to trigger refresh
+					"Token validation"
+				);
+				if (refreshed) {
+					return accessToken; // Token was refreshed by makeApiRequest
+				}
+			} catch (error) {
+				console.error("AuthContext: Token refresh failed:", error);
+				return null;
+			}
+		}
+
+		return accessToken;
+	}, [accessToken, refreshToken, tokenExpiry, makeApiRequestWithContext]);
+
 	// Album management methods
 	const saveAlbum = useCallback(
 		async (albumId: string): Promise<boolean> => {
-			const result = await saveAlbumService(albumId, accessToken);
+			const result = await saveAlbumService(
+				albumId,
+				accessToken,
+				ensureValidToken
+			);
 			if (result) {
 				// Refresh albums from cache to update UI
 				const cachedAlbums = await refreshSavedAlbumsFromCache();
@@ -346,12 +377,16 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 			}
 			return result;
 		},
-		[accessToken]
+		[accessToken, ensureValidToken]
 	);
 
 	const removeAlbum = useCallback(
 		async (albumId: string): Promise<boolean> => {
-			const result = await removeAlbumService(albumId, accessToken);
+			const result = await removeAlbumService(
+				albumId,
+				accessToken,
+				ensureValidToken
+			);
 			if (result) {
 				// Refresh albums from cache to update UI
 				const cachedAlbums = await refreshSavedAlbumsFromCache();
@@ -359,12 +394,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 			}
 			return result;
 		},
-		[accessToken]
+		[accessToken, ensureValidToken]
 	);
 
 	const checkIfAlbumIsSaved = useCallback(
-		(albumId: string) => checkIfAlbumIsSavedService(albumId, accessToken),
-		[accessToken]
+		(albumId: string) =>
+			checkIfAlbumIsSavedService(albumId, accessToken, ensureValidToken),
+		[accessToken, ensureValidToken]
 	);
 
 	// Cache refresh methods
@@ -382,22 +418,24 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 	const playTrack = useCallback(
 		async (trackUri: string, deviceId?: string, contextUri?: string) => {
 			try {
+				// Ensure we have a valid token before playback
+				const validToken = await ensureValidToken();
 				await playTrackWithNativeSdk(
 					trackUri,
 					deviceId,
 					contextUri,
-					accessToken
+					validToken
 				);
 			} catch (error) {
 				setIsConnectedToAppRemote(false);
 				throw error;
 			}
 		},
-		[accessToken]
+		[accessToken, ensureValidToken]
 	);
 
 	const playTrackWithContext = useCallback(
-		(
+		async (
 			trackUri: string,
 			sourceContext?: {
 				type: "album" | "playlist" | "liked" | "artist";
@@ -405,8 +443,16 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 				tracks?: any[];
 				currentIndex?: number;
 			}
-		) => playTrackWithContextService(trackUri, accessToken, sourceContext),
-		[accessToken]
+		) => {
+			// Ensure we have a valid token before playback
+			const validToken = await ensureValidToken();
+			return playTrackWithContextService(
+				trackUri,
+				validToken,
+				sourceContext
+			);
+		},
+		[accessToken, ensureValidToken]
 	);
 
 	const getPlaybackState = useCallback(
@@ -431,7 +477,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 		[]
 	);
 	const toggleRepeat = useCallback(
-		(state: "off" | "track") => toggleRepeatService(state),
+		(state: "off" | "context" | "track") => toggleRepeatService(state),
 		[]
 	);
 	const seekToPosition = useCallback(
@@ -441,14 +487,19 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
 	const searchItems = useCallback(
 		(query: string, types: string[]) =>
-			searchItemsService(query, types, accessToken),
-		[accessToken]
+			searchItemsService(query, types, accessToken, ensureValidToken),
+		[accessToken, ensureValidToken]
 	);
 
 	const addTrackToPlaylist = useCallback(
 		(playlistId: string, trackUri: string) =>
-			addTrackToPlaylistService(playlistId, trackUri, accessToken),
-		[accessToken]
+			addTrackToPlaylistService(
+				playlistId,
+				trackUri,
+				accessToken,
+				ensureValidToken
+			),
+		[accessToken, ensureValidToken]
 	);
 
 	const forceAppRemoteConnectionMethod =
@@ -643,6 +694,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 		clearCachedData,
 		forceAppRemoteConnection: forceAppRemoteConnectionMethod,
 		makeApiRequest: makeApiRequestWithContext,
+		ensureValidToken,
 	};
 
 	return (

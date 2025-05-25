@@ -58,7 +58,9 @@ export default function PlaylistDetailScreen() {
 		? (JSON.parse(playlistString) as SpotifyPlaylist)
 		: null;
 
-	const [playlist, setPlaylist] = useState<SpotifyPlaylistFull | null>(null);
+	const [playlist, setPlaylist] = useState<SpotifyPlaylistFull | null>(
+		initialPlaylist as SpotifyPlaylistFull | null
+	);
 	const [isLoading, setIsLoading] = useState(!initialPlaylist);
 	const [error, setError] = useState<string | null>(null);
 	const [isLoadingMoreTracks, setIsLoadingMoreTracks] = useState(false);
@@ -186,7 +188,7 @@ export default function PlaylistDetailScreen() {
 				}}
 			>
 				<StyledText style={styles.trackNumber}>
-					{playlist.tracks.offset + index + 1}.
+					{(playlist.tracks?.offset || 0) + index + 1}.
 				</StyledText>
 				<View style={styles.trackNameContainer}>
 					<StyledText style={styles.trackName} numberOfLines={1}>

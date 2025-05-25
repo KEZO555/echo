@@ -308,7 +308,7 @@ export interface AuthContextType {
 	skipToNext: () => Promise<void>;
 	skipToPrevious: () => Promise<void>;
 	toggleShuffle: (state: boolean) => Promise<void>;
-	toggleRepeat: (state: "off" | "track") => Promise<void>;
+	toggleRepeat: (state: "off" | "context" | "track") => Promise<void>;
 	addTrackToPlaylist: (
 		playlistId: string,
 		trackUri: string
@@ -326,4 +326,5 @@ export interface AuthContextType {
 		isRefreshing?: boolean,
 		retryCount?: number
 	) => Promise<any | null>;
+	ensureValidToken: () => Promise<string | null>;
 }

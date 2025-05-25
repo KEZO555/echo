@@ -94,6 +94,7 @@ export const playTrackWithNativeSdk = async (
 
 		if (contextUri && accessToken) {
 			try {
+				// Use centralized API request with token refresh handling
 				const response = await fetch(
 					"https://api.spotify.com/v1/me/player/play",
 					{
@@ -116,6 +117,11 @@ export const playTrackWithNativeSdk = async (
 						console.log("Playback: Playback started with context");
 					}
 					return;
+				} else if (response.status === 401) {
+					console.log(
+						"Playback: Token expired, falling back to direct play"
+					);
+					throw new Error("Token expired - using fallback");
 				} else {
 					throw new Error("Web API context failed");
 				}
@@ -314,8 +320,8 @@ export const getPlaybackStateFromNativeSdk = async (
 				playerState.playbackOptions.repeatMode === 0
 					? "off"
 					: playerState.playbackOptions.repeatMode === 1
-					? "context"
-					: "track",
+					? "track"
+					: "context",
 		};
 	} catch (error) {
 		console.log("Playback: Error getting playback state:", error);
@@ -378,11 +384,15 @@ export const toggleShuffle = async (state: boolean): Promise<void> => {
 	}
 };
 
-export const toggleRepeat = async (state: "off" | "track"): Promise<void> => {
+export const toggleRepeat = async (
+	state: "off" | "context" | "track"
+): Promise<void> => {
 	try {
 		const connected = await ensureAppRemoteConnection();
 		if (!connected) return;
-		const repeatMode = state === "off" ? 0 : 2;
+		// Map Web API states to Android SDK repeat modes
+		// OFF = 0, ONE = 1 (track), ALL = 2 (context)
+		const repeatMode = state === "off" ? 0 : state === "track" ? 1 : 2;
 		const result = await SpotifySdk.setRepeat(repeatMode);
 		if (result.repeatSet) console.log(`Playback: Repeat set to ${state}`);
 	} catch (error) {
@@ -444,9 +454,17 @@ export const getAlbumArt = async (
 export const searchItems = async (
 	query: string,
 	types: string[],
-	accessToken: string | null
+	accessToken: string | null,
+	ensureValidToken?: () => Promise<string | null>
 ): Promise<SpotifySearchResults | null> => {
-	if (!accessToken || !query.trim()) return null;
+	if (!query.trim()) return null;
+
+	// Use token validation if available
+	const validToken = ensureValidToken
+		? await ensureValidToken()
+		: accessToken;
+	if (!validToken) return null;
+
 	const typeString = types.join(",");
 	const url = `https://api.spotify.com/v1/search?q=${encodeURIComponent(
 		query
@@ -454,9 +472,14 @@ export const searchItems = async (
 
 	try {
 		const response = await fetch(url, {
-			headers: { Authorization: `Bearer ${accessToken}` },
+			headers: { Authorization: `Bearer ${validToken}` },
 		});
-		if (!response.ok) return null;
+		if (!response.ok) {
+			if (response.status === 401) {
+				console.log("Search: Token expired");
+			}
+			return null;
+		}
 		return await response.json();
 	} catch (error) {
 		console.error("Playback: Search error:", error);
@@ -467,9 +490,16 @@ export const searchItems = async (
 export const addTrackToPlaylist = async (
 	playlistId: string,
 	trackUri: string,
-	accessToken: string | null
+	accessToken: string | null,
+	ensureValidToken?: () => Promise<string | null>
 ): Promise<boolean> => {
-	if (!accessToken || !playlistId || !trackUri) return false;
+	if (!playlistId || !trackUri) return false;
+
+	// Use token validation if available
+	const validToken = ensureValidToken
+		? await ensureValidToken()
+		: accessToken;
+	if (!validToken) return false;
 
 	try {
 		const response = await fetch(
@@ -477,12 +507,15 @@ export const addTrackToPlaylist = async (
 			{
 				method: "POST",
 				headers: {
-					Authorization: `Bearer ${accessToken}`,
+					Authorization: `Bearer ${validToken}`,
 					"Content-Type": "application/json",
 				},
 				body: JSON.stringify({ uris: [trackUri] }),
 			}
 		);
+		if (!response.ok && response.status === 401) {
+			console.log("AddTrackToPlaylist: Token expired");
+		}
 		return response.ok;
 	} catch (error) {
 		console.error("Playback: Error adding track to playlist:", error);
@@ -544,6 +577,11 @@ export const playTrackWithContext = async (
 					await SpotifySdk.play(); // Native SDK control
 					console.log("Playback: Started with context");
 					return;
+				} else if (response.status === 401) {
+					console.log(
+						"Playback: Token expired, falling back to direct play"
+					);
+					throw new Error("Token expired - using fallback");
 				} else {
 					console.log(
 						"Playback: Web API context failed with status:",

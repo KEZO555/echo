@@ -40,6 +40,7 @@ export default function PlayingScreen() {
 		seekToPosition,
 		refreshSavedTracksFromCache,
 		makeApiRequest,
+		ensureValidToken,
 	} = useAuth();
 	const [playbackState, setPlaybackState] =
 		useState<SpotifyCurrentlyPlaying | null>(null);
@@ -196,9 +197,15 @@ export default function PlayingScreen() {
 		if (!playbackState) return;
 
 		try {
-			// Toggle between 'off' and 'track' states
-			const newState =
-				playbackState.repeat_state === "track" ? "off" : "track";
+			// Cycle through three states: off -> context -> track -> off
+			let newState: "off" | "context" | "track";
+			if (playbackState.repeat_state === "off") {
+				newState = "context";
+			} else if (playbackState.repeat_state === "context") {
+				newState = "track";
+			} else {
+				newState = "off";
+			}
 			await toggleRepeat(newState);
 			// Fetch updated state immediately after the action
 			await fetchAndUpdatePlaybackState();
@@ -252,11 +259,19 @@ export default function PlayingScreen() {
 		const url = `https://api.spotify.com/v1/me/tracks?ids=${trackId}`;
 
 		try {
-			// Use makeApiRequest with custom method
+			// Ensure we have a valid token before making the API call
+			const validToken = await ensureValidToken();
+			if (!validToken) {
+				console.warn(
+					"Cannot save/unsave track - no valid token available"
+				);
+				return;
+			}
+
 			const response = await fetch(url, {
 				method,
 				headers: {
-					Authorization: `Bearer ${accessToken}`,
+					Authorization: `Bearer ${validToken}`,
 					"Content-Type": "application/json",
 				},
 			});
@@ -498,14 +513,19 @@ export default function PlayingScreen() {
 					</HapticPressable>
 					<HapticPressable onPress={handleRepeatToggle}>
 						<MaterialIcons
-							name={"repeat"}
+							name={
+								playbackState?.repeat_state === "track"
+									? "repeat-one"
+									: "repeat"
+							}
 							size={30}
 							color={"white"}
 						/>
 						<View
 							style={[
 								styles.shuffleIndicator,
-								playbackState?.repeat_state === "track" &&
+								(playbackState?.repeat_state === "context" ||
+									playbackState?.repeat_state === "track") &&
 									styles.activeShuffleIndicator,
 							]}
 						></View>

@@ -2,6 +2,10 @@ import React, { useEffect } from "react";
 import { Stack, SplashScreen, useRouter } from "expo-router";
 import { HapticProvider } from "../contexts/HapticContext";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext"; // Adjust path as needed
+import {
+	TabPreferencesProvider,
+	useTabPreferences,
+} from "@/contexts/TabPreferencesContext";
 import { useFonts } from "expo-font"; // Import useFonts
 
 // Prevent the splash screen from auto-hiding before asset loading is complete.
@@ -9,6 +13,7 @@ SplashScreen.preventAutoHideAsync();
 
 function RootNavigation() {
 	const { accessToken, isLoading: authLoading } = useAuth();
+	const { preferences, isLoading: preferencesLoading } = useTabPreferences();
 	const router = useRouter();
 
 	// Font loading state
@@ -17,13 +22,24 @@ function RootNavigation() {
 		// Add other global fonts here if needed
 	});
 
-	const isLoading = authLoading || (!fontsLoaded && !fontError);
+	const isLoading =
+		authLoading || preferencesLoading || (!fontsLoaded && !fontError);
+
+	// Function to get the first available tab based on preferences
+	const getFirstAvailableTab = () => {
+		if (preferences.showLikedSongs) return "/(tabs)";
+		if (preferences.showAlbums) return "/(tabs)/albums";
+		if (preferences.showPlaylists) return "/(tabs)/playlists";
+		// Search and Settings are always available, default to search
+		return "/(tabs)/search";
+	};
 
 	useEffect(() => {
 		if (!isLoading) {
 			SplashScreen.hideAsync(); // Hide splash screen once auth state is determined
 			if (accessToken) {
-				router.replace("/(tabs)");
+				const firstAvailableTab = getFirstAvailableTab();
+				router.replace(firstAvailableTab as any);
 			} else {
 				router.replace("/login");
 			}
@@ -90,6 +106,13 @@ function RootNavigation() {
 					animation: "none",
 				}}
 			/>
+			<Stack.Screen
+				name="customise-tabs"
+				options={{
+					headerShown: false,
+					animation: "none",
+				}}
+			/>
 		</Stack>
 	);
 }
@@ -97,9 +120,11 @@ function RootNavigation() {
 export default function RootLayout() {
 	return (
 		<HapticProvider>
-			<AuthProvider>
-				<RootNavigation />
-			</AuthProvider>
+			<TabPreferencesProvider>
+				<AuthProvider>
+					<RootNavigation />
+				</AuthProvider>
+			</TabPreferencesProvider>
 		</HapticProvider>
 	);
 }
