@@ -7,7 +7,7 @@ import { useAuth } from "@/contexts/AuthContext";
 export default function NamePlaylistScreen() {
 	const [playlistName, setPlaylistName] = useState("");
 	const router = useRouter();
-	const { accessToken, user, fetchPlaylists } = useAuth();
+	const { accessToken, user, fetchPlaylists, ensureValidToken } = useAuth();
 
 	useFocusEffect(
 		useCallback(() => {
@@ -20,10 +20,15 @@ export default function NamePlaylistScreen() {
 			return;
 		}
 
-		if (!accessToken || !user || !user.id) {
-			console.error(
-				"Create Playlist Error: Missing accessToken or user ID"
-			);
+		if (!user || !user.id) {
+			console.error("Create Playlist Error: Missing user ID");
+			return;
+		}
+
+		// Ensure we have a valid token before creating playlist
+		const validToken = await ensureValidToken();
+		if (!validToken) {
+			console.error("Create Playlist Error: No valid token available");
 			return;
 		}
 
@@ -33,7 +38,7 @@ export default function NamePlaylistScreen() {
 				{
 					method: "POST",
 					headers: {
-						Authorization: `Bearer ${accessToken}`,
+						Authorization: `Bearer ${validToken}`,
 						"Content-Type": "application/json",
 					},
 					body: JSON.stringify({

@@ -22,7 +22,12 @@ export const makeApiRequest = async (
 	) => void,
 	onLogout: () => Promise<void>,
 	isRefreshing = false,
-	retryCount = 0
+	retryCount = 0,
+	options?: {
+		method?: string;
+		body?: string;
+		headers?: Record<string, string>;
+	}
 ): Promise<any | null> => {
 	// Check if token is about to expire (within 5 minutes) and refresh proactively
 	if (accessToken && tokenExpiry && refreshToken && retryCount === 0) {
@@ -63,7 +68,8 @@ export const makeApiRequest = async (
 					onTokenUpdate,
 					onLogout,
 					isRefreshing,
-					1
+					1,
+					options
 				);
 			} else {
 				await onLogout();
@@ -77,11 +83,19 @@ export const makeApiRequest = async (
 		console.log(`Refreshing ${errorMessage.toLowerCase()}...`);
 
 	try {
-		const response = await fetch(url, {
+		const fetchOptions: RequestInit = {
+			method: options?.method || "GET",
 			headers: {
 				Authorization: `Bearer ${accessToken}`,
+				...options?.headers,
 			},
-		});
+		};
+
+		if (options?.body) {
+			fetchOptions.body = options.body;
+		}
+
+		const response = await fetch(url, fetchOptions);
 		if (!response.ok) {
 			const errorData = await response
 				.json()
@@ -114,7 +128,8 @@ export const makeApiRequest = async (
 						onTokenUpdate,
 						onLogout,
 						isRefreshing,
-						1
+						1,
+						options
 					);
 				} else {
 					console.log("Failed to refresh token. Logging out.");
@@ -168,10 +183,12 @@ export const refreshAccessToken = async (
 			AUTH_TOKEN_KEY,
 			tokenResponse.access_token
 		);
-		await SecureStore.setItemAsync(
-			REFRESH_TOKEN_KEY,
-			tokenResponse.refresh_token
-		);
+		if (tokenResponse.refresh_token) {
+			await SecureStore.setItemAsync(
+				REFRESH_TOKEN_KEY,
+				tokenResponse.refresh_token
+			);
+		}
 
 		// Set token expiry with 10-minute buffer for safety
 		const expiryTime = Date.now() + (tokenResponse.expires_in - 600) * 1000;

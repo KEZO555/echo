@@ -326,4 +326,5 @@ export interface AuthContextType {
 		isRefreshing?: boolean,
 		retryCount?: number
 	) => Promise<any | null>;
+	ensureValidToken: () => Promise<string | null>;
 }

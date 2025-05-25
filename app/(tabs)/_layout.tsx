@@ -84,9 +84,6 @@ export default function TabLayout() {
 			}}
 		>
 			{visibleTabs.map((tab) => {
-				const { fetchPlaylists, fetchAlbums, fetchSavedTracks } =
-					useAuth() || {};
-
 				let onRefresh: (() => Promise<void>) | undefined;
 				let refreshIconName:
 					| keyof typeof MaterialIcons.glyphMap

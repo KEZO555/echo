@@ -167,10 +167,15 @@ export const fetchMoreSavedTracks = async (
 
 export const saveAlbum = async (
 	albumId: string,
-	accessToken: string | null
+	accessToken: string | null,
+	ensureValidToken?: () => Promise<string | null>
 ): Promise<boolean> => {
-	if (!accessToken) {
-		console.warn("Cannot save album - no access token available");
+	// Use token validation if available
+	const validToken = ensureValidToken
+		? await ensureValidToken()
+		: accessToken;
+	if (!validToken) {
+		console.warn("Cannot save album - no valid token available");
 		return false;
 	}
 
@@ -180,7 +185,7 @@ export const saveAlbum = async (
 			{
 				method: "PUT",
 				headers: {
-					Authorization: `Bearer ${accessToken}`,
+					Authorization: `Bearer ${validToken}`,
 					"Content-Type": "application/json",
 				},
 			}
@@ -195,7 +200,7 @@ export const saveAlbum = async (
 					`https://api.spotify.com/v1/albums/${albumId}`,
 					{
 						headers: {
-							Authorization: `Bearer ${accessToken}`,
+							Authorization: `Bearer ${validToken}`,
 						},
 					}
 				);
@@ -241,10 +246,15 @@ export const saveAlbum = async (
 
 export const removeAlbum = async (
 	albumId: string,
-	accessToken: string | null
+	accessToken: string | null,
+	ensureValidToken?: () => Promise<string | null>
 ): Promise<boolean> => {
-	if (!accessToken) {
-		console.warn("Cannot remove album - no access token available");
+	// Use token validation if available
+	const validToken = ensureValidToken
+		? await ensureValidToken()
+		: accessToken;
+	if (!validToken) {
+		console.warn("Cannot remove album - no valid token available");
 		return false;
 	}
 
@@ -254,7 +264,7 @@ export const removeAlbum = async (
 			{
 				method: "DELETE",
 				headers: {
-					Authorization: `Bearer ${accessToken}`,
+					Authorization: `Bearer ${validToken}`,
 					"Content-Type": "application/json",
 				},
 			}
@@ -295,7 +305,8 @@ export const removeAlbum = async (
 
 export const checkIfAlbumIsSaved = async (
 	albumId: string,
-	accessToken: string | null
+	accessToken: string | null,
+	ensureValidToken?: () => Promise<string | null>
 ): Promise<boolean> => {
 	// First, check cached saved albums (works offline)
 	try {
@@ -317,8 +328,11 @@ export const checkIfAlbumIsSaved = async (
 	}
 
 	// Only make API call if we have access token and the album wasn't found in cache
-	if (!accessToken) {
-		// No access token and not in cache - assume not saved
+	const validToken = ensureValidToken
+		? await ensureValidToken()
+		: accessToken;
+	if (!validToken) {
+		// No valid token and not in cache - assume not saved
 		return false;
 	}
 
@@ -327,7 +341,7 @@ export const checkIfAlbumIsSaved = async (
 			`https://api.spotify.com/v1/me/albums/contains?ids=${albumId}`,
 			{
 				headers: {
-					Authorization: `Bearer ${accessToken}`,
+					Authorization: `Bearer ${validToken}`,
 				},
 			}
 		);

@@ -40,6 +40,7 @@ export default function PlayingScreen() {
 		seekToPosition,
 		refreshSavedTracksFromCache,
 		makeApiRequest,
+		ensureValidToken,
 	} = useAuth();
 	const [playbackState, setPlaybackState] =
 		useState<SpotifyCurrentlyPlaying | null>(null);
@@ -258,11 +259,19 @@ export default function PlayingScreen() {
 		const url = `https://api.spotify.com/v1/me/tracks?ids=${trackId}`;
 
 		try {
-			// Use makeApiRequest with custom method
+			// Ensure we have a valid token before making the API call
+			const validToken = await ensureValidToken();
+			if (!validToken) {
+				console.warn(
+					"Cannot save/unsave track - no valid token available"
+				);
+				return;
+			}
+
 			const response = await fetch(url, {
 				method,
 				headers: {
-					Authorization: `Bearer ${accessToken}`,
+					Authorization: `Bearer ${validToken}`,
 					"Content-Type": "application/json",
 				},
 			});
