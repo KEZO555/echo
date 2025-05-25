@@ -25,14 +25,16 @@ export default function NamePlaylistScreen() {
 			return;
 		}
 
-		// Ensure we have a valid token before creating playlist
-		const validToken = await ensureValidToken();
-		if (!validToken) {
-			console.error("Create Playlist Error: No valid token available");
-			return;
-		}
-
 		try {
+			// Ensure we have a valid token before creating playlist
+			const validToken = await ensureValidToken();
+			if (!validToken) {
+				console.error(
+					"Create Playlist Error: No valid token available"
+				);
+				return;
+			}
+
 			const response = await fetch(
 				`https://api.spotify.com/v1/users/${user.id}/playlists`,
 				{
@@ -64,7 +66,7 @@ export default function NamePlaylistScreen() {
 				console.error("Error creating playlist:", errorData);
 			}
 		} catch (error) {
-			console.error("Network error creating playlist:", error);
+			console.error("Error creating playlist:", error);
 		}
 	};
 

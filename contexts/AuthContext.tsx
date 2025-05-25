@@ -179,10 +179,19 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 				);
 				if (refreshed) {
 					return accessToken; // Token was refreshed by makeApiRequest
+				} else {
+					// If refresh failed but we still have a token, try to use it
+					// This prevents immediate logout on temporary network issues
+					console.warn(
+						"AuthContext: Token refresh failed, but will try to use current token"
+					);
+					return accessToken;
 				}
 			} catch (error) {
 				console.error("AuthContext: Token refresh failed:", error);
-				return null;
+				// Return current token instead of null to avoid immediate logout
+				// The actual API call will handle the 401 and trigger logout if needed
+				return accessToken;
 			}
 		}
 

@@ -151,7 +151,8 @@ export const playTrackWithNativeSdk = async (
 
 export const getPlaybackStateFromNativeSdk = async (
 	accessToken?: string | null,
-	ensureValidToken?: () => Promise<string | null>
+	ensureValidToken?: () => Promise<string | null>,
+	makeApiRequest?: (url: string, errorMessage: string) => Promise<any | null>
 ): Promise<SpotifyCurrentlyPlaying | null> => {
 	try {
 		const connected = await ensureAppRemoteConnection();
@@ -212,7 +213,37 @@ export const getPlaybackStateFromNativeSdk = async (
 						}
 					}
 
-					if (validToken) {
+					if (validToken && makeApiRequest) {
+						try {
+							const albumData = await makeApiRequest(
+								`https://api.spotify.com/v1/albums/${albumId}`,
+								"Album art fetch"
+							);
+							if (
+								albumData &&
+								albumData.images &&
+								albumData.images.length > 0
+							) {
+								albumImages = albumData.images.map(
+									(img: any) => ({
+										url: img.url,
+										height: img.height,
+										width: img.width,
+									})
+								);
+								await saveCachedAlbumArt(albumId, albumImages);
+								console.log(
+									"Playback: Got album art from Web API fallback"
+								);
+							}
+						} catch (webApiError) {
+							console.log(
+								"Playback: Web API failed for album art:",
+								webApiError
+							);
+						}
+					} else if (validToken) {
+						// Fallback to direct fetch if makeApiRequest is not available
 						try {
 							const response = await fetch(
 								`https://api.spotify.com/v1/albums/${albumId}`,
@@ -240,7 +271,7 @@ export const getPlaybackStateFromNativeSdk = async (
 										albumImages
 									);
 									console.log(
-										"Playback: Got album art from Web API fallback"
+										"Playback: Got album art from Web API fallback (direct fetch)"
 									);
 								}
 							} else if (response.status === 401) {

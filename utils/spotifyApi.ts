@@ -35,14 +35,21 @@ export const makeApiRequest = async (
 		if (timeUntilExpiry < 5 * 60 * 1000) {
 			// Less than 5 minutes
 			console.log("API: Token expires soon, refreshing proactively...");
-			const refreshed = await refreshAccessToken(
-				refreshToken,
-				onTokenUpdate,
-				onLogout
-			);
-			if (!refreshed) {
+			try {
+				const refreshed = await refreshAccessToken(
+					refreshToken,
+					onTokenUpdate,
+					onLogout
+				);
+				if (!refreshed) {
+					console.log(
+						"API: Proactive refresh failed, proceeding with current token"
+					);
+				}
+			} catch (error) {
 				console.log(
-					"API: Proactive refresh failed, proceeding with current token"
+					"API: Proactive refresh error, proceeding with current token:",
+					error
 				);
 			}
 		}
@@ -196,7 +203,7 @@ export const refreshAccessToken = async (
 
 		onTokenUpdate(
 			tokenResponse.access_token,
-			tokenResponse.refresh_token,
+			tokenResponse.refresh_token || currentRefreshToken, // Use existing refresh token if no new one provided
 			expiryTime
 		);
 
@@ -204,9 +211,23 @@ export const refreshAccessToken = async (
 	} catch (error) {
 		console.error("API: Error during token refresh:", error);
 
-		// Clear invalid tokens and require re-authentication
+		// Check if this is a network error vs an authentication error
+		const isNetworkError =
+			error instanceof TypeError ||
+			(error as any)?.message?.includes("Network request failed") ||
+			(error as any)?.message?.includes("fetch");
+
+		if (isNetworkError) {
+			console.log(
+				"API: Network error during token refresh, will retry later"
+			);
+			// Don't logout on network errors - let the user try again
+			return false;
+		}
+
+		// Clear invalid tokens and require re-authentication only for auth errors
 		console.log(
-			"API: Clearing invalid session, user needs to re-authenticate"
+			"API: Authentication error during token refresh, clearing session"
 		);
 		await SecureStore.deleteItemAsync(AUTH_TOKEN_KEY);
 		await SecureStore.deleteItemAsync(REFRESH_TOKEN_KEY);
