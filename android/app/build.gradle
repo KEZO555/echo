@@ -95,7 +95,6 @@ android {
         versionCode 1
         versionName "1.0.0"
 
-        // Spotify SDK manifest placeholders
         manifestPlaceholders = [
             redirectSchemeName: "spotify-light",
             redirectHostName: "callback"
