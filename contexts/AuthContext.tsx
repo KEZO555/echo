@@ -162,26 +162,62 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 		[accessToken, refreshToken, tokenExpiry, handleTokenUpdate]
 	);
 
+	// Token validation method
+	const ensureValidToken = useCallback(async (): Promise<string | null> => {
+		if (!accessToken || !refreshToken || !tokenExpiry) {
+			return null;
+		}
+
+		// Check if token expires within 5 minutes
+		const timeUntilExpiry = tokenExpiry - Date.now();
+		if (timeUntilExpiry < 5 * 60 * 1000) {
+			console.log("AuthContext: Token expires soon, refreshing...");
+			try {
+				const refreshed = await makeApiRequestWithContext(
+					"https://api.spotify.com/v1/me", // Simple endpoint to trigger refresh
+					"Token validation"
+				);
+				if (refreshed) {
+					return accessToken; // Token was refreshed by makeApiRequest
+				}
+			} catch (error) {
+				console.error("AuthContext: Token refresh failed:", error);
+				return null;
+			}
+		}
+
+		return accessToken;
+	}, [accessToken, refreshToken, tokenExpiry, makeApiRequestWithContext]);
+
 	// Initial data fetch callback
-	const fetchInitialData = useCallback(async (token: string) => {
-		await fetchInitialDataInParallel(
-			token,
-			(playlists, nextUrl) => {
-				setPlaylists(playlists);
-				setPlaylistsNextUrl(nextUrl);
-			},
-			(albums, nextUrl) => {
-				setAlbums(albums);
-				setAlbumsNextUrl(nextUrl);
-			},
-			(tracks, nextUrl) => {
-				setSavedTracks(tracks);
-				setSavedTracksNextUrl(nextUrl);
-			},
-			saveCachedData
-		);
-		setIsLoading(false);
-	}, []);
+	const fetchInitialData = useCallback(
+		async (token: string) => {
+			// For stored token loading, don't use ensureValidToken since the context state isn't fully initialized yet
+			// Only use ensureValidToken if we have all the required state (accessToken, refreshToken, tokenExpiry)
+			const shouldUseTokenValidation =
+				accessToken && refreshToken && tokenExpiry;
+
+			await fetchInitialDataInParallel(
+				token,
+				(playlists, nextUrl) => {
+					setPlaylists(playlists);
+					setPlaylistsNextUrl(nextUrl);
+				},
+				(albums, nextUrl) => {
+					setAlbums(albums);
+					setAlbumsNextUrl(nextUrl);
+				},
+				(tracks, nextUrl) => {
+					setSavedTracks(tracks);
+					setSavedTracksNextUrl(nextUrl);
+				},
+				saveCachedData,
+				shouldUseTokenValidation ? ensureValidToken : undefined
+			);
+			setIsLoading(false);
+		},
+		[ensureValidToken, accessToken, refreshToken, tokenExpiry]
+	);
 
 	// Authentication methods
 	const login = useCallback(async () => {
@@ -335,33 +371,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 		makeApiRequestWithContext,
 	]);
 
-	// Token validation method
-	const ensureValidToken = useCallback(async (): Promise<string | null> => {
-		if (!accessToken || !refreshToken || !tokenExpiry) {
-			return null;
-		}
-
-		// Check if token expires within 5 minutes
-		const timeUntilExpiry = tokenExpiry - Date.now();
-		if (timeUntilExpiry < 5 * 60 * 1000) {
-			console.log("AuthContext: Token expires soon, refreshing...");
-			try {
-				const refreshed = await makeApiRequestWithContext(
-					"https://api.spotify.com/v1/me", // Simple endpoint to trigger refresh
-					"Token validation"
-				);
-				if (refreshed) {
-					return accessToken; // Token was refreshed by makeApiRequest
-				}
-			} catch (error) {
-				console.error("AuthContext: Token refresh failed:", error);
-				return null;
-			}
-		}
-
-		return accessToken;
-	}, [accessToken, refreshToken, tokenExpiry, makeApiRequestWithContext]);
-
 	// Album management methods
 	const saveAlbum = useCallback(
 		async (albumId: string): Promise<boolean> => {
@@ -449,7 +458,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 			return playTrackWithContextService(
 				trackUri,
 				validToken,
-				sourceContext
+				sourceContext,
+				ensureValidToken
 			);
 		},
 		[accessToken, ensureValidToken]
@@ -457,8 +467,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
 	const getPlaybackState = useCallback(
 		(): Promise<SpotifyCurrentlyPlaying | null> =>
-			getPlaybackStateFromNativeSdk(accessToken),
-		[accessToken]
+			getPlaybackStateFromNativeSdk(accessToken, ensureValidToken),
+		[accessToken, ensureValidToken]
 	);
 
 	const getCurrentTrack = useCallback(() => getCurrentTrackService(), []);
@@ -594,16 +604,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 							"AuthContext: Fetching user info for stored token..."
 						);
 						try {
-							const response = await fetch(
+							// Use makeApiRequest for token validation and refresh handling
+							const userData = await makeApiRequestWithContext(
 								"https://api.spotify.com/v1/me",
-								{
-									headers: {
-										Authorization: `Bearer ${authData.accessToken}`,
-									},
-								}
+								"Fetching user info for stored token"
 							);
-							const userData = await response.json();
-							if (response.ok) {
+							if (userData) {
 								setUser(userData);
 								console.log(
 									"AuthContext: User info fetched for stored token"
@@ -611,8 +617,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 								await fetchInitialData(authData.accessToken);
 							} else {
 								console.error(
-									"AuthContext: Failed to fetch user info:",
-									userData
+									"AuthContext: Failed to fetch user info"
 								);
 							}
 						} catch (error) {

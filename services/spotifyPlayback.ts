@@ -150,7 +150,8 @@ export const playTrackWithNativeSdk = async (
 };
 
 export const getPlaybackStateFromNativeSdk = async (
-	accessToken?: string | null
+	accessToken?: string | null,
+	ensureValidToken?: () => Promise<string | null>
 ): Promise<SpotifyCurrentlyPlaying | null> => {
 	try {
 		const connected = await ensureAppRemoteConnection();
@@ -203,13 +204,21 @@ export const getPlaybackStateFromNativeSdk = async (
 					}
 				} catch (nativeError) {
 					// 3. Fallback to Web API (HTTP URLs)
-					if (accessToken) {
+					let validToken = accessToken;
+					if (ensureValidToken) {
+						const refreshedToken = await ensureValidToken();
+						if (refreshedToken) {
+							validToken = refreshedToken;
+						}
+					}
+
+					if (validToken) {
 						try {
 							const response = await fetch(
 								`https://api.spotify.com/v1/albums/${albumId}`,
 								{
 									headers: {
-										Authorization: `Bearer ${accessToken}`,
+										Authorization: `Bearer ${validToken}`,
 									},
 								}
 							);
@@ -234,6 +243,10 @@ export const getPlaybackStateFromNativeSdk = async (
 										"Playback: Got album art from Web API fallback"
 									);
 								}
+							} else if (response.status === 401) {
+								console.log(
+									"Playback: Token expired while fetching album art"
+								);
 							}
 						} catch (webApiError) {
 							console.log(
@@ -459,10 +472,15 @@ export const searchItems = async (
 ): Promise<SpotifySearchResults | null> => {
 	if (!query.trim()) return null;
 
-	// Use token validation if available
-	const validToken = ensureValidToken
-		? await ensureValidToken()
-		: accessToken;
+	// Use token validation if available, otherwise use the provided token
+	let validToken = accessToken;
+	if (ensureValidToken) {
+		const refreshedToken = await ensureValidToken();
+		if (refreshedToken) {
+			validToken = refreshedToken;
+		}
+	}
+
 	if (!validToken) return null;
 
 	const typeString = types.join(",");
@@ -495,10 +513,15 @@ export const addTrackToPlaylist = async (
 ): Promise<boolean> => {
 	if (!playlistId || !trackUri) return false;
 
-	// Use token validation if available
-	const validToken = ensureValidToken
-		? await ensureValidToken()
-		: accessToken;
+	// Use token validation if available, otherwise use the provided token
+	let validToken = accessToken;
+	if (ensureValidToken) {
+		const refreshedToken = await ensureValidToken();
+		if (refreshedToken) {
+			validToken = refreshedToken;
+		}
+	}
+
 	if (!validToken) return false;
 
 	try {
@@ -531,7 +554,8 @@ export const playTrackWithContext = async (
 		uri?: string;
 		tracks?: any[];
 		currentIndex?: number;
-	}
+	},
+	ensureValidToken?: () => Promise<string | null>
 ): Promise<void> => {
 	console.log(
 		"Playback: Playing track with context:",
@@ -547,9 +571,17 @@ export const playTrackWithContext = async (
 		}
 
 		// UNIFIED HYBRID APPROACH: Web API for context + Native SDK for control
+		let validToken = accessToken;
+		if (ensureValidToken) {
+			const refreshedToken = await ensureValidToken();
+			if (refreshedToken) {
+				validToken = refreshedToken;
+			}
+		}
+
 		if (
 			sourceContext?.uri &&
-			accessToken &&
+			validToken &&
 			sourceContext.type !== "artist"
 		) {
 			try {
@@ -561,7 +593,7 @@ export const playTrackWithContext = async (
 					{
 						method: "PUT",
 						headers: {
-							Authorization: `Bearer ${accessToken}`,
+							Authorization: `Bearer ${validToken}`,
 							"Content-Type": "application/json",
 						},
 						body: JSON.stringify({

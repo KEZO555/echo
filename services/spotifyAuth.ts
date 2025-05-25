@@ -213,14 +213,31 @@ export const loadStoredAuth = async () => {
 const fetchUserInfo = async (
 	token: string,
 	onUserUpdate: (user: any) => void,
-	fetchInitialData: (token: string) => Promise<void>
+	fetchInitialData: (token: string) => Promise<void>,
+	ensureValidToken?: () => Promise<string | null>
 ) => {
 	try {
+		// Use token validation if available, otherwise use the provided token
+		let validToken = token;
+		if (ensureValidToken) {
+			const refreshedToken = await ensureValidToken();
+			if (refreshedToken) {
+				validToken = refreshedToken;
+			}
+		}
+
+		if (!validToken) {
+			throw new Error("No valid token available for fetching user info");
+		}
+
 		const response = await fetch("https://api.spotify.com/v1/me", {
-			headers: { Authorization: `Bearer ${token}` },
+			headers: { Authorization: `Bearer ${validToken}` },
 		});
 		const userData = await response.json();
 		if (!response.ok) {
+			if (response.status === 401) {
+				console.log("Auth: Token expired while fetching user info");
+			}
 			throw new Error(
 				`Failed to fetch user info: ${
 					userData?.error?.message || response.status
@@ -230,7 +247,7 @@ const fetchUserInfo = async (
 		onUserUpdate(userData);
 		await SecureStore.setItemAsync(USER_INFO_KEY, JSON.stringify(userData));
 		// Start fetching other data after user info is successfully retrieved
-		await fetchInitialData(token);
+		await fetchInitialData(validToken);
 	} catch (error: any) {
 		console.error("Auth: Error fetching user info:", error.message);
 		throw error;
@@ -246,20 +263,39 @@ export const fetchInitialDataInParallel = async (
 		playlists?: any[],
 		albums?: any[],
 		tracks?: any[]
-	) => Promise<void>
+	) => Promise<void>,
+	ensureValidToken?: () => Promise<string | null>
 ) => {
 	console.log("Auth: Loading user data...");
 
 	const fetchPlaylists = async () => {
 		try {
+			// Use token validation if available, otherwise use the provided token
+			let validToken = token;
+			if (ensureValidToken) {
+				const refreshedToken = await ensureValidToken();
+				if (refreshedToken) {
+					validToken = refreshedToken;
+				}
+			}
+
+			if (!validToken) {
+				throw new Error(
+					"No valid token available for fetching playlists"
+				);
+			}
+
 			const response = await fetch(
 				"https://api.spotify.com/v1/me/playlists?limit=50",
 				{
-					headers: { Authorization: `Bearer ${token}` },
+					headers: { Authorization: `Bearer ${validToken}` },
 				}
 			);
 			const data: SpotifyPlaylistsResponse = await response.json();
 			if (!response.ok) {
+				if (response.status === 401) {
+					console.log("Auth: Token expired while fetching playlists");
+				}
 				throw new Error(
 					`Failed to fetch playlists: ${response.status}`
 				);
@@ -274,14 +310,30 @@ export const fetchInitialDataInParallel = async (
 
 	const fetchAlbums = async () => {
 		try {
+			// Use token validation if available, otherwise use the provided token
+			let validToken = token;
+			if (ensureValidToken) {
+				const refreshedToken = await ensureValidToken();
+				if (refreshedToken) {
+					validToken = refreshedToken;
+				}
+			}
+
+			if (!validToken) {
+				throw new Error("No valid token available for fetching albums");
+			}
+
 			const response = await fetch(
 				"https://api.spotify.com/v1/me/albums?limit=50",
 				{
-					headers: { Authorization: `Bearer ${token}` },
+					headers: { Authorization: `Bearer ${validToken}` },
 				}
 			);
 			const data: SpotifySavedAlbumsResponse = await response.json();
 			if (!response.ok) {
+				if (response.status === 401) {
+					console.log("Auth: Token expired while fetching albums");
+				}
 				throw new Error(`Failed to fetch albums: ${response.status}`);
 			}
 			onAlbumsUpdate(data.items, data.next);
@@ -294,14 +346,34 @@ export const fetchInitialDataInParallel = async (
 
 	const fetchSavedTracks = async () => {
 		try {
+			// Use token validation if available, otherwise use the provided token
+			let validToken = token;
+			if (ensureValidToken) {
+				const refreshedToken = await ensureValidToken();
+				if (refreshedToken) {
+					validToken = refreshedToken;
+				}
+			}
+
+			if (!validToken) {
+				throw new Error(
+					"No valid token available for fetching saved tracks"
+				);
+			}
+
 			const response = await fetch(
 				"https://api.spotify.com/v1/me/tracks?limit=50",
 				{
-					headers: { Authorization: `Bearer ${token}` },
+					headers: { Authorization: `Bearer ${validToken}` },
 				}
 			);
 			const data: SavedTracksResponse = await response.json();
 			if (!response.ok) {
+				if (response.status === 401) {
+					console.log(
+						"Auth: Token expired while fetching saved tracks"
+					);
+				}
 				throw new Error(
 					`Failed to fetch saved tracks: ${response.status}`
 				);

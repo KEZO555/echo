@@ -170,10 +170,15 @@ export const saveAlbum = async (
 	accessToken: string | null,
 	ensureValidToken?: () => Promise<string | null>
 ): Promise<boolean> => {
-	// Use token validation if available
-	const validToken = ensureValidToken
-		? await ensureValidToken()
-		: accessToken;
+	// Use token validation if available, otherwise use the provided token
+	let validToken = accessToken;
+	if (ensureValidToken) {
+		const refreshedToken = await ensureValidToken();
+		if (refreshedToken) {
+			validToken = refreshedToken;
+		}
+	}
+
 	if (!validToken) {
 		console.warn("Cannot save album - no valid token available");
 		return false;
@@ -249,10 +254,15 @@ export const removeAlbum = async (
 	accessToken: string | null,
 	ensureValidToken?: () => Promise<string | null>
 ): Promise<boolean> => {
-	// Use token validation if available
-	const validToken = ensureValidToken
-		? await ensureValidToken()
-		: accessToken;
+	// Use token validation if available, otherwise use the provided token
+	let validToken = accessToken;
+	if (ensureValidToken) {
+		const refreshedToken = await ensureValidToken();
+		if (refreshedToken) {
+			validToken = refreshedToken;
+		}
+	}
+
 	if (!validToken) {
 		console.warn("Cannot remove album - no valid token available");
 		return false;
@@ -328,9 +338,14 @@ export const checkIfAlbumIsSaved = async (
 	}
 
 	// Only make API call if we have access token and the album wasn't found in cache
-	const validToken = ensureValidToken
-		? await ensureValidToken()
-		: accessToken;
+	let validToken = accessToken;
+	if (ensureValidToken) {
+		const refreshedToken = await ensureValidToken();
+		if (refreshedToken) {
+			validToken = refreshedToken;
+		}
+	}
+
 	if (!validToken) {
 		// No valid token and not in cache - assume not saved
 		return false;
