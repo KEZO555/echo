@@ -1,7 +1,8 @@
-import React from "react";
+import React, { useMemo } from "react";
 import { Tabs } from "expo-router";
 import { MaterialIcons } from "@expo/vector-icons"; // Ensure this is available
 import { useAuth } from "@/contexts/AuthContext";
+import { useTabPreferences } from "@/contexts/TabPreferencesContext";
 
 import { Navbar, TabConfigItem } from "@/components/Navbar"; // Import custom Navbar and TabConfigItem type
 import { TabHeader } from "@/components/TabHeader"; // Import custom TabHeader
@@ -20,12 +21,46 @@ export const TABS_CONFIG: ReadonlyArray<TabConfigItem> = [
 
 export default function TabLayout() {
 	const { fetchPlaylists, fetchAlbums, fetchSavedTracks } = useAuth();
+	const { preferences } = useTabPreferences();
+
+	// Filter tabs based on user preferences
+	const visibleTabs = useMemo(() => {
+		const filtered = TABS_CONFIG.filter((tab) => {
+			switch (tab.screenName) {
+				case "index":
+					return preferences.showLikedSongs;
+				case "albums":
+					return preferences.showAlbums;
+				case "playlists":
+					return preferences.showPlaylists;
+				case "search":
+				case "settings":
+					return true; // Always show search and settings
+				default:
+					return true;
+			}
+		});
+
+		// Ensure we always have at least search and settings visible
+		// This should always be true given our logic above, but it's a safeguard
+		if (filtered.length < 2) {
+			console.warn(
+				"TabLayout: Less than 2 tabs visible, this should not happen"
+			);
+			return TABS_CONFIG.filter(
+				(tab) =>
+					tab.screenName === "search" || tab.screenName === "settings"
+			);
+		}
+
+		return filtered;
+	}, [preferences]);
 
 	return (
 		<Tabs
 			screenOptions={({ route }) => ({
 				header: () => {
-					const currentTab = TABS_CONFIG.find(
+					const currentTab = visibleTabs.find(
 						(t) => t.screenName === route.name
 					);
 					return (
@@ -41,14 +76,14 @@ export default function TabLayout() {
 					props.state.routes[props.state.index].name;
 				return (
 					<Navbar
-						tabsConfig={TABS_CONFIG}
+						tabsConfig={visibleTabs}
 						currentScreenName={activeScreenName}
 						navigation={props.navigation}
 					/>
 				);
 			}}
 		>
-			{TABS_CONFIG.map((tab) => {
+			{visibleTabs.map((tab) => {
 				const { fetchPlaylists, fetchAlbums, fetchSavedTracks } =
 					useAuth() || {};
 
