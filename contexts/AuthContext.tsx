@@ -442,7 +442,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 					trackUri,
 					deviceId,
 					contextUri,
-					validToken
+					validToken,
+					ensureValidToken
 				);
 			} catch (error) {
 				setIsConnectedToAppRemote(false);

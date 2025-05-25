@@ -7,7 +7,13 @@ import { useAuth } from "@/contexts/AuthContext";
 export default function NamePlaylistScreen() {
 	const [playlistName, setPlaylistName] = useState("");
 	const router = useRouter();
-	const { accessToken, user, fetchPlaylists, ensureValidToken } = useAuth();
+	const {
+		accessToken,
+		user,
+		fetchPlaylists,
+		ensureValidToken,
+		makeApiRequest,
+	} = useAuth();
 
 	useFocusEffect(
 		useCallback(() => {

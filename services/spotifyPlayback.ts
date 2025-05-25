@@ -68,7 +68,8 @@ export const playTrackWithNativeSdk = async (
 	trackUri: string,
 	deviceId?: string,
 	contextUri?: string,
-	accessToken?: string | null
+	accessToken?: string | null,
+	ensureValidToken?: () => Promise<string | null>
 ): Promise<void> => {
 	console.log(`Playback: Playing track: ${trackUri.split(":").pop()}`);
 
@@ -94,13 +95,22 @@ export const playTrackWithNativeSdk = async (
 
 		if (contextUri && accessToken) {
 			try {
+				// Use token validation if available, otherwise use the provided token
+				let validToken = accessToken;
+				if (ensureValidToken) {
+					const refreshedToken = await ensureValidToken();
+					if (refreshedToken) {
+						validToken = refreshedToken;
+					}
+				}
+
 				// Use centralized API request with token refresh handling
 				const response = await fetch(
 					"https://api.spotify.com/v1/me/player/play",
 					{
 						method: "PUT",
 						headers: {
-							Authorization: `Bearer ${accessToken}`,
+							Authorization: `Bearer ${validToken}`,
 							"Content-Type": "application/json",
 						},
 						body: JSON.stringify({
