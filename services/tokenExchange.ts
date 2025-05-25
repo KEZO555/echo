@@ -1,6 +1,4 @@
-// Server endpoints for secure token exchange
-const TOKEN_SWAP_URL = "https://spotifylightrefresh.netlify.app/swap";
-const TOKEN_REFRESH_URL = "https://spotifylightrefresh.netlify.app/refresh";
+import { TOKEN_SWAP_URL, TOKEN_REFRESH_URL } from "../constants/spotify";
 
 export interface TokenExchangeResponse {
 	access_token: string;

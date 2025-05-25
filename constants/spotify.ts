@@ -17,6 +17,10 @@ export const SPOTIFY_SCOPES = [
 
 export const REDIRECT_URI = "spotify-light://callback";
 
+export const TOKEN_SWAP_URL = "https://spotifylightrefresh.netlify.app/swap";
+export const TOKEN_REFRESH_URL =
+	"https://spotifylightrefresh.netlify.app/refresh";
+
 // Storage Keys
 export const AUTH_TOKEN_KEY = "spotifyAuthToken";
 export const REFRESH_TOKEN_KEY = "spotifyRefreshToken";
