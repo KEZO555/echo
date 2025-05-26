@@ -115,7 +115,7 @@ export default function AlbumDetailScreen() {
 					throw new Error("Failed to fetch album details");
 				}
 			} catch (e: any) {
-				console.error(e);
+				console.error("Error fetching album details:", e);
 				setError(e.message || "An unexpected error occurred.");
 			} finally {
 				setIsLoading(false);

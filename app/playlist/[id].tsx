@@ -96,7 +96,7 @@ export default function PlaylistDetailScreen() {
 					throw new Error("Failed to fetch playlist details");
 				}
 			} catch (e: any) {
-				console.error(e);
+				console.error("Error fetching playlist details:", e);
 				setError(e.message || "An unexpected error occurred.");
 			} finally {
 				setIsLoading(false);
