@@ -8,7 +8,6 @@ import {
 } from "../constants/spotify";
 import { clearCachedData } from "./cache";
 import { refreshAccessToken as refreshTokenService } from "../services/tokenExchange";
-import { log, logInfo, logWarn, logError } from "./logger";
 
 export const makeApiRequest = async (
 	url: string,
@@ -35,7 +34,7 @@ export const makeApiRequest = async (
 		const timeUntilExpiry = tokenExpiry - Date.now();
 		if (timeUntilExpiry < 5 * 60 * 1000) {
 			// Less than 5 minutes
-			log("API: Token expires soon, refreshing proactively...", {
+			console.log("API: Token expires soon, refreshing proactively...", {
 				timeUntilExpiry,
 			});
 			try {
@@ -49,18 +48,18 @@ export const makeApiRequest = async (
 					const updatedToken = await SecureStore.getItemAsync(
 						AUTH_TOKEN_KEY
 					);
-					log(
+					console.log(
 						"API: Proactive refresh successful, using updated token for current request"
 					);
 					// Use the updated token for this request
 					accessToken = updatedToken;
 				} else {
-					logWarn(
+					console.warn(
 						"API: Proactive refresh failed, proceeding with current token"
 					);
 				}
 			} catch (error) {
-				logError(
+				console.error(
 					"API: Proactive refresh error, proceeding with current token:",
 					error
 				);
@@ -69,9 +68,9 @@ export const makeApiRequest = async (
 	}
 
 	if (!accessToken) {
-		logError("No access token available for API request.");
+		console.error("No access token available for API request.");
 		if (refreshToken) {
-			log("Attempting to refresh token before API request...");
+			console.log("Attempting to refresh token before API request...");
 			const refreshed = await refreshAccessToken(
 				refreshToken,
 				onTokenUpdate,
@@ -82,9 +81,12 @@ export const makeApiRequest = async (
 				const updatedToken = await SecureStore.getItemAsync(
 					AUTH_TOKEN_KEY
 				);
-				log("API: Using updated token for retry after refresh", {
-					hasUpdatedToken: !!updatedToken,
-				});
+				console.log(
+					"API: Using updated token for retry after refresh",
+					{
+						hasUpdatedToken: !!updatedToken,
+					}
+				);
 				// Retry the request once after successful refresh
 				return makeApiRequest(
 					url,
@@ -99,7 +101,7 @@ export const makeApiRequest = async (
 					options
 				);
 			} else {
-				logWarn(
+				console.warn(
 					"No access token and refresh failed. The refreshAccessToken function already handled logout if needed."
 				);
 				return null;
@@ -136,7 +138,7 @@ export const makeApiRequest = async (
 				errorData
 			);
 			if (response.status === 401 && retryCount < 1 && refreshToken) {
-				logWarn(
+				console.warn(
 					"Token might be expired. Attempting to refresh token.",
 					{ url, status: response.status, retryCount }
 				);
@@ -146,12 +148,14 @@ export const makeApiRequest = async (
 					onLogout
 				);
 				if (refreshed) {
-					log("Token refreshed successfully. Retrying API request.");
+					console.log(
+						"Token refreshed successfully. Retrying API request."
+					);
 					// Get the updated token from secure storage after refresh
 					const updatedToken = await SecureStore.getItemAsync(
 						AUTH_TOKEN_KEY
 					);
-					log(
+					console.log(
 						"API: Using updated token for retry after 401 refresh",
 						{ hasUpdatedToken: !!updatedToken }
 					);
@@ -168,13 +172,13 @@ export const makeApiRequest = async (
 						options
 					);
 				} else {
-					logError(
+					console.error(
 						"Failed to refresh token. The refreshAccessToken function already handled logout if needed."
 					);
 					return null;
 				}
 			} else if (response.status === 401) {
-				logError(
+				console.error(
 					"Token is invalid even after refresh attempt or no refresh token. Logging out.",
 					{
 						url,
@@ -206,20 +210,20 @@ export const refreshAccessToken = async (
 	) => void,
 	onLogout: () => Promise<void>
 ): Promise<boolean> => {
-	log("API: Attempting to refresh access token...");
+	console.log("API: Attempting to refresh access token...");
 
 	try {
 		if (!currentRefreshToken) {
-			logError("API: No refresh token available");
+			console.error("API: No refresh token available");
 			throw new Error("No refresh token available");
 		}
 
-		log("API: Using new token exchange service for refresh...");
+		console.log("API: Using new token exchange service for refresh...");
 
 		// Use the new token exchange service
 		const tokenResponse = await refreshTokenService(currentRefreshToken);
 
-		log("API: Access token refreshed successfully");
+		console.log("API: Access token refreshed successfully");
 
 		// Update tokens in secure storage
 		await SecureStore.setItemAsync(

@@ -8,9 +8,6 @@ import {
 } from "@/contexts/TabPreferencesContext";
 import { useFonts } from "expo-font"; // Import useFonts
 
-// Initialize logger early to capture all console logs
-import "@/utils/logger";
-
 // Prevent the splash screen from auto-hiding before asset loading is complete.
 SplashScreen.preventAutoHideAsync();
 

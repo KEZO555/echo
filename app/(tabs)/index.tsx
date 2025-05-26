@@ -16,7 +16,6 @@ import { HapticPressable } from "@/components/HapticPressable";
 import { StyledText } from "@/components/StyledText";
 import { MaterialIcons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
-import { log, logError } from "@/utils/logger";
 
 export default function LikedSongsScreen() {
 	const {
@@ -34,7 +33,7 @@ export default function LikedSongsScreen() {
 	const router = useRouter();
 
 	useEffect(() => {
-		log("LikedSongs: useEffect triggered", {
+		console.log("LikedSongs: useEffect triggered", {
 			hasAccessToken: !!accessToken,
 			hasUser: !!user,
 			hasSavedTracks: !!savedTracks,
@@ -42,13 +41,13 @@ export default function LikedSongsScreen() {
 		});
 
 		if (accessToken && user && !savedTracks && !isLoading) {
-			log("LikedSongs: Fetching saved tracks...");
+			console.log("LikedSongs: Fetching saved tracks...");
 			fetchSavedTracks();
 		}
 	}, [accessToken, user, savedTracks, fetchSavedTracks, isLoading]);
 
 	const handleRefresh = useCallback(() => {
-		log("LikedSongs: Manual refresh triggered", {
+		console.log("LikedSongs: Manual refresh triggered", {
 			isRefreshingSavedTracks,
 		});
 		if (!isRefreshingSavedTracks) {
