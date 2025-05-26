@@ -5,10 +5,14 @@ import {
 	Text,
 	Button,
 	ActivityIndicator,
+	Alert,
 } from "react-native";
 import { useAuth } from "@/contexts/AuthContext";
 import { StyledButton } from "@/components/StyledButton";
 import { useRouter } from "expo-router";
+import * as FileSystem from "expo-file-system";
+import * as Sharing from "expo-sharing";
+import { logger } from "@/utils/logger";
 
 export default function SettingsScreen() {
 	const {
@@ -196,6 +200,54 @@ export default function SettingsScreen() {
 		}
 	};
 
+	const handleShareLogs = async () => {
+		try {
+			const logFilePath = logger.getLogFilePath();
+			const fileInfo = await FileSystem.getInfoAsync(logFilePath);
+
+			if (!fileInfo.exists) {
+				Alert.alert(
+					"Error",
+					"Log file not found. Try using the app first to generate some logs."
+				);
+				return;
+			}
+
+			// Show file info before sharing
+			const fileSizeKB = Math.round((fileInfo.size || 0) / 1024);
+			console.log(`Log file path: ${logFilePath}`);
+			console.log(`Log file size: ${fileSizeKB} KB`);
+
+			const isAvailable = await Sharing.isAvailableAsync();
+			if (!isAvailable) {
+				Alert.alert(
+					"Error",
+					"Sharing is not available on this device."
+				);
+				return;
+			}
+
+			Alert.alert(
+				"Debug Logs",
+				`Log file: ${fileSizeKB} KB\nPath: ${logFilePath}\n\nNote: You can share this file but may not be able to save directly to Files app. Try sharing to Notes, Email, or AirDrop.`,
+				[
+					{ text: "Cancel", style: "cancel" },
+					{
+						text: "Share",
+						onPress: async () => {
+							await Sharing.shareAsync(logFilePath, {
+								mimeType: "text/plain",
+								dialogTitle: "Share Debug Logs",
+							});
+						},
+					},
+				]
+			);
+		} catch (error) {
+			Alert.alert("Error", "Failed to share logs: " + error);
+		}
+	};
+
 	return (
 		<View style={styles.container}>
 			<View style={styles.content}>
@@ -204,8 +256,8 @@ export default function SettingsScreen() {
 					onPress={handleCustomiseTabs}
 				/>
 
-				{/* Development/Testing buttons */}
-				{__DEV__ && (
+				{/* Development/Testing buttons - only when logged in */}
+				{__DEV__ && user && (
 					<>
 						<StyledButton
 							text="Test Token Refresh"
@@ -218,7 +270,16 @@ export default function SettingsScreen() {
 					</>
 				)}
 
-				<StyledButton text="Logout" onPress={handleLogout} />
+				{/* Debug logs - available even when logged out */}
+				{__DEV__ && (
+					<StyledButton
+						text="Share Debug Logs"
+						onPress={handleShareLogs}
+					/>
+				)}
+
+				{/* Only show logout when logged in */}
+				{user && <StyledButton text="Logout" onPress={handleLogout} />}
 			</View>
 		</View>
 	);

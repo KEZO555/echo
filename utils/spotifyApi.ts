@@ -8,6 +8,7 @@ import {
 } from "../constants/spotify";
 import { clearCachedData } from "./cache";
 import { refreshAccessToken as refreshTokenService } from "../services/tokenExchange";
+import { log, logInfo, logWarn, logError } from "./logger";
 
 export const makeApiRequest = async (
 	url: string,
@@ -34,7 +35,9 @@ export const makeApiRequest = async (
 		const timeUntilExpiry = tokenExpiry - Date.now();
 		if (timeUntilExpiry < 5 * 60 * 1000) {
 			// Less than 5 minutes
-			console.log("API: Token expires soon, refreshing proactively...");
+			log("API: Token expires soon, refreshing proactively...", {
+				timeUntilExpiry,
+			});
 			try {
 				const refreshed = await refreshAccessToken(
 					refreshToken,
@@ -42,12 +45,12 @@ export const makeApiRequest = async (
 					onLogout
 				);
 				if (!refreshed) {
-					console.log(
+					logWarn(
 						"API: Proactive refresh failed, proceeding with current token"
 					);
 				}
 			} catch (error) {
-				console.log(
+				logError(
 					"API: Proactive refresh error, proceeding with current token:",
 					error
 				);
@@ -56,9 +59,9 @@ export const makeApiRequest = async (
 	}
 
 	if (!accessToken) {
-		console.error("No access token available for API request.");
+		logError("No access token available for API request.");
 		if (refreshToken) {
-			console.log("Attempting to refresh token before API request...");
+			log("Attempting to refresh token before API request...");
 			const refreshed = await refreshAccessToken(
 				refreshToken,
 				onTokenUpdate,
@@ -79,7 +82,7 @@ export const makeApiRequest = async (
 					options
 				);
 			} else {
-				console.log(
+				logWarn(
 					"No access token and refresh failed. The refreshAccessToken function already handled logout if needed."
 				);
 				return null;
@@ -116,8 +119,9 @@ export const makeApiRequest = async (
 				errorData
 			);
 			if (response.status === 401 && retryCount < 1 && refreshToken) {
-				console.log(
-					"Token might be expired. Attempting to refresh token."
+				logWarn(
+					"Token might be expired. Attempting to refresh token.",
+					{ url, status: response.status, retryCount }
 				);
 				const refreshed = await refreshAccessToken(
 					refreshToken,
@@ -125,9 +129,7 @@ export const makeApiRequest = async (
 					onLogout
 				);
 				if (refreshed) {
-					console.log(
-						"Token refreshed successfully. Retrying API request."
-					);
+					log("Token refreshed successfully. Retrying API request.");
 					return makeApiRequest(
 						url,
 						errorMessage,
@@ -141,14 +143,20 @@ export const makeApiRequest = async (
 						options
 					);
 				} else {
-					console.log(
+					logError(
 						"Failed to refresh token. The refreshAccessToken function already handled logout if needed."
 					);
 					return null;
 				}
 			} else if (response.status === 401) {
-				console.log(
-					"Token is invalid even after refresh attempt or no refresh token. Logging out."
+				logError(
+					"Token is invalid even after refresh attempt or no refresh token. Logging out.",
+					{
+						url,
+						status: response.status,
+						retryCount,
+						hasRefreshToken: !!refreshToken,
+					}
 				);
 				await onLogout();
 			}
@@ -173,20 +181,20 @@ export const refreshAccessToken = async (
 	) => void,
 	onLogout: () => Promise<void>
 ): Promise<boolean> => {
-	console.log("API: Attempting to refresh access token...");
+	log("API: Attempting to refresh access token...");
 
 	try {
 		if (!currentRefreshToken) {
-			console.log("API: No refresh token available");
+			logError("API: No refresh token available");
 			throw new Error("No refresh token available");
 		}
 
-		console.log("API: Using new token exchange service for refresh...");
+		log("API: Using new token exchange service for refresh...");
 
 		// Use the new token exchange service
 		const tokenResponse = await refreshTokenService(currentRefreshToken);
 
-		console.log("API: Access token refreshed successfully");
+		log("API: Access token refreshed successfully");
 
 		// Update tokens in secure storage
 		await SecureStore.setItemAsync(

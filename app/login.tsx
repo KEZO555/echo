@@ -5,16 +5,69 @@ import {
 	StyleSheet,
 	Text,
 	ActivityIndicator,
+	Alert,
 } from "react-native";
 import { useAuth } from "@/contexts/AuthContext";
 import { StyledText } from "@/components/StyledText";
+import * as FileSystem from "expo-file-system";
+import * as Sharing from "expo-sharing";
+import { logger } from "@/utils/logger";
 
 export default function LoginScreen() {
 	const { login, isLoading, user } = useAuth();
 
+	const handleShareLogs = async () => {
+		try {
+			const logFilePath = logger.getLogFilePath();
+			const fileInfo = await FileSystem.getInfoAsync(logFilePath);
+
+			if (!fileInfo.exists) {
+				Alert.alert(
+					"Error",
+					"Log file not found. Try using the app first to generate some logs."
+				);
+				return;
+			}
+
+			// Show file info before sharing
+			const fileSizeKB = Math.round((fileInfo.size || 0) / 1024);
+			console.log(`Log file path: ${logFilePath}`);
+			console.log(`Log file size: ${fileSizeKB} KB`);
+
+			const isAvailable = await Sharing.isAvailableAsync();
+			if (!isAvailable) {
+				Alert.alert(
+					"Error",
+					"Sharing is not available on this device."
+				);
+				return;
+			}
+
+			Alert.alert(
+				"Debug Logs",
+				`Log file: ${fileSizeKB} KB\nPath: ${logFilePath}\n\nNote: You can share this file but may not be able to save directly to Files app. Try sharing to Notes, Email, or AirDrop.`,
+				[
+					{ text: "Cancel", style: "cancel" },
+					{
+						text: "Share",
+						onPress: async () => {
+							await Sharing.shareAsync(logFilePath, {
+								mimeType: "text/plain",
+								dialogTitle: "Share Debug Logs",
+							});
+						},
+					},
+				]
+			);
+		} catch (error) {
+			Alert.alert("Error", "Failed to share logs: " + error);
+		}
+	};
+
 	return (
 		<View style={styles.container}>
 			<TabHeader headerTitle="Welcome!" hideWaveformButton={true} />
+
 			<View style={styles.content}>
 				<StyledText style={styles.informationText}>
 					Welcome to Spotify for the Light Phone III!
@@ -39,8 +92,13 @@ export default function LoginScreen() {
 					{"\n"}
 					Vandam
 				</StyledText>
+				<HapticPressable
+					onPress={handleShareLogs}
+					style={styles.debugButton}
+				>
+					<StyledText style={styles.debugButtonText}>Logs</StyledText>
+				</HapticPressable>
 			</View>
-
 			<HapticPressable
 				onPress={login}
 				style={styles.loginButton}
@@ -106,6 +164,14 @@ const styles = StyleSheet.create({
 		textTransform: "uppercase",
 	},
 	buttonSpacing: {
-		marginVertical: 15, // To match paddingVertical of the button for consistent spacing
+		marginVertical: 15,
+	},
+	debugButton: {
+		paddingVertical: 15,
+		paddingHorizontal: 30,
+	},
+	debugButtonText: {
+		color: "white",
+		fontSize: 18,
 	},
 });
