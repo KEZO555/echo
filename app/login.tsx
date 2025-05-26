@@ -14,16 +14,30 @@ export default function LoginScreen() {
 
 	return (
 		<View style={styles.container}>
-			<TabHeader
-				headerTitle="Login to Spotify"
-				hideWaveformButton={true}
-			/>
+			<TabHeader headerTitle="Welcome!" hideWaveformButton={true} />
 			<View style={styles.content}>
 				<StyledText style={styles.informationText}>
-					We'll need to access to your Spotify account to continue.
+					Welcome to Spotify for the Light Phone III!
 					{"\n"}
 					{"\n"}
-					You must have Spotify Premium to use this app.
+					This app is a Spotify client that allows you to listen to
+					your Spotify library through a LightOS-themed UI.
+					{"\n"}
+					{"\n"}
+					Important:
+					{"\n"}• You must have Spotify Premium
+					{"\n"}• You must have the Spotify app installed
+					{"\n"}• I do not store or collect any of your data
+					{"\n"}
+					{"\n"}
+					This app is currently in beta. No matter how big or small,
+					please don't hesitate to report any bugs, issues or
+					feedback!
+					{"\n"}
+					{"\n"}
+					With love,
+					{"\n"}
+					Vandam
 				</StyledText>
 			</View>
 
