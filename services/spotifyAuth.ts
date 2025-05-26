@@ -264,44 +264,72 @@ export const fetchInitialDataInParallel = async (
 		albums?: any[],
 		tracks?: any[]
 	) => Promise<void>,
-	ensureValidToken?: () => Promise<string | null>
+	ensureValidToken?: () => Promise<string | null>,
+	makeApiRequest?: (
+		url: string,
+		errorMessage: string,
+		isRefreshing?: boolean
+	) => Promise<any | null>
 ) => {
 	console.log("Auth: Loading user data...");
 
 	const fetchPlaylists = async () => {
 		try {
-			// Use token validation if available, otherwise use the provided token
-			let validToken = token;
-			if (ensureValidToken) {
-				const refreshedToken = await ensureValidToken();
-				if (refreshedToken) {
-					validToken = refreshedToken;
+			let data: SpotifyPlaylistsResponse | null = null;
+
+			// Use makeApiRequest if available (preferred method with automatic token refresh)
+			if (makeApiRequest) {
+				data = await makeApiRequest(
+					"https://api.spotify.com/v1/me/playlists?limit=50",
+					"Playlists",
+					true
+				);
+			} else {
+				// Fallback to manual token validation for initial load scenarios
+				let validToken = token;
+				if (ensureValidToken) {
+					const refreshedToken = await ensureValidToken();
+					if (refreshedToken) {
+						validToken = refreshedToken;
+					}
 				}
+
+				if (!validToken) {
+					throw new Error(
+						"No valid token available for fetching playlists"
+					);
+				}
+
+				const response = await fetch(
+					"https://api.spotify.com/v1/me/playlists?limit=50",
+					{
+						headers: { Authorization: `Bearer ${validToken}` },
+					}
+				);
+
+				if (!response.ok) {
+					if (response.status === 401) {
+						console.log(
+							"Auth: Token expired while fetching playlists"
+						);
+						// Don't throw error immediately - let the user try manual refresh
+						onPlaylistsUpdate([], null);
+						return;
+					}
+					throw new Error(
+						`Failed to fetch playlists: ${response.status}`
+					);
+				}
+
+				data = await response.json();
 			}
 
-			if (!validToken) {
-				throw new Error(
-					"No valid token available for fetching playlists"
-				);
+			if (data) {
+				onPlaylistsUpdate(data.items, data.next);
+				await saveCachedData(data.items, undefined, undefined);
+			} else {
+				onPlaylistsUpdate([], null);
 			}
-
-			const response = await fetch(
-				"https://api.spotify.com/v1/me/playlists?limit=50",
-				{
-					headers: { Authorization: `Bearer ${validToken}` },
-				}
-			);
-			const data: SpotifyPlaylistsResponse = await response.json();
-			if (!response.ok) {
-				if (response.status === 401) {
-					console.log("Auth: Token expired while fetching playlists");
-				}
-				throw new Error(
-					`Failed to fetch playlists: ${response.status}`
-				);
-			}
-			onPlaylistsUpdate(data.items, data.next);
-			await saveCachedData(data.items, undefined, undefined);
 		} catch (error: any) {
 			console.error("Auth: Error fetching playlists:", error.message);
 			onPlaylistsUpdate([], null);
@@ -310,34 +338,61 @@ export const fetchInitialDataInParallel = async (
 
 	const fetchAlbums = async () => {
 		try {
-			// Use token validation if available, otherwise use the provided token
-			let validToken = token;
-			if (ensureValidToken) {
-				const refreshedToken = await ensureValidToken();
-				if (refreshedToken) {
-					validToken = refreshedToken;
+			let data: SpotifySavedAlbumsResponse | null = null;
+
+			// Use makeApiRequest if available (preferred method with automatic token refresh)
+			if (makeApiRequest) {
+				data = await makeApiRequest(
+					"https://api.spotify.com/v1/me/albums?limit=50",
+					"Albums",
+					true
+				);
+			} else {
+				// Fallback to manual token validation for initial load scenarios
+				let validToken = token;
+				if (ensureValidToken) {
+					const refreshedToken = await ensureValidToken();
+					if (refreshedToken) {
+						validToken = refreshedToken;
+					}
 				}
+
+				if (!validToken) {
+					throw new Error(
+						"No valid token available for fetching albums"
+					);
+				}
+
+				const response = await fetch(
+					"https://api.spotify.com/v1/me/albums?limit=50",
+					{
+						headers: { Authorization: `Bearer ${validToken}` },
+					}
+				);
+
+				if (!response.ok) {
+					if (response.status === 401) {
+						console.log(
+							"Auth: Token expired while fetching albums"
+						);
+						// Don't throw error immediately - let the user try manual refresh
+						onAlbumsUpdate([], null);
+						return;
+					}
+					throw new Error(
+						`Failed to fetch albums: ${response.status}`
+					);
+				}
+
+				data = await response.json();
 			}
 
-			if (!validToken) {
-				throw new Error("No valid token available for fetching albums");
+			if (data) {
+				onAlbumsUpdate(data.items, data.next);
+				await saveCachedData(undefined, data.items, undefined);
+			} else {
+				onAlbumsUpdate([], null);
 			}
-
-			const response = await fetch(
-				"https://api.spotify.com/v1/me/albums?limit=50",
-				{
-					headers: { Authorization: `Bearer ${validToken}` },
-				}
-			);
-			const data: SpotifySavedAlbumsResponse = await response.json();
-			if (!response.ok) {
-				if (response.status === 401) {
-					console.log("Auth: Token expired while fetching albums");
-				}
-				throw new Error(`Failed to fetch albums: ${response.status}`);
-			}
-			onAlbumsUpdate(data.items, data.next);
-			await saveCachedData(undefined, data.items, undefined);
 		} catch (error: any) {
 			console.error("Auth: Error fetching albums:", error.message);
 			onAlbumsUpdate([], null);
@@ -346,40 +401,61 @@ export const fetchInitialDataInParallel = async (
 
 	const fetchSavedTracks = async () => {
 		try {
-			// Use token validation if available, otherwise use the provided token
-			let validToken = token;
-			if (ensureValidToken) {
-				const refreshedToken = await ensureValidToken();
-				if (refreshedToken) {
-					validToken = refreshedToken;
-				}
-			}
+			let data: SavedTracksResponse | null = null;
 
-			if (!validToken) {
-				throw new Error(
-					"No valid token available for fetching saved tracks"
+			// Use makeApiRequest if available (preferred method with automatic token refresh)
+			if (makeApiRequest) {
+				data = await makeApiRequest(
+					"https://api.spotify.com/v1/me/tracks?limit=50",
+					"Saved Tracks",
+					true
 				);
-			}
-
-			const response = await fetch(
-				"https://api.spotify.com/v1/me/tracks?limit=50",
-				{
-					headers: { Authorization: `Bearer ${validToken}` },
+			} else {
+				// Fallback to manual token validation for initial load scenarios
+				let validToken = token;
+				if (ensureValidToken) {
+					const refreshedToken = await ensureValidToken();
+					if (refreshedToken) {
+						validToken = refreshedToken;
+					}
 				}
-			);
-			const data: SavedTracksResponse = await response.json();
-			if (!response.ok) {
-				if (response.status === 401) {
-					console.log(
-						"Auth: Token expired while fetching saved tracks"
+
+				if (!validToken) {
+					throw new Error(
+						"No valid token available for fetching saved tracks"
 					);
 				}
-				throw new Error(
-					`Failed to fetch saved tracks: ${response.status}`
+
+				const response = await fetch(
+					"https://api.spotify.com/v1/me/tracks?limit=50",
+					{
+						headers: { Authorization: `Bearer ${validToken}` },
+					}
 				);
+
+				if (!response.ok) {
+					if (response.status === 401) {
+						console.log(
+							"Auth: Token expired while fetching saved tracks"
+						);
+						// Don't throw error immediately - let the user try manual refresh
+						onSavedTracksUpdate([], null);
+						return;
+					}
+					throw new Error(
+						`Failed to fetch saved tracks: ${response.status}`
+					);
+				}
+
+				data = await response.json();
 			}
-			onSavedTracksUpdate(data.items, data.next);
-			await saveCachedData(undefined, undefined, data.items);
+
+			if (data) {
+				onSavedTracksUpdate(data.items, data.next);
+				await saveCachedData(undefined, undefined, data.items);
+			} else {
+				onSavedTracksUpdate([], null);
+			}
 		} catch (error: any) {
 			console.error("Auth: Error fetching saved tracks:", error.message);
 			onSavedTracksUpdate([], null);

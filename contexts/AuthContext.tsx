@@ -221,11 +221,18 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 					setSavedTracksNextUrl(nextUrl);
 				},
 				saveCachedData,
-				shouldUseTokenValidation ? ensureValidToken : undefined
+				shouldUseTokenValidation ? ensureValidToken : undefined,
+				shouldUseTokenValidation ? makeApiRequestWithContext : undefined
 			);
 			setIsLoading(false);
 		},
-		[ensureValidToken, accessToken, refreshToken, tokenExpiry]
+		[
+			ensureValidToken,
+			accessToken,
+			refreshToken,
+			tokenExpiry,
+			makeApiRequestWithContext,
+		]
 	);
 
 	// Authentication methods
