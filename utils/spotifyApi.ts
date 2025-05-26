@@ -44,7 +44,17 @@ export const makeApiRequest = async (
 					onTokenUpdate,
 					onLogout
 				);
-				if (!refreshed) {
+				if (refreshed) {
+					// Get the updated token from secure storage after refresh
+					const updatedToken = await SecureStore.getItemAsync(
+						AUTH_TOKEN_KEY
+					);
+					log(
+						"API: Proactive refresh successful, using updated token for current request"
+					);
+					// Use the updated token for this request
+					accessToken = updatedToken;
+				} else {
 					logWarn(
 						"API: Proactive refresh failed, proceeding with current token"
 					);
@@ -68,11 +78,18 @@ export const makeApiRequest = async (
 				onLogout
 			);
 			if (refreshed) {
+				// Get the updated token from secure storage after refresh
+				const updatedToken = await SecureStore.getItemAsync(
+					AUTH_TOKEN_KEY
+				);
+				log("API: Using updated token for retry after refresh", {
+					hasUpdatedToken: !!updatedToken,
+				});
 				// Retry the request once after successful refresh
 				return makeApiRequest(
 					url,
 					errorMessage,
-					accessToken,
+					updatedToken,
 					refreshToken,
 					tokenExpiry,
 					onTokenUpdate,
@@ -130,10 +147,18 @@ export const makeApiRequest = async (
 				);
 				if (refreshed) {
 					log("Token refreshed successfully. Retrying API request.");
+					// Get the updated token from secure storage after refresh
+					const updatedToken = await SecureStore.getItemAsync(
+						AUTH_TOKEN_KEY
+					);
+					log(
+						"API: Using updated token for retry after 401 refresh",
+						{ hasUpdatedToken: !!updatedToken }
+					);
 					return makeApiRequest(
 						url,
 						errorMessage,
-						accessToken,
+						updatedToken,
 						refreshToken,
 						tokenExpiry,
 						onTokenUpdate,
