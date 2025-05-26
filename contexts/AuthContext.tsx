@@ -9,7 +9,7 @@ import React, {
 import * as SecureStore from "expo-secure-store";
 import SpotifySdk from "../modules/spotify-sdk";
 import { AppState, AppStateStatus } from "react-native";
-import { AUTH_TOKEN_KEY } from "../constants/spotify";
+import { AUTH_TOKEN_KEY, TOKEN_EXPIRY_KEY } from "../constants/spotify";
 
 // Import types
 import type {
@@ -550,6 +550,32 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 			return result;
 		}, []);
 
+	// Development/testing method to force token expiry
+	const forceTokenExpiryMethod = useCallback(async (): Promise<void> => {
+		if (!__DEV__) {
+			console.warn(
+				"forceTokenExpiry is only available in development mode"
+			);
+			return;
+		}
+
+		console.log("Forcing token expiry for testing...");
+
+		// Set token expiry to 1 minute ago to force refresh on next API call
+		const expiredTime = Date.now() - 60 * 1000;
+		setTokenExpiry(expiredTime);
+
+		// Also update it in secure storage
+		await SecureStore.setItemAsync(
+			TOKEN_EXPIRY_KEY,
+			expiredTime.toString()
+		);
+
+		console.log(
+			"Token expiry set to past time. Next API call should trigger refresh."
+		);
+	}, []);
+
 	// App state and connection management effects
 	useEffect(() => {
 		const handleAppStateChange = (nextAppState: AppStateStatus) => {
@@ -731,6 +757,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 		forceAppRemoteConnection: forceAppRemoteConnectionMethod,
 		makeApiRequest: makeApiRequestWithContext,
 		ensureValidToken,
+		// Development/testing methods
+		...(__DEV__ && { forceTokenExpiry: forceTokenExpiryMethod }),
 	};
 
 	return (

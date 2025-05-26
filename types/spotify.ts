@@ -327,4 +327,6 @@ export interface AuthContextType {
 		retryCount?: number
 	) => Promise<any | null>;
 	ensureValidToken: () => Promise<string | null>;
+	// Development/testing methods
+	forceTokenExpiry?: () => Promise<void>;
 }
