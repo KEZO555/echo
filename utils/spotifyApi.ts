@@ -79,7 +79,9 @@ export const makeApiRequest = async (
 					options
 				);
 			} else {
-				await onLogout();
+				console.log(
+					"No access token and refresh failed. The refreshAccessToken function already handled logout if needed."
+				);
 				return null;
 			}
 		}
@@ -139,8 +141,9 @@ export const makeApiRequest = async (
 						options
 					);
 				} else {
-					console.log("Failed to refresh token. Logging out.");
-					await onLogout();
+					console.log(
+						"Failed to refresh token. The refreshAccessToken function already handled logout if needed."
+					);
 					return null;
 				}
 			} else if (response.status === 401) {

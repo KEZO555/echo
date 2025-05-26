@@ -6,8 +6,10 @@ import React, {
 	ReactNode,
 	useCallback,
 } from "react";
+import * as SecureStore from "expo-secure-store";
 import SpotifySdk from "../modules/spotify-sdk";
 import { AppState, AppStateStatus } from "react-native";
+import { AUTH_TOKEN_KEY } from "../constants/spotify";
 
 // Import types
 import type {
@@ -173,12 +175,24 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 		if (timeUntilExpiry < 5 * 60 * 1000) {
 			console.log("AuthContext: Token expires soon, refreshing...");
 			try {
-				const refreshed = await makeApiRequestWithContext(
-					"https://api.spotify.com/v1/me", // Simple endpoint to trigger refresh
-					"Token validation"
+				// Import refreshAccessToken directly to avoid circular dependency
+				const { refreshAccessToken } = await import(
+					"../utils/spotifyApi"
+				);
+				const refreshed = await refreshAccessToken(
+					refreshToken,
+					handleTokenUpdate,
+					async () => {
+						// Use logoutFromSpotify directly to avoid circular dependency
+						await logoutFromSpotify(clearState);
+					}
 				);
 				if (refreshed) {
-					return accessToken; // Token was refreshed by makeApiRequest
+					// Get the updated token from secure storage after refresh
+					const updatedToken = await SecureStore.getItemAsync(
+						AUTH_TOKEN_KEY
+					);
+					return updatedToken || accessToken;
 				} else {
 					// If refresh failed but we still have a token, try to use it
 					// This prevents immediate logout on temporary network issues
@@ -196,7 +210,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 		}
 
 		return accessToken;
-	}, [accessToken, refreshToken, tokenExpiry, makeApiRequestWithContext]);
+	}, [accessToken, refreshToken, tokenExpiry, handleTokenUpdate, clearState]);
 
 	// Initial data fetch callback
 	const fetchInitialData = useCallback(
