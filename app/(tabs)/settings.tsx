@@ -8,12 +8,14 @@ import {
 	clearLogs,
 	getLogs,
 	getLogsByLevel,
+	log,
+	logError,
 } from "@/utils/logger";
 import * as FileSystem from "expo-file-system";
 import * as Sharing from "expo-sharing";
 
 export default function SettingsScreen() {
-	const { logout, isLoading, user } = useAuth();
+	const { logout, user } = useAuth();
 	const router = useRouter();
 	const [isSharing, setIsSharing] = useState(false);
 
@@ -27,7 +29,7 @@ export default function SettingsScreen() {
 
 	const handleShareLogs = async () => {
 		try {
-			console.log("Settings: Starting log share process");
+			log("Settings: Starting log share process");
 			setIsSharing(true);
 			const logs = getLogsAsText();
 
@@ -64,7 +66,7 @@ export default function SettingsScreen() {
 				});
 			}
 		} catch (error) {
-			console.error("Error sharing logs:", error);
+			logError("Error sharing logs:", error);
 			Alert.alert("Error", "Failed to share logs. Please try again.");
 		} finally {
 			setIsSharing(false);
@@ -81,7 +83,7 @@ export default function SettingsScreen() {
 					text: "Clear",
 					style: "destructive",
 					onPress: () => {
-						console.log("Settings: Clearing all logs");
+						log("Settings: Clearing all logs");
 						clearLogs();
 						Alert.alert("Success", "Logs cleared successfully.");
 					},

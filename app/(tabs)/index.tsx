@@ -16,6 +16,7 @@ import { HapticPressable } from "@/components/HapticPressable";
 import { StyledText } from "@/components/StyledText";
 import { MaterialIcons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
+import { log, logWarn, logError } from "@/utils/logger";
 
 export default function LikedSongsScreen() {
 	const {
@@ -33,7 +34,7 @@ export default function LikedSongsScreen() {
 	const router = useRouter();
 
 	useEffect(() => {
-		console.log("LikedSongs: useEffect triggered", {
+		log("LikedSongs: useEffect triggered", {
 			hasAccessToken: !!accessToken,
 			hasUser: !!user,
 			hasSavedTracks: !!savedTracks,
@@ -41,13 +42,13 @@ export default function LikedSongsScreen() {
 		});
 
 		if (accessToken && user && !savedTracks && !isLoading) {
-			console.log("LikedSongs: Fetching saved tracks...");
+			log("LikedSongs: Fetching saved tracks...");
 			fetchSavedTracks();
 		}
 	}, [accessToken, user, savedTracks, fetchSavedTracks, isLoading]);
 
 	const handleRefresh = useCallback(() => {
-		console.log("LikedSongs: Manual refresh triggered", {
+		log("LikedSongs: Manual refresh triggered", {
 			isRefreshingSavedTracks,
 		});
 		if (!isRefreshingSavedTracks) {
@@ -68,7 +69,7 @@ export default function LikedSongsScreen() {
 	}) => {
 		// Safety check for null track
 		if (!item.track) {
-			console.warn("Track is null for item:", item);
+			logWarn("Track is null for item:", item);
 			return null;
 		}
 
@@ -89,7 +90,7 @@ export default function LikedSongsScreen() {
 						});
 						router.push("/playing");
 					} catch (error) {
-						console.error("Error playing track:", error);
+						logError("Error playing track:", error);
 						// Still navigate to playing screen even if playback fails
 						router.push("/playing");
 					}

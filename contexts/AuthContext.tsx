@@ -10,6 +10,7 @@ import * as SecureStore from "expo-secure-store";
 import SpotifySdk from "../modules/spotify-sdk";
 import { AppState, AppStateStatus } from "react-native";
 import { AUTH_TOKEN_KEY, TOKEN_EXPIRY_KEY } from "../constants/spotify";
+import { log, logWarn, logError, logInfo } from "../utils/logger";
 
 // Import types
 import type {
@@ -73,48 +74,49 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 	// Authentication state
 	const [accessToken, setAccessToken] = useState<string | null>(null);
 	const [refreshToken, setRefreshToken] = useState<string | null>(null);
-	const [user, setUser] = useState<any | null>(null);
+	const [user, setUser] = useState<any>(null);
 	const [tokenExpiry, setTokenExpiry] = useState<number | null>(null);
 
-	// Playlists state
+	// Data state
 	const [playlists, setPlaylists] = useState<SpotifyPlaylist[] | null>(null);
 	const [playlistsNextUrl, setPlaylistsNextUrl] = useState<string | null>(
 		null
 	);
-	const [isLoadingMorePlaylists, setIsLoadingMorePlaylists] = useState(false);
-	const [isRefreshingPlaylists, setIsRefreshingPlaylists] = useState(false);
-
-	// Albums state
 	const [albums, setAlbums] = useState<SpotifySavedAlbum[] | null>(null);
 	const [albumsNextUrl, setAlbumsNextUrl] = useState<string | null>(null);
-	const [isLoadingMoreAlbums, setIsLoadingMoreAlbums] = useState(false);
-	const [isRefreshingAlbums, setIsRefreshingAlbums] = useState(false);
-
-	// Saved Tracks state
 	const [savedTracks, setSavedTracks] = useState<SavedTrackObject[] | null>(
 		null
 	);
 	const [savedTracksNextUrl, setSavedTracksNextUrl] = useState<string | null>(
 		null
 	);
+
+	// Loading states
+	const [isLoading, setIsLoading] = useState(true);
+	const [isLoadingMorePlaylists, setIsLoadingMorePlaylists] = useState(false);
+	const [isLoadingMoreAlbums, setIsLoadingMoreAlbums] = useState(false);
 	const [isLoadingMoreSavedTracks, setIsLoadingMoreSavedTracks] =
 		useState(false);
+	const [isRefreshingPlaylists, setIsRefreshingPlaylists] = useState(false);
+	const [isRefreshingAlbums, setIsRefreshingAlbums] = useState(false);
 	const [isRefreshingSavedTracks, setIsRefreshingSavedTracks] =
 		useState(false);
 
-	// Loading and connection state
-	const [isLoading, setIsLoading] = useState(true);
-	const [hasInitiallyLoaded, setHasInitiallyLoaded] = useState(false);
-	const [isAuthenticating, setIsAuthenticating] = useState(false);
+	// Connection state
 	const [isConnectedToAppRemote, setIsConnectedToAppRemote] = useState(false);
-	const [appState, setAppState] = useState<AppStateStatus>(
-		AppState.currentState
-	);
+
+	// Control flags
+	const [isAuthenticating, setIsAuthenticating] = useState(false);
+	const [hasInitiallyLoaded, setHasInitiallyLoaded] = useState(false);
+	const [isFetchingInitialData, setIsFetchingInitialData] = useState(false);
+
+	// App state for lifecycle management
+	const [appState, setAppState] = useState(AppState.currentState);
 
 	// Token update callback
 	const handleTokenUpdate = useCallback(
 		(newAccessToken: string, newRefreshToken?: string, expiry?: number) => {
-			console.log("AuthContext: Token update", {
+			logInfo("AuthContext: Token update", {
 				hasNewAccessToken: !!newAccessToken,
 				hasNewRefreshToken: !!newRefreshToken,
 				newExpiry: expiry ? new Date(expiry).toISOString() : null,
@@ -133,7 +135,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
 	// Clear state callback for logout
 	const clearState = useCallback(() => {
-		console.log("AuthContext: Clearing all state (logout)");
+		logInfo("AuthContext: Clearing all state (logout)");
 		setAccessToken(null);
 		setRefreshToken(null);
 		setUser(null);
@@ -146,7 +148,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 		setSavedTracksNextUrl(null);
 		setIsConnectedToAppRemote(false);
 		setIsLoading(false);
-		console.log("AuthContext: State cleared");
+		logInfo("AuthContext: State cleared");
 	}, []);
 
 	// Wrapped makeApiRequest with context
@@ -174,15 +176,27 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 	// Token validation method
 	const ensureValidToken = useCallback(async (): Promise<string | null> => {
 		if (!accessToken || !refreshToken || !tokenExpiry) {
+			logInfo("AuthContext: Missing token data for validation", {
+				hasAccessToken: !!accessToken,
+				hasRefreshToken: !!refreshToken,
+				hasTokenExpiry: !!tokenExpiry,
+			});
 			return null;
 		}
 
 		// Check if token expires within 5 minutes
 		const timeUntilExpiry = tokenExpiry - Date.now();
-		if (timeUntilExpiry < 5 * 60 * 1000) {
-			console.log("AuthContext: Token expires soon, refreshing...", {
-				timeUntilExpiry,
-			});
+		const needsRefresh = timeUntilExpiry < 5 * 60 * 1000;
+
+		if (needsRefresh) {
+			const isAlreadyExpired = timeUntilExpiry < 0;
+			logInfo(
+				isAlreadyExpired
+					? "AuthContext: Token already expired, refreshing..."
+					: "AuthContext: Token expires soon, refreshing...",
+				{ timeUntilExpiry }
+			);
+
 			try {
 				// Import refreshAccessToken directly to avoid circular dependency
 				const { refreshAccessToken } = await import(
@@ -201,20 +215,20 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 					const updatedToken = await SecureStore.getItemAsync(
 						AUTH_TOKEN_KEY
 					);
-					console.log("AuthContext: Token refresh successful", {
+					logInfo("AuthContext: Token refresh successful", {
 						hasUpdatedToken: !!updatedToken,
 					});
 					return updatedToken || accessToken;
 				} else {
 					// If refresh failed but we still have a token, try to use it
 					// This prevents immediate logout on temporary network issues
-					console.warn(
+					logWarn(
 						"AuthContext: Token refresh failed, but will try to use current token"
 					);
 					return accessToken;
 				}
 			} catch (error) {
-				console.error("AuthContext: Token refresh failed:", error);
+				logError("AuthContext: Token refresh failed:", error);
 				// Return current token instead of null to avoid immediate logout
 				// The actual API call will handle the 401 and trigger logout if needed
 				return accessToken;
@@ -227,32 +241,58 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 	// Initial data fetch callback
 	const fetchInitialData = useCallback(
 		async (token: string) => {
-			// For stored token loading, don't use ensureValidToken since the context state isn't fully initialized yet
-			// Only use ensureValidToken if we have all the required state (accessToken, refreshToken, tokenExpiry)
-			const shouldUseTokenValidation =
-				accessToken && refreshToken && tokenExpiry;
+			// Prevent multiple simultaneous initial data fetches
+			if (isFetchingInitialData) {
+				logInfo(
+					"AuthContext: Initial data fetch already in progress, skipping..."
+				);
+				return;
+			}
 
-			await fetchInitialDataInParallel(
-				token,
-				(playlists, nextUrl) => {
-					setPlaylists(playlists);
-					setPlaylistsNextUrl(nextUrl);
-				},
-				(albums, nextUrl) => {
-					setAlbums(albums);
-					setAlbumsNextUrl(nextUrl);
-				},
-				(tracks, nextUrl) => {
-					setSavedTracks(tracks);
-					setSavedTracksNextUrl(nextUrl);
-				},
-				saveCachedData,
-				shouldUseTokenValidation ? ensureValidToken : undefined,
-				shouldUseTokenValidation ? makeApiRequestWithContext : undefined
-			);
-			setIsLoading(false);
+			setIsFetchingInitialData(true);
+			logInfo("AuthContext: Starting initial data fetch...");
+
+			try {
+				// For stored token loading, don't use ensureValidToken since the context state isn't fully initialized yet
+				// Only use ensureValidToken if we have all the required state (accessToken, refreshToken, tokenExpiry)
+				const shouldUseTokenValidation =
+					accessToken && refreshToken && tokenExpiry;
+
+				await fetchInitialDataInParallel(
+					token,
+					(playlists, nextUrl) => {
+						setPlaylists(playlists);
+						setPlaylistsNextUrl(nextUrl);
+					},
+					(albums, nextUrl) => {
+						setAlbums(albums);
+						setAlbumsNextUrl(nextUrl);
+					},
+					(tracks, nextUrl) => {
+						setSavedTracks(tracks);
+						setSavedTracksNextUrl(nextUrl);
+					},
+					saveCachedData,
+					shouldUseTokenValidation ? ensureValidToken : undefined,
+					shouldUseTokenValidation
+						? makeApiRequestWithContext
+						: undefined
+				);
+				logInfo(
+					"AuthContext: Initial data fetch completed successfully"
+				);
+			} catch (error) {
+				logError(
+					"AuthContext: Error during initial data fetch:",
+					error
+				);
+			} finally {
+				setIsLoading(false);
+				setIsFetchingInitialData(false);
+			}
 		},
 		[
+			isFetchingInitialData,
 			ensureValidToken,
 			accessToken,
 			refreshToken,
@@ -264,7 +304,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 	// Authentication methods
 	const login = useCallback(async () => {
 		if (isAuthenticating) {
-			console.log("AuthContext: Authentication already in progress");
+			logInfo("AuthContext: Authentication already in progress");
 			return;
 		}
 
@@ -278,7 +318,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 				fetchInitialData
 			);
 		} catch (error) {
-			console.error("AuthContext: Error during authentication:", error);
+			logError("AuthContext: Error during authentication:", error);
 			setIsLoading(false);
 		} finally {
 			setIsAuthenticating(false);
@@ -292,15 +332,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
 	const logout = useCallback(async () => {
 		if (isAuthenticating) {
-			console.warn(
-				"AuthContext: Logout blocked - authentication in progress"
-			);
+			logWarn("AuthContext: Logout blocked - authentication in progress");
 			return;
 		}
 
-		console.log("AuthContext: Logout initiated");
+		logInfo("AuthContext: Logout initiated");
 		await logoutFromSpotify(clearState);
-		console.log("AuthContext: Logout completed");
+		logInfo("AuthContext: Logout completed");
 	}, [isAuthenticating, clearState]);
 
 	// Data fetching methods
@@ -567,13 +605,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 	// Development/testing method to force token expiry
 	const forceTokenExpiryMethod = useCallback(async (): Promise<void> => {
 		if (!__DEV__) {
-			console.warn(
-				"forceTokenExpiry is only available in development mode"
-			);
+			logWarn("forceTokenExpiry is only available in development mode");
 			return;
 		}
 
-		console.log("Forcing token expiry for testing...");
+		logInfo("Forcing token expiry for testing...");
 
 		// Set token expiry to 1 minute ago to force refresh on next API call
 		const expiredTime = Date.now() - 60 * 1000;
@@ -585,7 +621,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 			expiredTime.toString()
 		);
 
-		console.log(
+		logInfo(
 			"Token expiry set to past time. Next API call should trigger refresh."
 		);
 	}, []);
@@ -597,9 +633,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 				appState.match(/inactive|background/) &&
 				nextAppState === "active"
 			) {
-				console.log(
-					"AuthContext: App resumed - relying on auto-connect"
-				);
+				logInfo("AuthContext: App resumed - relying on auto-connect");
 				// Just ensure auto-connect is enabled, let native SDK handle connection
 				if (accessToken) {
 					SpotifySdk.enableAutoConnect(true);
@@ -614,12 +648,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 		};
 
 		const handleNativeConnected = () => {
-			console.log("AuthContext: Connected to Spotify");
+			logInfo("AuthContext: Connected to Spotify");
 			setIsConnectedToAppRemote(true);
 		};
 
 		const handleNativeDisconnected = () => {
-			console.log("AuthContext: Disconnected from Spotify");
+			logInfo("AuthContext: Disconnected from Spotify");
 			setIsConnectedToAppRemote(false);
 		};
 
@@ -645,7 +679,15 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
 	// Initial load effect
 	useEffect(() => {
-		if (hasInitiallyLoaded || isAuthenticating) return;
+		if (hasInitiallyLoaded || isAuthenticating) {
+			logInfo("AuthContext: Skipping initial load", {
+				hasInitiallyLoaded,
+				isAuthenticating,
+			});
+			return;
+		}
+
+		logInfo("AuthContext: Starting initial auth load...");
 
 		const loadInitialAuth = async () => {
 			try {
@@ -671,7 +713,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 						await fetchInitialData(authData.accessToken);
 					} else if (authData.accessToken) {
 						// Stored token case - fetch user info first, then other data
-						console.log(
+						logInfo(
 							"AuthContext: Fetching user info for stored token..."
 						);
 						try {
@@ -682,17 +724,17 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 							);
 							if (userData) {
 								setUser(userData);
-								console.log(
+								logInfo(
 									"AuthContext: User info fetched for stored token"
 								);
 								await fetchInitialData(authData.accessToken);
 							} else {
-								console.error(
+								logError(
 									"AuthContext: Failed to fetch user info"
 								);
 							}
 						} catch (error) {
-							console.error(
+							logError(
 								"AuthContext: Error fetching user info:",
 								error
 							);
@@ -707,7 +749,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 					setIsLoading(false);
 				}
 			} catch (error) {
-				console.error("AuthContext: Failed to load auth state:", error);
+				logError("AuthContext: Failed to load auth state:", error);
 				const cachedData = await loadCachedData();
 				setPlaylists(cachedData.playlists);
 				setAlbums(cachedData.albums);
@@ -715,11 +757,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 				setIsLoading(false);
 			} finally {
 				setHasInitiallyLoaded(true);
+				logInfo("AuthContext: Initial auth load completed");
 			}
 		};
 
 		loadInitialAuth();
-	}, [isAuthenticating, hasInitiallyLoaded, fetchInitialData]);
+	}, [isAuthenticating, hasInitiallyLoaded]);
 
 	// Provide context value
 	const value: AuthContextType = {
