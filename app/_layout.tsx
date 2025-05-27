@@ -7,6 +7,7 @@ import {
 	useTabPreferences,
 } from "@/contexts/TabPreferencesContext";
 import { useFonts } from "expo-font"; // Import useFonts
+import "../utils/logger"; // Initialize logger early
 
 // Prevent the splash screen from auto-hiding before asset loading is complete.
 SplashScreen.preventAutoHideAsync();
