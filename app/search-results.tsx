@@ -133,10 +133,16 @@ export default function SearchResultsScreen() {
 		return (
 			<HapticPressable
 				style={styles.itemContainer}
-				onPress={() => {
+				onPress={async () => {
 					if (item.type === "track") {
-						playTrack(itemUri, undefined, contextUri);
-						router.push("/playing");
+						try {
+							await playTrack(itemUri, undefined, contextUri);
+							router.push("/playing");
+						} catch (error) {
+							console.error("Error playing track:", error);
+							// Still navigate to playing screen even if playback fails
+							router.push("/playing");
+						}
 					} else if (item.type === "album") {
 						router.push(`/album/${item.data.id}`);
 					} else if (item.type === "playlist") {

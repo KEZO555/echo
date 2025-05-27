@@ -179,12 +179,18 @@ export default function PlaylistDetailScreen() {
 			<HapticPressable
 				key={`${track.id || "unknown"}-${index}`}
 				style={styles.trackItemContainer}
-				onPress={() => {
-					playTrackWithContext(track.uri, {
-						type: "playlist",
-						uri: `spotify:playlist:${id}`,
-					});
-					router.push("/playing");
+				onPress={async () => {
+					try {
+						await playTrackWithContext(track.uri, {
+							type: "playlist",
+							uri: `spotify:playlist:${id}`,
+						});
+						router.push("/playing");
+					} catch (error) {
+						console.error("Error playing track:", error);
+						// Still navigate to playing screen even if playback fails
+						router.push("/playing");
+					}
 				}}
 			>
 				<StyledText style={styles.trackNumber}>

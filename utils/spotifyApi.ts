@@ -9,6 +9,10 @@ import {
 import { clearCachedData } from "./cache";
 import { refreshAccessToken as refreshTokenService } from "../services/tokenExchange";
 
+// Global refresh lock to prevent concurrent token refreshes
+let isRefreshInProgress = false;
+let refreshPromise: Promise<boolean> | null = null;
+
 export const makeApiRequest = async (
 	url: string,
 	errorMessage: string,
@@ -202,6 +206,41 @@ export const makeApiRequest = async (
 };
 
 export const refreshAccessToken = async (
+	currentRefreshToken: string,
+	onTokenUpdate: (
+		accessToken: string,
+		refreshToken?: string,
+		expiry?: number
+	) => void,
+	onLogout: () => Promise<void>
+): Promise<boolean> => {
+	// If a refresh is already in progress, wait for it to complete
+	if (isRefreshInProgress && refreshPromise) {
+		console.log(
+			"API: Token refresh already in progress, waiting for completion..."
+		);
+		return await refreshPromise;
+	}
+
+	// Set the refresh lock and create the promise
+	isRefreshInProgress = true;
+	refreshPromise = performTokenRefresh(
+		currentRefreshToken,
+		onTokenUpdate,
+		onLogout
+	);
+
+	try {
+		const result = await refreshPromise;
+		return result;
+	} finally {
+		// Clear the refresh lock
+		isRefreshInProgress = false;
+		refreshPromise = null;
+	}
+};
+
+const performTokenRefresh = async (
 	currentRefreshToken: string,
 	onTokenUpdate: (
 		accessToken: string,

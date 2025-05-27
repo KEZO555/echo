@@ -75,18 +75,24 @@ export default function LikedSongsScreen() {
 		return (
 			<HapticPressable
 				style={styles.itemContainer}
-				onPress={() => {
+				onPress={async () => {
 					const collectionUri = user?.id
 						? `spotify:user:${user.id}:collection`
 						: undefined;
 
-					playTrackWithContext(item.track.uri, {
-						type: "liked",
-						uri: collectionUri,
-						tracks: savedTracks || [],
-						currentIndex: index,
-					});
-					router.push("/playing");
+					try {
+						await playTrackWithContext(item.track.uri, {
+							type: "liked",
+							uri: collectionUri,
+							tracks: savedTracks || [],
+							currentIndex: index,
+						});
+						router.push("/playing");
+					} catch (error) {
+						console.error("Error playing track:", error);
+						// Still navigate to playing screen even if playback fails
+						router.push("/playing");
+					}
 				}}
 			>
 				{item.track.album?.images &&

@@ -198,12 +198,18 @@ export default function AlbumDetailScreen() {
 		<HapticPressable
 			key={track.id || index.toString()}
 			style={styles.trackItemContainer}
-			onPress={() => {
-				playTrackWithContext(track.uri, {
-					type: "album",
-					uri: `spotify:album:${id}`,
-				});
-				router.push("/playing");
+			onPress={async () => {
+				try {
+					await playTrackWithContext(track.uri, {
+						type: "album",
+						uri: `spotify:album:${id}`,
+					});
+					router.push("/playing");
+				} catch (error) {
+					console.error("Error playing track:", error);
+					// Still navigate to playing screen even if playback fails
+					router.push("/playing");
+				}
 			}}
 		>
 			<StyledText style={styles.trackNumber}>
