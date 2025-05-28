@@ -98,6 +98,19 @@ export default function AlbumDetailScreen() {
 		}
 
 		const fetchAlbumDetails = async () => {
+			// If we already have complete album data with tracks, skip the fetch
+			if (
+				initialAlbum &&
+				initialAlbum.tracks &&
+				initialAlbum.tracks.items
+			) {
+				console.log(
+					"Album details: Using pre-loaded complete album data"
+				);
+				setIsLoading(false);
+				return;
+			}
+
 			// If we already have initial data, we don't need to set main loading to true,
 			// as the main content is already visible. A subtle background refresh is fine.
 			if (!initialAlbum) {
@@ -320,7 +333,6 @@ const styles = StyleSheet.create({
 	placeholderImageContainer: {
 		width: 250,
 		height: 250,
-		borderRadius: 8,
 		marginBottom: 20,
 		backgroundColor: "#282828",
 		justifyContent: "center",

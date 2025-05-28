@@ -28,11 +28,13 @@ export default function AlbumsScreen() {
 		fetchMoreAlbums, // Function to fetch next page
 		isLoadingMoreAlbums, // State for loading more indicator
 		albumsNextUrl, // URL for the next page
+		makeApiRequest, // Added for fetching album details before navigation
 	} = useAuth();
 	const router = useRouter();
 	const [sortedAlbums, setSortedAlbums] = useState<
 		SpotifySavedAlbum[] | null
 	>(null);
+	const [loadingAlbumId, setLoadingAlbumId] = useState<string | null>(null);
 
 	useEffect(() => {
 		// Fetch albums when the component mounts if not already loaded and user is logged in
@@ -74,21 +76,65 @@ export default function AlbumsScreen() {
 	const renderAlbumItem = ({ item }: { item: SpotifySavedAlbum }) => (
 		<HapticPressable
 			style={styles.itemContainer}
-			onPress={() =>
-				router.push({
-					pathname: `/album/${item.album.id}`,
-					params: { albumString: JSON.stringify(item.album) }, // Pass album data as a string
-				} as any)
-			}
+			onPress={async () => {
+				if (loadingAlbumId) return; // Prevent multiple simultaneous requests
+
+				setLoadingAlbumId(item.album.id);
+				try {
+					// Fetch album details first, similar to how liked songs awaits playback
+					const albumData = await makeApiRequest(
+						`https://api.spotify.com/v1/albums/${item.album.id}`,
+						"Album details for navigation"
+					);
+
+					if (albumData) {
+						// Navigate with the loaded data
+						router.push({
+							pathname: `/album/${item.album.id}`,
+							params: { albumString: JSON.stringify(albumData) },
+						} as any);
+					} else {
+						// Fallback to original navigation if fetch fails
+						router.push({
+							pathname: `/album/${item.album.id}`,
+							params: { albumString: JSON.stringify(item.album) },
+						} as any);
+					}
+				} catch (error) {
+					console.error(
+						"Error fetching album details for navigation:",
+						error
+					);
+					// Fallback to original navigation on error
+					router.push({
+						pathname: `/album/${item.album.id}`,
+						params: { albumString: JSON.stringify(item.album) },
+					} as any);
+				} finally {
+					setLoadingAlbumId(null);
+				}
+			}}
 		>
 			{item.album.images && item.album.images.length > 0 ? (
-				<Image
-					source={{ uri: item.album.images[0].url }}
-					style={styles.albumImage}
-				/>
+				<View style={styles.albumImageContainer}>
+					<Image
+						source={{ uri: item.album.images[0].url }}
+						style={styles.albumImage}
+					/>
+					{loadingAlbumId === item.album.id && (
+						<View style={styles.loadingOverlay}>
+							<ActivityIndicator size="small" color="white" />
+						</View>
+					)}
+				</View>
 			) : (
 				<View style={styles.placeholderImageContainer}>
 					<MaterialIcons name="album" size={24} color="white" />
+					{loadingAlbumId === item.album.id && (
+						<View style={styles.loadingOverlay}>
+							<ActivityIndicator size="small" color="white" />
+						</View>
+					)}
 				</View>
 			)}
 			<View style={styles.textContainer}>
@@ -193,10 +239,15 @@ const styles = StyleSheet.create({
 		flexDirection: "row",
 		alignItems: "center",
 	},
-	albumImage: {
+	albumImageContainer: {
 		width: 50,
 		height: 50,
 		marginRight: 15,
+		position: "relative",
+	},
+	albumImage: {
+		width: 50,
+		height: 50,
 	},
 	placeholderImageContainer: {
 		width: 50,
@@ -218,5 +269,15 @@ const styles = StyleSheet.create({
 	albumArtist: {
 		fontSize: 16,
 		lineHeight: 18,
+	},
+	loadingOverlay: {
+		position: "absolute",
+		top: 0,
+		left: 0,
+		width: "100%",
+		height: "100%",
+		backgroundColor: "rgba(0, 0, 0, 0.5)",
+		justifyContent: "center",
+		alignItems: "center",
 	},
 });

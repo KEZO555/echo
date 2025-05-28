@@ -27,11 +27,15 @@ export default function PlaylistsScreen() {
 		fetchMorePlaylists,
 		isLoadingMorePlaylists,
 		playlistsNextUrl,
+		makeApiRequest,
 	} = useAuth();
 	const router = useRouter(); // Added useRouter instance
 	const [sortedPlaylists, setSortedPlaylists] = useState<
 		SpotifyPlaylist[] | null
 	>(null);
+	const [loadingPlaylistId, setLoadingPlaylistId] = useState<string | null>(
+		null
+	);
 
 	useEffect(() => {
 		// Fetch playlists when the component mounts if not already loaded and user is logged in
@@ -100,18 +104,62 @@ export default function PlaylistsScreen() {
 		return (
 			<HapticPressable
 				style={styles.itemContainer}
-				onPress={() =>
-					router.push({
-						pathname: `/playlist/${item.id}`,
-						params: { playlistString: JSON.stringify(item) }, // Pass playlist data as a string
-					} as any)
-				}
+				onPress={async () => {
+					if (loadingPlaylistId) return; // Prevent multiple simultaneous requests
+
+					setLoadingPlaylistId(item.id);
+					try {
+						// Fetch playlist details first, similar to how liked songs awaits playback
+						const playlistData = await makeApiRequest(
+							`https://api.spotify.com/v1/playlists/${item.id}`,
+							"Playlist details for navigation"
+						);
+
+						if (playlistData) {
+							// Navigate with the loaded data
+							router.push({
+								pathname: `/playlist/${item.id}`,
+								params: {
+									playlistString:
+										JSON.stringify(playlistData),
+								},
+							} as any);
+						} else {
+							// Fallback to original navigation if fetch fails
+							router.push({
+								pathname: `/playlist/${item.id}`,
+								params: {
+									playlistString: JSON.stringify(item),
+								},
+							} as any);
+						}
+					} catch (error) {
+						console.error(
+							"Error fetching playlist details for navigation:",
+							error
+						);
+						// Fallback to original navigation on error
+						router.push({
+							pathname: `/playlist/${item.id}`,
+							params: { playlistString: JSON.stringify(item) },
+						} as any);
+					} finally {
+						setLoadingPlaylistId(null);
+					}
+				}}
 			>
 				{item.images && item.images.length > 0 ? (
-					<Image
-						source={{ uri: item.images[0].url }}
-						style={styles.playlistImage}
-					/>
+					<View style={styles.playlistImageContainer}>
+						<Image
+							source={{ uri: item.images[0].url }}
+							style={styles.playlistImage}
+						/>
+						{loadingPlaylistId === item.id && (
+							<View style={styles.loadingOverlay}>
+								<ActivityIndicator size="small" color="white" />
+							</View>
+						)}
+					</View>
 				) : (
 					<View style={styles.placeholderImageContainer}>
 						<MaterialIcons
@@ -119,6 +167,11 @@ export default function PlaylistsScreen() {
 							size={24}
 							color="white"
 						/>
+						{loadingPlaylistId === item.id && (
+							<View style={styles.loadingOverlay}>
+								<ActivityIndicator size="small" color="white" />
+							</View>
+						)}
 					</View>
 				)}
 				<View style={styles.textContainer}>
@@ -280,5 +333,18 @@ const styles = StyleSheet.create({
 	playlistOwner: {
 		fontSize: 16,
 		lineHeight: 18,
+	},
+	playlistImageContainer: {
+		position: "relative",
+	},
+	loadingOverlay: {
+		position: "absolute",
+		top: 0,
+		left: 0,
+		right: 0,
+		bottom: 0,
+		backgroundColor: "rgba(0, 0, 0, 0.5)",
+		justifyContent: "center",
+		alignItems: "center",
 	},
 });

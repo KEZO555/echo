@@ -81,6 +81,19 @@ export default function PlaylistDetailScreen() {
 		}
 
 		const fetchPlaylistDetails = async () => {
+			// If we already have complete playlist data with tracks, skip the fetch
+			if (
+				initialPlaylist &&
+				(initialPlaylist as SpotifyPlaylistFull).tracks &&
+				(initialPlaylist as SpotifyPlaylistFull).tracks.items
+			) {
+				console.log(
+					"Playlist details: Using pre-loaded complete playlist data"
+				);
+				setIsLoading(false);
+				return;
+			}
+
 			if (!initialPlaylist) {
 				setIsLoading(true);
 			}
