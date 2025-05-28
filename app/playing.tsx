@@ -30,7 +30,6 @@ const formatTime = (ms: number | null | undefined): string => {
 export default function PlayingScreen() {
 	const {
 		accessToken,
-		getPlaybackState,
 		startPlayback,
 		pausePlayback,
 		skipToNext,
@@ -109,9 +108,18 @@ export default function PlayingScreen() {
 	};
 
 	const fetchAndUpdatePlaybackState = async () => {
-		// console.log("Fetching playback state for PlayingScreen...");
-		const state = await getPlaybackState();
-		setPlaybackState(state);
+		// Fetch playback state via Web API to get correct device info
+		let state: any = null;
+		try {
+			state = await makeApiRequest(
+				"https://api.spotify.com/v1/me/player",
+				"Fetch playback state"
+			);
+		} catch (error) {
+			console.error("Error fetching playback state via Web API:", error);
+			return;
+		}
+		setPlaybackState(state as SpotifyCurrentlyPlaying);
 
 		if (state && state.item && state.item.id) {
 			if (state.progress_ms !== null) {
@@ -364,7 +372,7 @@ export default function PlayingScreen() {
 	useFocusEffect(
 		React.useCallback(() => {
 			setIsLoading(true);
-			fetchAndUpdatePlaybackState(); // Initial fetch when screen comes into focus
+			fetchAndUpdatePlaybackState(); // Initial fetch via Web API
 
 			// Set up an interval to refresh playback state every second
 			const intervalId = setInterval(() => {
@@ -378,7 +386,7 @@ export default function PlayingScreen() {
 				clearInterval(intervalId);
 				console.log("PlayingScreen unfocused, cleared interval.");
 			};
-		}, [getPlaybackState]) // Assuming getPlaybackState is stable or correctly memoized
+		}, [makeApiRequest]) // Assuming makeApiRequest is stable or correctly memoized
 	);
 
 	const getArtistNames = (artists: SpotifyArtistSimple[]) => {
@@ -540,11 +548,26 @@ export default function PlayingScreen() {
 									: "favorite-outline"
 							}
 							size={30}
-							color={"white"}
+							color="white"
+						/>
+					</HapticPressable>
+					<HapticPressable
+						onPress={() =>
+							router.push({ pathname: "/select-device" as any })
+						}
+					>
+						<MaterialIcons
+							name={
+								(
+									playbackState.device.type ?? ""
+								).toLowerCase() as any
+							}
+							size={30}
+							color="white"
 						/>
 					</HapticPressable>
 					<HapticPressable onPress={handleNavigateToAddToPlaylist}>
-						<MaterialIcons name={"add"} size={30} color={"white"} />
+						<MaterialIcons name="add" size={30} color="white" />
 					</HapticPressable>
 				</View>
 			</View>

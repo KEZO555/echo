@@ -122,6 +122,10 @@ function RootNavigation() {
 					animation: "none",
 				}}
 			/>
+			<Stack.Screen
+				name="select-device"
+				options={{ headerShown: false, animation: "none" }}
+			/>
 		</Stack>
 	);
 }
