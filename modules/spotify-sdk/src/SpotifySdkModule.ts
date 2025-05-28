@@ -88,6 +88,7 @@ declare class SpotifySdkModule extends NativeModule<SpotifySdkEvents> {
 
 	// Images API methods
 	getImage(uri: string, size?: string): Promise<string>;
+	getCurrentTrackImage(size?: string): Promise<string>;
 
 	// User API methods (additional)
 	addToLibrary(uri: string): Promise<{ added: boolean }>;

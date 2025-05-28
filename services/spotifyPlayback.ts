@@ -189,12 +189,13 @@ export const getPlaybackStateFromNativeSdk = async (
 			if (cachedImages) {
 				albumImages = cachedImages;
 			} else {
-				// 2. Try native SDK (high-quality bitmap)
+				// 2. Try native SDK current track image (most direct approach)
 				try {
-					const nativeImageUrl = await SpotifySdk.getImage(
-						playerState.track.album.uri,
-						"LARGE"
+					console.log(
+						"Playback: Attempting to get current track image from Native SDK"
 					);
+					const nativeImageUrl =
+						await SpotifySdk.getCurrentTrackImage("LARGE");
 					if (
 						nativeImageUrl &&
 						nativeImageUrl.startsWith("data:image/")
@@ -207,92 +208,176 @@ export const getPlaybackStateFromNativeSdk = async (
 							},
 						];
 						await saveCachedAlbumArt(albumId, albumImages);
-						console.log("Playback: Got album art from Native SDK");
+						console.log(
+							"Playback: Got album art from Native SDK (current track)"
+						);
 					} else {
 						throw new Error(
-							"Native SDK did not return valid image data"
+							"Native SDK getCurrentTrackImage did not return valid image data"
 						);
 					}
-				} catch (nativeError) {
-					// 3. Fallback to Web API (HTTP URLs)
-					let validToken = accessToken;
-					if (ensureValidToken) {
-						const refreshedToken = await ensureValidToken();
-						if (refreshedToken) {
-							validToken = refreshedToken;
-						}
-					}
+				} catch (currentTrackError) {
+					console.log(
+						"Playback: getCurrentTrackImage failed, trying album URI approach:",
+						currentTrackError
+					);
 
-					if (validToken && makeApiRequest) {
-						try {
-							const albumData = await makeApiRequest(
-								`https://api.spotify.com/v1/albums/${albumId}`,
-								"Album art fetch"
-							);
-							if (
-								albumData &&
-								albumData.images &&
-								albumData.images.length > 0
-							) {
-								albumImages = albumData.images.map(
-									(img: any) => ({
-										url: img.url,
-										height: img.height,
-										width: img.width,
-									})
-								);
-								await saveCachedAlbumArt(albumId, albumImages);
-								console.log(
-									"Playback: Got album art from Web API fallback"
-								);
-							}
-						} catch (webApiError) {
+					// 3. Try native SDK with album URI (fallback approach)
+					try {
+						const nativeImageUrl = await SpotifySdk.getImage(
+							playerState.track.album.uri,
+							"LARGE"
+						);
+						if (
+							nativeImageUrl &&
+							nativeImageUrl.startsWith("data:image/")
+						) {
+							albumImages = [
+								{
+									url: nativeImageUrl,
+									height: 640,
+									width: 640,
+								},
+							];
+							await saveCachedAlbumArt(albumId, albumImages);
 							console.log(
-								"Playback: Web API failed for album art:",
-								webApiError
+								"Playback: Got album art from Native SDK (album URI)"
+							);
+						} else {
+							throw new Error(
+								"Native SDK getImage did not return valid image data"
 							);
 						}
-					} else if (validToken) {
-						// Fallback to direct fetch if makeApiRequest is not available
+					} catch (albumUriError) {
+						console.log(
+							"Playback: Album URI approach failed, trying track image URI:",
+							albumUriError
+						);
+
+						// 4. Try native SDK with track image URI (if available)
 						try {
-							const response = await fetch(
-								`https://api.spotify.com/v1/albums/${albumId}`,
-								{
-									headers: {
-										Authorization: `Bearer ${validToken}`,
-									},
-								}
-							);
-							if (response.ok) {
-								const albumData = await response.json();
-								if (
-									albumData.images &&
-									albumData.images.length > 0
-								) {
-									albumImages = albumData.images.map(
-										(img: any) => ({
-											url: img.url,
-											height: img.height,
-											width: img.width,
-										})
+							if (playerState.track.imageUri) {
+								const nativeImageUrl =
+									await SpotifySdk.getImage(
+										playerState.track.imageUri,
+										"LARGE"
 									);
+								if (
+									nativeImageUrl &&
+									nativeImageUrl.startsWith("data:image/")
+								) {
+									albumImages = [
+										{
+											url: nativeImageUrl,
+											height: 640,
+											width: 640,
+										},
+									];
 									await saveCachedAlbumArt(
 										albumId,
 										albumImages
 									);
 									console.log(
-										"Playback: Got album art from Web API fallback (direct fetch)"
+										"Playback: Got album art from Native SDK (track image URI)"
+									);
+								} else {
+									throw new Error(
+										"Native SDK track image URI did not return valid image data"
 									);
 								}
-							} else if (response.status === 401) {
-								console.log(
-									"Playback: Token expired while fetching album art"
-								);
+							} else {
+								throw new Error("No track image URI available");
 							}
-						} catch (webApiError) {
+						} catch (trackImageError) {
 							console.log(
-								"Playback: Both native SDK and Web API failed for album art"
+								"Playback: All Native SDK approaches failed, falling back to Web API:",
+								trackImageError
 							);
+
+							// 5. Fallback to Web API (HTTP URLs)
+							let validToken = accessToken;
+							if (ensureValidToken) {
+								const refreshedToken = await ensureValidToken();
+								if (refreshedToken) {
+									validToken = refreshedToken;
+								}
+							}
+
+							if (validToken && makeApiRequest) {
+								try {
+									const albumData = await makeApiRequest(
+										`https://api.spotify.com/v1/albums/${albumId}`,
+										"Album art fetch"
+									);
+									if (
+										albumData &&
+										albumData.images &&
+										albumData.images.length > 0
+									) {
+										albumImages = albumData.images.map(
+											(img: any) => ({
+												url: img.url,
+												height: img.height,
+												width: img.width,
+											})
+										);
+										await saveCachedAlbumArt(
+											albumId,
+											albumImages
+										);
+										console.log(
+											"Playback: Got album art from Web API fallback"
+										);
+									}
+								} catch (webApiError) {
+									console.log(
+										"Playback: Web API failed for album art:",
+										webApiError
+									);
+								}
+							} else if (validToken) {
+								// Fallback to direct fetch if makeApiRequest is not available
+								try {
+									const response = await fetch(
+										`https://api.spotify.com/v1/albums/${albumId}`,
+										{
+											headers: {
+												Authorization: `Bearer ${validToken}`,
+											},
+										}
+									);
+									if (response.ok) {
+										const albumData = await response.json();
+										if (
+											albumData.images &&
+											albumData.images.length > 0
+										) {
+											albumImages = albumData.images.map(
+												(img: any) => ({
+													url: img.url,
+													height: img.height,
+													width: img.width,
+												})
+											);
+											await saveCachedAlbumArt(
+												albumId,
+												albumImages
+											);
+											console.log(
+												"Playback: Got album art from Web API fallback (direct fetch)"
+											);
+										}
+									} else if (response.status === 401) {
+										console.log(
+											"Playback: Token expired while fetching album art"
+										);
+									}
+								} catch (webApiError) {
+									console.log(
+										"Playback: All approaches failed for album art"
+									);
+								}
+							}
 						}
 					}
 				}
@@ -492,13 +577,52 @@ export const getAlbumArt = async (
 	try {
 		const connected = await ensureAppRemoteConnection();
 		if (!connected) return null;
+
+		// If no URI provided, get current track image directly
 		if (!uri) {
-			const playerState = await SpotifySdk.getPlayerState();
-			if (!playerState || !playerState.track) return null;
-			uri = playerState.track.album.uri;
+			try {
+				console.log(
+					"Playback: Getting current track image from Native SDK"
+				);
+				const imageUrl = await SpotifySdk.getCurrentTrackImage(size);
+				if (imageUrl && imageUrl.startsWith("data:image/")) {
+					console.log(
+						"Playback: Successfully got current track image from Native SDK"
+					);
+					return imageUrl;
+				}
+			} catch (error) {
+				console.log(
+					"Playback: getCurrentTrackImage failed, trying player state approach:",
+					error
+				);
+			}
+
+			// Fallback: get player state and use album URI
+			try {
+				const playerState = await SpotifySdk.getPlayerState();
+				if (!playerState || !playerState.track) return null;
+				uri = playerState.track.album.uri;
+			} catch (error) {
+				console.log(
+					"Playback: Failed to get player state for album art:",
+					error
+				);
+				return null;
+			}
 		}
-		const imageUrl = await SpotifySdk.getImage(uri, size);
-		return imageUrl;
+
+		// Try to get image with provided or derived URI
+		if (uri) {
+			console.log("Playback: Getting image for URI:", uri);
+			const imageUrl = await SpotifySdk.getImage(uri, size);
+			if (imageUrl && imageUrl.startsWith("data:image/")) {
+				console.log("Playback: Successfully got image from Native SDK");
+				return imageUrl;
+			}
+		}
+
+		return null;
 	} catch (error) {
 		console.log("Playback: Error getting album art:", error);
 		return null;
