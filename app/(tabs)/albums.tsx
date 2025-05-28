@@ -4,7 +4,6 @@ import {
 	StyleSheet,
 	FlatList,
 	Image,
-	ActivityIndicator,
 	RefreshControl,
 } from "react-native";
 import {
@@ -122,18 +121,14 @@ export default function AlbumsScreen() {
 						style={styles.albumImage}
 					/>
 					{loadingAlbumId === item.album.id && (
-						<View style={styles.loadingOverlay}>
-							<ActivityIndicator size="small" color="white" />
-						</View>
+						<View style={styles.loadingOverlay}></View>
 					)}
 				</View>
 			) : (
 				<View style={styles.placeholderImageContainer}>
 					<MaterialIcons name="album" size={24} color="white" />
 					{loadingAlbumId === item.album.id && (
-						<View style={styles.loadingOverlay}>
-							<ActivityIndicator size="small" color="white" />
-						</View>
+						<View style={styles.loadingOverlay}></View>
 					)}
 				</View>
 			)}
@@ -276,7 +271,7 @@ const styles = StyleSheet.create({
 		left: 0,
 		width: "100%",
 		height: "100%",
-		backgroundColor: "rgba(0, 0, 0, 0.5)",
+		backgroundColor: "rgba(0, 0, 0, 0)",
 		justifyContent: "center",
 		alignItems: "center",
 	},

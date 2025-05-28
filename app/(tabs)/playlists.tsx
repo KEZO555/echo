@@ -2,10 +2,8 @@ import React, { useEffect, useState, useCallback } from "react";
 import {
 	View,
 	StyleSheet,
-	Text,
 	FlatList,
 	Image,
-	ActivityIndicator,
 	RefreshControl,
 } from "react-native";
 import { useAuth, SpotifyPlaylist } from "@/contexts/AuthContext"; // Assuming SpotifyPlaylist is exported from AuthContext
@@ -155,9 +153,7 @@ export default function PlaylistsScreen() {
 							style={styles.playlistImage}
 						/>
 						{loadingPlaylistId === item.id && (
-							<View style={styles.loadingOverlay}>
-								<ActivityIndicator size="small" color="white" />
-							</View>
+							<View style={styles.loadingOverlay}></View>
 						)}
 					</View>
 				) : (
@@ -168,9 +164,7 @@ export default function PlaylistsScreen() {
 							color="white"
 						/>
 						{loadingPlaylistId === item.id && (
-							<View style={styles.loadingOverlay}>
-								<ActivityIndicator size="small" color="white" />
-							</View>
+							<View style={styles.loadingOverlay}></View>
 						)}
 					</View>
 				)}
@@ -343,7 +337,7 @@ const styles = StyleSheet.create({
 		left: 0,
 		right: 0,
 		bottom: 0,
-		backgroundColor: "rgba(0, 0, 0, 0.5)",
+		backgroundColor: "rgba(0, 0, 0, 0)",
 		justifyContent: "center",
 		alignItems: "center",
 	},
