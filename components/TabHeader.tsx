@@ -13,6 +13,7 @@ interface TabHeaderProps {
 	iconShowLength?: number;
 	headerTitle?: string;
 	hideWaveformButton?: boolean;
+	hidePlayingButton?: boolean;
 }
 
 export function TabHeader({
@@ -23,6 +24,7 @@ export function TabHeader({
 	iconShowLength = 1,
 	headerTitle,
 	hideWaveformButton = false,
+	hidePlayingButton = false,
 }: TabHeaderProps) {
 	const router = useRouter();
 
@@ -68,7 +70,7 @@ export function TabHeader({
 				) : (
 					<View style={{ width: 32 }} />
 				)
-			) : hideWaveformButton ? (
+			) : hideWaveformButton || hidePlayingButton ? (
 				<View style={{ width: 32, height: 32 }} />
 			) : (
 				<HapticPressable onPress={handlePlayingPress}>

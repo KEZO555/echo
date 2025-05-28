@@ -15,6 +15,7 @@ export interface TabPreferences {
 	showAlbums: boolean;
 	showPlaylists: boolean;
 	showSearch: boolean;
+	showPlayingInNavbar: boolean;
 }
 
 const defaultPreferences: TabPreferences = {
@@ -22,6 +23,7 @@ const defaultPreferences: TabPreferences = {
 	showAlbums: true,
 	showPlaylists: true,
 	showSearch: true,
+	showPlayingInNavbar: false,
 };
 
 interface TabPreferencesContextType {

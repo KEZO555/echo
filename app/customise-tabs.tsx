@@ -26,6 +26,13 @@ export default function CustomiseTabsScreen() {
 			<Header headerTitle="Customise Tabs" />
 			<View style={styles.content}>
 				<ToggleSwitch
+					value={preferences.showPlayingInNavbar}
+					label="Now Playing"
+					onValueChange={(value) =>
+						updatePreference("showPlayingInNavbar", value)
+					}
+				/>
+				<ToggleSwitch
 					label="Liked Songs"
 					value={preferences.showLikedSongs}
 					onValueChange={(value) =>

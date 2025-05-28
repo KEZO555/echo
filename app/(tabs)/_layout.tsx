@@ -76,6 +76,7 @@ export default function TabLayout() {
 						tabsConfig={visibleTabs}
 						currentScreenName={activeScreenName}
 						navigation={props.navigation}
+						showPlayingButton={preferences.showPlayingInNavbar}
 					/>
 				);
 			}}
@@ -95,6 +96,9 @@ export default function TabLayout() {
 												hideWaveformButton={
 													tab.screenName ===
 													"settings"
+												}
+												hidePlayingButton={
+													preferences.showPlayingInNavbar
 												}
 											/>
 									  ),
