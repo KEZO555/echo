@@ -1,8 +1,9 @@
 import React from "react";
-import { View, StyleSheet } from "react-native";
+import { View, StyleSheet, Text } from "react-native";
 import { useAuth } from "@/contexts/AuthContext";
 import { StyledButton } from "@/components/StyledButton";
 import { useRouter } from "expo-router";
+import * as Application from "expo-application";
 
 export default function SettingsScreen() {
 	const { logout, user } = useAuth();
@@ -32,6 +33,12 @@ export default function SettingsScreen() {
 
 				{user && <StyledButton text="Logout" onPress={handleLogout} />}
 			</View>
+
+			<View style={styles.versionContainer}>
+				<Text style={styles.versionText}>
+					v{Application.nativeApplicationVersion}
+				</Text>
+			</View>
 		</View>
 	);
 }
@@ -48,5 +55,13 @@ const styles = StyleSheet.create({
 		paddingHorizontal: 38,
 		paddingTop: 4,
 		gap: 46,
+	},
+	versionContainer: {
+		alignItems: "center",
+	},
+	versionText: {
+		color: "#666",
+		fontSize: 12,
+		fontWeight: "400",
 	},
 });
