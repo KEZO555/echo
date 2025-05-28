@@ -33,17 +33,33 @@ export function Header({
 	return (
 		<View style={styles.header}>
 			<HapticPressable onPress={handleBack}>
-				<MaterialIcons name="arrow-back-ios" size={28} color="white" />
+				<View style={{ width: 32, height: 32, alignItems: "center" }}>
+					<MaterialIcons
+						name="arrow-back-ios"
+						size={28}
+						color="white"
+					/>
+				</View>
 			</HapticPressable>
 			<StyledText style={styles.title} numberOfLines={1}>
 				{headerTitle}
 			</StyledText>
 			{iconShowLength > 0 && iconName ? (
 				<HapticPressable onPress={onIconPress}>
-					<MaterialIcons name={iconName} size={28} color="white" />
+					<View
+						style={{ width: 32, height: 32, alignItems: "center" }}
+					>
+						<MaterialIcons
+							name={iconName}
+							size={28}
+							color="white"
+						/>
+					</View>
 				</HapticPressable>
 			) : (
-				<View style={{ width: 28 }} />
+				<View
+					style={{ width: 32, height: 32, alignItems: "center" }}
+				></View>
 			)}
 		</View>
 	);
@@ -63,6 +79,7 @@ const styles = StyleSheet.create({
 		color: "white",
 		fontSize: 20,
 		fontFamily: "PublicSans-Regular",
+		paddingBottom: 5,
 		maxWidth: "75%",
 	},
 });

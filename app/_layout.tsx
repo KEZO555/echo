@@ -115,6 +115,13 @@ function RootNavigation() {
 					animation: "none",
 				}}
 			/>
+			<Stack.Screen
+				name="debug"
+				options={{
+					headerShown: false,
+					animation: "none",
+				}}
+			/>
 		</Stack>
 	);
 }
