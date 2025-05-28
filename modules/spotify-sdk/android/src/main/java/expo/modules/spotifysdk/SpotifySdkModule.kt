@@ -652,19 +652,22 @@ class SpotifySdkModule : Module() {
 
     AsyncFunction("getImage") { uri: String, size: String?, promise: Promise ->
       try {
-        val imageSize = when (size) {
+        Log.d(TAG, "Getting image for URI: $uri with size: $size")
+
+        val imageSize = when (size?.lowercase()) {
           "small" -> Image.Dimension.SMALL
           "medium" -> Image.Dimension.MEDIUM
           "large" -> Image.Dimension.LARGE
-          "x_large" -> Image.Dimension.LARGE // Fallback since X_LARGE might not be available
           else -> Image.Dimension.LARGE
         }
 
         // Create ImageUri from string
         val imageUri = ImageUri(uri)
+        Log.d(TAG, "Created ImageUri: ${imageUri.raw}")
 
         spotifyAppRemote?.imagesApi?.getImage(imageUri, imageSize)?.setResultCallback { bitmap ->
           try {
+            Log.d(TAG, "Successfully received bitmap from Spotify SDK")
             // Convert bitmap to base64 data URI for React Native
             val outputStream = java.io.ByteArrayOutputStream()
             bitmap.compress(android.graphics.Bitmap.CompressFormat.JPEG, 90, outputStream)
@@ -672,14 +675,74 @@ class SpotifySdkModule : Module() {
             val base64String = android.util.Base64.encodeToString(byteArray, android.util.Base64.NO_WRAP)
             val dataUri = "data:image/jpeg;base64,$base64String"
 
+            Log.d(TAG, "Successfully converted bitmap to data URI (${byteArray.size} bytes)")
             promise.resolve(dataUri)
           } catch (e: Exception) {
+            Log.e(TAG, "Failed to process bitmap: ${e.message}", e)
             promise.reject("IMAGE_PROCESSING_ERROR", "Failed to process bitmap: ${e.message}", e)
           }
         }?.setErrorCallback { error ->
+          Log.e(TAG, "Spotify SDK getImage error: ${error.message}", error)
           promise.reject("IMAGE_ERROR", error.message, error)
-        } ?: promise.reject("NOT_CONNECTED", "Spotify not connected", null)
+        } ?: run {
+          Log.e(TAG, "Spotify not connected when trying to get image")
+          promise.reject("NOT_CONNECTED", "Spotify not connected", null)
+        }
       } catch (e: Exception) {
+        Log.e(TAG, "Exception in getImage: ${e.message}", e)
+        promise.reject("IMAGE_ERROR", e.message, e)
+      }
+    }
+
+    AsyncFunction("getCurrentTrackImage") { size: String?, promise: Promise ->
+      try {
+        Log.d(TAG, "Getting current track image with size: $size")
+
+        spotifyAppRemote?.playerApi?.playerState?.setResultCallback { playerState ->
+          try {
+            val trackImageUri = playerState.track.imageUri
+            Log.d(TAG, "Current track image URI: ${trackImageUri.raw}")
+
+            val imageSize = when (size?.lowercase()) {
+              "small" -> Image.Dimension.SMALL
+              "medium" -> Image.Dimension.MEDIUM
+              "large" -> Image.Dimension.LARGE
+              else -> Image.Dimension.LARGE
+            }
+
+            spotifyAppRemote?.imagesApi?.getImage(trackImageUri, imageSize)?.setResultCallback { bitmap ->
+              try {
+                Log.d(TAG, "Successfully received current track bitmap from Spotify SDK")
+                // Convert bitmap to base64 data URI for React Native
+                val outputStream = java.io.ByteArrayOutputStream()
+                bitmap.compress(android.graphics.Bitmap.CompressFormat.JPEG, 90, outputStream)
+                val byteArray = outputStream.toByteArray()
+                val base64String = android.util.Base64.encodeToString(byteArray, android.util.Base64.NO_WRAP)
+                val dataUri = "data:image/jpeg;base64,$base64String"
+
+                Log.d(TAG, "Successfully converted current track bitmap to data URI (${byteArray.size} bytes)")
+                promise.resolve(dataUri)
+              } catch (e: Exception) {
+                Log.e(TAG, "Failed to process current track bitmap: ${e.message}", e)
+                promise.reject("IMAGE_PROCESSING_ERROR", "Failed to process bitmap: ${e.message}", e)
+              }
+            }?.setErrorCallback { error ->
+              Log.e(TAG, "Spotify SDK getCurrentTrackImage error: ${error.message}", error)
+              promise.reject("IMAGE_ERROR", error.message, error)
+            }
+          } catch (e: Exception) {
+            Log.e(TAG, "Error getting current track image: ${e.message}", e)
+            promise.reject("IMAGE_ERROR", e.message, e)
+          }
+        }?.setErrorCallback { error ->
+          Log.e(TAG, "Error getting player state for image: ${error.message}", error)
+          promise.reject("PLAYER_STATE_ERROR", error.message, error)
+        } ?: run {
+          Log.e(TAG, "Spotify not connected when trying to get current track image")
+          promise.reject("NOT_CONNECTED", "Spotify not connected", null)
+        }
+      } catch (e: Exception) {
+        Log.e(TAG, "Exception in getCurrentTrackImage: ${e.message}", e)
         promise.reject("IMAGE_ERROR", e.message, e)
       }
     }
