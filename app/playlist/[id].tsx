@@ -291,7 +291,7 @@ const styles = StyleSheet.create({
 	},
 	playlistArtContainer: {
 		alignItems: "center",
-		paddingVertical: 20,
+		paddingBottom: 20,
 	},
 	playlistImage: {
 		width: 200,

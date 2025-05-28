@@ -300,7 +300,7 @@ const styles = StyleSheet.create({
 	},
 	albumArtContainer: {
 		alignItems: "center",
-		paddingVertical: 20,
+		paddingBottom: 20,
 	},
 	albumImage: {
 		width: 200,

@@ -35,7 +35,13 @@ export function ItemHeader({
 	return (
 		<View style={styles.header}>
 			<HapticPressable onPress={handleBack}>
-				<MaterialIcons name="arrow-back-ios" size={28} color="white" />
+				<View style={{ width: 32, height: 32, alignItems: "center" }}>
+					<MaterialIcons
+						name="arrow-back-ios"
+						size={28}
+						color="white"
+					/>
+				</View>
 			</HapticPressable>
 			<View style={styles.titleContainer}>
 				<StyledText style={styles.title} numberOfLines={1}>
@@ -47,10 +53,24 @@ export function ItemHeader({
 			</View>
 			{iconShowLength > 0 && iconName ? (
 				<HapticPressable onPress={onIconPress}>
-					<MaterialIcons name={iconName} size={28} color="white" />
+					<View
+						style={{ width: 32, height: 32, alignItems: "center" }}
+					>
+						<MaterialIcons
+							name={iconName}
+							size={28}
+							color="white"
+						/>
+					</View>
 				</HapticPressable>
 			) : (
-				<MaterialIcons name="arrow-back-ios" size={28} color="black" />
+				<View style={{ width: 32, height: 32, alignItems: "center" }}>
+					<MaterialIcons
+						name="arrow-back-ios"
+						size={28}
+						color="black"
+					/>
+				</View>
 			)}
 		</View>
 	);
