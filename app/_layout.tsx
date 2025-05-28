@@ -31,8 +31,9 @@ function RootNavigation() {
 		if (preferences.showLikedSongs) return "/(tabs)";
 		if (preferences.showAlbums) return "/(tabs)/albums";
 		if (preferences.showPlaylists) return "/(tabs)/playlists";
-		// Search and Settings are always available, default to search
-		return "/(tabs)/search";
+		if (preferences.showSearch) return "/(tabs)/search";
+		// Settings is always available, default to settings
+		return "/(tabs)/settings";
 	};
 
 	useEffect(() => {

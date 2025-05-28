@@ -14,12 +14,14 @@ export interface TabPreferences {
 	showLikedSongs: boolean;
 	showAlbums: boolean;
 	showPlaylists: boolean;
+	showSearch: boolean;
 }
 
 const defaultPreferences: TabPreferences = {
 	showLikedSongs: true,
 	showAlbums: true,
 	showPlaylists: true,
+	showSearch: true,
 };
 
 interface TabPreferencesContextType {

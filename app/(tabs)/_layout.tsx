@@ -33,23 +33,21 @@ export default function TabLayout() {
 				case "playlists":
 					return preferences.showPlaylists;
 				case "search":
+					return preferences.showSearch;
 				case "settings":
-					return true; // Always show search and settings
+					return true; // Always show settings
 				default:
 					return true;
 			}
 		});
 
-		// Ensure we always have at least search and settings visible
+		// Ensure we always have at least settings visible
 		// This should always be true given our logic above, but it's a safeguard
-		if (filtered.length < 2) {
+		if (filtered.length < 1) {
 			console.warn(
-				"TabLayout: Less than 2 tabs visible, this should not happen"
+				"TabLayout: Less than 1 tab visible, this should not happen"
 			);
-			return TABS_CONFIG.filter(
-				(tab) =>
-					tab.screenName === "search" || tab.screenName === "settings"
-			);
+			return TABS_CONFIG.filter((tab) => tab.screenName === "settings");
 		}
 
 		return filtered;

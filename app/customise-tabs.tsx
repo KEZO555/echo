@@ -46,6 +46,13 @@ export default function CustomiseTabsScreen() {
 						updatePreference("showPlaylists", value)
 					}
 				/>
+				<ToggleSwitch
+					label="Search"
+					value={preferences.showSearch}
+					onValueChange={(value) =>
+						updatePreference("showSearch", value)
+					}
+				/>
 			</View>
 		</View>
 	);
