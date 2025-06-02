@@ -121,11 +121,9 @@ export const playTrackWithNativeSdk = async (
 				);
 
 				if (response.ok) {
-					await new Promise((resolve) => setTimeout(resolve, 500));
-					const playResult = await SpotifySdk.play();
-					if (playResult.playing) {
-						console.log("Playback: Playback started with context");
-					}
+					console.log(
+						"Playback: Web API successfully set context and initiated playback."
+					);
 					return;
 				} else if (response.status === 401) {
 					console.log(
@@ -769,10 +767,9 @@ export const playTrackWithContext = async (
 				);
 
 				if (response.ok) {
-					console.log("Playback: Context set, starting playback");
-					await new Promise((resolve) => setTimeout(resolve, 500)); // Wait for context
-					await SpotifySdk.play(); // Native SDK control
-					console.log("Playback: Started with context");
+					console.log(
+						"Playback: Web API successfully set context and initiated playback."
+					);
 					return;
 				} else if (response.status === 401) {
 					console.log(
