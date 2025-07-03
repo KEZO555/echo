@@ -25,20 +25,17 @@ class Logger {
 		}
 
 		// Also log to console
-		const consoleMessage = data ? `${message}` : message;
-		switch (level) {
-			case "LOG":
-				console.log(consoleMessage, data);
-				break;
-			case "WARN":
-				console.warn(consoleMessage, data);
-				break;
-			case "ERROR":
-				console.error(consoleMessage, data);
-				break;
-			case "INFO":
-				console.info(consoleMessage, data);
-				break;
+		const consoleFunc = {
+			LOG: console.log,
+			WARN: console.warn,
+			ERROR: console.error,
+			INFO: console.info,
+		}[level];
+
+		if (data !== undefined) {
+			consoleFunc(message, data);
+		} else {
+			consoleFunc(message);
 		}
 	}
 

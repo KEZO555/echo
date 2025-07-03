@@ -110,12 +110,6 @@ export const loginWithSpotify = async (
 			}
 
 			console.log("Auth: Authentication successful with refresh token");
-			// Fetch user info after successful authentication
-			await fetchUserInfo(
-				tokenResponse.access_token,
-				onUserUpdate,
-				fetchInitialData
-			);
 		} else {
 			console.error(
 				"Auth: Authentication failed:",
@@ -264,8 +258,7 @@ export const fetchInitialDataInParallel = async (
 		albums?: any[],
 		tracks?: any[]
 	) => Promise<void>,
-	ensureValidToken?: () => Promise<string | null>,
-	makeApiRequest?: (
+	makeApiRequest: (
 		url: string,
 		errorMessage: string,
 		isRefreshing?: boolean
@@ -275,54 +268,11 @@ export const fetchInitialDataInParallel = async (
 
 	const fetchPlaylists = async () => {
 		try {
-			let data: SpotifyPlaylistsResponse | null = null;
-
-			// Use makeApiRequest if available (preferred method with automatic token refresh)
-			if (makeApiRequest) {
-				data = await makeApiRequest(
-					"https://api.spotify.com/v1/me/playlists?limit=50",
-					"Playlists",
-					true
-				);
-			} else {
-				// Fallback to manual token validation for initial load scenarios
-				let validToken = token;
-				if (ensureValidToken) {
-					const refreshedToken = await ensureValidToken();
-					if (refreshedToken) {
-						validToken = refreshedToken;
-					}
-				}
-
-				if (!validToken) {
-					throw new Error(
-						"No valid token available for fetching playlists"
-					);
-				}
-
-				const response = await fetch(
-					"https://api.spotify.com/v1/me/playlists?limit=50",
-					{
-						headers: { Authorization: `Bearer ${validToken}` },
-					}
-				);
-
-				if (!response.ok) {
-					if (response.status === 401) {
-						console.log(
-							"Auth: Token expired while fetching playlists"
-						);
-						// Don't throw error immediately - let the user try manual refresh
-						onPlaylistsUpdate([], null);
-						return;
-					}
-					throw new Error(
-						`Failed to fetch playlists: ${response.status}`
-					);
-				}
-
-				data = await response.json();
-			}
+			const data: SpotifyPlaylistsResponse | null = await makeApiRequest(
+				"https://api.spotify.com/v1/me/playlists?limit=50",
+				"Playlists",
+				true
+			);
 
 			if (data) {
 				onPlaylistsUpdate(data.items, data.next);
@@ -338,54 +288,11 @@ export const fetchInitialDataInParallel = async (
 
 	const fetchAlbums = async () => {
 		try {
-			let data: SpotifySavedAlbumsResponse | null = null;
-
-			// Use makeApiRequest if available (preferred method with automatic token refresh)
-			if (makeApiRequest) {
-				data = await makeApiRequest(
-					"https://api.spotify.com/v1/me/albums?limit=50",
-					"Albums",
-					true
-				);
-			} else {
-				// Fallback to manual token validation for initial load scenarios
-				let validToken = token;
-				if (ensureValidToken) {
-					const refreshedToken = await ensureValidToken();
-					if (refreshedToken) {
-						validToken = refreshedToken;
-					}
-				}
-
-				if (!validToken) {
-					throw new Error(
-						"No valid token available for fetching albums"
-					);
-				}
-
-				const response = await fetch(
-					"https://api.spotify.com/v1/me/albums?limit=50",
-					{
-						headers: { Authorization: `Bearer ${validToken}` },
-					}
-				);
-
-				if (!response.ok) {
-					if (response.status === 401) {
-						console.log(
-							"Auth: Token expired while fetching albums"
-						);
-						// Don't throw error immediately - let the user try manual refresh
-						onAlbumsUpdate([], null);
-						return;
-					}
-					throw new Error(
-						`Failed to fetch albums: ${response.status}`
-					);
-				}
-
-				data = await response.json();
-			}
+			const data: SpotifySavedAlbumsResponse | null = await makeApiRequest(
+				"https://api.spotify.com/v1/me/albums?limit=50",
+				"Albums",
+				true
+			);
 
 			if (data) {
 				onAlbumsUpdate(data.items, data.next);
@@ -401,54 +308,11 @@ export const fetchInitialDataInParallel = async (
 
 	const fetchSavedTracks = async () => {
 		try {
-			let data: SavedTracksResponse | null = null;
-
-			// Use makeApiRequest if available (preferred method with automatic token refresh)
-			if (makeApiRequest) {
-				data = await makeApiRequest(
-					"https://api.spotify.com/v1/me/tracks?limit=50",
-					"Saved Tracks",
-					true
-				);
-			} else {
-				// Fallback to manual token validation for initial load scenarios
-				let validToken = token;
-				if (ensureValidToken) {
-					const refreshedToken = await ensureValidToken();
-					if (refreshedToken) {
-						validToken = refreshedToken;
-					}
-				}
-
-				if (!validToken) {
-					throw new Error(
-						"No valid token available for fetching saved tracks"
-					);
-				}
-
-				const response = await fetch(
-					"https://api.spotify.com/v1/me/tracks?limit=50",
-					{
-						headers: { Authorization: `Bearer ${validToken}` },
-					}
-				);
-
-				if (!response.ok) {
-					if (response.status === 401) {
-						console.log(
-							"Auth: Token expired while fetching saved tracks"
-						);
-						// Don't throw error immediately - let the user try manual refresh
-						onSavedTracksUpdate([], null);
-						return;
-					}
-					throw new Error(
-						`Failed to fetch saved tracks: ${response.status}`
-					);
-				}
-
-				data = await response.json();
-			}
+			const data: SavedTracksResponse | null = await makeApiRequest(
+				"https://api.spotify.com/v1/me/tracks?limit=50",
+				"Saved Tracks",
+				true
+			);
 
 			if (data) {
 				onSavedTracksUpdate(data.items, data.next);

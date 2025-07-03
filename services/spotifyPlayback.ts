@@ -66,7 +66,7 @@ export const forceAppRemoteConnection = async (): Promise<boolean> => {
 
 export const playTrackWithNativeSdk = async (
 	trackUri: string,
-	deviceId?: string,
+	_deviceId?: string,
 	contextUri?: string,
 	accessToken?: string | null,
 	ensureValidToken?: () => Promise<string | null>
@@ -743,14 +743,49 @@ export const playTrackWithContext = async (
 		}
 
 		if (
-			sourceContext?.uri &&
+			(sourceContext?.uri || sourceContext?.type === "liked") &&
 			validToken &&
 			sourceContext.type !== "artist"
 		) {
 			try {
-				console.log("Playback: Setting context via Web API");
+				console.log(
+					"Playback: Setting context via Web API for",
+					sourceContext.type
+				);
 
-				// Web API to set context + track offset
+				const requestBody: {
+					context_uri?: string;
+					offset?: { uri: string };
+					uris?: string[];
+				} = {};
+
+				if (sourceContext.type === "liked") {
+					if (sourceContext.tracks && sourceContext.tracks.length > 0) {
+						const trackUris = sourceContext.tracks.map(
+							(track: any) => track.uri
+						);
+						const startIndex =
+							sourceContext.currentIndex ?? trackUris.indexOf(trackUri);
+
+						if (startIndex !== -1) {
+							const reorderedUris = [
+								...trackUris.slice(startIndex),
+								...trackUris.slice(0, startIndex),
+							];
+							requestBody.uris = reorderedUris;
+						} else {
+							requestBody.uris = trackUris;
+						}
+					} else {
+						requestBody.uris = [trackUri];
+					}
+				} else if (sourceContext.uri) {
+					requestBody.context_uri = sourceContext.uri;
+					requestBody.offset = { uri: trackUri };
+				} else {
+					throw new Error("Invalid context for Web API playback");
+				}
+
 				const response = await fetch(
 					"https://api.spotify.com/v1/me/player/play",
 					{
@@ -759,10 +794,7 @@ export const playTrackWithContext = async (
 							Authorization: `Bearer ${validToken}`,
 							"Content-Type": "application/json",
 						},
-						body: JSON.stringify({
-							context_uri: sourceContext.uri,
-							offset: { uri: trackUri }, // Start from specific track
-						}),
+						body: JSON.stringify(requestBody),
 					}
 				);
 
@@ -777,9 +809,14 @@ export const playTrackWithContext = async (
 					);
 					throw new Error("Token expired - using fallback");
 				} else {
+					const errorBody = await response.text();
 					console.log(
 						"Playback: Web API context failed with status:",
-						response.status
+						response.status,
+						errorBody
+					);
+					throw new Error(
+						`Web API context failed with status: ${response.status}`
 					);
 				}
 			} catch (webApiError) {

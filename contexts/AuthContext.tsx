@@ -109,6 +109,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 	const [isAuthenticating, setIsAuthenticating] = useState(false);
 	const [hasInitiallyLoaded, setHasInitiallyLoaded] = useState(false);
 	const [isFetchingInitialData, setIsFetchingInitialData] = useState(false);
+	const [initialAuthProcessed, setInitialAuthProcessed] = useState(false);
+	const [initialDataFetchTriggered, setInitialDataFetchTriggered] =
+		useState(false);
 
 	// App state for lifecycle management
 	const [appState, setAppState] = useState(AppState.currentState);
@@ -253,11 +256,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 			logInfo("AuthContext: Starting initial data fetch...");
 
 			try {
-				// For stored token loading, don't use ensureValidToken since the context state isn't fully initialized yet
-				// Only use ensureValidToken if we have all the required state (accessToken, refreshToken, tokenExpiry)
-				const shouldUseTokenValidation =
-					accessToken && refreshToken && tokenExpiry;
-
 				await fetchInitialDataInParallel(
 					token,
 					(playlists, nextUrl) => {
@@ -273,10 +271,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 						setSavedTracksNextUrl(nextUrl);
 					},
 					saveCachedData,
-					shouldUseTokenValidation ? ensureValidToken : undefined,
-					shouldUseTokenValidation
-						? makeApiRequestWithContext
-						: undefined
+					makeApiRequestWithContext
 				);
 				logInfo(
 					"AuthContext: Initial data fetch completed successfully"
@@ -679,11 +674,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
 	// Initial load effect
 	useEffect(() => {
-		if (hasInitiallyLoaded || isAuthenticating) {
-			logInfo("AuthContext: Skipping initial load", {
-				hasInitiallyLoaded,
-				isAuthenticating,
-			});
+		if (initialAuthProcessed || isAuthenticating) {
 			return;
 		}
 
@@ -693,76 +684,66 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 			try {
 				const authData = await loadStoredAuth();
 
-				if (authData.accessToken) {
-					setAccessToken(authData.accessToken);
-					setRefreshToken(authData.refreshToken);
-					setUser(authData.user);
-					setTokenExpiry(authData.tokenExpiry);
-
-					// Load cached data while fetching fresh data
-					const cachedData = await loadCachedData();
-					setPlaylists(cachedData.playlists);
-					setAlbums(cachedData.albums);
-					setSavedTracks(cachedData.savedTracks);
-					setIsLoading(false);
-
-					// Connection is already established in loadStoredAuth()
-
-					// Fetch fresh data if we have user info, or if we have a token but no user (stored token case)
-					if (authData.user) {
-						await fetchInitialData(authData.accessToken);
-					} else if (authData.accessToken) {
-						// Stored token case - fetch user info first, then other data
-						logInfo(
-							"AuthContext: Fetching user info for stored token..."
-						);
-						try {
-							// Use makeApiRequest for token validation and refresh handling
-							const userData = await makeApiRequestWithContext(
-								"https://api.spotify.com/v1/me",
-								"Fetching user info for stored token"
-							);
-							if (userData) {
-								setUser(userData);
-								logInfo(
-									"AuthContext: User info fetched for stored token"
-								);
-								await fetchInitialData(authData.accessToken);
-							} else {
-								logError(
-									"AuthContext: Failed to fetch user info"
-								);
-							}
-						} catch (error) {
-							logError(
-								"AuthContext: Error fetching user info:",
-								error
-							);
-						}
-					}
-				} else {
-					// No stored auth - load cached data and stay logged out
-					const cachedData = await loadCachedData();
-					setPlaylists(cachedData.playlists);
-					setAlbums(cachedData.albums);
-					setSavedTracks(cachedData.savedTracks);
-					setIsLoading(false);
-				}
-			} catch (error) {
-				logError("AuthContext: Failed to load auth state:", error);
+				// Load cached data first for a responsive UI
 				const cachedData = await loadCachedData();
 				setPlaylists(cachedData.playlists);
 				setAlbums(cachedData.albums);
 				setSavedTracks(cachedData.savedTracks);
-				setIsLoading(false);
+
+				if (authData.accessToken) {
+					// Set auth state from stored data
+					setAccessToken(authData.accessToken);
+					setRefreshToken(authData.refreshToken);
+					setUser(authData.user);
+					setTokenExpiry(authData.tokenExpiry);
+				}
+			} catch (error) {
+				logError("AuthContext: Failed to load auth state:", error);
 			} finally {
-				setHasInitiallyLoaded(true);
+				setIsLoading(false);
+				setInitialAuthProcessed(true);
 				logInfo("AuthContext: Initial auth load completed");
 			}
 		};
 
 		loadInitialAuth();
-	}, [isAuthenticating, hasInitiallyLoaded]);
+	}, [isAuthenticating, initialAuthProcessed]);
+
+	// Effect to fetch initial data once tokens are loaded
+	useEffect(() => {
+		const triggerInitialDataFetch = async () => {
+			if (
+				accessToken &&
+				!initialDataFetchTriggered &&
+				initialAuthProcessed
+			) {
+				// Mark as triggered immediately to prevent re-fetching
+				setInitialDataFetchTriggered(true);
+
+				logInfo(
+					"AuthContext: Auth state loaded, proceeding with data fetch..."
+				);
+
+				const validToken = await ensureValidToken();
+
+				if (validToken) {
+					await fetchInitialData(validToken);
+				} else {
+					logWarn(
+						"AuthContext: Token validation failed, skipping initial data fetch."
+					);
+				}
+			}
+		};
+
+		triggerInitialDataFetch();
+	}, [
+		accessToken,
+		initialDataFetchTriggered,
+		initialAuthProcessed,
+		ensureValidToken,
+		fetchInitialData,
+	]);
 
 	// Provide context value
 	const value: AuthContextType = {
