@@ -8,25 +8,11 @@
 		"newArchEnabled": true,
 		"android": {
 			"backgroundColor": "#000000",
-			"edgeToEdgeEnabled": true,
 			"package": "com.vandamd.spotifylight"
-		},
-		"androidNavigationBar": {
-			"visible": "immersive",
-			"backgroundColor": "#00000000"
 		},
 		"plugins": ["expo-router", "expo-secure-store"],
 		"experiments": {
 			"typedRoutes": true
-		},
-		"extra": {
-			"router": {},
-			"eas": {
-				"projectId": "533b4d81-4a8f-4d34-91d0-8f0807ddf32c"
-			}
-		},
-		"ios": {
-			"bundleIdentifier": "com.vandamd.spotifylight"
 		}
 	}
 }
