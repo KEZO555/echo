@@ -14,19 +14,12 @@ import "../utils/logger";
 SplashScreen.preventAutoHideAsync();
 
 function RootNavigation() {
+    const router = useRouter();
 	const { accessToken, isLoading: authLoading } = useAuth();
 	const { preferences, isLoading: preferencesLoading } = useTabPreferences();
-	const router = useRouter();
-
 	const [fontsLoaded, fontError] = useFonts({
-		"PubeicSans-Regular": require("../assets/fonts/PublicSans-Regular.ttf"),
+		"PublicSans-Regular": require("../assets/fonts/PublicSans-Regular.ttf"),
 	});
-
-	useEffect(() => {
-		setStatusBarHidden(true, "none");
-        NavigationBar.setVisibilityAsync("hidden");
-	}, []);
-
 	const isLoading =
 		authLoading || preferencesLoading || (!fontsLoaded && !fontError);
 
@@ -39,6 +32,9 @@ function RootNavigation() {
 	};
 
 	useEffect(() => {
+        setStatusBarHidden(true, "none");
+        NavigationBar.setVisibilityAsync("hidden");
+
 		if (!isLoading) {
 			SplashScreen.hideAsync();
 			if (accessToken) {
