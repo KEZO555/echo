@@ -4,59 +4,56 @@ import { useAuth } from "@/contexts/AuthContext";
 import { StyledButton } from "@/components/StyledButton";
 import { useRouter } from "expo-router";
 import * as Application from "expo-application";
+import { ToggleSwitch } from "@/components/ToggleSwitch";
+import { useInvertColors } from "@/contexts/InvertColorsContext";
+import ContentContainer from "@/components/ContentContainer";
 
 export default function SettingsScreen() {
-	const { logout, user } = useAuth();
+	const { logout } = useAuth();
 	const router = useRouter();
-
 	const handleLogout = async () => {
 		await logout();
 	};
-
 	const handleCustomiseTabs = () => {
 		router.push("/customise-tabs" as any);
 	};
-
+	const { invertColors, setInvertColors } = useInvertColors();
 	const handleDebug = () => {
 		router.push("/debug" as any);
 	};
 
 	return (
-		<View style={styles.container}>
-			<View style={styles.content}>
-				<StyledButton
-					text="Customise Tabs"
-					onPress={handleCustomiseTabs}
-				/>
+		<ContentContainer
+			headerTitle="Settings"
+			hideBackButton={true}
+		>
+            <ToggleSwitch
+            value={invertColors}
+            label="Invert Colours"
+            onValueChange={setInvertColors}
+            />
 
-				<StyledButton text="Debug" onPress={handleDebug} />
+            <StyledButton
+                text="Customise Tabs"
+                onPress={handleCustomiseTabs}
+            />
 
-				{user && <StyledButton text="Logout" onPress={handleLogout} />}
-			</View>
+            <StyledButton text="Debug" onPress={handleDebug} />
 
-			<View style={styles.versionContainer}>
-				<Text style={styles.versionText}>
-					v{Application.nativeApplicationVersion}
-				</Text>
-			</View>
-		</View>
+            <StyledButton text="Logout" onPress={handleLogout} />
+
+            <View style={styles.versionContainer}>
+                <Text style={styles.versionText}>
+                    v{Application.nativeApplicationVersion}
+                </Text>
+            </View>
+		</ContentContainer>
 	);
 }
 
 const styles = StyleSheet.create({
-	container: {
-		flex: 1,
-		backgroundColor: "black",
-	},
-	content: {
-		flex: 1,
-		justifyContent: "flex-start",
-		alignItems: "flex-start",
-		paddingHorizontal: 38,
-		paddingTop: 4,
-		gap: 46,
-	},
 	versionContainer: {
+        width: "100%",
 		alignItems: "center",
 	},
 	versionText: {

@@ -15,6 +15,8 @@ import { HapticPressable } from "@/components/HapticPressable";
 import { StyledText } from "@/components/StyledText";
 import { MaterialIcons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
+import ContentContainer from "@/components/ContentContainer";
+import { useTabPreferences } from "@/contexts/TabPreferencesContext";
 
 export default function AlbumsScreen() {
 	const {
@@ -177,35 +179,50 @@ export default function AlbumsScreen() {
 		return;
 	};
 
+	const handlePlayingPress = () => {
+		router.push("/playing");
+	};
+
+    const { preferences } = useTabPreferences();
+
 	return (
-		<FlatList
-			data={sortedAlbums}
-			renderItem={renderAlbumItem}
-			keyExtractor={(item) => item.album.id} // Use album id as key
-			style={styles.list}
-			contentContainerStyle={styles.listContentContainer}
-			ItemSeparatorComponent={() => <View style={{ height: 8 }} />}
-			overScrollMode={"never"}
-			onEndReached={handleLoadMore} // Added onEndReached
-			onEndReachedThreshold={6}
-			ListFooterComponent={renderFooter} // Added ListFooterComponent
-			refreshControl={
-				<RefreshControl
-					refreshing={isRefreshingAlbums}
-					onRefresh={handleRefresh}
-					colors={["white"]}
-					progressBackgroundColor={"black"}
-					size={"large" as any}
-				/>
-			}
-		/>
+        <ContentContainer 
+            headerTitle="Albums" 
+            hideBackButton={true} 
+            style={{paddingHorizontal: 20}}
+            headerIcon="multitrack-audio"
+            headerIconPress={handlePlayingPress}
+            headerIconShowLength={preferences.showPlayingInNavbar ? 0 : 1}
+        >
+            <FlatList
+                data={sortedAlbums}
+                renderItem={renderAlbumItem}
+                keyExtractor={(item) => item.album.id} // Use album id as key
+                style={styles.list}
+                contentContainerStyle={styles.listContentContainer}
+                ItemSeparatorComponent={() => <View style={{ height: 8 }} />}
+                overScrollMode={"never"}
+                onEndReached={handleLoadMore} // Added onEndReached
+                onEndReachedThreshold={6}
+                ListFooterComponent={renderFooter} // Added ListFooterComponent
+                refreshControl={
+                    <RefreshControl
+                        refreshing={isRefreshingAlbums}
+                        onRefresh={handleRefresh}
+                        colors={["white"]}
+                        progressBackgroundColor={"black"}
+                        size={"large" as any}
+                    />
+                }
+            />
+        </ContentContainer>
 	);
 }
 
 const styles = StyleSheet.create({
 	list: {
 		flex: 1,
-		backgroundColor: "black",
+        width: "100%",
 	},
 	listContentContainer: {
 		paddingTop: 0,
@@ -216,7 +233,6 @@ const styles = StyleSheet.create({
 		backgroundColor: "black",
 		justifyContent: "center",
 		alignItems: "center",
-		paddingHorizontal: 20,
 	},
 	emptyText: {
 		fontSize: 22,
@@ -230,7 +246,6 @@ const styles = StyleSheet.create({
 	},
 	itemContainer: {
 		paddingVertical: 0,
-		paddingHorizontal: 20,
 		flexDirection: "row",
 		alignItems: "center",
 	},

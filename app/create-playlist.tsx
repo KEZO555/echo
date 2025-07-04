@@ -1,18 +1,20 @@
 import React, { useState, useCallback } from "react";
 import { View, TextInput, StyleSheet } from "react-native";
-import { Stack, useRouter, useFocusEffect } from "expo-router";
-import { Header } from "@/components/Header";
+import { useRouter, useFocusEffect } from "expo-router";
 import { useAuth } from "@/contexts/AuthContext";
+import ContentContainer from "@/components/ContentContainer";
+import { useInvertColors } from "@/contexts/InvertColorsContext";
+import * as Haptics from "expo-haptics";
+import { MaterialIcons } from "@expo/vector-icons";
+import { HapticPressable } from "@/components/HapticPressable";
 
 export default function NamePlaylistScreen() {
 	const [playlistName, setPlaylistName] = useState("");
 	const router = useRouter();
 	const {
-		accessToken,
 		user,
 		fetchPlaylists,
 		ensureValidToken,
-		makeApiRequest,
 	} = useAuth();
 
 	useFocusEffect(
@@ -32,7 +34,6 @@ export default function NamePlaylistScreen() {
 		}
 
 		try {
-			// Ensure we have a valid token before creating playlist
 			const validToken = await ensureValidToken();
 			if (!validToken) {
 				console.error(
@@ -76,54 +77,75 @@ export default function NamePlaylistScreen() {
 		}
 	};
 
-	return (
-		<>
-			<Stack.Screen />
-			<View style={styles.container}>
-				<Header
-					iconName="check"
-					iconShowLength={playlistName.length}
-					headerTitle="Name your Playlist"
-					onIconPress={handleCreatePlaylist}
-				/>
+    const { invertColors } = useInvertColors();
 
-				<View style={styles.content}>
-					<TextInput
-						style={styles.input}
-						onChangeText={setPlaylistName}
-						value={playlistName}
-						placeholder="Enter playlist name"
-						placeholderTextColor="#888"
-						autoFocus={true}
-						cursorColor="white"
-						selectionColor="white"
-						onSubmitEditing={handleCreatePlaylist}
-					/>
-				</View>
+    return (
+        <ContentContainer
+            headerTitle="Create Playlist"
+            headerIcon="check"
+            headerIconShowLength={playlistName.length}
+            headerIconPress={handleCreatePlaylist}
+        >
+			<View
+				style={[
+					styles.inputContainer,
+					{ borderBottomColor: invertColors ? "black" : "white" },
+				]}
+			>
+				<TextInput
+					style={[
+						styles.input,
+						{ color: invertColors ? "black" : "white" },
+					]}
+					placeholderTextColor="#888"
+					value={playlistName}
+					placeholder="Name your playlist"
+					onChangeText={setPlaylistName}
+					cursorColor={invertColors ? "black" : "white"}
+					selectionColor={invertColors ? "black" : "white"}
+					onSubmitEditing={handleCreatePlaylist}
+				/>
+				{playlistName.length > 0 && (
+					<HapticPressable
+						style={styles.clearButton}
+						onPress={() => {
+							setPlaylistName("");
+							Haptics.impactAsync(
+								Haptics.ImpactFeedbackStyle.Medium
+							);
+						}}
+					>
+						<MaterialIcons
+							name="clear"
+							size={24}
+							color={invertColors ? "black" : "white"}
+						/>
+					</HapticPressable>
+				)}
 			</View>
-		</>
+
+
+        </ContentContainer>
 	);
 }
 
 const styles = StyleSheet.create({
-	container: {
-		flex: 1,
-		backgroundColor: "black",
-	},
-	content: {
-		flex: 1,
-		justifyContent: "flex-start",
+	inputContainer: {
+		flexDirection: "row",
 		alignItems: "center",
-		padding: 20,
+		width: "100%",
+		borderBottomWidth: 1,
 	},
 	input: {
-		width: "90%",
-		borderBottomWidth: 1,
-		borderBottomColor: "white",
-		color: "white",
+		flex: 1,
 		fontSize: 24,
 		fontFamily: "PublicSans-Regular",
 		paddingVertical: 2,
 		textAlign: "left",
+		paddingBottom: 6,
+	},
+	clearButton: {
+		padding: 5,
 	},
 });
+

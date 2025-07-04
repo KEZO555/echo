@@ -6,17 +6,17 @@ import {
 	ActivityIndicator,
 	FlatList,
 } from "react-native";
-import { Stack, useLocalSearchParams, useRouter } from "expo-router";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import {
 	useAuth,
 	SpotifyPlaylist,
 	SpotifyTrackSimple, // Assuming this can be reused or adapted
-	SpotifyArtistSimple,
 } from "@/contexts/AuthContext";
 import { ItemHeader } from "@/components/ItemHeader";
 import { StyledText } from "@/components/StyledText";
 import { MaterialIcons } from "@expo/vector-icons";
 import { HapticPressable } from "@/components/HapticPressable";
+import ContentContainer from "@/components/ContentContainer";
 
 // Interface for the structure of a track item within a playlist from Spotify API
 interface PlaylistTrack {
@@ -236,11 +236,10 @@ export default function PlaylistDetailScreen() {
 	};
 
 	return (
-		<View style={styles.container}>
-			<ItemHeader
-				headerTitle={playlist.name}
-				artist={`By ${ownerName}`}
-			/>
+		<ContentContainer
+            headerTitle={playlist.name}
+            style={{ paddingHorizontal: 20 }}
+        >
 			<FlatList
 				ListHeaderComponent={
 					<>
@@ -280,7 +279,7 @@ export default function PlaylistDetailScreen() {
 					) : null
 				}
 			/>
-		</View>
+		</ContentContainer>
 	);
 }
 
@@ -308,7 +307,6 @@ const styles = StyleSheet.create({
 	},
 	scrollContentContainer: {
 		alignItems: "center",
-		paddingHorizontal: 20,
 		paddingBottom: 20,
 	},
 	centeredMessageContainer: {
@@ -355,8 +353,6 @@ const styles = StyleSheet.create({
 		paddingBottom: 6,
 	},
 	listContentContainer: {
-		// Added for FlatList content
-		paddingHorizontal: 20,
 		paddingBottom: 20,
 	},
 });

@@ -4,6 +4,7 @@ import { StyleSheet, View } from "react-native";
 import { router } from "expo-router";
 import { StyledText } from "./StyledText";
 import { HapticPressable } from "./HapticPressable";
+import { useInvertColors } from "@/contexts/InvertColorsContext";
 
 interface HeaderProps {
 	iconName?: keyof typeof MaterialIcons.glyphMap;
@@ -11,6 +12,7 @@ interface HeaderProps {
 	iconShowLength?: number;
 	headerTitle?: string;
 	backEvent?: () => void;
+	hideBackButton?: boolean;
 }
 
 export function Header({
@@ -19,46 +21,84 @@ export function Header({
 	iconShowLength = 1,
 	headerTitle,
 	backEvent,
+	hideBackButton = false,
 }: HeaderProps) {
+	const { invertColors } = useInvertColors();
 	const handleBack = backEvent
 		? backEvent
 		: () => {
 				if (router.canGoBack()) {
 					router.back();
-				} else {
-					router.replace("/");
 				}
 		  };
 
 	return (
-		<View style={styles.header}>
-			<HapticPressable onPress={handleBack}>
-				<View style={{ width: 32, height: 32, alignItems: "center" }}>
-					<MaterialIcons
-						name="arrow-back-ios"
-						size={28}
-						color="white"
-					/>
-				</View>
-			</HapticPressable>
-			<StyledText style={styles.title} numberOfLines={1}>
-				{headerTitle}
-			</StyledText>
-			{iconShowLength > 0 && iconName ? (
-				<HapticPressable onPress={onIconPress}>
+		<View
+			style={[
+				styles.header,
+				{ backgroundColor: invertColors ? "white" : "black" },
+			]}
+		>
+			{!hideBackButton ? (
+				<HapticPressable onPress={handleBack}>
 					<View
-						style={{ width: 32, height: 32, alignItems: "center" }}
+						style={{
+							width: 32,
+							height: 32,
+							alignItems: "center",
+							paddingTop: 6,
+							paddingRight: 4,
+						}}
 					>
 						<MaterialIcons
-							name={iconName}
+							name="arrow-back-ios"
 							size={28}
-							color="white"
+							color={invertColors ? "black" : "white"}
 						/>
 					</View>
 				</HapticPressable>
 			) : (
 				<View
-					style={{ width: 32, height: 32, alignItems: "center" }}
+					style={{
+						width: 32,
+						height: 32,
+						alignItems: "center",
+						paddingTop: 6,
+						paddingRight: 4,
+					}}
+				></View>
+			)}
+
+			<StyledText style={[styles.title]} numberOfLines={1}>
+				{headerTitle}
+			</StyledText>
+			{iconShowLength > 0 && iconName ? (
+				<HapticPressable onPress={onIconPress}>
+					<View
+						style={{
+							width: 32,
+							height: 32,
+							alignItems: "center",
+							paddingTop: 6,
+							paddingLeft: 4,
+						}}
+					>
+						<MaterialIcons
+							name={iconName}
+							size={28}
+							color={invertColors ? "black" : "white"}
+						/>
+					</View>
+				</HapticPressable>
+			) : (
+				<View
+					style={{
+						width: 32,
+						height: 32,
+						alignItems: "center",
+						paddingTop: 6,
+						paddingLeft: 4,
+					}}
 				></View>
 			)}
 		</View>
@@ -71,15 +111,14 @@ const styles = StyleSheet.create({
 		alignItems: "center",
 		justifyContent: "space-between",
 		paddingHorizontal: 22,
-		paddingVertical: 10,
-		backgroundColor: "black",
+		paddingVertical: 5,
 		zIndex: 1,
 	},
 	title: {
-		color: "white",
 		fontSize: 20,
 		fontFamily: "PublicSans-Regular",
-		paddingBottom: 5,
+		paddingTop: 2,
 		maxWidth: "75%",
 	},
 });
+

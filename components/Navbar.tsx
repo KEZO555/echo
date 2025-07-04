@@ -4,11 +4,11 @@ import { StyleSheet, View } from "react-native";
 import { HapticPressable } from "./HapticPressable";
 import { useRouter } from "expo-router";
 import type { BottomTabBarProps } from "@react-navigation/bottom-tabs";
+import { useInvertColors } from "@/contexts/InvertColorsContext";
 
-// This defines the structure of individual tab configuration
 export interface TabConfigItem {
-	name: string; // For display in TabHeader
-	screenName: string; // For navigation and keys
+	name: string;
+	screenName: string;
 	iconName: keyof typeof MaterialIcons.glyphMap; // For the icon
 }
 
@@ -30,15 +30,16 @@ export function Navbar({
 	const handlePlayingPress = () => {
 		router.push("/playing");
 	};
+    const { invertColors } = useInvertColors();
 
 	return (
-		<View style={styles.navbar}>
+		<View style={[styles.navbar, { backgroundColor: invertColors ? "white" : "black" }]}>
 			{showPlayingButton && (
 				<HapticPressable onPress={handlePlayingPress}>
 					<MaterialIcons
 						name="multitrack-audio"
 						size={48}
-						color="#6E6E6E"
+						color={ invertColors ? "#C1C1C1" : "#6E6E6E" }
 					/>
 				</HapticPressable>
 			)}
@@ -49,11 +50,11 @@ export function Navbar({
 				>
 					<MaterialIcons
 						name={tab.iconName}
-						size={48} // Increased size for better visibility
+						size={48}
 						color={
 							tab.screenName === currentScreenName
-								? "white"
-								: "#6E6E6E"
+								? invertColors ? "black" : "white"
+								: invertColors ? "#C1C1C1" : "#6E6E6E"
 						}
 					/>
 				</HapticPressable>
@@ -69,6 +70,5 @@ const styles = StyleSheet.create({
 		justifyContent: "space-between",
 		paddingVertical: 11,
 		paddingHorizontal: 20,
-		backgroundColor: "black",
 	},
 });

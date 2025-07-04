@@ -6,9 +6,14 @@ import {
 	TabPreferencesProvider,
 	useTabPreferences,
 } from "@/contexts/TabPreferencesContext";
+import {
+	InvertColorsProvider,
+	useInvertColors,
+} from "@/contexts/InvertColorsContext";
 import { useFonts } from "expo-font";
 import { setStatusBarHidden } from "expo-status-bar";
 import * as NavigationBar from 'expo-navigation-bar';
+import * as SystemUI from "expo-system-ui";
 import "../utils/logger";
 
 SplashScreen.preventAutoHideAsync();
@@ -31,10 +36,16 @@ function RootNavigation() {
 		return "/(tabs)/settings";
 	};
 
-	useEffect(() => {
-        setStatusBarHidden(true, "none");
-        NavigationBar.setVisibilityAsync("hidden");
+    const { invertColors } = useInvertColors();
 
+	useEffect(() => {
+		setStatusBarHidden(true, "none");
+		NavigationBar.setVisibilityAsync("hidden");
+		const newColor = invertColors ? "#FFFFFF" : "#000000";
+		SystemUI.setBackgroundColorAsync(newColor);
+	}, [invertColors]);
+
+	useEffect(() => {
 		if (!isLoading) {
 			SplashScreen.hideAsync();
 			if (accessToken) {
@@ -44,7 +55,7 @@ function RootNavigation() {
 				router.replace("/login");
 			}
 		}
-	}, [accessToken, isLoading, router, fontsLoaded, fontError]);
+	}, [accessToken, isLoading, router]);
 
 	if (isLoading) {
 		return null;
@@ -63,11 +74,13 @@ function RootNavigation() {
 export default function RootLayout() {
 	return (
 		<HapticProvider>
-			<TabPreferencesProvider>
-				<AuthProvider>
-					<RootNavigation />
-				</AuthProvider>
-			</TabPreferencesProvider>
+            <InvertColorsProvider>
+                <TabPreferencesProvider>
+                    <AuthProvider>
+                        <RootNavigation />
+                    </AuthProvider>
+                </TabPreferencesProvider>
+            </InvertColorsProvider>
 		</HapticProvider>
 	);
 }

@@ -151,6 +151,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 		setSavedTracksNextUrl(null);
 		setIsConnectedToAppRemote(false);
 		setIsLoading(false);
+		// Reset auth flow control flags
+		setIsFetchingInitialData(false);
+		setInitialAuthProcessed(false);
+		setInitialDataFetchTriggered(false);
 		logInfo("AuthContext: State cleared");
 	}, []);
 

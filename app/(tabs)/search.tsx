@@ -1,68 +1,93 @@
 import React, { useState } from "react";
-import { View, StyleSheet, Text, TextInput } from "react-native";
+import { View, StyleSheet, TextInput } from "react-native";
 import { router } from "expo-router";
-import { Header } from "@/components/Header";
-import { TabHeader } from "@/components/TabHeader";
+import ContentContainer from "@/components/ContentContainer";
+import { HapticPressable } from "@/components/HapticPressable";
+import { useInvertColors } from "@/contexts/InvertColorsContext";
+import * as Haptics from "expo-haptics";
+import { MaterialIcons } from "@expo/vector-icons";
 
 export default function SearchScreen() {
 	const [searchQuery, setSearchQuery] = useState("");
+    const { invertColors } = useInvertColors();
 
 	return (
-		<View style={styles.container}>
-			<TabHeader
-				headerTitle="Search"
-				rightIconName="check"
-				rightOnIconPress={() => {
+        <ContentContainer 
+            headerTitle="Search"
+            hideBackButton={true}
+            headerIcon="check"
+            headerIconShowLength={searchQuery.length}
+            headerIconPress={() => {
 					router.push({
 						pathname: "/search-results",
 						params: { query: searchQuery },
 					});
 				}}
-				iconShowLength={searchQuery.length}
-			/>
-			<View style={styles.content}>
+        >
+			<View
+				style={[
+					styles.inputContainer,
+					{ borderBottomColor: invertColors ? "black" : "white" },
+				]}
+			>
 				<TextInput
-					style={styles.input}
+					style={[
+						styles.input,
+						{ color: invertColors ? "black" : "white" },
+					]}
 					placeholderTextColor="#888"
 					value={searchQuery}
 					placeholder="Search for something!"
 					onChangeText={setSearchQuery}
-					cursorColor="white"
-					selectionColor="white"
+					cursorColor={invertColors ? "black" : "white"}
+					selectionColor={invertColors ? "black" : "white"}
 					onSubmitEditing={() => {
 						if (searchQuery.length > 0) {
-							router.push({
-								pathname: "/search-results",
-								params: { query: searchQuery },
-							});
+                            router.push({
+                                pathname: "/search-results",
+                                params: { query: searchQuery },
+                            });
 						}
 					}}
 				/>
+				{searchQuery.length > 0 && (
+					<HapticPressable
+						style={styles.clearButton}
+						onPress={() => {
+							setSearchQuery("");
+							Haptics.impactAsync(
+								Haptics.ImpactFeedbackStyle.Medium
+							);
+						}}
+					>
+						<MaterialIcons
+							name="clear"
+							size={24}
+							color={invertColors ? "black" : "white"}
+						/>
+					</HapticPressable>
+				)}
 			</View>
-		</View>
+		</ContentContainer>
 	);
 }
 
 const styles = StyleSheet.create({
-	container: {
-		flex: 1,
-		backgroundColor: "black",
-	},
-	content: {
-		flex: 1,
-		justifyContent: "flex-start",
+	inputContainer: {
+		flexDirection: "row",
 		alignItems: "center",
-		paddingHorizontal: 20,
-		backgroundColor: "black",
+		width: "100%",
+		borderBottomWidth: 1,
 	},
 	input: {
-		width: "90%",
-		borderBottomWidth: 1,
-		borderBottomColor: "white",
-		color: "white",
+		flex: 1,
 		fontSize: 24,
 		fontFamily: "PublicSans-Regular",
 		paddingVertical: 2,
 		textAlign: "left",
+		paddingBottom: 6,
+	},
+	clearButton: {
+		padding: 5,
 	},
 });

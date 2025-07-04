@@ -3,10 +3,10 @@ import { View, StyleSheet, FlatList, ActivityIndicator } from "react-native";
 import { Header } from "@/components/Header";
 import { HapticPressable } from "@/components/HapticPressable";
 import { StyledText } from "@/components/StyledText";
-import { MaterialIcons } from "@expo/vector-icons";
 import { useAuth } from "@/contexts/AuthContext";
 import { SpotifyDevice } from "@/types/spotify";
 import { router } from "expo-router";
+import ContentContainer from "@/components/ContentContainer";
 
 export default function SelectDeviceScreen() {
 	const { makeApiRequest, ensureValidToken } = useAuth();
@@ -75,9 +75,7 @@ export default function SelectDeviceScreen() {
 	}
 
 	return (
-		<View style={styles.container}>
-			<Header headerTitle="Select a device" backEvent={handleBack} />
-			<View style={styles.content}>
+		<ContentContainer headerTitle="Select a device" >
 				<FlatList
 					data={devices}
 					keyExtractor={(item, index) => item.id ?? index.toString()}
@@ -95,7 +93,7 @@ export default function SelectDeviceScreen() {
 									]}
 									numberOfLines={1}
 								>
-									{item.name === "TLP301"
+									{item.name === "LightPhoneIII"
 										? "Light Phone III"
 										: item.name}
 								</StyledText>
@@ -103,23 +101,11 @@ export default function SelectDeviceScreen() {
 						);
 					}}
 				/>
-			</View>
-		</View>
+		</ContentContainer>
 	);
 }
 
 const styles = StyleSheet.create({
-	container: {
-		flex: 1,
-		backgroundColor: "black",
-	},
-	content: {
-		flex: 1,
-		justifyContent: "flex-start",
-		alignItems: "flex-start",
-		paddingHorizontal: 24,
-		paddingTop: 4,
-	},
 	centered: {
 		justifyContent: "center",
 		alignItems: "center",
@@ -131,15 +117,8 @@ const styles = StyleSheet.create({
 	},
 	deviceName: {
 		fontSize: 30,
-		color: "white",
-		marginLeft: 15,
 	},
 	activeDeviceText: {
 		textDecorationLine: "underline",
-	},
-	separator: {
-		height: 1,
-		backgroundColor: "gray",
-		marginLeft: 65,
 	},
 });

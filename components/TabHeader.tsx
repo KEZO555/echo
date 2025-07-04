@@ -4,6 +4,7 @@ import { StyleSheet, View } from "react-native";
 import { StyledText } from "./StyledText";
 import { HapticPressable } from "./HapticPressable";
 import { useRouter } from "expo-router";
+import { useInvertColors } from "@/contexts/InvertColorsContext";
 
 interface TabHeaderProps {
 	leftIconName?: keyof typeof MaterialIcons.glyphMap;
@@ -32,8 +33,13 @@ export function TabHeader({
 		router.push("/playing");
 	};
 
+    const { invertColors } = useInvertColors();
+
 	return (
-		<View style={styles.header}>
+		<View style={[
+            styles.header,
+            { backgroundColor: invertColors ? "white" : "black" },]
+        }>
 			{leftIconName ? (
 				<HapticPressable onPress={leftOnIconPress}>
 					<View
@@ -42,7 +48,7 @@ export function TabHeader({
 						<MaterialIcons
 							name={leftIconName}
 							size={32}
-							color="white"
+							color={ invertColors ? "black" : "white" }
 						/>
 					</View>
 				</HapticPressable>
@@ -63,7 +69,7 @@ export function TabHeader({
 							<MaterialIcons
 								name={rightIconName}
 								size={32}
-								color="white"
+                                color={ invertColors ? "black" : "white" }
 							/>
 						</View>
 					</HapticPressable>
@@ -80,7 +86,7 @@ export function TabHeader({
 						<MaterialIcons
 							name="multitrack-audio"
 							size={32}
-							color="white"
+							color={ invertColors ? "black" : "white" }
 						/>
 					</View>
 				</HapticPressable>
@@ -96,7 +102,6 @@ const styles = StyleSheet.create({
 		justifyContent: "space-between",
 		paddingHorizontal: 22,
 		paddingVertical: 10,
-		backgroundColor: "black",
 		zIndex: 1,
 	},
 	title: {

@@ -29,7 +29,7 @@ const ContextAwareTrackList: React.FC<ContextAwareTrackListProps> = ({
 	contextUri,
 	title,
 }) => {
-	const { playTrackWithContext } = useAuth();
+	const { playTrackWithContext, savedTracks, albums } = useAuth();
 
 	const handleTrackPress = async (track: Track, index: number) => {
 		// Extract the actual track URI (handle saved tracks format)
@@ -39,12 +39,24 @@ const ContextAwareTrackList: React.FC<ContextAwareTrackListProps> = ({
 			`Playing track ${index + 1}: ${track.name || track.track?.name}`
 		);
 
+		// Get the latest tracks from the context
+		let currentTracks: any[] = tracks;
+		if (contextType === "liked") {
+			currentTracks = savedTracks?.map((t) => t.track) || [];
+		} else if (contextType === "album") {
+			const album = albums?.find((a) => a.album.uri === contextUri);
+			currentTracks = album?.album.tracks?.items || [];
+		} else if (contextType === "playlist") {
+			// TODO: Fetch playlist tracks and pass them here
+			currentTracks = [];
+		}
+
 		try {
 			await playTrackWithContext(trackUri, {
 				type: contextType,
 				uri: contextUri,
-				tracks: contextType === "liked" ? tracks : undefined,
-				currentIndex: contextType === "liked" ? index : undefined,
+				tracks: currentTracks,
+				currentIndex: index,
 			});
 		} catch (error) {
 			console.error("Error playing track with context:", error);

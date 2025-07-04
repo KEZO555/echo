@@ -2,10 +2,12 @@ import React from "react";
 import { View, StyleSheet } from "react-native";
 import { StyledText } from "./StyledText";
 import { HapticPressable } from "./HapticPressable";
+import { useInvertColors } from "@/contexts/InvertColorsContext";
 
-interface MyCustomSwitchGraphicProps {
+interface ToggleSwitchGraphicProps {
 	value: boolean;
 	disabled?: boolean;
+	color?: string;
 }
 
 const CIRCLE_DIAMETER = 9.8;
@@ -13,11 +15,9 @@ const CIRCLE_BORDER = 2.5;
 const LINE_WIDTH = 14.5;
 const LINE_HEIGHT = 2.22;
 
-const MyCustomSwitchGraphic = ({
-	value,
-	disabled,
-}: MyCustomSwitchGraphicProps) => {
-	const switchColor = disabled ? "#777777" : "#FFFFFF";
+const ToggleSwitchGraphic = ({ value, color }: ToggleSwitchGraphicProps) => {
+	const { invertColors } = useInvertColors();
+	const switchColor = invertColors ? "black" : "white";
 
 	const graphicStyles = StyleSheet.create({
 		container: {
@@ -65,38 +65,29 @@ interface ToggleSwitchProps {
 	label: string;
 	value: boolean;
 	onValueChange: (value: boolean) => void;
-	disabled?: boolean;
+	color?: string;
 }
 
 export function ToggleSwitch({
 	label,
 	value,
 	onValueChange,
-	disabled = false,
+	color = "white",
 }: ToggleSwitchProps) {
 	return (
-		<View style={styles.container}>
-			<HapticPressable
-				onPress={() => {
-					if (!disabled) {
-						onValueChange(!value);
-					}
-				}}
-				disabled={disabled}
-				style={[styles.container]}
-			>
-				<View style={styles.switchTouchable}>
-					<MyCustomSwitchGraphic value={value} disabled={disabled} />
-				</View>
-				<View style={styles.textTouchable}>
-					<StyledText
-						style={[styles.label, disabled && styles.disabledLabel]}
-					>
-						{label}
-					</StyledText>
-				</View>
-			</HapticPressable>
-		</View>
+		<HapticPressable
+			onPress={() => {
+				onValueChange(!value);
+			}}
+			style={[styles.container]}
+		>
+			<View style={styles.switchTouchable}>
+				<ToggleSwitchGraphic value={value} color={color} />
+			</View>
+			<View style={styles.textTouchable}>
+				<StyledText style={[styles.label]}>{label}</StyledText>
+			</View>
+		</HapticPressable>
 	);
 }
 
@@ -104,21 +95,18 @@ const styles = StyleSheet.create({
 	container: {
 		flexDirection: "row",
 		alignItems: "center",
-		marginBottom: 13.5,
+		paddingTop: 9,
 	},
 	switchTouchable: {
 		marginTop: 12,
-		marginRight: 22,
-		marginLeft: 26,
+		marginRight: 20,
+		marginLeft: 8.5,
 	},
 	textTouchable: {
 		flex: 1,
 	},
 	label: {
-		color: "white",
 		fontSize: 30,
 	},
-	disabledLabel: {
-		color: "#777777",
-	},
 });
+

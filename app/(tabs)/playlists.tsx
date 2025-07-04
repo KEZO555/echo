@@ -6,11 +6,13 @@ import {
 	Image,
 	RefreshControl,
 } from "react-native";
-import { useAuth, SpotifyPlaylist } from "@/contexts/AuthContext"; // Assuming SpotifyPlaylist is exported from AuthContext
+import { useAuth, SpotifyPlaylist } from "@/contexts/AuthContext";
 import { HapticPressable } from "@/components/HapticPressable";
 import { StyledText } from "@/components/StyledText";
 import { MaterialIcons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
+import ContentContainer from "@/components/ContentContainer";
+import { useTabPreferences } from "@/contexts/TabPreferencesContext";
 
 const CREATE_NEW_PLAYLIST_ID = "CREATE_NEW_PLAYLIST_ID";
 
@@ -246,35 +248,50 @@ export default function PlaylistsScreen() {
 		return <View style={{ paddingVertical: 20 }}></View>;
 	};
 
+	const handlePlayingPress = () => {
+		router.push("/playing");
+	};
+    
+    const { preferences } = useTabPreferences();
+
 	return (
-		<FlatList
-			data={displayPlaylists}
-			renderItem={renderPlaylistItem}
-			keyExtractor={(item) => item.id}
-			style={styles.list}
-			contentContainerStyle={styles.listContentContainer}
-			ItemSeparatorComponent={() => <View style={{ height: 8 }} />}
-			overScrollMode={"never"}
-			onEndReached={handleLoadMore}
-			onEndReachedThreshold={6}
-			ListFooterComponent={renderFooter}
-			refreshControl={
-				<RefreshControl
-					refreshing={isRefreshingPlaylists}
-					onRefresh={handleRefresh}
-					colors={["white"]}
-					progressBackgroundColor={"black"}
-					size={"large" as any}
-				/>
-			}
-		/>
+        <ContentContainer 
+            headerTitle="Playlists" 
+            hideBackButton={true} 
+            style={{paddingHorizontal: 20}}
+            headerIcon="multitrack-audio"
+            headerIconPress={handlePlayingPress}
+            headerIconShowLength={preferences.showPlayingInNavbar ? 0 : 1}
+        >
+            <FlatList
+                data={displayPlaylists}
+                renderItem={renderPlaylistItem}
+                keyExtractor={(item) => item.id}
+                style={styles.list}
+                contentContainerStyle={styles.listContentContainer}
+                ItemSeparatorComponent={() => <View style={{ height: 8 }} />}
+                overScrollMode={"never"}
+                onEndReached={handleLoadMore}
+                onEndReachedThreshold={6}
+                ListFooterComponent={renderFooter}
+                refreshControl={
+                    <RefreshControl
+                        refreshing={isRefreshingPlaylists}
+                        onRefresh={handleRefresh}
+                        colors={["white"]}
+                        progressBackgroundColor={"black"}
+                        size={"large" as any}
+                    />
+                }
+            />
+        </ContentContainer>
 	);
 }
 
 const styles = StyleSheet.create({
 	list: {
 		flex: 1,
-		backgroundColor: "black",
+        width: "100%",
 	},
 	listContentContainer: {
 		paddingTop: 0,
@@ -285,7 +302,6 @@ const styles = StyleSheet.create({
 		backgroundColor: "black",
 		justifyContent: "center",
 		alignItems: "center",
-		paddingHorizontal: 20,
 	},
 	emptyText: {
 		fontSize: 22,
@@ -299,7 +315,6 @@ const styles = StyleSheet.create({
 	},
 	itemContainer: {
 		paddingVertical: 0,
-		paddingHorizontal: 20,
 		flexDirection: "row",
 		alignItems: "center",
 	},

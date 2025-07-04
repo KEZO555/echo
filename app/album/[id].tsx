@@ -6,7 +6,7 @@ import {
 	ActivityIndicator,
 	FlatList,
 } from "react-native";
-import { Stack, useLocalSearchParams, useRouter } from "expo-router";
+import {useLocalSearchParams, useRouter } from "expo-router";
 import {
 	useAuth,
 	SpotifyAlbum,
@@ -14,8 +14,8 @@ import {
 } from "@/contexts/AuthContext";
 import { ItemHeader } from "@/components/ItemHeader";
 import { StyledText } from "@/components/StyledText";
-import { MaterialIcons } from "@expo/vector-icons";
 import { HapticPressable } from "@/components/HapticPressable";
+import ContentContainer from "@/components/ContentContainer";
 
 export default function AlbumDetailScreen() {
 	const { id, albumString } = useLocalSearchParams<{
@@ -32,20 +32,17 @@ export default function AlbumDetailScreen() {
 	} = useAuth();
 	const router = useRouter();
 
-	// Try to parse the passed album string for initial state
 	const initialAlbum = albumString
 		? (JSON.parse(albumString) as SpotifyAlbum)
 		: null;
 
 	const [album, setAlbum] = useState<SpotifyAlbum | null>(initialAlbum);
-	//isLoading is true only if we don't have an initialAlbum, or if we are fetching more details
 	const [isLoading, setIsLoading] = useState(!initialAlbum);
 	const [error, setError] = useState<string | null>(null);
 	const [isLoadingMoreTracks, setIsLoadingMoreTracks] = useState(false);
 	const [isAlbumSaved, setIsAlbumSaved] = useState(false);
 	const [isCheckingAlbumSaved, setIsCheckingAlbumSaved] = useState(false);
 
-	// Helper function to format milliseconds to MM:SS
 	const formatDuration = (ms: number) => {
 		const totalSeconds = Math.floor(ms / 1000);
 		const minutes = Math.floor(totalSeconds / 60);
@@ -53,7 +50,6 @@ export default function AlbumDetailScreen() {
 		return `${minutes}:${seconds < 10 ? "0" : ""}${seconds}`;
 	};
 
-	// Check if album is saved
 	const checkAlbumSavedStatus = useCallback(async () => {
 		if (!id) return;
 
@@ -69,7 +65,6 @@ export default function AlbumDetailScreen() {
 		}
 	}, [id, checkIfAlbumIsSaved]);
 
-	// Toggle album save status
 	const handleToggleAlbumSave = useCallback(async () => {
 		if (!id) return;
 
@@ -98,7 +93,6 @@ export default function AlbumDetailScreen() {
 		}
 
 		const fetchAlbumDetails = async () => {
-			// If we already have complete album data with tracks, skip the fetch
 			if (
 				initialAlbum &&
 				initialAlbum.tracks &&
@@ -111,8 +105,6 @@ export default function AlbumDetailScreen() {
 				return;
 			}
 
-			// If we already have initial data, we don't need to set main loading to true,
-			// as the main content is already visible. A subtle background refresh is fine.
 			if (!initialAlbum) {
 				setIsLoading(true);
 			}
@@ -138,7 +130,6 @@ export default function AlbumDetailScreen() {
 		fetchAlbumDetails();
 	}, [id, makeApiRequest]);
 
-	// Check if album is saved when component mounts or album changes
 	useEffect(() => {
 		if (id && accessToken) {
 			checkAlbumSavedStatus();
@@ -170,7 +161,6 @@ export default function AlbumDetailScreen() {
 			}
 		} catch (e: any) {
 			console.error("Error fetching more album tracks:", e);
-			// Optionally set an error state for more tracks loading
 		} finally {
 			setIsLoadingMoreTracks(false);
 		}
@@ -254,14 +244,13 @@ export default function AlbumDetailScreen() {
 	};
 
 	return (
-		<View style={styles.container}>
-			<ItemHeader
-				headerTitle={album.name}
-				artist={artistNames}
-				iconName={isAlbumSaved ? "remove" : "add"}
-				onIconPress={handleToggleAlbumSave}
-				iconShowLength={isCheckingAlbumSaved ? 0 : 1}
-			/>
+		<ContentContainer 
+            headerTitle={album.name} 
+            style={{ paddingHorizontal: 20 }}
+            headerIcon={isAlbumSaved ? "remove" : "add"}
+            headerIconPress={handleToggleAlbumSave}
+            headerIconShowLength={isCheckingAlbumSaved ? 0 : 1}
+        >
 			<FlatList
 				ListHeaderComponent={
 					<>
@@ -289,7 +278,7 @@ export default function AlbumDetailScreen() {
 					) : null
 				}
 			/>
-		</View>
+		</ContentContainer>
 	);
 }
 
@@ -309,7 +298,6 @@ const styles = StyleSheet.create({
 	},
 	scrollContentContainer: {
 		alignItems: "center",
-		paddingHorizontal: 20,
 		paddingBottom: 20,
 	},
 	centeredMessageContainer: {
@@ -392,7 +380,6 @@ const styles = StyleSheet.create({
 		paddingBottom: 6,
 	},
 	listContentContainer: {
-		paddingHorizontal: 20,
 		paddingBottom: 20,
 	},
 });

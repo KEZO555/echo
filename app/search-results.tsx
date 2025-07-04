@@ -12,6 +12,7 @@ import {
 } from "@/contexts/AuthContext";
 import { HapticPressable } from "@/components/HapticPressable";
 import { StyledText } from "@/components/StyledText";
+import ContentContainer from "@/components/ContentContainer";
 
 type SearchItem =
 	| { type: "track"; data: SpotifyTrack }
@@ -21,7 +22,7 @@ type SearchItem =
 export default function SearchResultsScreen() {
 	const params = useGlobalSearchParams();
 	const routeQuery = params.query as string | undefined;
-	const { searchItems, playTrack, user } = useAuth();
+	const { searchItems, playTrack } = useAuth();
 	const router = useRouter();
 	const [results, setResults] = useState<SearchItem[]>([]);
 	const [loading, setLoading] = useState(true);
@@ -157,7 +158,7 @@ export default function SearchResultsScreen() {
 					/>
 				) : (
 					<View style={styles.placeholderImageContainer}>
-						<StyledText style={{ color: "white", fontSize: 24 }}>
+						<StyledText style={{ fontSize: 24 }}>
 							?
 						</StyledText>
 					</View>
@@ -175,8 +176,7 @@ export default function SearchResultsScreen() {
 	};
 
 	return (
-		<View style={styles.container}>
-			<Header headerTitle={`Results for ${routeQuery ?? ""}`} />
+		<ContentContainer headerTitle={`Results for ${routeQuery ?? ""}`} style={{ paddingHorizontal: 20 }}>
 			{loading ? (
 				<View style={styles.centeredMessageContainer}></View>
 			) : results.length > 0 ? (
@@ -202,21 +202,17 @@ export default function SearchResultsScreen() {
 			) : (
 				<View style={styles.centeredMessageContainer}></View>
 			)}
-		</View>
+		</ContentContainer>
 	);
 }
 
 const styles = StyleSheet.create({
-	container: {
-		flex: 1,
-		backgroundColor: "black",
-	},
 	centeredMessageContainer: {
 		flex: 1,
 		justifyContent: "center",
 		alignItems: "center",
 		padding: 20,
-		backgroundColor: "black",
+        width: "100%",
 	},
 	emptyText: {
 		color: "white",
@@ -225,7 +221,7 @@ const styles = StyleSheet.create({
 	},
 	list: {
 		flex: 1,
-		backgroundColor: "black",
+        width: "100%",
 	},
 	listContentContainer: {
 		paddingTop: 0,
@@ -234,7 +230,6 @@ const styles = StyleSheet.create({
 	itemContainer: {
 		flexDirection: "row",
 		alignItems: "center",
-		paddingHorizontal: 20,
 		paddingVertical: 0,
 	},
 	itemImage: {

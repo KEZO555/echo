@@ -1,17 +1,17 @@
-import React, { useState, useCallback, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import {
 	View,
 	StyleSheet,
 	FlatList,
 	Image,
-	ActivityIndicator,
 } from "react-native";
 import { router, useLocalSearchParams } from "expo-router";
-import { Header } from "@/components/Header";
 import { StyledText } from "@/components/StyledText";
 import { HapticPressable } from "@/components/HapticPressable";
 import { useAuth, SpotifyPlaylist } from "@/contexts/AuthContext";
 import { MaterialIcons } from "@expo/vector-icons";
+import ContentContainer from "@/components/ContentContainer";
+import { useInvertColors } from "@/contexts/InvertColorsContext";
 
 export default function AddToPlaylistScreen() {
 	const {
@@ -62,14 +62,6 @@ export default function AddToPlaylistScreen() {
 		}
 	}, [playlists]);
 
-	const handleHeaderBack = () => {
-		if (router.canGoBack()) {
-			router.back();
-		} else {
-			router.replace("/playing");
-		}
-	};
-
 	const togglePlaylistSelection = (playlistId: string) => {
 		setSelectedPlaylists((prevSelected) =>
 			prevSelected.includes(playlistId)
@@ -77,6 +69,8 @@ export default function AddToPlaylistScreen() {
 				: [...prevSelected, playlistId]
 		);
 	};
+
+    const { invertColors } = useInvertColors();
 
 	const handleDone = async () => {
 		const trackUri = params.trackUri;
@@ -162,7 +156,7 @@ export default function AddToPlaylistScreen() {
 							: "radio-button-unchecked"
 					}
 					size={24}
-					color="white"
+					color={ invertColors ? "black" : "white" }
 				/>
 			</HapticPressable>
 		);
@@ -170,41 +164,26 @@ export default function AddToPlaylistScreen() {
 
 	if (isLoading && !sortedPlaylists) {
 		return (
-			<View style={styles.container}>
-				<Header
-					headerTitle="Add to playlist"
-					backEvent={handleHeaderBack}
-					iconName={undefined}
-				/>
+            <ContentContainer headerTitle="Add to playlist" style={{ paddingHorizontal: 20, gap: 0 }}>
 				<View style={styles.centeredMessageContainer}></View>
-			</View>
+			</ContentContainer>
 		);
 	}
 
 	if (!sortedPlaylists || sortedPlaylists.length === 0) {
 		return (
-			<View style={styles.container}>
-				<Header
-					headerTitle="Add to playlist"
-					backEvent={handleHeaderBack}
-					iconName={undefined}
-				/>
+            <ContentContainer headerTitle="Add to playlist" style={{ paddingHorizontal: 20, gap: 0 }}>
 				<View style={styles.centeredMessageContainer}>
 					<StyledText style={styles.emptyText}>
 						No playlists found.
 					</StyledText>
 				</View>
-			</View>
+			</ContentContainer>
 		);
 	}
 
 	return (
-		<View style={styles.container}>
-			<Header
-				headerTitle="Add to playlist"
-				backEvent={handleHeaderBack}
-				iconName={undefined}
-			/>
+		<ContentContainer headerTitle="Add to playlist" style={{ paddingHorizontal: 20, gap: 0 }}>
 			<FlatList
 				data={sortedPlaylists}
 				renderItem={renderPlaylistItem}
@@ -237,37 +216,29 @@ export default function AddToPlaylistScreen() {
 					</HapticPressable>
 				)}
 			/>
-			<HapticPressable style={styles.doneButton} onPress={handleDone}>
-				<StyledText style={styles.doneButtonText}>Done</StyledText>
-			</HapticPressable>
-		</View>
+            <View style={{ width: "100%", justifyContent: "flex-end", alignItems: "center" }}>
+                <HapticPressable style={styles.doneButton} onPress={handleDone}>
+                    <StyledText style={styles.doneButtonText}>Done</StyledText>
+                </HapticPressable>
+            </View>
+		</ContentContainer>
 	);
 }
 
 const styles = StyleSheet.create({
-	container: {
-		flex: 1,
-		backgroundColor: "black",
-	},
-	content: {
-		flex: 1,
-		justifyContent: "flex-start",
-	},
 	doneButton: {
 		paddingVertical: 15,
-		paddingHorizontal: 30,
 		alignItems: "center",
 		justifyContent: "center",
 		minWidth: 200,
 	},
 	doneButtonText: {
-		color: "white",
 		fontSize: 40,
 		textTransform: "uppercase",
 	},
 	list: {
 		flex: 1,
-		backgroundColor: "black", // Added
+        width: "100%",
 	},
 	listContentContainer: {
 		paddingTop: 0,
@@ -277,7 +248,6 @@ const styles = StyleSheet.create({
 		flex: 1,
 		justifyContent: "center",
 		alignItems: "center",
-		paddingHorizontal: 20,
 	},
 	emptyText: {
 		fontSize: 18,
@@ -286,13 +256,11 @@ const styles = StyleSheet.create({
 	},
 	itemContainer: {
 		paddingVertical: 0,
-		paddingHorizontal: 20,
 		flexDirection: "row",
 		alignItems: "center",
 	},
 	newPlaylistItemContainer: {
 		paddingBottom: 8,
-		paddingHorizontal: 20,
 		flexDirection: "row",
 		alignItems: "center",
 	},
@@ -317,7 +285,6 @@ const styles = StyleSheet.create({
 	playlistName: {
 		fontSize: 22,
 		lineHeight: 24,
-		color: "white",
 	},
 	playlistOwner: {
 		fontSize: 16,

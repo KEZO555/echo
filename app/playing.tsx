@@ -3,7 +3,6 @@ import {
 	View,
 	StyleSheet,
 	Image,
-	ActivityIndicator,
 	Animated,
 	AppState,
 } from "react-native";
@@ -15,9 +14,11 @@ import {
 	SpotifyArtistSimple,
 } from "@/contexts/AuthContext";
 import { MaterialIcons } from "@expo/vector-icons";
-import { useFocusEffect, router } from "expo-router"; // Import router
+import { useFocusEffect, router } from "expo-router";
 import { HapticPressable } from "@/components/HapticPressable";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import ContentContainer from "@/components/ContentContainer";
+import { useInvertColors } from "@/contexts/InvertColorsContext";
 
 const formatTime = (ms: number | null | undefined): string => {
 	if (ms === null || ms === undefined) return "0:00";
@@ -55,7 +56,6 @@ export default function PlayingScreen() {
 	const checkIfTrackIsSaved = async (trackId: string) => {
 		if (!trackId) return;
 
-		// First, check cached saved tracks (works offline)
 		try {
 			const cachedSavedTracks = await AsyncStorage.getItem(
 				"spotifySavedTracks"
@@ -67,7 +67,6 @@ export default function PlayingScreen() {
 				);
 				setIsCurrentTrackSaved(isTrackInCache);
 
-				// If found in cache, we're done (works offline)
 				if (isTrackInCache) {
 					console.log(
 						`Track ${trackId} found in offline cache - it's saved`
@@ -79,9 +78,7 @@ export default function PlayingScreen() {
 			console.error("Error checking cached saved tracks:", error);
 		}
 
-		// Only make API call if we have access token and the track wasn't found in cache
 		if (!accessToken) {
-			// No access token and not in cache - assume not saved
 			setIsCurrentTrackSaved(false);
 			return;
 		}
@@ -98,17 +95,15 @@ export default function PlayingScreen() {
 				setIsCurrentTrackSaved(false);
 			}
 		} catch (error) {
-			// Network error (likely offline) - gracefully handle
 			console.log(
 				"Error checking if track is saved (likely offline):",
 				error
 			);
-			setIsCurrentTrackSaved(false); // Assume not saved on network error
+			setIsCurrentTrackSaved(false);
 		}
 	};
 
 	const fetchAndUpdatePlaybackState = async () => {
-		// Fetch playback state via Web API to get correct device info
 		let state: any = null;
 		try {
 			state = await makeApiRequest(
@@ -135,7 +130,6 @@ export default function PlayingScreen() {
 		setIsLoading(false);
 	};
 
-	// Separate function to check if track is saved - only called when track changes
 	const checkCurrentTrackSavedStatus = async (trackId: string) => {
 		if (trackId !== currentTrackIdChecked) {
 			await checkIfTrackIsSaved(trackId);
@@ -143,7 +137,6 @@ export default function PlayingScreen() {
 		}
 	};
 
-	// Effect to watch for track changes and check saved status
 	useEffect(() => {
 		if (playbackState && playbackState.item && playbackState.item.id) {
 			checkCurrentTrackSavedStatus(playbackState.item.id);
@@ -151,7 +144,7 @@ export default function PlayingScreen() {
 			setIsCurrentTrackSaved(false);
 			setCurrentTrackIdChecked(null);
 		}
-	}, [playbackState?.item?.id]); // Only run when track ID changes
+	}, [playbackState?.item?.id]);
 
 	const handlePlayPause = async () => {
 		if (!playbackState) return;
@@ -162,7 +155,6 @@ export default function PlayingScreen() {
 			} else {
 				await startPlayback();
 			}
-			// Fetch updated state immediately after the action
 			await fetchAndUpdatePlaybackState();
 		} catch (error) {
 			console.error("Error toggling playback:", error);
@@ -172,7 +164,6 @@ export default function PlayingScreen() {
 	const handleSkipToNext = async () => {
 		try {
 			await skipToNext();
-			// Fetch updated state immediately after the action
 			await fetchAndUpdatePlaybackState();
 		} catch (error) {
 			console.error("Error skipping to next track:", error);
@@ -182,7 +173,6 @@ export default function PlayingScreen() {
 	const handleSkipToPrevious = async () => {
 		try {
 			await skipToPrevious();
-			// Fetch updated state immediately after the action
 			await fetchAndUpdatePlaybackState();
 		} catch (error) {
 			console.error("Error skipping to previous track:", error);
@@ -194,7 +184,6 @@ export default function PlayingScreen() {
 
 		try {
 			await toggleShuffle(!playbackState.shuffle_state);
-			// Fetch updated state immediately after the action
 			await fetchAndUpdatePlaybackState();
 		} catch (error) {
 			console.error("Error toggling shuffle:", error);
@@ -205,7 +194,6 @@ export default function PlayingScreen() {
 		if (!playbackState) return;
 
 		try {
-			// Cycle through three states: off -> context -> track -> off
 			let newState: "off" | "context" | "track";
 			if (playbackState.repeat_state === "off") {
 				newState = "context";
@@ -215,7 +203,6 @@ export default function PlayingScreen() {
 				newState = "off";
 			}
 			await toggleRepeat(newState);
-			// Fetch updated state immediately after the action
 			await fetchAndUpdatePlaybackState();
 		} catch (error) {
 			console.error("Error toggling repeat:", error);
@@ -237,17 +224,14 @@ export default function PlayingScreen() {
 
 		try {
 			await seekToPosition(seekPositionMs);
-			// Optimistically update progress bar, or wait for fetchAndUpdatePlaybackState
 			const progressRatio = seekPositionMs / totalDurationMs;
 			progress.setValue(progressRatio > 0 ? progressRatio : 0);
-			// Fetch updated state to confirm
 			await fetchAndUpdatePlaybackState();
 		} catch (error) {
 			console.error("Error seeking track:", error);
 		}
 	};
 
-	// Add these functions to handle saving/removing tracks
 	const handleToggleSaveTrack = async () => {
 		if (!playbackState || !playbackState.item || !playbackState.item.id)
 			return;
@@ -255,7 +239,6 @@ export default function PlayingScreen() {
 		const trackId = playbackState.item.id;
 		const currentlySaved = isCurrentTrackSaved;
 
-		// Check if we're offline by testing access token availability
 		if (!accessToken) {
 			console.warn(
 				"Cannot save/unsave track - no access token (likely offline)"
@@ -267,7 +250,6 @@ export default function PlayingScreen() {
 		const url = `https://api.spotify.com/v1/me/tracks?ids=${trackId}`;
 
 		try {
-			// Ensure we have a valid token before making the API call
 			const validToken = await ensureValidToken();
 			if (!validToken) {
 				console.warn(
@@ -292,7 +274,6 @@ export default function PlayingScreen() {
 					} successfully.`
 				);
 
-				// Update local cache to reflect the change
 				try {
 					const cachedSavedTracks = await AsyncStorage.getItem(
 						"spotifySavedTracks"
@@ -301,18 +282,16 @@ export default function PlayingScreen() {
 						let parsedTracks = JSON.parse(cachedSavedTracks);
 
 						if (currentlySaved) {
-							// Remove track from cache
 							parsedTracks = parsedTracks.filter(
 								(savedTrack: any) =>
 									savedTrack.track?.id !== trackId
 							);
 						} else {
-							// Add track to cache (create a SavedTrackObject-like structure)
 							const newSavedTrack = {
 								added_at: new Date().toISOString(),
 								track: playbackState.item,
 							};
-							parsedTracks.unshift(newSavedTrack); // Add to beginning
+							parsedTracks.unshift(newSavedTrack);
 						}
 
 						await AsyncStorage.setItem(
@@ -325,7 +304,6 @@ export default function PlayingScreen() {
 							} track ${trackId}`
 						);
 
-						// Refresh the saved tracks state to update the UI
 						await refreshSavedTracksFromCache();
 					}
 				} catch (cacheError) {
@@ -342,7 +320,6 @@ export default function PlayingScreen() {
 				);
 			}
 		} catch (error) {
-			// Network error (likely offline)
 			console.log(
 				`Error ${
 					currentlySaved ? "unsaving" : "saving"
@@ -357,7 +334,7 @@ export default function PlayingScreen() {
 			console.log(
 				"Navigating to add-to-playlist with trackUri:",
 				playbackState.item.uri
-			); // Added log
+			);
 			router.push({
 				pathname: "/add-to-playlist",
 				params: { trackUri: playbackState.item.uri },
@@ -372,21 +349,19 @@ export default function PlayingScreen() {
 	useFocusEffect(
 		React.useCallback(() => {
 			setIsLoading(true);
-			fetchAndUpdatePlaybackState(); // Initial fetch via Web API
+			fetchAndUpdatePlaybackState();
 
-			// Set up an interval to refresh playback state every second
 			const intervalId = setInterval(() => {
-				// Only fetch if the app is currently active
 				if (AppState.currentState === "active") {
 					fetchAndUpdatePlaybackState();
 				}
-			}, 1000); // Refresh every second
+			}, 1000);
 
 			return () => {
 				clearInterval(intervalId);
 				console.log("PlayingScreen unfocused, cleared interval.");
 			};
-		}, [makeApiRequest]) // Assuming makeApiRequest is stable or correctly memoized
+		}, [makeApiRequest])
 	);
 
 	const getArtistNames = (artists: SpotifyArtistSimple[]) => {
@@ -394,13 +369,12 @@ export default function PlayingScreen() {
 	};
 
 	if (isLoading) {
-		return <View style={[styles.container, styles.centered]}></View>;
+		return <ContentContainer headerTitle=" "></ContentContainer>;
 	}
 
 	if (!playbackState || !playbackState.item) {
 		return (
-			<View style={styles.container}>
-				<Header />
+			<ContentContainer headerTitle=" ">
 				<View style={styles.content}>
 					<View style={styles.placeholderImageContainer}></View>
 					<View style={styles.trackInfoContainer}>
@@ -412,7 +386,7 @@ export default function PlayingScreen() {
 						</StyledText>
 					</View>
 				</View>
-			</View>
+			</ContentContainer>
 		);
 	}
 
@@ -423,9 +397,10 @@ export default function PlayingScreen() {
 		outputRange: ["0%", "100%"],
 	});
 
+    const { invertColors } = useInvertColors();
+
 	return (
-		<View style={styles.container}>
-			<Header />
+		<ContentContainer headerTitle=" " style={{ paddingHorizontal: 20 }}>
 			<View style={styles.content}>
 				{item.album?.images && item.album.images.length > 0 ? (
 					<Image
@@ -437,7 +412,7 @@ export default function PlayingScreen() {
 						<MaterialIcons
 							name="music-note"
 							size={100}
-							color="white"
+							color={ invertColors ? "black" : "white" }
 						/>
 					</View>
 				)}
@@ -456,7 +431,7 @@ export default function PlayingScreen() {
 						style={styles.progressBarPressable}
 					>
 						<View
-							style={styles.progressBarBackground}
+							style={[styles.progressBarBackground, { backgroundColor: invertColors ? "black" : "white" }]}
 							onLayout={(event) => {
 								progressBarWidthRef.current =
 									event.nativeEvent.layout.width;
@@ -465,6 +440,7 @@ export default function PlayingScreen() {
 							<Animated.View
 								style={[
 									styles.progressBarForeground,
+                                    { backgroundColor: invertColors ? "black" : "white" },
 									{ width: animatedWidth },
 								]}
 							/>
@@ -484,7 +460,7 @@ export default function PlayingScreen() {
 						<MaterialIcons
 							name={"shuffle"}
 							size={30}
-							color={"white"}
+							color={ invertColors ? "black" : "white" }
 						/>
 						<View
 							style={[
@@ -498,7 +474,7 @@ export default function PlayingScreen() {
 						<MaterialIcons
 							name={"skip-previous"}
 							size={52}
-							color={"white"}
+							color={ invertColors ? "black" : "white" }
 						/>
 					</HapticPressable>
 					<HapticPressable onPress={handlePlayPause}>
@@ -509,14 +485,14 @@ export default function PlayingScreen() {
 									: "play-arrow"
 							}
 							size={52}
-							color={"white"}
+							color={ invertColors ? "black" : "white" }
 						/>
 					</HapticPressable>
 					<HapticPressable onPress={handleSkipToNext}>
 						<MaterialIcons
 							name={"skip-next"}
 							size={52}
-							color={"white"}
+							color={ invertColors ? "black" : "white" }
 						/>
 					</HapticPressable>
 					<HapticPressable onPress={handleRepeatToggle}>
@@ -527,7 +503,7 @@ export default function PlayingScreen() {
 									: "repeat"
 							}
 							size={30}
-							color={"white"}
+							color={ invertColors ? "black" : "white" }
 						/>
 						<View
 							style={[
@@ -548,7 +524,7 @@ export default function PlayingScreen() {
 									: "favorite-outline"
 							}
 							size={30}
-							color="white"
+							color={ invertColors ? "black" : "white" }
 						/>
 					</HapticPressable>
 					<HapticPressable
@@ -563,29 +539,26 @@ export default function PlayingScreen() {
 								).toLowerCase() as any
 							}
 							size={30}
-							color="white"
+							color={ invertColors ? "black" : "white" }
 						/>
 					</HapticPressable>
 					<HapticPressable onPress={handleNavigateToAddToPlaylist}>
-						<MaterialIcons name="add" size={30} color="white" />
+						<MaterialIcons name="add" size={30} color={ invertColors ? "black" : "white" } />
 					</HapticPressable>
 				</View>
 			</View>
-		</View>
+		</ContentContainer>
 	);
 }
 
 const styles = StyleSheet.create({
-	container: {
-		flex: 1,
-		backgroundColor: "black",
-	},
 	centered: {
 		justifyContent: "center",
 		alignItems: "center",
 	},
 	content: {
 		flex: 1,
+        width: "100%",
 		justifyContent: "flex-start",
 		alignItems: "center",
 	},
@@ -610,7 +583,6 @@ const styles = StyleSheet.create({
 	trackName: {
 		fontSize: 22,
 		lineHeight: 24,
-		color: "white",
 		textAlign: "center",
 	},
 	artistName: {
@@ -628,20 +600,16 @@ const styles = StyleSheet.create({
 		alignItems: "center",
 	},
 	progressBarPressable: {
-		// Added style for the pressable area
-		width: "90%", // Match progressBarBackground width
-		// backgroundColor: 'rgba(255,0,0,0.1)', // For debugging touch area
+		width: "90%",
 	},
 	progressBarBackground: {
 		height: 2,
-		width: "100%", // Changed from 90% to 100% as parent pressable handles width
-		backgroundColor: "white",
+		width: "100%",
 		overflow: "visible",
 		marginBottom: 3,
 	},
 	progressBarForeground: {
 		height: 6,
-		backgroundColor: "white",
 		position: "absolute",
 		top: -2,
 	},
@@ -668,13 +636,11 @@ const styles = StyleSheet.create({
 	shuffleIndicator: {
 		height: 1,
 		width: "100%",
-		backgroundColor: "black",
 		overflow: "visible",
 	},
 	activeShuffleIndicator: {
 		height: 1,
 		width: "100%",
-		backgroundColor: "white",
 		overflow: "visible",
 	},
 	timeText: {
