@@ -464,7 +464,7 @@ export default function PlayingScreen() {
 							style={[
 								styles.shuffleIndicator,
 								playbackState?.shuffle_state &&
-									styles.activeShuffleIndicator,
+									[styles.activeShuffleIndicator, { backgroundColor: invertColors ? "black" : "white" }],
 							]}
 						></View>
 					</HapticPressable>
@@ -508,7 +508,7 @@ export default function PlayingScreen() {
 								styles.shuffleIndicator,
 								(playbackState?.repeat_state === "context" ||
 									playbackState?.repeat_state === "track") &&
-									styles.activeShuffleIndicator,
+									[styles.activeShuffleIndicator, { backgroundColor: invertColors ? "black" : "white" }],
 							]}
 						></View>
 					</HapticPressable>
