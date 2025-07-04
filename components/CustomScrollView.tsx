@@ -58,7 +58,7 @@ const CustomScrollView = <T,>({
 	return (
 		<View style={styles.container}>
 			<FlatList
-				style={[{ width: "100%" }, style]}
+				style={[{ width: "100%", backgroundColor: "black" }, style]}
 				contentContainerStyle={[{ flexGrow: 1 }, contentContainerStyle]}
 				showsVerticalScrollIndicator={false}
 				overScrollMode="never"
@@ -84,7 +84,7 @@ const CustomScrollView = <T,>({
 					style={[
 						styles.scrollIndicatorTrack,
 						{ transform: [{ translateX: 1 }] },
-						{ backgroundColor: invertColors ? "black" : "white" },
+                        { backgroundColor: invertColors ? "black" : "white" },
 					]}
 				>
 					<Animated.View
@@ -116,13 +116,13 @@ const styles = StyleSheet.create({
 	container: {
 		flex: 1,
 		flexDirection: "row",
-		width: "94%",
+		width: "100%",
 	},
 	scrollIndicatorTrack: {
 		width: 1,
 		height: "100%",
 		position: "absolute",
-		right: -18,
+		right: -2,
 	},
 	scrollIndicatorThumb: {
 		width: 5,
