@@ -2,7 +2,6 @@ import React, { useState, useEffect } from "react";
 import {
 	View,
 	StyleSheet,
-	FlatList,
 	Image,
 } from "react-native";
 import { router, useLocalSearchParams } from "expo-router";
@@ -12,6 +11,7 @@ import { useAuth, SpotifyPlaylist } from "@/contexts/AuthContext";
 import { MaterialIcons } from "@expo/vector-icons";
 import ContentContainer from "@/components/ContentContainer";
 import { useInvertColors } from "@/contexts/InvertColorsContext";
+import CustomScrollView from "@/components/CustomScrollView";
 
 export default function AddToPlaylistScreen() {
 	const {
@@ -184,38 +184,39 @@ export default function AddToPlaylistScreen() {
 
 	return (
 		<ContentContainer headerTitle="Add to playlist" style={{ paddingHorizontal: 20, gap: 0 }}>
-			<FlatList
-				data={sortedPlaylists}
-				renderItem={renderPlaylistItem}
-				keyExtractor={(item) => item.id}
-				style={styles.list}
-				contentContainerStyle={styles.listContentContainer}
-				ItemSeparatorComponent={() => <View style={{ height: 8 }} />}
-				overScrollMode="never"
-				ListHeaderComponent={() => (
-					<HapticPressable
-						style={styles.newPlaylistItemContainer}
-						onPress={() =>
-							router.push({
-								pathname: "/create-playlist",
-								params: {
-									returnTo: "add-to-playlist",
-									trackUri,
-								},
-							} as any)
-						}
-					>
-						<View style={styles.placeholderImageContainer}>
-							<MaterialIcons name="add" size={24} color="white" />
-						</View>
-						<View style={styles.textContainer}>
-							<StyledText style={styles.playlistName}>
-								Create new playlist
-							</StyledText>
-						</View>
-					</HapticPressable>
-				)}
-			/>
+            <CustomScrollView
+                data={sortedPlaylists}
+                renderItem={renderPlaylistItem}
+                keyExtractor={(item) => item.id}
+                style={styles.list}
+                contentContainerStyle={styles.listContentContainer}
+                ItemSeparatorComponent={() => <View style={{ height: 8 }} />}
+                overScrollMode="never"
+                ListHeaderComponent={() => (
+                    <HapticPressable
+                        style={styles.newPlaylistItemContainer}
+                        onPress={() =>
+                            router.push({
+                                pathname: "/create-playlist",
+                                params: {
+                                    returnTo: "add-to-playlist",
+                                    trackUri,
+                                },
+                            } as any)
+                        }
+                    >
+                        <View style={styles.placeholderImageContainer}>
+                            <MaterialIcons name="add" size={24} color="white" />
+                        </View>
+                        <View style={styles.textContainer}>
+                            <StyledText style={styles.playlistName}>
+                                Create new playlist
+                            </StyledText>
+                        </View>
+                    </HapticPressable>
+                )}
+            />            
+
             <View style={{ width: "100%", justifyContent: "flex-end", alignItems: "center" }}>
                 <HapticPressable style={styles.doneButton} onPress={handleDone}>
                     <StyledText style={styles.doneButtonText}>Done</StyledText>

@@ -2,7 +2,6 @@ import React, { useEffect, useState, useCallback } from "react";
 import {
 	View,
 	StyleSheet,
-	FlatList,
 	Image,
 	RefreshControl,
 } from "react-native";
@@ -17,6 +16,7 @@ import { MaterialIcons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import ContentContainer from "@/components/ContentContainer";
 import { useTabPreferences } from "@/contexts/TabPreferencesContext";
+import CustomScrollView from "@/components/CustomScrollView";
 
 export default function AlbumsScreen() {
 	const {
@@ -32,6 +32,7 @@ export default function AlbumsScreen() {
 		makeApiRequest, // Added for fetching album details before navigation
 	} = useAuth();
 	const router = useRouter();
+	const { preferences } = useTabPreferences();
 	const [sortedAlbums, setSortedAlbums] = useState<
 		SpotifySavedAlbum[] | null
 	>(null);
@@ -183,8 +184,6 @@ export default function AlbumsScreen() {
 		router.push("/playing");
 	};
 
-    const { preferences } = useTabPreferences();
-
 	return (
         <ContentContainer 
             headerTitle="Albums" 
@@ -194,7 +193,7 @@ export default function AlbumsScreen() {
             headerIconPress={handlePlayingPress}
             headerIconShowLength={preferences.showPlayingInNavbar ? 0 : 1}
         >
-            <FlatList
+            <CustomScrollView
                 data={sortedAlbums}
                 renderItem={renderAlbumItem}
                 keyExtractor={(item) => item.album.id} // Use album id as key

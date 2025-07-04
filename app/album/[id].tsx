@@ -4,7 +4,6 @@ import {
 	StyleSheet,
 	Image,
 	ActivityIndicator,
-	FlatList,
 } from "react-native";
 import {useLocalSearchParams, useRouter } from "expo-router";
 import {
@@ -12,10 +11,10 @@ import {
 	SpotifyAlbum,
 	SpotifyTrackSimple,
 } from "@/contexts/AuthContext";
-import { ItemHeader } from "@/components/ItemHeader";
 import { StyledText } from "@/components/StyledText";
 import { HapticPressable } from "@/components/HapticPressable";
 import ContentContainer from "@/components/ContentContainer";
+import CustomScrollView from "@/components/CustomScrollView";
 
 export default function AlbumDetailScreen() {
 	const { id, albumString } = useLocalSearchParams<{
@@ -189,7 +188,6 @@ export default function AlbumDetailScreen() {
 	}
 
 	const albumImageUrl = album.images?.[0]?.url;
-	const artistNames = album.artists.map((artist) => artist.name).join(", ");
 
 	const renderTrackItem = ({
 		item: track,
@@ -251,34 +249,36 @@ export default function AlbumDetailScreen() {
             headerIconPress={handleToggleAlbumSave}
             headerIconShowLength={isCheckingAlbumSaved ? 0 : 1}
         >
-			<FlatList
-				ListHeaderComponent={
-					<>
-						<View style={styles.albumArtContainer}>
-							<Image
-								source={{ uri: albumImageUrl }}
-								style={styles.albumImage}
-							/>
-						</View>
-					</>
-				}
-				data={album.tracks?.items || []}
-				renderItem={renderTrackItem}
-				keyExtractor={(item, index) => item.id || index.toString()}
-				contentContainerStyle={styles.listContentContainer}
-				overScrollMode="never"
-				onEndReached={loadMoreTracks}
-				onEndReachedThreshold={6}
-				ListFooterComponent={renderFooter}
-				ListEmptyComponent={
-					isLoading ? null : album.tracks?.items?.length === 0 ? (
-						<StyledText style={styles.emptyText}>
-							No tracks found in this album.
-						</StyledText>
-					) : null
-				}
-			/>
-		</ContentContainer>
+            <View style={{ paddingBottom: 20 }}>
+                <CustomScrollView
+                    ListHeaderComponent={
+                        <>
+                            <View style={styles.albumArtContainer}>
+                                <Image
+                                    source={{ uri: albumImageUrl }}
+                                    style={styles.albumImage}
+                                />
+                            </View>
+                        </>
+                    }
+                    data={album.tracks?.items || []}
+                    renderItem={renderTrackItem}
+                    keyExtractor={(item, index) => item.id || index.toString()}
+                    contentContainerStyle={styles.listContentContainer}
+                    overScrollMode="never"
+                    onEndReached={loadMoreTracks}
+                    onEndReachedThreshold={6}
+                    ListFooterComponent={renderFooter}
+                    ListEmptyComponent={
+                        isLoading ? null : album.tracks?.items?.length === 0 ? (
+                            <StyledText style={styles.emptyText}>
+                                No tracks found in this album.
+                            </StyledText>
+                        ) : null
+                    }
+                />		
+            </View>
+        </ContentContainer>
 	);
 }
 
@@ -380,6 +380,6 @@ const styles = StyleSheet.create({
 		paddingBottom: 6,
 	},
 	listContentContainer: {
-		paddingBottom: 20,
+		paddingBottom: 0,
 	},
 });

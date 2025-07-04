@@ -4,7 +4,6 @@ import {
 	StyleSheet,
 	Image,
 	ActivityIndicator,
-	FlatList,
 } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import {
@@ -12,11 +11,11 @@ import {
 	SpotifyPlaylist,
 	SpotifyTrackSimple, // Assuming this can be reused or adapted
 } from "@/contexts/AuthContext";
-import { ItemHeader } from "@/components/ItemHeader";
 import { StyledText } from "@/components/StyledText";
 import { MaterialIcons } from "@expo/vector-icons";
 import { HapticPressable } from "@/components/HapticPressable";
 import ContentContainer from "@/components/ContentContainer";
+import CustomScrollView from "@/components/CustomScrollView";
 
 // Interface for the structure of a track item within a playlist from Spotify API
 interface PlaylistTrack {
@@ -50,7 +49,7 @@ export default function PlaylistDetailScreen() {
 		id: string;
 		playlistString?: string;
 	}>();
-	const { accessToken, playTrackWithContext, makeApiRequest } = useAuth();
+	const { playTrackWithContext, makeApiRequest } = useAuth();
 	const router = useRouter();
 
 	// Try to parse the passed playlist string for initial state
@@ -176,7 +175,6 @@ export default function PlaylistDetailScreen() {
 	}
 
 	const playlistImageUrl = playlist.images?.[0]?.url;
-	const ownerName = playlist.owner.display_name || playlist.owner.id;
 
 	const renderTrackItem = ({
 		item,
@@ -240,46 +238,48 @@ export default function PlaylistDetailScreen() {
             headerTitle={playlist.name}
             style={{ paddingHorizontal: 20 }}
         >
-			<FlatList
-				ListHeaderComponent={
-					<>
-						<View style={styles.playlistArtContainer}>
-							{playlistImageUrl ? (
-								<Image
-									source={{ uri: playlistImageUrl }}
-									style={styles.playlistImage}
-								/>
-							) : (
-								<View style={styles.placeholderImageContainer}>
-									<MaterialIcons
-										name="music-note"
-										size={80}
-										color="white"
-									/>
-								</View>
-							)}
-						</View>
-					</>
-				}
-				data={playlist.tracks?.items || []}
-				renderItem={renderTrackItem}
-				keyExtractor={(item, index) =>
-					`${item.track?.id || "unknown-track"}-${index}`
-				}
-				contentContainerStyle={styles.listContentContainer} // Changed from scrollContentContainer
-				overScrollMode="never"
-				onEndReached={loadMoreTracks}
-				onEndReachedThreshold={6}
-				ListFooterComponent={renderFooter}
-				ListEmptyComponent={
-					isLoading ? null : playlist.tracks?.items?.length === 0 ? (
-						<StyledText style={styles.emptyText}>
-							No tracks found in this playlist.
-						</StyledText>
-					) : null
-				}
-			/>
-		</ContentContainer>
+            <View style={{ paddingBottom: 20 }}>
+                <CustomScrollView
+                    ListHeaderComponent={
+                        <>
+                            <View style={styles.playlistArtContainer}>
+                                {playlistImageUrl ? (
+                                    <Image
+                                        source={{ uri: playlistImageUrl }}
+                                        style={styles.playlistImage}
+                                    />
+                                ) : (
+                                    <View style={styles.placeholderImageContainer}>
+                                        <MaterialIcons
+                                            name="music-note"
+                                            size={80}
+                                            color="white"
+                                        />
+                                    </View>
+                                )}
+                            </View>
+                        </>
+                    }
+                    data={playlist.tracks?.items || []}
+                    renderItem={renderTrackItem}
+                    keyExtractor={(item, index) =>
+                        `${item.track?.id || "unknown-track"}-${index}`
+                    }
+                    contentContainerStyle={styles.listContentContainer} // Changed from scrollContentContainer
+                    overScrollMode="never"
+                    onEndReached={loadMoreTracks}
+                    onEndReachedThreshold={6}
+                    ListFooterComponent={renderFooter}
+                    ListEmptyComponent={
+                        isLoading ? null : playlist.tracks?.items?.length === 0 ? (
+                            <StyledText style={styles.emptyText}>
+                                No tracks found in this playlist.
+                            </StyledText>
+                        ) : null
+                    }
+                />		
+            </View>
+        </ContentContainer>
 	);
 }
 
@@ -353,6 +353,6 @@ const styles = StyleSheet.create({
 		paddingBottom: 6,
 	},
 	listContentContainer: {
-		paddingBottom: 20,
+		paddingBottom: 0,
 	},
 });

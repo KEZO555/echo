@@ -2,7 +2,6 @@ import React, { useEffect, useCallback } from "react";
 import {
 	View,
 	StyleSheet,
-	FlatList,
 	Image,
 	RefreshControl,
 } from "react-native";
@@ -19,6 +18,7 @@ import { log, logWarn, logError } from "@/utils/logger";
 import { useInvertColors } from "@/contexts/InvertColorsContext";
 import ContentContainer from "@/components/ContentContainer";
 import { useTabPreferences } from "@/contexts/TabPreferencesContext";
+import CustomScrollView from "@/components/CustomScrollView";
 
 export default function LikedSongsScreen() {
 	const {
@@ -172,7 +172,7 @@ export default function LikedSongsScreen() {
             headerIconPress={handlePlayingPress}
             headerIconShowLength={preferences.showPlayingInNavbar ? 0 : 1}
         >
-            <FlatList
+            <CustomScrollView
                 data={savedTracks?.filter((item) => item.track !== null) || []}
                 renderItem={renderTrackItem}
                 keyExtractor={(item) =>

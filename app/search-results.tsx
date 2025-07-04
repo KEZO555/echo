@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from "react";
-import { View, StyleSheet, Text, FlatList, Image } from "react-native";
+import { View, StyleSheet, Text, Image } from "react-native";
 import { useGlobalSearchParams, useRouter } from "expo-router";
-import { Header } from "@/components/Header";
 import {
 	useAuth,
 	SpotifyTrack,
@@ -13,6 +12,7 @@ import {
 import { HapticPressable } from "@/components/HapticPressable";
 import { StyledText } from "@/components/StyledText";
 import ContentContainer from "@/components/ContentContainer";
+import CustomScrollView from "@/components/CustomScrollView";
 
 type SearchItem =
 	| { type: "track"; data: SpotifyTrack }
@@ -180,19 +180,21 @@ export default function SearchResultsScreen() {
 			{loading ? (
 				<View style={styles.centeredMessageContainer}></View>
 			) : results.length > 0 ? (
-				<FlatList
-					data={results}
-					renderItem={renderItem}
-					keyExtractor={(item, index) =>
-						`${item.type}-${item.data.id}-${index}`
-					}
-					style={styles.list}
-					contentContainerStyle={styles.listContentContainer}
-					ItemSeparatorComponent={() => (
-						<View style={{ height: 8 }} />
-					)}
-					overScrollMode={"never"}
-				/>
+                <View style={{ paddingBottom: 20 }}>
+                    <CustomScrollView
+                        data={results}
+                        renderItem={renderItem}
+                        keyExtractor={(item, index) =>
+                            `${item.type}-${item.data.id}-${index}`
+                        }
+                        style={styles.list}
+                        contentContainerStyle={styles.listContentContainer}
+                        ItemSeparatorComponent={() => (
+                            <View style={{ height: 8 }} />
+                        )}
+                        overScrollMode={"never"}
+                    />
+                </View>
 			) : routeQuery ? (
 				<View style={styles.centeredMessageContainer}>
 					<Text style={styles.emptyText}>
@@ -225,7 +227,6 @@ const styles = StyleSheet.create({
 	},
 	listContentContainer: {
 		paddingTop: 0,
-		paddingBottom: 20,
 	},
 	itemContainer: {
 		flexDirection: "row",

@@ -6,7 +6,6 @@ import {
 	Animated,
 	AppState,
 } from "react-native";
-import { Header } from "@/components/Header";
 import { StyledText } from "@/components/StyledText";
 import {
 	useAuth,
@@ -42,6 +41,7 @@ export default function PlayingScreen() {
 		makeApiRequest,
 		ensureValidToken,
 	} = useAuth();
+	const { invertColors } = useInvertColors();
 	const [playbackState, setPlaybackState] =
 		useState<SpotifyCurrentlyPlaying | null>(null);
 	const [isLoading, setIsLoading] = useState(true);
@@ -396,8 +396,6 @@ export default function PlayingScreen() {
 		inputRange: [0, 1],
 		outputRange: ["0%", "100%"],
 	});
-
-    const { invertColors } = useInvertColors();
 
 	return (
 		<ContentContainer headerTitle=" " style={{ paddingHorizontal: 20 }}>

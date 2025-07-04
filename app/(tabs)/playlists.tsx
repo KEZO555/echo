@@ -2,7 +2,6 @@ import React, { useEffect, useState, useCallback } from "react";
 import {
 	View,
 	StyleSheet,
-	FlatList,
 	Image,
 	RefreshControl,
 } from "react-native";
@@ -13,6 +12,7 @@ import { MaterialIcons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import ContentContainer from "@/components/ContentContainer";
 import { useTabPreferences } from "@/contexts/TabPreferencesContext";
+import CustomScrollView from "@/components/CustomScrollView";
 
 const CREATE_NEW_PLAYLIST_ID = "CREATE_NEW_PLAYLIST_ID";
 
@@ -30,6 +30,7 @@ export default function PlaylistsScreen() {
 		makeApiRequest,
 	} = useAuth();
 	const router = useRouter(); // Added useRouter instance
+	const { preferences } = useTabPreferences();
 	const [sortedPlaylists, setSortedPlaylists] = useState<
 		SpotifyPlaylist[] | null
 	>(null);
@@ -216,7 +217,7 @@ export default function PlaylistsScreen() {
 	if (!sortedPlaylists || sortedPlaylists.length === 0) {
 		// Still show "Create new playlist" even if other playlists are empty
 		return (
-			<FlatList
+			<CustomScrollView
 				data={[createNewPlaylistItem]}
 				renderItem={renderPlaylistItem}
 				keyExtractor={(item) => item.id}
@@ -251,8 +252,6 @@ export default function PlaylistsScreen() {
 	const handlePlayingPress = () => {
 		router.push("/playing");
 	};
-    
-    const { preferences } = useTabPreferences();
 
 	return (
         <ContentContainer 
@@ -263,7 +262,7 @@ export default function PlaylistsScreen() {
             headerIconPress={handlePlayingPress}
             headerIconShowLength={preferences.showPlayingInNavbar ? 0 : 1}
         >
-            <FlatList
+            <CustomScrollView
                 data={displayPlaylists}
                 renderItem={renderPlaylistItem}
                 keyExtractor={(item) => item.id}

@@ -1,25 +1,24 @@
-import React, { useState, useRef, PropsWithChildren } from "react";
+import React, { useState, useRef } from "react";
 import {
-	ScrollView,
+	FlatList,
 	View,
 	Animated,
 	StyleSheet,
-	ScrollViewProps,
+	FlatListProps,
 	NativeSyntheticEvent,
 	NativeScrollEvent,
 } from "react-native";
 import { useInvertColors } from "@/contexts/InvertColorsContext";
 
-interface CustomScrollViewProps extends ScrollViewProps {
+interface CustomScrollViewProps<T = any> extends FlatListProps<T> {
 	// We can add any custom props here if needed in the future
 }
 
-const CustomScrollView: React.FC<PropsWithChildren<CustomScrollViewProps>> = ({
-	children,
+const CustomScrollView = <T,>({
 	style,
 	contentContainerStyle,
 	...rest
-}) => {
+}: CustomScrollViewProps<T>) => {
 	const { invertColors } = useInvertColors();
 	const [contentHeight, setContentHeight] = useState<number>(0);
 	const [scrollViewHeight, setScrollViewHeight] = useState<number>(0);
@@ -58,7 +57,7 @@ const CustomScrollView: React.FC<PropsWithChildren<CustomScrollViewProps>> = ({
 
 	return (
 		<View style={styles.container}>
-			<ScrollView
+			<FlatList
 				style={[{ width: "100%" }, style]}
 				contentContainerStyle={[{ flexGrow: 1 }, contentContainerStyle]}
 				showsVerticalScrollIndicator={false}
@@ -79,9 +78,7 @@ const CustomScrollView: React.FC<PropsWithChildren<CustomScrollViewProps>> = ({
 				onScroll={handleScroll}
 				scrollEventThrottle={16}
 				{...rest}
-			>
-				{children}
-			</ScrollView>
+			/>
 			{scrollIndicatorHeight > 0 && (
 				<View
 					style={[
@@ -119,7 +116,7 @@ const styles = StyleSheet.create({
 	container: {
 		flex: 1,
 		flexDirection: "row",
-		width: "100%",
+		width: "94%",
 	},
 	scrollIndicatorTrack: {
 		width: 1,

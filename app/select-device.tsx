@@ -1,12 +1,12 @@
 import React, { useState, useEffect } from "react";
 import { View, StyleSheet, FlatList, ActivityIndicator } from "react-native";
-import { Header } from "@/components/Header";
 import { HapticPressable } from "@/components/HapticPressable";
 import { StyledText } from "@/components/StyledText";
 import { useAuth } from "@/contexts/AuthContext";
 import { SpotifyDevice } from "@/types/spotify";
 import { router } from "expo-router";
 import ContentContainer from "@/components/ContentContainer";
+import CustomScrollView from "@/components/CustomScrollView";
 
 export default function SelectDeviceScreen() {
 	const { makeApiRequest, ensureValidToken } = useAuth();
@@ -34,14 +34,6 @@ export default function SelectDeviceScreen() {
 		fetchDevices();
 	}, []);
 
-	const handleBack = () => {
-		if (router.canGoBack()) {
-			router.back();
-		} else {
-			router.replace("/playing");
-		}
-	};
-
 	const handleSelectDevice = async (deviceId: string | null) => {
 		if (!deviceId) return;
 		try {
@@ -67,16 +59,15 @@ export default function SelectDeviceScreen() {
 
 	if (isLoading) {
 		return (
-			<View style={[styles.container, styles.centered]}>
-				<Header headerTitle="Select a device" backEvent={handleBack} />
+            <ContentContainer headerTitle="Select a device" >
 				<ActivityIndicator size="large" color="white" />
-			</View>
+			</ContentContainer>
 		);
 	}
 
 	return (
 		<ContentContainer headerTitle="Select a device" >
-				<FlatList
+				<CustomScrollView
 					data={devices}
 					keyExtractor={(item, index) => item.id ?? index.toString()}
 					renderItem={({ item }) => {
