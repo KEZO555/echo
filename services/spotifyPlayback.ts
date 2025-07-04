@@ -734,59 +734,129 @@ export const playTrackWithContext = async (
 		}
 
 		// UNIFIED HYBRID APPROACH: Web API for context + Native SDK for control
-		let validToken = accessToken;
-		if (ensureValidToken) {
-			const refreshedToken = await ensureValidToken();
-			if (refreshedToken) {
-				validToken = refreshedToken;
-			}
-		}
-
 		if (
 			sourceContext?.uri &&
-			validToken &&
 			sourceContext.type !== "artist"
 		) {
 			try {
 				console.log("Playback: Setting context via Web API");
 
-				// Web API to set context + track offset
-				const response = await fetch(
-					"https://api.spotify.com/v1/me/player/play",
-					{
-						method: "PUT",
-						headers: {
-							Authorization: `Bearer ${validToken}`,
-							"Content-Type": "application/json",
-						},
-						body: JSON.stringify({
-							context_uri: sourceContext.uri,
-							offset: { uri: trackUri }, // Start from specific track
-						}),
+				// Always validate token before attempting playback to ensure context works
+				let validToken = accessToken;
+				if (ensureValidToken) {
+					console.log("Playback: Validating token before context playback...");
+					const refreshedToken = await ensureValidToken();
+					if (refreshedToken) {
+						validToken = refreshedToken;
+						console.log("Playback: Using validated/refreshed token");
+					} else {
+						console.log("Playback: Token validation failed, cannot set context");
+						throw new Error("Token validation failed");
 					}
-				);
+				}
+
+				if (!validToken) {
+					console.log("Playback: No valid token available, falling back to direct play");
+					throw new Error("No valid token");
+				}
+
+				console.log("Playback: Making Web API call with context:", {
+					contextUri: sourceContext.uri,
+					trackUri: trackUri,
+					tokenLength: validToken.length
+				});
+
+				// First, try to get available devices to target the call properly
+				let deviceId: string | undefined;
+				try {
+					const devicesResponse = await fetch(
+						"https://api.spotify.com/v1/me/player/devices",
+						{
+							headers: {
+								Authorization: `Bearer ${validToken}`,
+							},
+						}
+					);
+					
+					if (devicesResponse.ok) {
+						const devicesData = await devicesResponse.json();
+						console.log("Playback: Available devices:", devicesData.devices?.length || 0);
+						
+						// Find an active device or use the first available one
+						const activeDevice = devicesData.devices?.find((d: any) => d.is_active);
+						const availableDevice = devicesData.devices?.[0];
+						deviceId = activeDevice?.id || availableDevice?.id;
+						
+						if (deviceId) {
+							console.log("Playback: Using device:", {
+								id: deviceId,
+								name: activeDevice?.name || availableDevice?.name,
+								isActive: !!activeDevice
+							});
+						} else {
+							console.log("Playback: No devices found, trying without device_id");
+						}
+					} else {
+						console.log("Playback: Failed to get devices, proceeding without device_id");
+					}
+				} catch (deviceError) {
+					console.log("Playback: Device detection failed, proceeding without device_id:", deviceError);
+				}
+
+				// Prepare the playback request body
+				const playbackBody: any = {
+					context_uri: sourceContext.uri,
+					offset: { uri: trackUri }, // Start from specific track
+				};
+
+				// Add device_id if we found one
+				if (deviceId) {
+					// We'll add device_id as a query parameter instead of in the body
+				}
+
+				// Web API to set context + track offset
+				const playUrl = deviceId 
+					? `https://api.spotify.com/v1/me/player/play?device_id=${deviceId}`
+					: "https://api.spotify.com/v1/me/player/play";
+
+				const response = await fetch(playUrl, {
+					method: "PUT",
+					headers: {
+						Authorization: `Bearer ${validToken}`,
+						"Content-Type": "application/json",
+					},
+					body: JSON.stringify(playbackBody),
+				});
+
+				console.log("Playback: Web API response status:", response.status);
 
 				if (response.ok) {
-					console.log("Playback: Context set, starting playback");
+					console.log("Playback: Context set successfully, starting playback");
 					await new Promise((resolve) => setTimeout(resolve, 500)); // Wait for context
 					await SpotifySdk.play(); // Native SDK control
 					console.log("Playback: Started with context");
 					return;
 				} else if (response.status === 401) {
-					console.log(
-						"Playback: Token expired, falling back to direct play"
-					);
+					const errorText = await response.text();
+					console.log("Playback: Token expired during context call:", errorText);
 					throw new Error("Token expired - using fallback");
+				} else if (response.status === 404) {
+					const errorText = await response.text();
+					console.log("Playback: Device not found (404):", errorText);
+					throw new Error("Device not found - using fallback");
 				} else {
-					console.log(
-						"Playback: Web API context failed with status:",
-						response.status
-					);
+					const errorText = await response.text();
+					console.log("Playback: Web API context failed:", {
+						status: response.status,
+						statusText: response.statusText,
+						error: errorText
+					});
+					throw new Error(`HTTP ${response.status} - using fallback`);
 				}
-			} catch (webApiError) {
+			} catch (webApiError: any) {
 				console.log(
 					"Playback: Web API context failed, falling back to direct play:",
-					webApiError
+					webApiError.message
 				);
 			}
 		}

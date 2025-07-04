@@ -55,6 +55,8 @@ const styles = StyleSheet.create({
 	versionContainer: {
         width: "100%",
 		alignItems: "center",
+        justifyContent: "flex-end",
+        flex: 1,
 	},
 	versionText: {
 		color: "#666",

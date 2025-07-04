@@ -9,7 +9,7 @@ import React, {
 import * as SecureStore from "expo-secure-store";
 import SpotifySdk from "../modules/spotify-sdk";
 import { AppState, AppStateStatus } from "react-native";
-import { AUTH_TOKEN_KEY, TOKEN_EXPIRY_KEY } from "../constants/spotify";
+import { AUTH_TOKEN_KEY, TOKEN_EXPIRY_KEY, REFRESH_TOKEN_KEY } from "../constants/spotify";
 import { log, logWarn, logError, logInfo } from "../utils/logger";
 
 // Import types
@@ -180,22 +180,41 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 		[accessToken, refreshToken, tokenExpiry, handleTokenUpdate]
 	);
 
+	// Token refresh lock at context level
+	const [isRefreshingToken, setIsRefreshingToken] = useState(false);
+	const [refreshPromise, setRefreshPromise] = useState<Promise<string | null> | null>(null);
+
 	// Token validation method
 	const ensureValidToken = useCallback(async (): Promise<string | null> => {
-		if (!accessToken || !refreshToken || !tokenExpiry) {
+		// Always get the latest token data from secure storage to avoid stale state
+		const [latestAccessToken, latestRefreshToken, latestTokenExpiry] = await Promise.all([
+			SecureStore.getItemAsync(AUTH_TOKEN_KEY),
+			SecureStore.getItemAsync(REFRESH_TOKEN_KEY),
+			SecureStore.getItemAsync(TOKEN_EXPIRY_KEY)
+		]);
+
+		if (!latestAccessToken || !latestRefreshToken || !latestTokenExpiry) {
 			logInfo("AuthContext: Missing token data for validation", {
-				hasAccessToken: !!accessToken,
-				hasRefreshToken: !!refreshToken,
-				hasTokenExpiry: !!tokenExpiry,
+				hasAccessToken: !!latestAccessToken,
+				hasRefreshToken: !!latestRefreshToken,
+				hasTokenExpiry: !!latestTokenExpiry,
 			});
 			return null;
 		}
 
+		const expiryTimestamp = parseInt(latestTokenExpiry, 10);
+		
 		// Check if token expires within 5 minutes
-		const timeUntilExpiry = tokenExpiry - Date.now();
+		const timeUntilExpiry = expiryTimestamp - Date.now();
 		const needsRefresh = timeUntilExpiry < 5 * 60 * 1000;
 
 		if (needsRefresh) {
+			// If a refresh is already in progress, wait for it
+			if (isRefreshingToken && refreshPromise) {
+				logInfo("AuthContext: Token refresh already in progress, waiting...");
+				return await refreshPromise;
+			}
+
 			const isAlreadyExpired = timeUntilExpiry < 0;
 			logInfo(
 				isAlreadyExpired
@@ -204,46 +223,57 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 				{ timeUntilExpiry }
 			);
 
-			try {
-				// Import refreshAccessToken directly to avoid circular dependency
-				const { refreshAccessToken } = await import(
-					"../utils/spotifyApi"
-				);
-				const refreshed = await refreshAccessToken(
-					refreshToken,
-					handleTokenUpdate,
-					async () => {
-						// Use logoutFromSpotify directly to avoid circular dependency
-						await logoutFromSpotify(clearState);
+			// Create refresh promise and set lock
+			const currentRefreshPromise = (async (): Promise<string | null> => {
+				try {
+					setIsRefreshingToken(true);
+					
+					// Import refreshAccessToken directly to avoid circular dependency
+					const { refreshAccessToken } = await import(
+						"../utils/spotifyApi"
+					);
+					const refreshed = await refreshAccessToken(
+						latestRefreshToken,
+						handleTokenUpdate,
+						async () => {
+							// Use logoutFromSpotify directly to avoid circular dependency
+							await logoutFromSpotify(clearState);
+						}
+					);
+					if (refreshed) {
+						// Get the updated token from secure storage after refresh
+						const updatedToken = await SecureStore.getItemAsync(
+							AUTH_TOKEN_KEY
+						);
+						logInfo("AuthContext: Token refresh successful", {
+							hasUpdatedToken: !!updatedToken,
+						});
+						return updatedToken || latestAccessToken;
+					} else {
+						// If refresh failed but we still have a token, try to use it
+						// This prevents immediate logout on temporary network issues
+						logWarn(
+							"AuthContext: Token refresh failed, but will try to use current token"
+						);
+						return latestAccessToken;
 					}
-				);
-				if (refreshed) {
-					// Get the updated token from secure storage after refresh
-					const updatedToken = await SecureStore.getItemAsync(
-						AUTH_TOKEN_KEY
-					);
-					logInfo("AuthContext: Token refresh successful", {
-						hasUpdatedToken: !!updatedToken,
-					});
-					return updatedToken || accessToken;
-				} else {
-					// If refresh failed but we still have a token, try to use it
-					// This prevents immediate logout on temporary network issues
-					logWarn(
-						"AuthContext: Token refresh failed, but will try to use current token"
-					);
-					return accessToken;
+				} catch (error) {
+					logError("AuthContext: Token refresh failed:", error);
+					// Return current token instead of null to avoid immediate logout
+					// The actual API call will handle the 401 and trigger logout if needed
+					return latestAccessToken;
+				} finally {
+					setIsRefreshingToken(false);
+					setRefreshPromise(null);
 				}
-			} catch (error) {
-				logError("AuthContext: Token refresh failed:", error);
-				// Return current token instead of null to avoid immediate logout
-				// The actual API call will handle the 401 and trigger logout if needed
-				return accessToken;
-			}
+			})();
+
+			setRefreshPromise(currentRefreshPromise);
+			return await currentRefreshPromise;
 		}
 
-		return accessToken;
-	}, [accessToken, refreshToken, tokenExpiry, handleTokenUpdate, clearState]);
+		return latestAccessToken;
+	}, [handleTokenUpdate, clearState, isRefreshingToken, refreshPromise]);
 
 	// Initial data fetch callback
 	const fetchInitialData = useCallback(
@@ -535,8 +565,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 				currentIndex?: number;
 			}
 		) => {
-			// Ensure we have a valid token before playback
+			// Ensure we have a valid token before playback and wait for any state updates
 			const validToken = await ensureValidToken();
+			
+			// Additional wait to ensure context state is updated after token refresh
+			await new Promise(resolve => setTimeout(resolve, 100));
+			
 			return playTrackWithContextService(
 				trackUri,
 				validToken,
@@ -544,7 +578,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 				ensureValidToken
 			);
 		},
-		[accessToken, ensureValidToken]
+		[ensureValidToken]
 	);
 
 	const getPlaybackState = useCallback(

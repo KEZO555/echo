@@ -1,13 +1,60 @@
 import React, { useState } from "react";
-import { Alert, Share, Platform } from "react-native";
+import { Alert, Share, Platform, StyleSheet, Text, View } from "react-native";
 import { StyledButton } from "@/components/StyledButton";
 import { getLogsAsText, clearLogs, log, logError } from "@/utils/logger";
 import * as FileSystem from "expo-file-system";
 import * as Sharing from "expo-sharing";
 import ContentContainer from "@/components/ContentContainer";
+import { useAuth } from "@/contexts/AuthContext";
+import * as SecureStore from "expo-secure-store";
+import { TOKEN_EXPIRY_KEY } from "@/constants/spotify";
 
 export default function DebugScreen() {
 	const [isSharing, setIsSharing] = useState(false);
+	const [tokenExpiry, setTokenExpiry] = useState<number | null>(null);
+	const { accessToken, refreshToken } = useAuth();
+
+	// Load token expiry on component mount and refresh
+	React.useEffect(() => {
+		const loadTokenExpiry = async () => {
+			try {
+				const expiryString = await SecureStore.getItemAsync(TOKEN_EXPIRY_KEY);
+				if (expiryString) {
+					setTokenExpiry(parseInt(expiryString, 10));
+				}
+			} catch (error) {
+				logError("Debug: Error loading token expiry:", error);
+			}
+		};
+		loadTokenExpiry();
+	}, []);
+
+	const formatExpiryTime = (expiry: number | null) => {
+		if (!expiry) return "Not available";
+		
+		const expiryDate = new Date(expiry);
+		const now = new Date();
+		const timeUntilExpiry = expiry - now.getTime();
+		
+		if (timeUntilExpiry < 0) {
+			const expiredMinutes = Math.abs(Math.floor(timeUntilExpiry / (1000 * 60)));
+			return `Expired ${expiredMinutes}m ago (${expiryDate.toLocaleTimeString()})`;
+		} else {
+			const validMinutes = Math.floor(timeUntilExpiry / (1000 * 60));
+			return `Valid for ${validMinutes}m (expires ${expiryDate.toLocaleTimeString()})`;
+		}
+	};
+
+	const handleRefreshTokenInfo = async () => {
+		try {
+			const expiryString = await SecureStore.getItemAsync(TOKEN_EXPIRY_KEY);
+			if (expiryString) {
+				setTokenExpiry(parseInt(expiryString, 10));
+			}
+		} catch (error) {
+			logError("Debug: Error loading token expiry:", error);
+		}
+	};
 
 	const handleShareLogs = async () => {
 		try {
@@ -79,6 +126,37 @@ export default function DebugScreen() {
             />
 
             <StyledButton text="Clear Logs" onPress={handleClearLogs} />
+
+            <StyledButton text="Refresh Token Info" onPress={handleRefreshTokenInfo} />
+
+            <View style={styles.infoContainer}>
+                <Text style={styles.infoText}>
+                    Token Status: {accessToken ? "Available" : "Not available"}
+                </Text>
+                <Text style={styles.infoText}>
+                    Refresh Token: {refreshToken ? "Available" : "Not available"}
+                </Text>
+                <Text style={styles.infoText}>
+                    Expiry: {formatExpiryTime(tokenExpiry)}
+                </Text>
+            </View>
 		</ContentContainer>
 	);
 }
+
+const styles = StyleSheet.create({
+	infoContainer: {
+        width: "100%",
+		alignItems: "center",
+        justifyContent: "flex-end",
+        flex: 1,
+        paddingBottom: 10,
+        gap: 5,
+	},
+	infoText: {
+		color: "#666",
+		fontSize: 14,
+		fontWeight: "400",
+        textAlign: "center",
+	},
+});
