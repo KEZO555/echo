@@ -349,6 +349,7 @@ export default function PlayingScreen() {
 	useFocusEffect(
 		React.useCallback(() => {
 			setIsLoading(true);
+			setPlaybackState(null);
 			fetchAndUpdatePlaybackState();
 
 			const intervalId = setInterval(() => {
