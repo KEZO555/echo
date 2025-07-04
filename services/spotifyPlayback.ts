@@ -743,49 +743,14 @@ export const playTrackWithContext = async (
 		}
 
 		if (
-			(sourceContext?.uri || sourceContext?.type === "liked") &&
+			sourceContext?.uri &&
 			validToken &&
 			sourceContext.type !== "artist"
 		) {
 			try {
-				console.log(
-					"Playback: Setting context via Web API for",
-					sourceContext.type
-				);
+				console.log("Playback: Setting context via Web API");
 
-				const requestBody: {
-					context_uri?: string;
-					offset?: { uri: string };
-					uris?: string[];
-				} = {};
-
-				if (sourceContext.type === "liked") {
-					if (sourceContext.tracks && sourceContext.tracks.length > 0) {
-						const trackUris = sourceContext.tracks.map(
-							(track: any) => track.uri
-						);
-						const startIndex =
-							sourceContext.currentIndex ?? trackUris.indexOf(trackUri);
-
-						if (startIndex !== -1) {
-							const reorderedUris = [
-								...trackUris.slice(startIndex),
-								...trackUris.slice(0, startIndex),
-							];
-							requestBody.uris = reorderedUris;
-						} else {
-							requestBody.uris = trackUris;
-						}
-					} else {
-						requestBody.uris = [trackUri];
-					}
-				} else if (sourceContext.uri) {
-					requestBody.context_uri = sourceContext.uri;
-					requestBody.offset = { uri: trackUri };
-				} else {
-					throw new Error("Invalid context for Web API playback");
-				}
-
+				// Web API to set context + track offset
 				const response = await fetch(
 					"https://api.spotify.com/v1/me/player/play",
 					{
@@ -794,14 +759,18 @@ export const playTrackWithContext = async (
 							Authorization: `Bearer ${validToken}`,
 							"Content-Type": "application/json",
 						},
-						body: JSON.stringify(requestBody),
+						body: JSON.stringify({
+							context_uri: sourceContext.uri,
+							offset: { uri: trackUri }, // Start from specific track
+						}),
 					}
 				);
 
 				if (response.ok) {
-					console.log(
-						"Playback: Web API successfully set context and initiated playback."
-					);
+					console.log("Playback: Context set, starting playback");
+					await new Promise((resolve) => setTimeout(resolve, 500)); // Wait for context
+					await SpotifySdk.play(); // Native SDK control
+					console.log("Playback: Started with context");
 					return;
 				} else if (response.status === 401) {
 					console.log(
@@ -809,14 +778,9 @@ export const playTrackWithContext = async (
 					);
 					throw new Error("Token expired - using fallback");
 				} else {
-					const errorBody = await response.text();
 					console.log(
 						"Playback: Web API context failed with status:",
-						response.status,
-						errorBody
-					);
-					throw new Error(
-						`Web API context failed with status: ${response.status}`
+						response.status
 					);
 				}
 			} catch (webApiError) {

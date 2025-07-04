@@ -80,15 +80,18 @@ export default function LikedSongsScreen() {
 			<HapticPressable
 				style={styles.itemContainer}
 				onPress={async () => {
-					const collectionUri = user?.id
-						? `spotify:user:${user.id}:collection`
-						: undefined;
+					if (!user?.id) {
+						logError("Cannot play track: User not loaded");
+						return;
+					}
+
+					const collectionUri = `spotify:user:${user.id}:collection`;
 
 					try {
 						await playTrackWithContext(item.track.uri, {
 							type: "liked",
 							uri: collectionUri,
-							tracks: savedTracks?.map((t) => t.track) || [],
+							tracks: savedTracks || [],
 							currentIndex: index,
 						});
 						router.push("/playing");

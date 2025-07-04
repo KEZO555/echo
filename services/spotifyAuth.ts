@@ -110,6 +110,13 @@ export const loginWithSpotify = async (
 			}
 
 			console.log("Auth: Authentication successful with refresh token");
+			// Fetch user info after successful authentication (without triggering data fetch)
+			await fetchUserInfo(
+				tokenResponse.access_token,
+				onUserUpdate,
+				() => Promise.resolve(), // Empty function - don't fetch data here
+				undefined // ensureValidToken not needed here since we have a fresh token
+			);
 		} else {
 			console.error(
 				"Auth: Authentication failed:",
