@@ -58,7 +58,7 @@ const CustomScrollView = <T,>({
 	return (
 		<View style={styles.container}>
 			<FlatList
-				style={[{ width: "100%", backgroundColor: "black" }, style]}
+				style={[{ width: "100%" }, style]}
 				contentContainerStyle={[{ flexGrow: 1 }, contentContainerStyle]}
 				showsVerticalScrollIndicator={false}
 				overScrollMode="never"
