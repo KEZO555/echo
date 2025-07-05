@@ -13,6 +13,7 @@ import { HapticPressable } from "@/components/HapticPressable";
 import { StyledText } from "@/components/StyledText";
 import ContentContainer from "@/components/ContentContainer";
 import CustomScrollView from "@/components/CustomScrollView";
+import { logError } from "@/utils/logger";
 
 type SearchItem =
 	| { type: "track"; data: SpotifyTrack }

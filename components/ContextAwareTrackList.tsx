@@ -7,6 +7,7 @@ import {
 	StyleSheet,
 } from "react-native";
 import { useAuth } from "../contexts/AuthContext";
+import { log, logError } from "../utils/logger";
 
 interface Track {
 	uri: string;
@@ -206,4 +207,3 @@ export default ContextAwareTrackList;
 	title={`${artist.name} - Top Tracks`}
 />
 */
-import { log, logError } from "../utils/logger";

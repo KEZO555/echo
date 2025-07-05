@@ -7,6 +7,7 @@ import { useInvertColors } from "@/contexts/InvertColorsContext";
 import * as Haptics from "expo-haptics";
 import { MaterialIcons } from "@expo/vector-icons";
 import { HapticPressable } from "@/components/HapticPressable";
+import { log, logError } from "@/utils/logger";
 
 export default function NamePlaylistScreen() {
 	const [playlistName, setPlaylistName] = useState("");

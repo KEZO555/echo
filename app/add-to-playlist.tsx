@@ -12,6 +12,7 @@ import { MaterialIcons } from "@expo/vector-icons";
 import ContentContainer from "@/components/ContentContainer";
 import { useInvertColors } from "@/contexts/InvertColorsContext";
 import CustomScrollView from "@/components/CustomScrollView";
+import { log, logError } from "@/utils/logger";
 
 export default function AddToPlaylistScreen() {
 	const {

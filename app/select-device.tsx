@@ -7,6 +7,7 @@ import { SpotifyDevice } from "@/types/spotify";
 import { router } from "expo-router";
 import ContentContainer from "@/components/ContentContainer";
 import CustomScrollView from "@/components/CustomScrollView";
+import { logError } from "@/utils/logger";
 
 export default function SelectDeviceScreen() {
 	const { makeApiRequest, ensureValidToken } = useAuth();
