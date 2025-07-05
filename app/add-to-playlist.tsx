@@ -150,15 +150,17 @@ export default function AddToPlaylistScreen() {
 						{item.owner.display_name || item.owner.id}
 					</StyledText>
 				</View>
-				<MaterialIcons
-					name={
-						isSelected
-							? "radio-button-checked"
-							: "radio-button-unchecked"
-					}
-					size={24}
-					color={ invertColors ? "black" : "white" }
-				/>
+                <View style={{ marginRight: 15 }}>
+                    <MaterialIcons
+                        name={
+                            isSelected
+                                ? "radio-button-checked"
+                                : "radio-button-unchecked"
+                        }
+                        size={24}
+                        color={ invertColors ? "black" : "white" }
+                    />
+                </View>
 			</HapticPressable>
 		);
 	};
@@ -282,7 +284,7 @@ const styles = StyleSheet.create({
 	textContainer: {
 		flex: 1,
 		gap: 0,
-		marginRight: 10,
+		marginRight: 15,
 	},
 	playlistName: {
 		fontSize: 22,
