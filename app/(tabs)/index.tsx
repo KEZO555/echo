@@ -90,8 +90,13 @@ export default function LikedSongsScreen() {
 					const collectionUri = `spotify:user:${user.id}:collection`;
 
 					try {
-						const playbackState = await getPlaybackState();
-						const wasShuffling = playbackState?.shuffle_state;
+						let wasShuffling = false;
+						try {
+							const playbackState = await getPlaybackState();
+							wasShuffling = !!playbackState?.shuffle_state;
+						} catch (e) {
+							logWarn("Could not get playback state, proceeding without shuffle workaround");
+						}
 						if (wasShuffling) {
 							await toggleShuffle(false);
 						}
