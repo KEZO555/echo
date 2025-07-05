@@ -6,6 +6,7 @@ import type {
 	SpotifyImage,
 } from "../types/spotify";
 import { loadCachedAlbumArt, saveCachedAlbumArt } from "../utils/cache";
+import { log, logError } from "../utils/logger";
 
 export const ensureAppRemoteConnection = async (): Promise<boolean> => {
 	try {
@@ -23,17 +24,17 @@ export const ensureAppRemoteConnection = async (): Promise<boolean> => {
 			await new Promise((resolve) => setTimeout(resolve, 250));
 			return true;
 		} else {
-			console.log("Playback: Failed to connect to App Remote");
+			log("Playback: Failed to connect to App Remote");
 			return false;
 		}
 	} catch (error) {
-		console.log("Playback: Error connecting to App Remote:", error);
+		log("Playback: Error connecting to App Remote:", error);
 		return false;
 	}
 };
 
 export const forceAppRemoteConnection = async (): Promise<boolean> => {
-	console.log("Playback: Attempting force connection...");
+	log("Playback: Attempting force connection...");
 
 	try {
 		await SpotifySdk.disconnect();
@@ -52,7 +53,7 @@ export const forceAppRemoteConnection = async (): Promise<boolean> => {
 				return true;
 			}
 		} catch (error) {
-			console.log(`Playback: Connection attempt ${i + 1} failed`);
+			log(`Playback: Connection attempt ${i + 1} failed`);
 		}
 
 		if (i < 2) {
@@ -60,7 +61,7 @@ export const forceAppRemoteConnection = async (): Promise<boolean> => {
 		}
 	}
 
-	console.log("Playback: Force connection failed");
+	log("Playback: Force connection failed");
 	return false;
 };
 
@@ -71,7 +72,7 @@ export const playTrackWithNativeSdk = async (
 	accessToken?: string | null,
 	ensureValidToken?: () => Promise<string | null>
 ): Promise<void> => {
-	console.log(`Playback: Playing track: ${trackUri.split(":").pop()}`);
+	log(`Playback: Playing track: ${trackUri.split(":").pop()}`);
 
 	try {
 		let connected = await ensureAppRemoteConnection();
@@ -89,7 +90,7 @@ export const playTrackWithNativeSdk = async (
 		}
 
 		if (!connected) {
-			console.error("Playback: Cannot play - not connected to Spotify");
+			logError("Playback: Cannot play - not connected to Spotify");
 			return;
 		}
 
@@ -121,12 +122,12 @@ export const playTrackWithNativeSdk = async (
 				);
 
 				if (response.ok) {
-					console.log(
+					log(
 						"Playback: Web API successfully set context and initiated playback."
 					);
 					return;
 				} else if (response.status === 401) {
-					console.log(
+					log(
 						"Playback: Token expired, falling back to direct play"
 					);
 					throw new Error("Token expired - using fallback");
@@ -134,25 +135,25 @@ export const playTrackWithNativeSdk = async (
 					throw new Error("Web API context failed");
 				}
 			} catch (webApiError: any) {
-				console.log(
+				log(
 					"Playback: Web API error, using fallback method:",
 					webApiError.message
 				);
 				const playResult = await SpotifySdk.play(trackUri);
 				if (playResult.playing) {
-					console.log("Playback: Direct track playback started");
+					log("Playback: Direct track playback started");
 				}
 			}
 		} else {
 			const playResult = await SpotifySdk.play(trackUri);
 			if (playResult.playing) {
-				console.log(
+				log(
 					"Playback: Native SDK direct playback started successfully"
 				);
 			}
 		}
 	} catch (error: any) {
-		console.error("Playback: Error with playback:", error);
+		logError("Playback: Error with playback:", error);
 		throw error;
 	}
 };
@@ -165,7 +166,7 @@ export const getPlaybackStateFromNativeSdk = async (
 	try {
 		const connected = await ensureAppRemoteConnection();
 		if (!connected) {
-			console.log(
+			log(
 				"Playback: Cannot get playback state - App Remote not connected"
 			);
 			return null;
@@ -173,7 +174,7 @@ export const getPlaybackStateFromNativeSdk = async (
 
 		const playerState = await SpotifySdk.getPlayerState();
 		if (!playerState || !playerState.track) {
-			console.log("Playback: No player state or track available");
+			log("Playback: No player state or track available");
 			return null;
 		}
 
@@ -189,7 +190,7 @@ export const getPlaybackStateFromNativeSdk = async (
 			} else {
 				// 2. Try native SDK current track image (most direct approach)
 				try {
-					console.log(
+					log(
 						"Playback: Attempting to get current track image from Native SDK"
 					);
 					const nativeImageUrl =
@@ -206,7 +207,7 @@ export const getPlaybackStateFromNativeSdk = async (
 							},
 						];
 						await saveCachedAlbumArt(albumId, albumImages);
-						console.log(
+						log(
 							"Playback: Got album art from Native SDK (current track)"
 						);
 					} else {
@@ -215,7 +216,7 @@ export const getPlaybackStateFromNativeSdk = async (
 						);
 					}
 				} catch (currentTrackError) {
-					console.log(
+					log(
 						"Playback: getCurrentTrackImage failed, trying album URI approach:",
 						currentTrackError
 					);
@@ -238,7 +239,7 @@ export const getPlaybackStateFromNativeSdk = async (
 								},
 							];
 							await saveCachedAlbumArt(albumId, albumImages);
-							console.log(
+							log(
 								"Playback: Got album art from Native SDK (album URI)"
 							);
 						} else {
@@ -247,7 +248,7 @@ export const getPlaybackStateFromNativeSdk = async (
 							);
 						}
 					} catch (albumUriError) {
-						console.log(
+						log(
 							"Playback: Album URI approach failed, trying track image URI:",
 							albumUriError
 						);
@@ -275,7 +276,7 @@ export const getPlaybackStateFromNativeSdk = async (
 										albumId,
 										albumImages
 									);
-									console.log(
+									log(
 										"Playback: Got album art from Native SDK (track image URI)"
 									);
 								} else {
@@ -287,7 +288,7 @@ export const getPlaybackStateFromNativeSdk = async (
 								throw new Error("No track image URI available");
 							}
 						} catch (trackImageError) {
-							console.log(
+							log(
 								"Playback: All Native SDK approaches failed, falling back to Web API:",
 								trackImageError
 							);
@@ -323,12 +324,12 @@ export const getPlaybackStateFromNativeSdk = async (
 											albumId,
 											albumImages
 										);
-										console.log(
+										log(
 											"Playback: Got album art from Web API fallback"
 										);
 									}
 								} catch (webApiError) {
-									console.log(
+									log(
 										"Playback: Web API failed for album art:",
 										webApiError
 									);
@@ -361,17 +362,17 @@ export const getPlaybackStateFromNativeSdk = async (
 												albumId,
 												albumImages
 											);
-											console.log(
+											log(
 												"Playback: Got album art from Web API fallback (direct fetch)"
 											);
 										}
 									} else if (response.status === 401) {
-										console.log(
+										log(
 											"Playback: Token expired while fetching album art"
 										);
 									}
 								} catch (webApiError) {
-									console.log(
+									log(
 										"Playback: All approaches failed for album art"
 									);
 								}
@@ -461,7 +462,7 @@ export const getPlaybackStateFromNativeSdk = async (
 					: "context",
 		};
 	} catch (error) {
-		console.log("Playback: Error getting playback state:", error);
+		log("Playback: Error getting playback state:", error);
 		return null;
 	}
 };
@@ -471,9 +472,9 @@ export const startPlayback = async (): Promise<void> => {
 		const connected = await ensureAppRemoteConnection();
 		if (!connected) return;
 		const result = await SpotifySdk.resume();
-		if (result.resumed) console.log("Playback: Playback resumed");
+		if (result.resumed) log("Playback: Playback resumed");
 	} catch (error) {
-		console.error("Playback: Error starting playback:", error);
+		logError("Playback: Error starting playback:", error);
 	}
 };
 
@@ -482,9 +483,9 @@ export const pausePlayback = async (): Promise<void> => {
 		const connected = await ensureAppRemoteConnection();
 		if (!connected) return;
 		const result = await SpotifySdk.pause();
-		if (result.paused) console.log("Playback: Playback paused");
+		if (result.paused) log("Playback: Playback paused");
 	} catch (error) {
-		console.error("Playback: Error pausing playback:", error);
+		logError("Playback: Error pausing playback:", error);
 	}
 };
 
@@ -493,9 +494,9 @@ export const skipToNext = async (): Promise<void> => {
 		const connected = await ensureAppRemoteConnection();
 		if (!connected) return;
 		const result = await SpotifySdk.skipNext();
-		if (result.skipped) console.log("Playback: Skipped to next track");
+		if (result.skipped) log("Playback: Skipped to next track");
 	} catch (error) {
-		console.error("Playback: Error skipping to next track:", error);
+		logError("Playback: Error skipping to next track:", error);
 	}
 };
 
@@ -504,9 +505,9 @@ export const skipToPrevious = async (): Promise<void> => {
 		const connected = await ensureAppRemoteConnection();
 		if (!connected) return;
 		const result = await SpotifySdk.skipPrevious();
-		if (result.skipped) console.log("Playback: Skipped to previous track");
+		if (result.skipped) log("Playback: Skipped to previous track");
 	} catch (error) {
-		console.error("Playback: Error skipping to previous track:", error);
+		logError("Playback: Error skipping to previous track:", error);
 	}
 };
 
@@ -515,9 +516,9 @@ export const toggleShuffle = async (state: boolean): Promise<void> => {
 		const connected = await ensureAppRemoteConnection();
 		if (!connected) return;
 		const result = await SpotifySdk.setShuffle(state);
-		if (result.shuffleSet) console.log(`Playback: Shuffle set to ${state}`);
+		if (result.shuffleSet) log(`Playback: Shuffle set to ${state}`);
 	} catch (error) {
-		console.error("Playback: Error toggling shuffle:", error);
+		logError("Playback: Error toggling shuffle:", error);
 	}
 };
 
@@ -531,9 +532,9 @@ export const toggleRepeat = async (
 		// OFF = 0, ONE = 1 (track), ALL = 2 (context)
 		const repeatMode = state === "off" ? 0 : state === "track" ? 1 : 2;
 		const result = await SpotifySdk.setRepeat(repeatMode);
-		if (result.repeatSet) console.log(`Playback: Repeat set to ${state}`);
+		if (result.repeatSet) log(`Playback: Repeat set to ${state}`);
 	} catch (error) {
-		console.error("Playback: Error toggling repeat:", error);
+		logError("Playback: Error toggling repeat:", error);
 	}
 };
 
@@ -542,9 +543,9 @@ export const seekToPosition = async (positionMs: number): Promise<void> => {
 		const connected = await ensureAppRemoteConnection();
 		if (!connected) return;
 		const result = await SpotifySdk.seekTo(positionMs);
-		if (result.seeked) console.log("Playback: Seek completed");
+		if (result.seeked) log("Playback: Seek completed");
 	} catch (error) {
-		console.error("Playback: Error seeking:", error);
+		logError("Playback: Error seeking:", error);
 	}
 };
 
@@ -563,7 +564,7 @@ export const getCurrentTrack = async (): Promise<any | null> => {
 			repeatMode: playerState.playbackOptions.repeatMode,
 		};
 	} catch (error) {
-		console.log("Playback: Error getting current track:", error);
+		log("Playback: Error getting current track:", error);
 		return null;
 	}
 };
@@ -579,18 +580,18 @@ export const getAlbumArt = async (
 		// If no URI provided, get current track image directly
 		if (!uri) {
 			try {
-				console.log(
+				log(
 					"Playback: Getting current track image from Native SDK"
 				);
 				const imageUrl = await SpotifySdk.getCurrentTrackImage(size);
 				if (imageUrl && imageUrl.startsWith("data:image/")) {
-					console.log(
+					log(
 						"Playback: Successfully got current track image from Native SDK"
 					);
 					return imageUrl;
 				}
 			} catch (error) {
-				console.log(
+				log(
 					"Playback: getCurrentTrackImage failed, trying player state approach:",
 					error
 				);
@@ -602,7 +603,7 @@ export const getAlbumArt = async (
 				if (!playerState || !playerState.track) return null;
 				uri = playerState.track.album.uri;
 			} catch (error) {
-				console.log(
+				log(
 					"Playback: Failed to get player state for album art:",
 					error
 				);
@@ -612,17 +613,17 @@ export const getAlbumArt = async (
 
 		// Try to get image with provided or derived URI
 		if (uri) {
-			console.log("Playback: Getting image for URI:", uri);
+			log("Playback: Getting image for URI:", uri);
 			const imageUrl = await SpotifySdk.getImage(uri, size);
 			if (imageUrl && imageUrl.startsWith("data:image/")) {
-				console.log("Playback: Successfully got image from Native SDK");
+				log("Playback: Successfully got image from Native SDK");
 				return imageUrl;
 			}
 		}
 
 		return null;
 	} catch (error) {
-		console.log("Playback: Error getting album art:", error);
+		log("Playback: Error getting album art:", error);
 		return null;
 	}
 };
@@ -657,13 +658,13 @@ export const searchItems = async (
 		});
 		if (!response.ok) {
 			if (response.status === 401) {
-				console.log("Search: Token expired");
+				log("Search: Token expired");
 			}
 			return null;
 		}
 		return await response.json();
 	} catch (error) {
-		console.error("Playback: Search error:", error);
+		logError("Playback: Search error:", error);
 		return null;
 	}
 };
@@ -700,11 +701,11 @@ export const addTrackToPlaylist = async (
 			}
 		);
 		if (!response.ok && response.status === 401) {
-			console.log("AddTrackToPlaylist: Token expired");
+			log("AddTrackToPlaylist: Token expired");
 		}
 		return response.ok;
 	} catch (error) {
-		console.error("Playback: Error adding track to playlist:", error);
+		logError("Playback: Error adding track to playlist:", error);
 		return false;
 	}
 };
@@ -720,7 +721,7 @@ export const playTrackWithContext = async (
 	},
 	ensureValidToken?: () => Promise<string | null>
 ): Promise<void> => {
-	console.log(
+	log(
 		"Playback: Playing track with context:",
 		sourceContext?.type || "none"
 	);
@@ -729,7 +730,7 @@ export const playTrackWithContext = async (
 		// Ensure we have App Remote connection
 		const connected = await ensureAppRemoteConnection();
 		if (!connected) {
-			console.log("Playback: Cannot play - App Remote not connected");
+			log("Playback: Cannot play - App Remote not connected");
 			return;
 		}
 
@@ -739,28 +740,28 @@ export const playTrackWithContext = async (
 			sourceContext.type !== "artist"
 		) {
 			try {
-				console.log("Playback: Setting context via Web API");
+				log("Playback: Setting context via Web API");
 
 				// Always validate token before attempting playback to ensure context works
 				let validToken = accessToken;
 				if (ensureValidToken) {
-					console.log("Playback: Validating token before context playback...");
+					log("Playback: Validating token before context playback...");
 					const refreshedToken = await ensureValidToken();
 					if (refreshedToken) {
 						validToken = refreshedToken;
-						console.log("Playback: Using validated/refreshed token");
+						log("Playback: Using validated/refreshed token");
 					} else {
-						console.log("Playback: Token validation failed, cannot set context");
+						log("Playback: Token validation failed, cannot set context");
 						throw new Error("Token validation failed");
 					}
 				}
 
 				if (!validToken) {
-					console.log("Playback: No valid token available, falling back to direct play");
+					log("Playback: No valid token available, falling back to direct play");
 					throw new Error("No valid token");
 				}
 
-				console.log("Playback: Making Web API call with context:", {
+				log("Playback: Making Web API call with context:", {
 					contextUri: sourceContext.uri,
 					trackUri: trackUri,
 					tokenLength: validToken.length
@@ -780,7 +781,7 @@ export const playTrackWithContext = async (
 					
 					if (devicesResponse.ok) {
 						const devicesData = await devicesResponse.json();
-						console.log("Playback: Available devices:", devicesData.devices?.length || 0);
+						log("Playback: Available devices:", devicesData.devices?.length || 0);
 						
 						// Find an active device or use the first available one
 						const activeDevice = devicesData.devices?.find((d: any) => d.is_active);
@@ -788,19 +789,19 @@ export const playTrackWithContext = async (
 						deviceId = activeDevice?.id || availableDevice?.id;
 						
 						if (deviceId) {
-							console.log("Playback: Using device:", {
+							log("Playback: Using device:", {
 								id: deviceId,
 								name: activeDevice?.name || availableDevice?.name,
 								isActive: !!activeDevice
 							});
 						} else {
-							console.log("Playback: No devices found, trying without device_id");
+							log("Playback: No devices found, trying without device_id");
 						}
 					} else {
-						console.log("Playback: Failed to get devices, proceeding without device_id");
+						log("Playback: Failed to get devices, proceeding without device_id");
 					}
 				} catch (deviceError) {
-					console.log("Playback: Device detection failed, proceeding without device_id:", deviceError);
+					log("Playback: Device detection failed, proceeding without device_id:", deviceError);
 				}
 
 				// Prepare the playback request body
@@ -828,25 +829,25 @@ export const playTrackWithContext = async (
 					body: JSON.stringify(playbackBody),
 				});
 
-				console.log("Playback: Web API response status:", response.status);
+				log("Playback: Web API response status:", response.status);
 
 				if (response.ok) {
-					console.log("Playback: Context set successfully, starting playback");
+					log("Playback: Context set successfully, starting playback");
 					await new Promise((resolve) => setTimeout(resolve, 500)); // Wait for context
 					await SpotifySdk.play(); // Native SDK control
-					console.log("Playback: Started with context");
+					log("Playback: Started with context");
 					return;
 				} else if (response.status === 401) {
 					const errorText = await response.text();
-					console.log("Playback: Token expired during context call:", errorText);
+					log("Playback: Token expired during context call:", errorText);
 					throw new Error("Token expired - using fallback");
 				} else if (response.status === 404) {
 					const errorText = await response.text();
-					console.log("Playback: Device not found (404):", errorText);
+					log("Playback: Device not found (404):", errorText);
 					throw new Error("Device not found - using fallback");
 				} else {
 					const errorText = await response.text();
-					console.log("Playback: Web API context failed:", {
+					log("Playback: Web API context failed:", {
 						status: response.status,
 						statusText: response.statusText,
 						error: errorText
@@ -854,7 +855,7 @@ export const playTrackWithContext = async (
 					throw new Error(`HTTP ${response.status} - using fallback`);
 				}
 			} catch (webApiError: any) {
-				console.log(
+				log(
 					"Playback: Web API context failed, falling back to direct play:",
 					webApiError.message
 				);
@@ -862,11 +863,11 @@ export const playTrackWithContext = async (
 		}
 
 		// Fallback: Direct track play (no context)
-		console.log("Playback: Direct track play (no context)");
+		log("Playback: Direct track play (no context)");
 		await SpotifySdk.play(trackUri);
-		console.log("Playback: Direct playback started");
+		log("Playback: Direct playback started");
 	} catch (error) {
-		console.error("Playback: Error in playTrackWithContext:", error);
+		logError("Playback: Error in playTrackWithContext:", error);
 		throw error;
 	}
 };

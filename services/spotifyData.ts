@@ -1,5 +1,6 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { ALBUMS_KEY, SAVED_TRACKS_KEY } from "../constants/spotify";
+import { log, logError } from "../utils/logger";
 import type {
 	SpotifyPlaylist,
 	SpotifySavedAlbum,
@@ -197,7 +198,7 @@ export const saveAlbum = async (
 		);
 
 		if (response.ok) {
-			console.log(`Album ${albumId} saved successfully`);
+			log(`Album ${albumId} saved successfully`);
 			// Update local cache to reflect the change
 			try {
 				// First, we need to get the album details to add to cache
@@ -228,23 +229,23 @@ export const saveAlbum = async (
 						ALBUMS_KEY,
 						JSON.stringify(parsedAlbums)
 					);
-					console.log(
+					log(
 						`Updated cached albums: added album ${albumId}`
 					);
 					return true;
 				}
 			} catch (cacheError) {
-				console.error("Error updating albums cache:", cacheError);
+				logError("Error updating albums cache:", cacheError);
 				return true; // Still return true since the API call succeeded
 			}
 			return true;
 		} else {
 			const errorData = await response.json();
-			console.error("Failed to save album:", errorData);
+			logError("Failed to save album:", errorData);
 			return false;
 		}
 	} catch (error) {
-		console.error("Error saving album:", error);
+		logError("Error saving album:", error);
 		return false;
 	}
 };
@@ -281,7 +282,7 @@ export const removeAlbum = async (
 		);
 
 		if (response.ok) {
-			console.log(`Album ${albumId} removed successfully`);
+			log(`Album ${albumId} removed successfully`);
 			// Update cached albums to remove the deleted album
 			try {
 				const cachedAlbums = await AsyncStorage.getItem(ALBUMS_KEY);
@@ -294,21 +295,21 @@ export const removeAlbum = async (
 						ALBUMS_KEY,
 						JSON.stringify(parsedAlbums)
 					);
-					console.log(
+					log(
 						`Updated cached albums: removed album ${albumId}`
 					);
 				}
 			} catch (cacheError) {
-				console.error("Error updating albums cache:", cacheError);
+				logError("Error updating albums cache:", cacheError);
 			}
 			return true;
 		} else {
 			const errorData = await response.json();
-			console.error("Failed to remove album:", errorData);
+			logError("Failed to remove album:", errorData);
 			return false;
 		}
 	} catch (error) {
-		console.error("Error removing album:", error);
+		logError("Error removing album:", error);
 		return false;
 	}
 };
@@ -327,14 +328,14 @@ export const checkIfAlbumIsSaved = async (
 				(savedAlbum: any) => savedAlbum.album?.id === albumId
 			);
 			if (isAlbumInCache) {
-				console.log(
+				log(
 					`Album ${albumId} found in offline cache - it's saved`
 				);
 				return true;
 			}
 		}
 	} catch (error) {
-		console.error("Error checking cached saved albums:", error);
+		logError("Error checking cached saved albums:", error);
 	}
 
 	// Only make API call if we have access token and the album wasn't found in cache
@@ -361,7 +362,7 @@ export const checkIfAlbumIsSaved = async (
 			}
 		);
 		if (!response.ok) {
-			console.error(
+			logError(
 				"Failed to check if album is saved",
 				await response.json()
 			);
@@ -369,12 +370,12 @@ export const checkIfAlbumIsSaved = async (
 		}
 		const data: boolean[] = await response.json();
 		if (data && data.length > 0) {
-			console.log(`Album ${albumId} API check - saved: ${data[0]}`);
+			log(`Album ${albumId} API check - saved: ${data[0]}`);
 			return data[0];
 		}
 		return false;
 	} catch (error) {
-		console.log(
+		log(
 			"Error checking if album is saved (likely offline):",
 			error
 		);

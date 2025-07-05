@@ -35,7 +35,7 @@ const ContextAwareTrackList: React.FC<ContextAwareTrackListProps> = ({
 		// Extract the actual track URI (handle saved tracks format)
 		const trackUri = track.track?.uri || track.uri;
 
-		console.log(
+		log(
 			`Playing track ${index + 1}: ${track.name || track.track?.name}`
 		);
 
@@ -59,7 +59,7 @@ const ContextAwareTrackList: React.FC<ContextAwareTrackListProps> = ({
 				currentIndex: index,
 			});
 		} catch (error) {
-			console.error("Error playing track with context:", error);
+			logError("Error playing track with context:", error);
 		}
 	};
 
@@ -206,3 +206,4 @@ export default ContextAwareTrackList;
 	title={`${artist.name} - Top Tracks`}
 />
 */
+import { log, logError } from "../utils/logger";

@@ -87,7 +87,7 @@ export default function SearchResultsScreen() {
 
 					setResults(newResults);
 				})
-				.catch((error) => console.error("Search error:", error))
+				.catch((error) => logError("Search error:", error))
 				.finally(() => setLoading(false));
 		} else {
 			setResults([]);
@@ -140,7 +140,7 @@ export default function SearchResultsScreen() {
 							await playTrack(itemUri, undefined, contextUri);
 							router.push("/playing");
 						} catch (error) {
-							console.error("Error playing track:", error);
+							logError("Error playing track:", error);
 							// Still navigate to playing screen even if playback fails
 							router.push("/playing");
 						}

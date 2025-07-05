@@ -29,14 +29,14 @@ export default function NamePlaylistScreen() {
 		}
 
 		if (!user || !user.id) {
-			console.error("Create Playlist Error: Missing user ID");
+			logError("Create Playlist Error: Missing user ID");
 			return;
 		}
 
 		try {
 			const validToken = await ensureValidToken();
 			if (!validToken) {
-				console.error(
+				logError(
 					"Create Playlist Error: No valid token available"
 				);
 				return;
@@ -59,7 +59,7 @@ export default function NamePlaylistScreen() {
 
 			if (response.ok) {
 				const newPlaylist = await response.json();
-				console.log("Playlist created successfully:", newPlaylist);
+				log("Playlist created successfully:", newPlaylist);
 				if (fetchPlaylists) {
 					await fetchPlaylists();
 				}
@@ -70,10 +70,10 @@ export default function NamePlaylistScreen() {
 				}
 			} else {
 				const errorData = await response.json();
-				console.error("Error creating playlist:", errorData);
+				logError("Error creating playlist:", errorData);
 			}
 		} catch (error) {
-			console.error("Error creating playlist:", error);
+			logError("Error creating playlist:", error);
 		}
 	};
 

@@ -17,6 +17,7 @@ import { useRouter } from "expo-router";
 import ContentContainer from "@/components/ContentContainer";
 import { useTabPreferences } from "@/contexts/TabPreferencesContext";
 import CustomScrollView from "@/components/CustomScrollView";
+import { log, logError } from "@/utils/logger";
 
 export default function AlbumsScreen() {
 	const {
@@ -103,7 +104,7 @@ export default function AlbumsScreen() {
 						} as any);
 					}
 				} catch (error) {
-					console.error(
+					logError(
 						"Error fetching album details for navigation:",
 						error
 					);

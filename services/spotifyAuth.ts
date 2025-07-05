@@ -11,6 +11,7 @@ import {
 } from "../constants/spotify";
 import { clearCachedData } from "../utils/cache";
 import { exchangeCodeForTokens } from "../services/tokenExchange";
+import { log, logError } from "../utils/logger";
 import type {
 	SpotifyPlaylistsResponse,
 	SpotifySavedAlbumsResponse,
@@ -27,7 +28,7 @@ export const loginWithSpotify = async (
 	fetchInitialData: (token: string) => Promise<void>
 ): Promise<void> => {
 	try {
-		console.log(
+		log(
 			"Auth: Starting authentication with CODE flow via server..."
 		);
 
@@ -42,7 +43,7 @@ export const loginWithSpotify = async (
 		);
 
 		if (authResult.success && authResult.data?.authorizationCode) {
-			console.log(
+			log(
 				"Auth: Authorization code received, exchanging for tokens via server..."
 			);
 
@@ -90,13 +91,13 @@ export const loginWithSpotify = async (
 
 			// Immediately establish App Remote connection after authentication
 			try {
-				console.log("Auth: Establishing App Remote connection...");
+				log("Auth: Establishing App Remote connection...");
 				const connectionResult = await SpotifySdk.connect(
 					SPOTIFY_CLIENT_ID,
 					REDIRECT_URI
 				);
 				if (connectionResult.connected) {
-					console.log("Auth: App Remote connected successfully");
+					log("Auth: App Remote connected successfully");
 				} else {
 					console.warn(
 						"Auth: App Remote connection failed, will retry on first play"
@@ -109,7 +110,7 @@ export const loginWithSpotify = async (
 				);
 			}
 
-			console.log("Auth: Authentication successful with refresh token");
+			log("Auth: Authentication successful with refresh token");
 			// Fetch user info after successful authentication (without triggering data fetch)
 			await fetchUserInfo(
 				tokenResponse.access_token,
@@ -118,7 +119,7 @@ export const loginWithSpotify = async (
 				undefined // ensureValidToken not needed here since we have a fresh token
 			);
 		} else {
-			console.error(
+			logError(
 				"Auth: Authentication failed:",
 				authResult.error || "No authorization code received"
 			);
@@ -128,7 +129,7 @@ export const loginWithSpotify = async (
 			);
 		}
 	} catch (error) {
-		console.error("Auth: Error during authentication:", error);
+		logError("Auth: Error during authentication:", error);
 		throw error;
 	}
 };
@@ -136,14 +137,14 @@ export const loginWithSpotify = async (
 export const logoutFromSpotify = async (
 	clearState: () => void
 ): Promise<void> => {
-	console.log("Logging out...");
+	log("Logging out...");
 	// Disable auto-connect and clear native SDK session
 	try {
 		await SpotifySdk.enableAutoConnect(false);
 		await SpotifySdk.disconnect();
 		await SpotifySdk.clearSession();
 	} catch (error) {
-		console.error("Error clearing native SDK session:", error);
+		logError("Error clearing native SDK session:", error);
 	}
 
 	await SecureStore.deleteItemAsync(AUTH_TOKEN_KEY);
@@ -169,12 +170,12 @@ export const loadStoredAuth = async () => {
 
 		// If we have stored tokens, enable auto-connect for App Remote
 		if (storedToken && storedRefreshToken) {
-			console.log("Auth: Found stored tokens, enabling auto-connect");
+			log("Auth: Found stored tokens, enabling auto-connect");
 			await SpotifySdk.enableAutoConnect(true);
 
 			// Immediately establish App Remote connection
 			try {
-				console.log(
+				log(
 					"Auth: Establishing App Remote connection for stored tokens..."
 				);
 				const connectionResult = await SpotifySdk.connect(
@@ -182,7 +183,7 @@ export const loadStoredAuth = async () => {
 					REDIRECT_URI
 				);
 				if (connectionResult.connected) {
-					console.log(
+					log(
 						"Auth: App Remote connected successfully for stored tokens"
 					);
 				}
@@ -201,7 +202,7 @@ export const loadStoredAuth = async () => {
 			tokenExpiry: storedExpiry ? parseInt(storedExpiry) : null,
 		};
 	} catch (error) {
-		console.error("Auth: Error loading stored auth:", error);
+		logError("Auth: Error loading stored auth:", error);
 		return {
 			accessToken: null,
 			refreshToken: null,
@@ -237,7 +238,7 @@ const fetchUserInfo = async (
 		const userData = await response.json();
 		if (!response.ok) {
 			if (response.status === 401) {
-				console.log("Auth: Token expired while fetching user info");
+				log("Auth: Token expired while fetching user info");
 			}
 			throw new Error(
 				`Failed to fetch user info: ${
@@ -250,7 +251,7 @@ const fetchUserInfo = async (
 		// Start fetching other data after user info is successfully retrieved
 		await fetchInitialData(validToken);
 	} catch (error: any) {
-		console.error("Auth: Error fetching user info:", error.message);
+		logError("Auth: Error fetching user info:", error.message);
 		throw error;
 	}
 };
@@ -271,7 +272,7 @@ export const fetchInitialDataInParallel = async (
 		isRefreshing?: boolean
 	) => Promise<any | null>
 ) => {
-	console.log("Auth: Loading user data...");
+	log("Auth: Loading user data...");
 
 	const fetchPlaylists = async () => {
 		try {
@@ -288,7 +289,7 @@ export const fetchInitialDataInParallel = async (
 				onPlaylistsUpdate([], null);
 			}
 		} catch (error: any) {
-			console.error("Auth: Error fetching playlists:", error.message);
+			logError("Auth: Error fetching playlists:", error.message);
 			onPlaylistsUpdate([], null);
 		}
 	};
@@ -308,7 +309,7 @@ export const fetchInitialDataInParallel = async (
 				onAlbumsUpdate([], null);
 			}
 		} catch (error: any) {
-			console.error("Auth: Error fetching albums:", error.message);
+			logError("Auth: Error fetching albums:", error.message);
 			onAlbumsUpdate([], null);
 		}
 	};
@@ -328,7 +329,7 @@ export const fetchInitialDataInParallel = async (
 				onSavedTracksUpdate([], null);
 			}
 		} catch (error: any) {
-			console.error("Auth: Error fetching saved tracks:", error.message);
+			logError("Auth: Error fetching saved tracks:", error.message);
 			onSavedTracksUpdate([], null);
 		}
 	};
@@ -340,8 +341,8 @@ export const fetchInitialDataInParallel = async (
 			fetchAlbums(),
 			fetchSavedTracks(),
 		]);
-		console.log("Auth: Data loaded successfully");
+		log("Auth: Data loaded successfully");
 	} catch (error) {
-		console.error("Auth: Error in parallel data fetching:", error);
+		logError("Auth: Error in parallel data fetching:", error);
 	}
 };

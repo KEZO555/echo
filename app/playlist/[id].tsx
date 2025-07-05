@@ -16,6 +16,7 @@ import { MaterialIcons } from "@expo/vector-icons";
 import { HapticPressable } from "@/components/HapticPressable";
 import ContentContainer from "@/components/ContentContainer";
 import CustomScrollView from "@/components/CustomScrollView";
+import { log, logError } from "@/utils/logger";
 
 // Interface for the structure of a track item within a playlist from Spotify API
 interface PlaylistTrack {
@@ -86,7 +87,7 @@ export default function PlaylistDetailScreen() {
 				(initialPlaylist as SpotifyPlaylistFull).tracks &&
 				(initialPlaylist as SpotifyPlaylistFull).tracks.items
 			) {
-				console.log(
+				log(
 					"Playlist details: Using pre-loaded complete playlist data"
 				);
 				setIsLoading(false);
@@ -108,7 +109,7 @@ export default function PlaylistDetailScreen() {
 					throw new Error("Failed to fetch playlist details");
 				}
 			} catch (e: any) {
-				console.error("Error fetching playlist details:", e);
+				logError("Error fetching playlist details:", e);
 				setError(e.message || "An unexpected error occurred.");
 			} finally {
 				setIsLoading(false);
@@ -146,7 +147,7 @@ export default function PlaylistDetailScreen() {
 				});
 			}
 		} catch (e: any) {
-			console.error("Error fetching more playlist tracks:", e);
+			logError("Error fetching more playlist tracks:", e);
 		} finally {
 			setIsLoadingMoreTracks(false);
 		}
@@ -198,7 +199,7 @@ export default function PlaylistDetailScreen() {
 						});
 						router.push("/playing");
 					} catch (error) {
-						console.error("Error playing track:", error);
+						logError("Error playing track:", error);
 						// Still navigate to playing screen even if playback fails
 						router.push("/playing");
 					}

@@ -5,6 +5,7 @@ import {
 	SAVED_TRACKS_KEY,
 	ALBUM_ART_CACHE_KEY,
 } from "../constants/spotify";
+import { log, logError } from "../utils/logger";
 import type {
 	SpotifyPlaylist,
 	SpotifySavedAlbum,
@@ -44,14 +45,14 @@ export const loadCachedData = async () => {
 
 		// Only log cache loading message if we actually found cached data
 		if (hasAnyCache) {
-			console.log("Cache: Loaded cached data");
+			log("Cache: Loaded cached data");
 		} else {
-			console.log("Cache: No cached data found");
+			log("Cache: No cached data found");
 		}
 
 		return cachedData;
 	} catch (error) {
-		console.error("Cache: Error loading cached data:", error);
+		logError("Cache: Error loading cached data:", error);
 		return {
 			playlists: null,
 			albums: null,
@@ -82,7 +83,7 @@ export const saveCachedData = async (
 			);
 		}
 	} catch (error) {
-		console.error("Cache: Error saving cached data:", error);
+		logError("Cache: Error saving cached data:", error);
 	}
 };
 
@@ -96,7 +97,7 @@ export const loadCachedAlbumArt = async (
 			return albumArtCache[albumId] || null;
 		}
 	} catch (error) {
-		console.error("Cache: Error loading cached album art:", error);
+		logError("Cache: Error loading cached album art:", error);
 	}
 	return null;
 };
@@ -114,7 +115,7 @@ export const saveCachedAlbumArt = async (
 			JSON.stringify(albumArtCache)
 		);
 	} catch (error) {
-		console.error("Cache: Error saving cached album art:", error);
+		logError("Cache: Error saving cached album art:", error);
 	}
 };
 
@@ -124,9 +125,9 @@ export const clearCachedData = async () => {
 		await AsyncStorage.removeItem(ALBUMS_KEY);
 		await AsyncStorage.removeItem(SAVED_TRACKS_KEY);
 		await AsyncStorage.removeItem(ALBUM_ART_CACHE_KEY);
-		console.log("Cache: Cache cleared");
+		log("Cache: Cache cleared");
 	} catch (error) {
-		console.error("Cache: Error clearing cache:", error);
+		logError("Cache: Error clearing cache:", error);
 	}
 };
 
@@ -135,13 +136,13 @@ export const refreshSavedAlbumsFromCache = async () => {
 		const cachedSavedAlbums = await AsyncStorage.getItem(ALBUMS_KEY);
 		if (cachedSavedAlbums) {
 			const parsedAlbums = JSON.parse(cachedSavedAlbums);
-			console.log(
+			log(
 				`Cache: Refreshed saved albums state from cache - ${parsedAlbums.length} albums`
 			);
 			return parsedAlbums;
 		}
 	} catch (error) {
-		console.error(
+		logError(
 			"Cache: Error refreshing saved albums from cache:",
 			error
 		);
@@ -154,13 +155,13 @@ export const refreshSavedTracksFromCache = async () => {
 		const cachedSavedTracks = await AsyncStorage.getItem(SAVED_TRACKS_KEY);
 		if (cachedSavedTracks) {
 			const parsedTracks = JSON.parse(cachedSavedTracks);
-			console.log(
+			log(
 				`Cache: Refreshed saved tracks state from cache - ${parsedTracks.length} tracks`
 			);
 			return parsedTracks;
 		}
 	} catch (error) {
-		console.error(
+		logError(
 			"Cache: Error refreshing saved tracks from cache:",
 			error
 		);

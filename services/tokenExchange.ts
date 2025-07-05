@@ -1,4 +1,5 @@
 import { TOKEN_SWAP_URL, TOKEN_REFRESH_URL } from "../constants/spotify";
+import { log, logError } from "../utils/logger";
 
 export interface TokenExchangeResponse {
 	access_token: string;
@@ -26,7 +27,7 @@ export async function exchangeCodeForTokens(
 	redirectUri: string
 ): Promise<TokenExchangeResponse> {
 	try {
-		console.log(
+		log(
 			"TokenExchange: Exchanging authorization code for tokens via server..."
 		);
 
@@ -44,7 +45,7 @@ export async function exchangeCodeForTokens(
 
 		let data;
 		if (!responseText || responseText.trim() === "") {
-			console.error("TokenExchange: Empty response from server");
+			logError("TokenExchange: Empty response from server");
 			throw new Error(
 				`Empty response from server. Status: ${response.status}`
 			);
@@ -53,21 +54,21 @@ export async function exchangeCodeForTokens(
 		try {
 			data = JSON.parse(responseText);
 		} catch (parseError) {
-			console.error(
+			logError(
 				"TokenExchange: Failed to parse response as JSON:",
 				parseError
 			);
-			console.error("TokenExchange: Response was:", responseText);
+			logError("TokenExchange: Response was:", responseText);
 			throw new Error(
 				`Invalid JSON response from server: ${responseText}`
 			);
 		}
 
-		console.log("TokenExchange: Response status:", response.status);
+		log("TokenExchange: Response status:", response.status);
 
 		if (!response.ok) {
 			const error = data as TokenExchangeError;
-			console.error(
+			logError(
 				"TokenExchange: Failed to exchange code for tokens:",
 				error
 			);
@@ -84,10 +85,10 @@ export async function exchangeCodeForTokens(
 			throw new Error("Token exchange response missing required tokens");
 		}
 
-		console.log("TokenExchange: Successfully exchanged code for tokens");
+		log("TokenExchange: Successfully exchanged code for tokens");
 		return tokenResponse;
 	} catch (error) {
-		console.error("TokenExchange: Error during token exchange:", error);
+		logError("TokenExchange: Error during token exchange:", error);
 		throw error;
 	}
 }
@@ -101,7 +102,7 @@ export async function refreshAccessToken(
 	refreshToken: string
 ): Promise<TokenExchangeResponse> {
 	try {
-		console.log("TokenExchange: Refreshing access token via server...");
+		log("TokenExchange: Refreshing access token via server...");
 
 		const response = await fetch(TOKEN_REFRESH_URL, {
 			method: "POST",
@@ -113,12 +114,12 @@ export async function refreshAccessToken(
 			}),
 		});
 
-		console.log("TokenExchange: Refresh response status:", response.status);
+		log("TokenExchange: Refresh response status:", response.status);
 		const responseText = await response.text();
 
 		let data;
 		if (!responseText || responseText.trim() === "") {
-			console.error("TokenExchange: Empty refresh response from server");
+			logError("TokenExchange: Empty refresh response from server");
 			throw new Error(
 				`Empty refresh response from server. Status: ${response.status}`
 			);
@@ -127,11 +128,11 @@ export async function refreshAccessToken(
 		try {
 			data = JSON.parse(responseText);
 		} catch (parseError) {
-			console.error(
+			logError(
 				"TokenExchange: Failed to parse refresh response as JSON:",
 				parseError
 			);
-			console.error("TokenExchange: Refresh response was:", responseText);
+			logError("TokenExchange: Refresh response was:", responseText);
 			throw new Error(
 				`Invalid JSON refresh response from server: ${responseText}`
 			);
@@ -139,7 +140,7 @@ export async function refreshAccessToken(
 
 		if (!response.ok) {
 			const error = data as TokenExchangeError;
-			console.error("TokenExchange: Failed to refresh token:", error);
+			logError("TokenExchange: Failed to refresh token:", error);
 			throw new Error(
 				`Token refresh failed: ${error.error || "Unknown error"} - ${
 					error.error_description || "Server error"
@@ -156,10 +157,10 @@ export async function refreshAccessToken(
 		// Note: Refresh token may not be returned if Spotify doesn't rotate it
 		// The server will return the original encrypted refresh token in this case
 
-		console.log("TokenExchange: Successfully refreshed access token");
+		log("TokenExchange: Successfully refreshed access token");
 		return tokenResponse;
 	} catch (error) {
-		console.error("TokenExchange: Error during token refresh:", error);
+		logError("TokenExchange: Error during token refresh:", error);
 		throw error;
 	}
 }

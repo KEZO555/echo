@@ -2,10 +2,10 @@ import SpotifySDK from "./index";
 
 export async function testSpotifySDK() {
 	try {
-		console.log("Testing Spotify SDK module...");
+		log("Testing Spotify SDK module...");
 
 		// Test that the module is accessible
-		console.log("SpotifySDK instance:", SpotifySDK);
+		log("SpotifySDK instance:", SpotifySDK);
 
 		// Test a simple function call (should return NOT_IMPLEMENTED error)
 		try {
@@ -15,13 +15,14 @@ export async function testSpotifySDK() {
 				scopes: ["user-read-playback-state"],
 			});
 		} catch (error) {
-			console.log("Expected error from authorize:", error);
+			log("Expected error from authorize:", error);
 		}
 
-		console.log("Spotify SDK module test completed successfully!");
+		log("Spotify SDK module test completed successfully!");
 		return true;
 	} catch (error) {
-		console.error("Spotify SDK module test failed:", error);
+		logError("Spotify SDK module test failed:", error);
 		return false;
 	}
 }
+import { log, logError } from "../utils/logger";

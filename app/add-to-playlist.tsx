@@ -26,7 +26,7 @@ export default function AddToPlaylistScreen() {
 		trackUri?: string;
 	}>();
 	const { trackUri } = params;
-	console.log("AddToPlaylistScreen received params:", params);
+	log("AddToPlaylistScreen received params:", params);
 	const [selectedPlaylists, setSelectedPlaylists] = useState<string[]>([]);
 	const [sortedPlaylists, setSortedPlaylists] = useState<
 		SpotifyPlaylist[] | null
@@ -75,14 +75,14 @@ export default function AddToPlaylistScreen() {
 	const handleDone = async () => {
 		const trackUri = params.trackUri;
 		if (!trackUri) {
-			console.error("Add to playlist: No trackUri provided in params.");
+			logError("Add to playlist: No trackUri provided in params.");
 			return;
 		}
 		if (selectedPlaylists.length === 0) {
 			return;
 		}
 
-		console.log(
+		log(
 			`Attempting to add track ${trackUri} to playlists: ${selectedPlaylists.join(
 				", "
 			)}`
@@ -94,7 +94,7 @@ export default function AddToPlaylistScreen() {
 			try {
 				const success = await addTrackToPlaylist(playlistId, trackUri);
 				if (success) {
-					console.log(
+					log(
 						`Successfully added track to playlist ${playlistId}`
 					);
 					successCount++;
@@ -105,7 +105,7 @@ export default function AddToPlaylistScreen() {
 					failureCount++;
 				}
 			} catch (error) {
-				console.error(
+				logError(
 					`Error adding track to playlist ${playlistId}:`,
 					error
 				);

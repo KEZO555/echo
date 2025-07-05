@@ -15,6 +15,7 @@ import { StyledText } from "@/components/StyledText";
 import { HapticPressable } from "@/components/HapticPressable";
 import ContentContainer from "@/components/ContentContainer";
 import CustomScrollView from "@/components/CustomScrollView";
+import { log, logError } from "@/utils/logger";
 
 export default function AlbumDetailScreen() {
 	const { id, albumString } = useLocalSearchParams<{
@@ -57,7 +58,7 @@ export default function AlbumDetailScreen() {
 			const isSaved = await checkIfAlbumIsSaved(id);
 			setIsAlbumSaved(isSaved);
 		} catch (error) {
-			console.error("Error checking if album is saved:", error);
+			logError("Error checking if album is saved:", error);
 			setIsAlbumSaved(false);
 		} finally {
 			setIsCheckingAlbumSaved(false);
@@ -80,7 +81,7 @@ export default function AlbumDetailScreen() {
 				}
 			}
 		} catch (error) {
-			console.error("Error toggling album save status:", error);
+			logError("Error toggling album save status:", error);
 		}
 	}, [id, isAlbumSaved, saveAlbum, removeAlbum]);
 
@@ -97,7 +98,7 @@ export default function AlbumDetailScreen() {
 				initialAlbum.tracks &&
 				initialAlbum.tracks.items
 			) {
-				console.log(
+				log(
 					"Album details: Using pre-loaded complete album data"
 				);
 				setIsLoading(false);
@@ -119,7 +120,7 @@ export default function AlbumDetailScreen() {
 					throw new Error("Failed to fetch album details");
 				}
 			} catch (e: any) {
-				console.error("Error fetching album details:", e);
+				logError("Error fetching album details:", e);
 				setError(e.message || "An unexpected error occurred.");
 			} finally {
 				setIsLoading(false);
@@ -159,7 +160,7 @@ export default function AlbumDetailScreen() {
 				});
 			}
 		} catch (e: any) {
-			console.error("Error fetching more album tracks:", e);
+			logError("Error fetching more album tracks:", e);
 		} finally {
 			setIsLoadingMoreTracks(false);
 		}
@@ -207,7 +208,7 @@ export default function AlbumDetailScreen() {
 					});
 					router.push("/playing");
 				} catch (error) {
-					console.error("Error playing track:", error);
+					logError("Error playing track:", error);
 					// Still navigate to playing screen even if playback fails
 					router.push("/playing");
 				}

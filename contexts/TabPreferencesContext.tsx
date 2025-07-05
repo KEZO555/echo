@@ -61,7 +61,7 @@ export const TabPreferencesProvider = ({
 					});
 				}
 			} catch (error) {
-				console.error("Error loading tab preferences:", error);
+				logError("Error loading tab preferences:", error);
 			} finally {
 				setIsLoading(false);
 			}
@@ -81,7 +81,7 @@ export const TabPreferencesProvider = ({
 					JSON.stringify(newPreferences)
 				);
 			} catch (error) {
-				console.error("Error saving tab preferences:", error);
+				logError("Error saving tab preferences:", error);
 			}
 		},
 		[preferences]

@@ -24,7 +24,7 @@ export default function SelectDeviceScreen() {
 				setDevices(data.devices);
 			}
 		} catch (error) {
-			console.error("Error fetching devices:", error);
+			logError("Error fetching devices:", error);
 		} finally {
 			setIsLoading(false);
 		}
@@ -48,7 +48,7 @@ export default function SelectDeviceScreen() {
 				body: JSON.stringify({ device_ids: [deviceId] }),
 			});
 		} catch (error) {
-			console.error("Error transferring playback to device:", error);
+			logError("Error transferring playback to device:", error);
 		}
 		if (router.canGoBack()) {
 			router.back();

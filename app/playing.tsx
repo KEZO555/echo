@@ -18,6 +18,7 @@ import { HapticPressable } from "@/components/HapticPressable";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import ContentContainer from "@/components/ContentContainer";
 import { useInvertColors } from "@/contexts/InvertColorsContext";
+import { log, logError } from "@/utils/logger";
 
 const formatTime = (ms: number | null | undefined): string => {
 	if (ms === null || ms === undefined) return "0:00";
@@ -68,14 +69,14 @@ export default function PlayingScreen() {
 				setIsCurrentTrackSaved(isTrackInCache);
 
 				if (isTrackInCache) {
-					console.log(
+					log(
 						`Track ${trackId} found in offline cache - it's saved`
 					);
 					return;
 				}
 			}
 		} catch (error) {
-			console.error("Error checking cached saved tracks:", error);
+			logError("Error checking cached saved tracks:", error);
 		}
 
 		if (!accessToken) {
@@ -90,12 +91,12 @@ export default function PlayingScreen() {
 			);
 			if (data && data.length > 0) {
 				setIsCurrentTrackSaved(data[0]);
-				console.log(`Track ${trackId} API check - saved: ${data[0]}`);
+				log(`Track ${trackId} API check - saved: ${data[0]}`);
 			} else {
 				setIsCurrentTrackSaved(false);
 			}
 		} catch (error) {
-			console.log(
+			log(
 				"Error checking if track is saved (likely offline):",
 				error
 			);
@@ -111,7 +112,7 @@ export default function PlayingScreen() {
 				"Fetch playback state"
 			);
 		} catch (error) {
-			console.error("Error fetching playback state via Web API:", error);
+			logError("Error fetching playback state via Web API:", error);
 			return;
 		}
 		setPlaybackState(state as SpotifyCurrentlyPlaying);
@@ -157,7 +158,7 @@ export default function PlayingScreen() {
 			}
 			await fetchAndUpdatePlaybackState();
 		} catch (error) {
-			console.error("Error toggling playback:", error);
+			logError("Error toggling playback:", error);
 		}
 	};
 
@@ -166,7 +167,7 @@ export default function PlayingScreen() {
 			await skipToNext();
 			await fetchAndUpdatePlaybackState();
 		} catch (error) {
-			console.error("Error skipping to next track:", error);
+			logError("Error skipping to next track:", error);
 		}
 	};
 
@@ -175,7 +176,7 @@ export default function PlayingScreen() {
 			await skipToPrevious();
 			await fetchAndUpdatePlaybackState();
 		} catch (error) {
-			console.error("Error skipping to previous track:", error);
+			logError("Error skipping to previous track:", error);
 		}
 	};
 
@@ -186,7 +187,7 @@ export default function PlayingScreen() {
 			await toggleShuffle(!playbackState.shuffle_state);
 			await fetchAndUpdatePlaybackState();
 		} catch (error) {
-			console.error("Error toggling shuffle:", error);
+			logError("Error toggling shuffle:", error);
 		}
 	};
 
@@ -205,7 +206,7 @@ export default function PlayingScreen() {
 			await toggleRepeat(newState);
 			await fetchAndUpdatePlaybackState();
 		} catch (error) {
-			console.error("Error toggling repeat:", error);
+			logError("Error toggling repeat:", error);
 		}
 	};
 
@@ -228,7 +229,7 @@ export default function PlayingScreen() {
 			progress.setValue(progressRatio > 0 ? progressRatio : 0);
 			await fetchAndUpdatePlaybackState();
 		} catch (error) {
-			console.error("Error seeking track:", error);
+			logError("Error seeking track:", error);
 		}
 	};
 
@@ -268,7 +269,7 @@ export default function PlayingScreen() {
 
 			if (response.ok) {
 				setIsCurrentTrackSaved(!currentlySaved);
-				console.log(
+				log(
 					`Track ${
 						currentlySaved ? "unsaved" : "saved"
 					} successfully.`
@@ -298,7 +299,7 @@ export default function PlayingScreen() {
 							"spotifySavedTracks",
 							JSON.stringify(parsedTracks)
 						);
-						console.log(
+						log(
 							`Updated local saved tracks cache: ${
 								currentlySaved ? "removed" : "added"
 							} track ${trackId}`
@@ -307,20 +308,20 @@ export default function PlayingScreen() {
 						await refreshSavedTracksFromCache();
 					}
 				} catch (cacheError) {
-					console.error(
+					logError(
 						"Error updating saved tracks cache:",
 						cacheError
 					);
 				}
 			} else {
 				const errorData = await response.json();
-				console.error(
+				logError(
 					`Failed to ${currentlySaved ? "unsave" : "save"} track:`,
 					errorData
 				);
 			}
 		} catch (error) {
-			console.log(
+			log(
 				`Error ${
 					currentlySaved ? "unsaving" : "saving"
 				} track (likely offline):`,
@@ -331,7 +332,7 @@ export default function PlayingScreen() {
 
 	const handleNavigateToAddToPlaylist = () => {
 		if (playbackState && playbackState.item && playbackState.item.uri) {
-			console.log(
+			log(
 				"Navigating to add-to-playlist with trackUri:",
 				playbackState.item.uri
 			);
@@ -360,7 +361,7 @@ export default function PlayingScreen() {
 
 			return () => {
 				clearInterval(intervalId);
-				console.log("PlayingScreen unfocused, cleared interval.");
+				log("PlayingScreen unfocused, cleared interval.");
 			};
 		}, [makeApiRequest])
 	);
