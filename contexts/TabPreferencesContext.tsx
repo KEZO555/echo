@@ -13,6 +13,7 @@ const TAB_PREFERENCES_KEY = "tab_preferences";
 
 export interface TabPreferences {
 	showLikedSongs: boolean;
+	showArtists: boolean;
 	showAlbums: boolean;
 	showPlaylists: boolean;
 	showSearch: boolean;
@@ -21,6 +22,7 @@ export interface TabPreferences {
 
 const defaultPreferences: TabPreferences = {
 	showLikedSongs: true,
+	showArtists: true,
 	showAlbums: true,
 	showPlaylists: true,
 	showSearch: true,

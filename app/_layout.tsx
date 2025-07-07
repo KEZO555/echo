@@ -30,6 +30,7 @@ function RootNavigation() {
 
 	const getFirstAvailableTab = () => {
 		if (preferences.showLikedSongs) return "/(tabs)";
+		if (preferences.showArtists) return "/(tabs)/artists";
 		if (preferences.showAlbums) return "/(tabs)/albums";
 		if (preferences.showPlaylists) return "/(tabs)/playlists";
 		if (preferences.showSearch) return "/(tabs)/search";
