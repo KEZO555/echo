@@ -287,7 +287,7 @@ export const fetchInitialDataInParallel = async (
 
 			if (data) {
 				onPlaylistsUpdate(data.items, data.next);
-				await saveCachedData(data.items, undefined, undefined);
+				await saveCachedData(data.items, undefined, undefined, undefined);
 			} else {
 				onPlaylistsUpdate([], null);
 			}
@@ -307,7 +307,7 @@ export const fetchInitialDataInParallel = async (
 
 			if (data) {
 				onAlbumsUpdate(data.items, data.next);
-				await saveCachedData(undefined, data.items, undefined);
+				await saveCachedData(undefined, data.items, undefined, undefined);
 			} else {
 				onAlbumsUpdate([], null);
 			}
@@ -326,8 +326,8 @@ export const fetchInitialDataInParallel = async (
 			);
 
 			if (data) {
-				onArtistsUpdate(data.items, data.next);
-				await saveCachedData(undefined, data.items, undefined);
+				onArtistsUpdate(data.artists.items, data.artists.next);
+				await saveCachedData(undefined, undefined, data.artists.items, undefined);
 			} else {
 				onArtistsUpdate([], null);
 			}
@@ -347,7 +347,7 @@ export const fetchInitialDataInParallel = async (
 
 			if (data) {
 				onSavedTracksUpdate(data.items, data.next);
-				await saveCachedData(undefined, undefined, data.items);
+				await saveCachedData(undefined, undefined, undefined, data.items);
 			} else {
 				onSavedTracksUpdate([], null);
 			}

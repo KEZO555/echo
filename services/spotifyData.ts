@@ -36,12 +36,11 @@ export const fetchPlaylists = async (
 	);
 
 	if (data) {
-		await saveCachedData(data.items, undefined, undefined);
+		await saveCachedData(data.items, undefined, undefined, undefined);
 		return { playlists: data.items, nextUrl: data.next };
 	} else {
 		return { playlists: [], nextUrl: null };
-	}
-};
+	}};
 
 export const fetchMorePlaylists = async (
 	nextUrl: string | null,
@@ -87,7 +86,7 @@ export const fetchAlbums = async (
 	);
 
 	if (data) {
-		await saveCachedData(undefined, data.items, undefined);
+		await saveCachedData(undefined, data.items, undefined, undefined);
 		return { albums: data.items, nextUrl: data.next };
 	} else {
 		return { albums: [], nextUrl: null };
@@ -141,7 +140,7 @@ export const fetchSavedTracks = async (
 	);
 
 	if (data) {
-		await saveCachedData(undefined, undefined, data.items);
+		await saveCachedData(undefined, undefined, undefined, data.items);
 		return { savedTracks: data.items, nextUrl: data.next };
 	} else {
 		return { savedTracks: [], nextUrl: null };
@@ -195,7 +194,7 @@ export const fetchArtists = async (
 	);
 
 	if (data) {
-		await saveCachedData(undefined, undefined, data.artists.items);
+		await saveCachedData(undefined, undefined, data.artists.items, undefined);
 		return { artists: data.artists.items, nextUrl: data.artists.next };
 	} else {
 		return { artists: [], nextUrl: null };

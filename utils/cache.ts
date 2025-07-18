@@ -49,7 +49,7 @@ export const loadCachedData = async () => {
 			hasAnyCache = true;
 		}
 
-        log("TEST:", cachedData.artists)
+
 
 		if (hasAnyCache) {
 			log("Cache: Loaded cached data");
