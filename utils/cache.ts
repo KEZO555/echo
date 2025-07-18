@@ -2,6 +2,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import {
 	PLAYLISTS_KEY,
 	ALBUMS_KEY,
+    ARTISTS_KEY,
 	SAVED_TRACKS_KEY,
 	ALBUM_ART_CACHE_KEY,
 } from "../constants/spotify";
@@ -9,6 +10,7 @@ import { log, logError } from "../utils/logger";
 import type {
 	SpotifyPlaylist,
 	SpotifySavedAlbum,
+    SpotifyArtist,
 	SavedTrackObject,
 	SpotifyImage,
 } from "../types/spotify";
@@ -19,31 +21,36 @@ export const loadCachedData = async () => {
 		const cachedData = {
 			playlists: null as SpotifyPlaylist[] | null,
 			albums: null as SpotifySavedAlbum[] | null,
+			artists: null as SpotifyArtist[] | null,
 			savedTracks: null as SavedTrackObject[] | null,
 		};
 
-		// Load cached playlists
 		const cachedPlaylists = await AsyncStorage.getItem(PLAYLISTS_KEY);
 		if (cachedPlaylists) {
 			cachedData.playlists = JSON.parse(cachedPlaylists);
 			hasAnyCache = true;
 		}
 
-		// Load cached albums
 		const cachedAlbums = await AsyncStorage.getItem(ALBUMS_KEY);
 		if (cachedAlbums) {
 			cachedData.albums = JSON.parse(cachedAlbums);
 			hasAnyCache = true;
 		}
 
-		// Load cached saved tracks
+		const cachedArtists = await AsyncStorage.getItem(ARTISTS_KEY);
+		if (cachedArtists) {
+			cachedData.artists = JSON.parse(cachedArtists);
+			hasAnyCache = true;
+		}
+
 		const cachedSavedTracks = await AsyncStorage.getItem(SAVED_TRACKS_KEY);
 		if (cachedSavedTracks) {
 			cachedData.savedTracks = JSON.parse(cachedSavedTracks);
 			hasAnyCache = true;
 		}
 
-		// Only log cache loading message if we actually found cached data
+        log("TEST:", cachedData.artists)
+
 		if (hasAnyCache) {
 			log("Cache: Loaded cached data");
 		} else {
@@ -56,6 +63,7 @@ export const loadCachedData = async () => {
 		return {
 			playlists: null,
 			albums: null,
+            artists: null,
 			savedTracks: null,
 		};
 	}
@@ -64,6 +72,7 @@ export const loadCachedData = async () => {
 export const saveCachedData = async (
 	playlistsData?: SpotifyPlaylist[],
 	albumsData?: SpotifySavedAlbum[],
+	artistsData?: SpotifyArtist[],
 	tracksData?: SavedTrackObject[]
 ) => {
 	try {
@@ -75,6 +84,9 @@ export const saveCachedData = async (
 		}
 		if (albumsData) {
 			await AsyncStorage.setItem(ALBUMS_KEY, JSON.stringify(albumsData));
+		}
+		if (artistsData) {
+			await AsyncStorage.setItem(ARTISTS_KEY, JSON.stringify(artistsData));
 		}
 		if (tracksData) {
 			await AsyncStorage.setItem(
@@ -123,6 +135,7 @@ export const clearCachedData = async () => {
 	try {
 		await AsyncStorage.removeItem(PLAYLISTS_KEY);
 		await AsyncStorage.removeItem(ALBUMS_KEY);
+		await AsyncStorage.removeItem(ARTISTS_KEY);
 		await AsyncStorage.removeItem(SAVED_TRACKS_KEY);
 		await AsyncStorage.removeItem(ALBUM_ART_CACHE_KEY);
 		log("Cache: Cache cleared");
@@ -144,6 +157,25 @@ export const refreshSavedAlbumsFromCache = async () => {
 	} catch (error) {
 		logError(
 			"Cache: Error refreshing saved albums from cache:",
+			error
+		);
+	}
+	return null;
+};
+
+export const refreshFollowedArtistsFromCache = async () => {
+	try {
+		const cachedFollowedArtists = await AsyncStorage.getItem(ARTISTS_KEY);
+		if (cachedFollowedArtists) {
+			const parsedArtists = JSON.parse(cachedFollowedArtists);
+			log(
+				`Cache: Refreshed followed artists state from cache - ${parsedArtists.length} artists`
+			);
+			return parsedArtists;
+		}
+	} catch (error) {
+		logError(
+			"Cache: Error refreshing followed artists from cache:",
 			error
 		);
 	}

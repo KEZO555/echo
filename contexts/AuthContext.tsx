@@ -10,18 +10,17 @@ import * as SecureStore from "expo-secure-store";
 import SpotifySdk from "../modules/spotify-sdk";
 import { AppState, AppStateStatus } from "react-native";
 import { AUTH_TOKEN_KEY, TOKEN_EXPIRY_KEY, REFRESH_TOKEN_KEY } from "../constants/spotify";
-import { log, logWarn, logError, logInfo } from "../utils/logger";
+import { logWarn, logError, logInfo } from "../utils/logger";
 
-// Import types
 import type {
 	AuthContextType,
 	SpotifyPlaylist,
 	SpotifySavedAlbum,
+    SpotifyArtist,
 	SavedTrackObject,
 	SpotifyCurrentlyPlaying,
 } from "../types/spotify";
 
-// Import services
 import {
 	loginWithSpotify,
 	logoutFromSpotify,
@@ -33,6 +32,8 @@ import {
 	fetchMorePlaylists as fetchMorePlaylistsService,
 	fetchAlbums as fetchAlbumsService,
 	fetchMoreAlbums as fetchMoreAlbumsService,
+    fetchArtists as fetchArtistsService,
+    fetchMoreArtists as fetchMoreArtistsService,
 	fetchSavedTracks as fetchSavedTracksService,
 	fetchMoreSavedTracks as fetchMoreSavedTracksService,
 	saveAlbum as saveAlbumService,
@@ -64,6 +65,7 @@ import {
 	saveCachedData,
 	clearCachedData,
 	refreshSavedAlbumsFromCache,
+    refreshFollowedArtistsFromCache,
 	refreshSavedTracksFromCache,
 } from "../utils/cache";
 import { makeApiRequest } from "../utils/spotifyApi";
@@ -84,6 +86,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 	);
 	const [albums, setAlbums] = useState<SpotifySavedAlbum[] | null>(null);
 	const [albumsNextUrl, setAlbumsNextUrl] = useState<string | null>(null);
+	const [artists, setArtists] = useState<SpotifyArtist[] | null>(null);
+	const [artistsNextUrl, setArtistsNextUrl] = useState<string | null>(null);
 	const [savedTracks, setSavedTracks] = useState<SavedTrackObject[] | null>(
 		null
 	);
@@ -95,10 +99,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 	const [isLoading, setIsLoading] = useState(true);
 	const [isLoadingMorePlaylists, setIsLoadingMorePlaylists] = useState(false);
 	const [isLoadingMoreAlbums, setIsLoadingMoreAlbums] = useState(false);
+	const [isLoadingMoreArtists, setIsLoadingMoreArtists] = useState(false);
 	const [isLoadingMoreSavedTracks, setIsLoadingMoreSavedTracks] =
 		useState(false);
 	const [isRefreshingPlaylists, setIsRefreshingPlaylists] = useState(false);
 	const [isRefreshingAlbums, setIsRefreshingAlbums] = useState(false);
+	const [isRefreshingArtists, setIsRefreshingArtists] = useState(false);
 	const [isRefreshingSavedTracks, setIsRefreshingSavedTracks] =
 		useState(false);
 
@@ -147,6 +153,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 		setPlaylistsNextUrl(null);
 		setAlbums(null);
 		setAlbumsNextUrl(null);
+		setArtists(null);
+		setArtistsNextUrl(null);
 		setSavedTracks(null);
 		setSavedTracksNextUrl(null);
 		setIsConnectedToAppRemote(false);
@@ -300,6 +308,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 						setAlbums(albums);
 						setAlbumsNextUrl(nextUrl);
 					},
+					(artists, nextUrl) => {
+						setArtists(artists);
+						setArtistsNextUrl(nextUrl);
+					},
 					(tracks, nextUrl) => {
 						setSavedTracks(tracks);
 						setSavedTracksNextUrl(nextUrl);
@@ -445,6 +457,43 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 		makeApiRequestWithContext,
 	]);
 
+	const fetchArtists = useCallback(async () => {
+		if (!accessToken) return;
+		setIsRefreshingArtists(true);
+
+		const result = await fetchArtistsService(
+			accessToken,
+			makeApiRequestWithContext,
+			saveCachedData
+		);
+
+		setArtists(result.artists || []);
+		setArtistsNextUrl(result.nextUrl);
+		setIsRefreshingArtists(false);
+	}, [accessToken, makeApiRequestWithContext]);
+
+	const fetchMoreArtists = useCallback(async () => {
+		setIsLoadingMoreArtists(true);
+
+		const result = await fetchMoreArtistsService(
+			artistsNextUrl,
+			isLoadingMoreArtists,
+			accessToken,
+			makeApiRequestWithContext
+		);
+
+		if (result.artists) {
+			setArtists((prev) => [...(prev || []), ...result.artists!]);
+			setArtistsNextUrl(result.nextUrl);
+		}
+		setIsLoadingMoreArtists(false);
+	}, [
+		artistsNextUrl,
+		isLoadingMoreArtists,
+		accessToken,
+		makeApiRequestWithContext,
+	]);
+    
 	const fetchSavedTracks = useCallback(async () => {
 		if (!accessToken) return;
 		setIsRefreshingSavedTracks(true);
@@ -527,6 +576,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 	const refreshSavedAlbumsFromCacheMethod = useCallback(async () => {
 		const cachedAlbums = await refreshSavedAlbumsFromCache();
 		if (cachedAlbums) setAlbums(cachedAlbums);
+	}, []);
+
+	const refreshFollowedArtistsFromCacheMethod = useCallback(async () => {
+		const cachedArtists = await refreshFollowedArtistsFromCache();
+		if (cachedArtists) setArtists(cachedArtists);
 	}, []);
 
 	const refreshSavedTracksFromCacheMethod = useCallback(async () => {
@@ -724,10 +778,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
 				// Load cached data first for a responsive UI
 				const cachedData = await loadCachedData();
-				setPlaylists(cachedData.playlists);
-				setAlbums(cachedData.albums);
-				setSavedTracks(cachedData.savedTracks);
-
+                setPlaylists(cachedData.playlists);
+                setAlbums(cachedData.albums);
+                setArtists(cachedData.artists);
+                setSavedTracks(cachedData.savedTracks);
 				if (authData.accessToken) {
 					// Set auth state from stored data
 					setAccessToken(authData.accessToken);
@@ -796,6 +850,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 		albumsNextUrl,
 		isLoadingMoreAlbums,
 		fetchMoreAlbums,
+        artists,
+        artistsNextUrl,
+        isLoadingMoreArtists,
+        fetchMoreArtists,
 		savedTracks,
 		savedTracksNextUrl,
 		isLoadingMoreSavedTracks,
@@ -803,18 +861,21 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 		isLoading,
 		isRefreshingPlaylists,
 		isRefreshingAlbums,
+		isRefreshingArtists,
 		isRefreshingSavedTracks,
 		isConnectedToAppRemote,
 		login,
 		logout,
 		fetchPlaylists,
 		fetchAlbums,
+        fetchArtists,
 		fetchSavedTracks,
 		refreshSavedTracksFromCache: refreshSavedTracksFromCacheMethod,
 		saveAlbum,
 		removeAlbum,
 		checkIfAlbumIsSaved,
 		refreshSavedAlbumsFromCache: refreshSavedAlbumsFromCacheMethod,
+        refreshFollowedArtistsFromCache: refreshFollowedArtistsFromCacheMethod,
 		playTrack,
 		playTrackWithContext,
 		getPlaybackState,
@@ -862,6 +923,8 @@ export type {
 	SpotifyTrackSimple,
 	SpotifySavedAlbum,
 	SpotifySavedAlbumsResponse,
+    SpotifyArtist,
+    SpotifyFollowedArtistsResponse,
 	SavedTrackObject,
 	SavedTracksResponse,
 	SpotifyDevice,

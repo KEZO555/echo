@@ -7,8 +7,7 @@ import {
 } from "react-native";
 import {
 	useAuth,
-	SpotifySavedAlbum,
-	SpotifyArtistSimple,
+	SpotifyArtist,
 } from "@/contexts/AuthContext";
 import { HapticPressable } from "@/components/HapticPressable";
 import { StyledText } from "@/components/StyledText";
@@ -17,17 +16,155 @@ import { useRouter } from "expo-router";
 import ContentContainer from "@/components/ContentContainer";
 import { useTabPreferences } from "@/contexts/TabPreferencesContext";
 import CustomScrollView from "@/components/CustomScrollView";
-import { logError } from "@/utils/logger";
+import { log, logError } from "@/utils/logger";
 
 export default function ArtistsScreen() {
 	const {
+		artists,
 		isLoading,
 		accessToken,
+		fetchArtists,
 		user,
+		isRefreshingArtists,
+		fetchMoreArtists,
+		isLoadingMoreArtists,
+		artistsNextUrl,
 		makeApiRequest,
 	} = useAuth();
 	const router = useRouter();
 	const { preferences } = useTabPreferences();
+	const [sortedArtists, setSortedArtists] = useState<
+		SpotifyArtist[] | null
+	>(null);
+	const [loadingArtistId, setLoadingArtistId] = useState<string | null>(null);
+
+
+	useEffect(() => {
+		if (
+			accessToken &&
+			user &&
+			!artists &&
+			!isLoading &&
+			!isRefreshingArtists
+		) {
+			fetchArtists();
+		}
+	}, [accessToken, user, artists, isLoading, isRefreshingArtists]);
+
+	useEffect(() => {
+		if (artists) {
+			const newSortedArtists = [...artists].sort((a, b) => {
+				const artistA = a.name.toLowerCase() || "";
+				const artistB = b.name.toLowerCase() || "";
+				if (artistA < artistB) return -1;
+				if (artistA > artistB) return 1;
+				return 0;
+			});
+			setSortedArtists(newSortedArtists);
+		}
+	}, [artists]);
+
+	const handleRefresh = useCallback(() => {
+		if (!isRefreshingArtists) {
+			fetchArtists();
+		}
+	}, [fetchArtists, isRefreshingArtists]);
+
+	const renderArtistItem = ({ item }: { item: SpotifyArtist }) => (
+		<HapticPressable
+			style={styles.itemContainer}
+			onPress={async () => {
+				if (loadingArtistId) return;
+
+				setLoadingArtistId(item.id);
+				try {
+					const artistData = await makeApiRequest(
+						`https://api.spotify.com/v1/artists/${item.id}`,
+						"Artist details for navigation"
+					);
+
+					if (artistData) {
+						router.push({
+							pathname: `/artist/${item.id}`,
+							params: { artistString: JSON.stringify(artistData) },
+						} as any);
+					} else {
+						router.push({
+							pathname: `/artist/${item.id}`,
+							params: { artistString: JSON.stringify(item) },
+						} as any);
+					}
+				} catch (error) {
+					logError(
+						"Error fetching artist details for navigation:",
+						error
+					);
+					router.push({
+						pathname: `/artist/${item.id}`,
+						params: { artistString: JSON.stringify(item) },
+					} as any);
+				} finally {
+					setLoadingArtistId(null);
+				}
+			}}
+		>
+			{item.images && item.images.length > 0 ? (
+				<View style={styles.artistImageContainer}>
+					<Image
+						source={{ uri: item.images[0].url }}
+						style={styles.artistImage}
+					/>
+					{loadingArtistId === item.id && (
+						<View style={styles.loadingOverlay}></View>
+					)}
+				</View>
+			) : (
+				<View style={styles.placeholderImageContainer}>
+					<MaterialIcons name="person" size={24} color="white" />
+					{loadingArtistId === item.id && (
+						<View style={styles.loadingOverlay}></View>
+					)}
+				</View>
+			)}
+			<View style={styles.textContainer}>
+				<StyledText style={styles.artistName} numberOfLines={1}>
+					{item.name}
+				</StyledText>
+			</View>
+		</HapticPressable>
+	);
+
+	if (isLoading && !sortedArtists) {
+		return <View style={styles.centeredMessageContainer}></View>;
+	}
+
+	if (isRefreshingArtists && !sortedArtists) {
+		return <View style={styles.centeredMessageContainer}></View>;
+	}
+
+	if (!sortedArtists || sortedArtists.length === 0) {
+		return (
+			<View style={styles.centeredMessageContainer}>
+				<StyledText style={styles.emptyText}>
+					No saved artists found.
+				</StyledText>
+				<StyledText style={styles.emptySubText}>
+					Try saving some artists in Spotify or pull down to refresh.
+				</StyledText>
+			</View>
+		);
+	}
+
+	const handleLoadMore = () => {
+		if (artistsNextUrl && !isLoadingMoreArtists) {
+			fetchMoreArtists();
+		}
+	};
+
+	const renderFooter = () => {
+		if (!isLoadingMoreArtists) return null;
+		return;
+	};
 
 	const handlePlayingPress = () => {
 		router.push("/playing");
@@ -42,6 +179,27 @@ export default function ArtistsScreen() {
             headerIconPress={handlePlayingPress}
             headerIconShowLength={preferences.showPlayingInNavbar ? 0 : 1}
         >
+            <CustomScrollView
+                data={sortedArtists}
+                renderItem={renderArtistItem}
+                keyExtractor={(item) => item.id}
+                style={styles.list}
+                contentContainerStyle={styles.listContentContainer}
+                ItemSeparatorComponent={() => <View style={{ height: 8 }} />}
+                overScrollMode={"never"}
+                onEndReached={handleLoadMore}
+                onEndReachedThreshold={6}
+                ListFooterComponent={renderFooter}
+                refreshControl={
+                    <RefreshControl
+                        refreshing={isRefreshingArtists}
+                        onRefresh={handleRefresh}
+                        colors={["white"]}
+                        progressBackgroundColor={"black"}
+                        size={"large" as any}
+                    />
+                }
+            />
         </ContentContainer>
 	);
 }
@@ -76,13 +234,13 @@ const styles = StyleSheet.create({
 		flexDirection: "row",
 		alignItems: "center",
 	},
-	albumImageContainer: {
+	artistImageContainer: {
 		width: 50,
 		height: 50,
 		marginRight: 15,
 		position: "relative",
 	},
-	albumImage: {
+	artistImage: {
 		width: 50,
 		height: 50,
 	},
@@ -98,14 +256,10 @@ const styles = StyleSheet.create({
 		flex: 1,
 		gap: 0,
 	},
-	albumName: {
+	artistName: {
 		fontSize: 22,
 		lineHeight: 24,
 		color: "white",
-	},
-	albumArtist: {
-		fontSize: 16,
-		lineHeight: 18,
 	},
 	loadingOverlay: {
 		position: "absolute",

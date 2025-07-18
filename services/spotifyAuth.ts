@@ -15,6 +15,7 @@ import { log, logError } from "../utils/logger";
 import type {
 	SpotifyPlaylistsResponse,
 	SpotifySavedAlbumsResponse,
+    SpotifyFollowedArtistsResponse,
 	SavedTracksResponse,
 } from "../types/spotify";
 
@@ -260,10 +261,12 @@ export const fetchInitialDataInParallel = async (
 	token: string,
 	onPlaylistsUpdate: (playlists: any[], nextUrl: string | null) => void,
 	onAlbumsUpdate: (albums: any[], nextUrl: string | null) => void,
+	onArtistsUpdate: (artists: any[], nextUrl: string | null) => void,
 	onSavedTracksUpdate: (tracks: any[], nextUrl: string | null) => void,
 	saveCachedData: (
 		playlists?: any[],
 		albums?: any[],
+        artists?: any[],
 		tracks?: any[]
 	) => Promise<void>,
 	makeApiRequest: (
@@ -314,6 +317,26 @@ export const fetchInitialDataInParallel = async (
 		}
 	};
 
+	const fetchArtists = async () => {
+		try {
+			const data: SpotifyFollowedArtistsResponse | null = await makeApiRequest(
+				"https://api.spotify.com/v1/me/following?type=artist&limit=50",
+				"Artists",
+				true
+			);
+
+			if (data) {
+				onArtistsUpdate(data.items, data.next);
+				await saveCachedData(undefined, data.items, undefined);
+			} else {
+				onArtistsUpdate([], null);
+			}
+		} catch (error: any) {
+			logError("Auth: Error fetching artists:", error.message);
+			onArtistsUpdate([], null);
+		}
+	};
+
 	const fetchSavedTracks = async () => {
 		try {
 			const data: SavedTracksResponse | null = await makeApiRequest(
@@ -339,6 +362,7 @@ export const fetchInitialDataInParallel = async (
 		await Promise.all([
 			fetchPlaylists(),
 			fetchAlbums(),
+            fetchArtists(),
 			fetchSavedTracks(),
 		]);
 		log("Auth: Data loaded successfully");

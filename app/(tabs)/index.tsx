@@ -65,6 +65,7 @@ export default function LikedSongsScreen() {
 	};
     
     const { invertColors } = useInvertColors();
+    const { preferences } = useTabPreferences();
 
 	const renderTrackItem = ({
 		item,
@@ -73,7 +74,7 @@ export default function LikedSongsScreen() {
 		item: SavedTrackObject;
 		index: number;
 	}) => {
-		if (!item.track) {
+		if (!item.track) {index
 			logWarn("Track is null for item:", item);
 			return null;
 		}
@@ -179,7 +180,6 @@ export default function LikedSongsScreen() {
 		router.push("/playing");
 	};
 
-    const { preferences } = useTabPreferences();
 
 	return (
         <ContentContainer 

@@ -17,20 +17,20 @@ import { useRouter } from "expo-router";
 import ContentContainer from "@/components/ContentContainer";
 import { useTabPreferences } from "@/contexts/TabPreferencesContext";
 import CustomScrollView from "@/components/CustomScrollView";
-import { log, logError } from "@/utils/logger";
+import { logError } from "@/utils/logger";
 
 export default function AlbumsScreen() {
 	const {
 		albums,
-		isLoading, // Global loading state
+		isLoading,
 		accessToken,
-		fetchAlbums, // Specific fetch function for albums
+		fetchAlbums,
 		user,
-		isRefreshingAlbums, // Specific refresh state for albums
-		fetchMoreAlbums, // Function to fetch next page
-		isLoadingMoreAlbums, // State for loading more indicator
-		albumsNextUrl, // URL for the next page
-		makeApiRequest, // Added for fetching album details before navigation
+		isRefreshingAlbums,
+		fetchMoreAlbums,
+		isLoadingMoreAlbums,
+		albumsNextUrl,
+		makeApiRequest,
 	} = useAuth();
 	const router = useRouter();
 	const { preferences } = useTabPreferences();

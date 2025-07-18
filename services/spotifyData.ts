@@ -5,6 +5,7 @@ import type {
 	SpotifyPlaylist,
 	SpotifySavedAlbum,
 	SavedTrackObject,
+    SpotifyArtist,
 	SpotifyPlaylistsResponse,
 	SpotifySavedAlbumsResponse,
 	SavedTracksResponse,
@@ -20,6 +21,7 @@ export const fetchPlaylists = async (
 	saveCachedData: (
 		playlists?: SpotifyPlaylist[],
 		albums?: SpotifySavedAlbum[],
+        artists?: SpotifyArtist[],
 		tracks?: SavedTrackObject[]
 	) => Promise<void>
 ): Promise<{ playlists: SpotifyPlaylist[] | null; nextUrl: string | null }> => {
@@ -70,6 +72,7 @@ export const fetchAlbums = async (
 	saveCachedData: (
 		playlists?: SpotifyPlaylist[],
 		albums?: SpotifySavedAlbum[],
+        artists?: SpotifyArtist[],
 		tracks?: SavedTrackObject[]
 	) => Promise<void>
 ): Promise<{ albums: SpotifySavedAlbum[] | null; nextUrl: string | null }> => {
@@ -120,6 +123,7 @@ export const fetchSavedTracks = async (
 	saveCachedData: (
 		playlists?: SpotifyPlaylist[],
 		albums?: SpotifySavedAlbum[],
+        artists?: SpotifyArtist[],
 		tracks?: SavedTrackObject[]
 	) => Promise<void>
 ): Promise<{
@@ -164,6 +168,57 @@ export const fetchMoreSavedTracks = async (
 	}
 
 	return { savedTracks: null, nextUrl: null };
+};
+
+export const fetchArtists = async (
+	accessToken: string | null,
+	makeApiRequest: (
+		url: string,
+		errorMessage: string,
+		isRefreshing?: boolean
+	) => Promise<any | null>,
+	saveCachedData: (
+		playlists?: SpotifyPlaylist[],
+		albums?: SpotifySavedAlbum[],
+        artists?: SpotifyArtist[],
+		tracks?: SavedTrackObject[],
+	) => Promise<void>
+): Promise<{ artists: SpotifyArtist[] | null; nextUrl: string | null }> => {
+	if (!accessToken) {
+		return { artists: [], nextUrl: null };
+	}
+
+	const data = await makeApiRequest(
+		"https://api.spotify.com/v1/me/following?type=artist&limit=50",
+		"Artists",
+		true
+	);
+
+	if (data) {
+		await saveCachedData(undefined, undefined, data.artists.items);
+		return { artists: data.artists.items, nextUrl: data.artists.next };
+	} else {
+		return { artists: [], nextUrl: null };
+	}
+};
+
+export const fetchMoreArtists = async (
+	nextUrl: string | null,
+	isLoadingMore: boolean,
+	accessToken: string | null,
+	makeApiRequest: (url: string, errorMessage: string) => Promise<any | null>
+): Promise<{ artists: SpotifyArtist[] | null; nextUrl: string | null }> => {
+	if (!nextUrl || isLoadingMore || !accessToken) {
+		return { artists: null, nextUrl: null };
+	}
+
+	const data = await makeApiRequest(nextUrl, "More Albums");
+
+	if (data) {
+		return { artists: data.artists.items, nextUrl: data.artists.next };
+	}
+
+	return { artists: null, nextUrl: null };
 };
 
 export const saveAlbum = async (
