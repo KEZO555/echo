@@ -40,8 +40,6 @@ export default function AlbumsScreen() {
 	const [loadingAlbumId, setLoadingAlbumId] = useState<string | null>(null);
 
 	useEffect(() => {
-		// Fetch albums when the component mounts if not already loaded and user is logged in
-		// and global loading is finished.
 		if (
 			accessToken &&
 			user &&

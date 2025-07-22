@@ -8,6 +8,7 @@ import {
 	SpotifyAlbumSimple,
 	SpotifyArtistSimple,
 	SpotifyImage,
+    SpotifyArtist,
 } from "@/contexts/AuthContext";
 import { HapticPressable } from "@/components/HapticPressable";
 import { StyledText } from "@/components/StyledText";
@@ -18,7 +19,8 @@ import { logError } from "@/utils/logger";
 type SearchItem =
 	| { type: "track"; data: SpotifyTrack }
 	| { type: "playlist"; data: SpotifyPlaylistSimple }
-	| { type: "album"; data: SpotifyAlbumSimple };
+	| { type: "album"; data: SpotifyAlbumSimple }
+	| { type: "artist"; data: SpotifyArtist };
 
 export default function SearchResultsScreen() {
 	const params = useGlobalSearchParams();
@@ -31,7 +33,7 @@ export default function SearchResultsScreen() {
 	useEffect(() => {
 		if (routeQuery) {
 			setLoading(true);
-			searchItems(routeQuery, ["track", "album", "playlist"])
+			searchItems(routeQuery, ["track", "album", "playlist", "artist"])
 				.then((apiResponse) => {
 					const newResults: SearchItem[] = [];
 					if (apiResponse?.tracks?.items) {
@@ -58,6 +60,18 @@ export default function SearchResultsScreen() {
 							}
 						});
 					}
+					if (apiResponse?.artists?.items) {
+						apiResponse.artists.items.forEach((artist) => {
+							if (artist && artist.id) {
+								newResults.push({ type: "artist", data: artist });
+							} else if (artist) {
+								console.warn(
+									"Search result artist is missing an id or is invalid:",
+									artist
+								);
+							}
+						});
+					}
 					if (apiResponse?.playlists?.items) {
 						apiResponse.playlists.items.forEach((playlist) => {
 							if (playlist && playlist.id) {
@@ -74,7 +88,17 @@ export default function SearchResultsScreen() {
 						});
 					}
 
-					// Reorder to bring the first album to the top
+                    const firstArtistIndex = newResults.findIndex(
+                        (item) => item.type === "artist"
+                    );
+                    if (firstArtistIndex > -2) {
+                        const [firstArtist] = newResults.splice(
+                            firstArtistIndex,
+                            1
+                        );
+                        newResults.unshift(firstArtist);
+                    }
+
 					const firstAlbumIndex = newResults.findIndex(
 						(item) => item.type === "album"
 					);
@@ -85,6 +109,7 @@ export default function SearchResultsScreen() {
 						);
 						newResults.unshift(firstAlbum);
 					}
+                    
 
 					setResults(newResults);
 				})
@@ -122,6 +147,12 @@ export default function SearchResultsScreen() {
 				images = item.data.images;
 				itemUri = item.data.uri;
 				break;
+			case "artist":
+				title = item.data.name;
+				subtitle = `Artist`;
+				images = item.data.images;
+				itemUri = item.data.uri;
+				break;
 			case "playlist":
 				title = item.data.name;
 				subtitle = `Playlist • ${
@@ -147,6 +178,8 @@ export default function SearchResultsScreen() {
 						}
 					} else if (item.type === "album") {
 						router.push(`/album/${item.data.id}`);
+					} else if (item.type === "artist") {
+						router.push(`/artist/${item.data.id}`);
 					} else if (item.type === "playlist") {
 						router.push(`/playlist/${item.data.id}`);
 					}
@@ -155,7 +188,10 @@ export default function SearchResultsScreen() {
 				{images && images.length > 0 ? (
 					<Image
 						source={{ uri: images[0].url }}
-						style={styles.itemImage}
+						style={[
+                            styles.itemImage,
+                            {borderRadius: item.type === "artist" ? 50 : 0}
+                        ]}
 					/>
 				) : (
 					<View style={styles.placeholderImageContainer}>

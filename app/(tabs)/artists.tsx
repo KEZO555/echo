@@ -54,8 +54,8 @@ export default function ArtistsScreen() {
 	useEffect(() => {
 		if (artists) {
 			const newSortedArtists = [...artists].sort((a, b) => {
-				const artistA = a.name.toLowerCase() || "";
-				const artistB = b.name.toLowerCase() || "";
+				const artistA = (a.name || "").toLowerCase();
+				const artistB = (b.name || "").toLowerCase();
 				if (artistA < artistB) return -1;
 				if (artistA > artistB) return 1;
 				return 0;
@@ -243,6 +243,7 @@ const styles = StyleSheet.create({
 	artistImage: {
 		width: 50,
 		height: 50,
+        borderRadius: 100,
 	},
 	placeholderImageContainer: {
 		width: 50,

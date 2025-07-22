@@ -81,10 +81,6 @@ export interface SpotifyArtist {
     uri: string;
 }
 
-export interface SpotifyArtist {
-    artist: SpotifyArtist;
-}
-
 export interface SpotifyArtists {
 	href: string;
 	limit: number;
@@ -276,6 +272,15 @@ export interface SpotifySearchResults {
 		previous: string | null;
 		total: number;
 	};
+	artists?: {
+		href: string;
+		items: SpotifyArtist[];
+		limit: number;
+		next: string | null;
+		offset: number;
+		previous: string | null;
+		total: number;
+	};
 	playlists?: {
 		href: string;
 		items: SpotifyPlaylistSimple[];
@@ -331,6 +336,9 @@ export interface AuthContextType {
 	saveAlbum: (albumId: string) => Promise<boolean>;
 	removeAlbum: (albumId: string) => Promise<boolean>;
 	checkIfAlbumIsSaved: (albumId: string) => Promise<boolean>;
+	followArtist: (artistId: string) => Promise<boolean>;
+	unfollowArtist: (artistId: string) => Promise<boolean>;
+	checkIfFollowingArtist: (artistId: string) => Promise<boolean>;
 	refreshSavedAlbumsFromCache: () => Promise<void>;
 	refreshFollowedArtistsFromCache: () => Promise<void>;
 	playTrack: (

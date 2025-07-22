@@ -1,5 +1,5 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { ALBUMS_KEY, SAVED_TRACKS_KEY } from "../constants/spotify";
+import { ALBUMS_KEY, ARTISTS_KEY, SAVED_TRACKS_KEY } from "../constants/spotify";
 import { log, logError } from "../utils/logger";
 import type {
 	SpotifyPlaylist,
@@ -431,6 +431,214 @@ export const checkIfAlbumIsSaved = async (
 	} catch (error) {
 		log(
 			"Error checking if album is saved (likely offline):",
+			error
+		);
+		return false;
+	}
+};
+
+export const followArtist = async (
+	artistId: string,
+	accessToken: string | null,
+	ensureValidToken?: () => Promise<string | null>
+): Promise<boolean> => {
+	let validToken = accessToken;
+	if (ensureValidToken) {
+		const refreshedToken = await ensureValidToken();
+		if (refreshedToken) {
+			validToken = refreshedToken;
+		}
+	}
+
+	if (!validToken) {
+		console.warn("Cannot follow artist - no valid token available");
+		return false;
+	}
+
+	try {
+		const response = await fetch(
+			`https://api.spotify.com/v1/me/following?type=artist&ids=${artistId}`,
+			{
+				method: "PUT",
+				headers: {
+					Authorization: `Bearer ${validToken}`,
+					"Content-Type": "application/json",
+				},
+			}
+		);
+
+		if (response.ok) {
+			log(`Artist ${artistId} saved successfully`);
+			try {
+				const artistResponse = await fetch(
+					`https://api.spotify.com/v1/artists/${artistId}`,
+					{
+						headers: {
+							Authorization: `Bearer ${validToken}`,
+						},
+					}
+				);
+
+				if (artistResponse.ok) {
+					const artistData = await artistResponse.json();
+					const cachedArtists = await AsyncStorage.getItem(ARTISTS_KEY);
+					let parsedArtists = cachedArtists
+						? JSON.parse(cachedArtists)
+						: [];
+
+					const newFollowedArtist = {
+						added_at: new Date().toISOString(),
+						artist: artistData,
+					};
+					parsedArtists.unshift(newFollowedArtist);
+
+					await AsyncStorage.setItem(
+						ARTISTS_KEY,
+						JSON.stringify(parsedArtists)
+					);
+					log(
+						`Updated cached artists: added artist ${artistId}`
+					);
+					return true;
+				}
+			} catch (cacheError) {
+				logError("Error updating artist cache:", cacheError);
+				return true;
+			}
+			return true;
+		} else {
+			const errorData = await response.json();
+			logError("Failed to save artist:", errorData);
+			return false;
+		}
+	} catch (error) {
+		logError("Error saving artist:", error);
+		return false;
+	}
+};
+
+export const unfollowArtist = async (
+	artistId: string,
+	accessToken: string | null,
+	ensureValidToken?: () => Promise<string | null>
+): Promise<boolean> => {
+	let validToken = accessToken;
+	if (ensureValidToken) {
+		const refreshedToken = await ensureValidToken();
+		if (refreshedToken) {
+			validToken = refreshedToken;
+		}
+	}
+
+	if (!validToken) {
+		console.warn("Cannot remove artist - no valid token available");
+		return false;
+	}
+
+	try {
+		const response = await fetch(
+			`https://api.spotify.com/v1/me/following?type=artist&ids=${artistId}`,
+			{
+				method: "DELETE",
+				headers: {
+					Authorization: `Bearer ${validToken}`,
+					"Content-Type": "application/json",
+				},
+			}
+		);
+
+		if (response.ok) {
+			log(`Artist ${artistId} removed successfully`);
+			try {
+				const cachedArtists = await AsyncStorage.getItem(ARTISTS_KEY);
+				if (cachedArtists) {
+					let parsedArtists = JSON.parse(cachedArtists);
+					parsedArtists = parsedArtists.filter(
+						(followedArtist: any) => followedArtist.artist?.id !== artistId
+					);
+					await AsyncStorage.setItem(
+						ALBUMS_KEY,
+						JSON.stringify(parsedArtists)
+					);
+					log(
+						`Updated cached artists: removed artist ${artistId}`
+					);
+				}
+			} catch (cacheError) {
+				logError("Error updating artist cache:", cacheError);
+			}
+			return true;
+		} else {
+			const errorData = await response.json();
+			logError("Failed to remove artist:", errorData);
+			return false;
+		}
+	} catch (error) {
+		logError("Error removing artist:", error);
+		return false;
+	}
+};
+
+export const checkIfFollowingArtist = async (
+	artistId: string,
+	accessToken: string | null,
+	ensureValidToken?: () => Promise<string | null>
+): Promise<boolean> => {
+	try {
+		const cachedFollowedArtists = await AsyncStorage.getItem(ARTISTS_KEY);
+		if (cachedFollowedArtists) {
+			const parsedArtists = JSON.parse(cachedFollowedArtists);
+			const isArtistInCache = parsedArtists.some(
+				(followedArtist: any) => followedArtist.artist?.id === artistId
+			);
+			if (isArtistInCache) {
+				log(
+					`Artist ${artistId} found in offline cache - it's saved`
+				);
+				return true;
+			}
+		}
+	} catch (error) {
+		logError("Error checking cached saved artists:", error);
+	}
+
+	let validToken = accessToken;
+	if (ensureValidToken) {
+		const refreshedToken = await ensureValidToken();
+		if (refreshedToken) {
+			validToken = refreshedToken;
+		}
+	}
+
+	if (!validToken) {
+		return false;
+	}
+
+	try {
+		const response = await fetch(
+			`https://api.spotify.com/v1/me/following/contains?type=artist&ids=${artistId}`,
+			{
+				headers: {
+					Authorization: `Bearer ${validToken}`,
+				},
+			}
+		);
+		if (!response.ok) {
+			logError(
+				"Failed to check if artist is followed",
+				await response.json()
+			);
+			return false;
+		}
+		const data: boolean[] = await response.json();
+		if (data && data.length > 0) {
+			log(`Artist ${artistId} API check - saved: ${data[0]}`);
+			return data[0];
+		}
+		return false;
+	} catch (error) {
+		log(
+			"Error checking if artist is saved (likely offline):",
 			error
 		);
 		return false;

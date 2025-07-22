@@ -39,6 +39,9 @@ import {
 	saveAlbum as saveAlbumService,
 	removeAlbum as removeAlbumService,
 	checkIfAlbumIsSaved as checkIfAlbumIsSavedService,
+    followArtist as followArtistService,
+    unfollowArtist as unfollowArtistService,
+    checkIfFollowingArtist as checkIfFollowingArtistService,
 } from "../services/spotifyData";
 import {
 	ensureAppRemoteConnection,
@@ -572,6 +575,45 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 		[accessToken, ensureValidToken]
 	);
 
+    // Artist management methods
+	const followArtist = useCallback(
+		async (artistId: string): Promise<boolean> => {
+			const result = await followArtistService(
+				artistId,
+				accessToken,
+				ensureValidToken
+			);
+			if (result) {
+				const cachedArtists = await refreshFollowedArtistsFromCache();
+				if (cachedArtists) setArtists(cachedArtists);
+			}
+			return result;
+		},
+		[accessToken, ensureValidToken]
+	);
+
+	const unfollowArtist = useCallback(
+		async (artistId: string): Promise<boolean> => {
+			const result = await unfollowArtistService(
+				artistId,
+				accessToken,
+				ensureValidToken
+			);
+			if (result) {
+				const cachedArtists = await refreshFollowedArtistsFromCache();
+				if (cachedArtists) setArtists(cachedArtists);
+			}
+			return result;
+		},
+		[accessToken, ensureValidToken]
+	);
+
+	const checkIfFollowingArtist = useCallback(
+		(artistId: string) =>
+			checkIfFollowingArtistService(artistId, accessToken, ensureValidToken),
+		[accessToken, ensureValidToken]
+	);
+
 	// Cache refresh methods
 	const refreshSavedAlbumsFromCacheMethod = useCallback(async () => {
 		const cachedAlbums = await refreshSavedAlbumsFromCache();
@@ -875,6 +917,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 		removeAlbum,
 		checkIfAlbumIsSaved,
 		refreshSavedAlbumsFromCache: refreshSavedAlbumsFromCacheMethod,
+        followArtist,
+        unfollowArtist,
+        checkIfFollowingArtist,
         refreshFollowedArtistsFromCache: refreshFollowedArtistsFromCacheMethod,
 		playTrack,
 		playTrackWithContext,
