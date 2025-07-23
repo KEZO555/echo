@@ -3,7 +3,6 @@ import {
 	View,
 	StyleSheet,
 	Image,
-	ActivityIndicator,
 } from "react-native";
 import {useLocalSearchParams, useRouter } from "expo-router";
 import {
@@ -134,36 +133,6 @@ export default function ArtistDetailScreen() {
 		}
 	}, [id, accessToken, checkArtistFollowingStatus]);
 
-	// const loadMoreTracks = useCallback(async () => {
-	// 	if (!artist?.tracks?.next || isLoadingMoreTracks) {
-	// 		return;
-	// 	}
-	// 	setIsLoadingMoreTracks(true);
-	// 	try {
-	// 		const data = await makeApiRequest(
-	// 			artist.tracks.next,
-	// 			"More artist tracks"
-	// 		);
-	// 		if (data) {
-	// 			setArtist((prevAlbum) => {
-	// 				if (!prevAlbum || !prevAlbum.tracks) return prevAlbum;
-	// 				return {
-	// 					...prevAlbum,
-	// 					tracks: {
-	// 						...prevAlbum.tracks,
-	// 						items: [...prevAlbum.tracks.items, ...data.items],
-	// 						next: data.next,
-	// 					},
-	// 				};
-	// 			});
-	// 		}
-	// 	} catch (e: any) {
-	// 		logError("Error fetching more artist tracks:", e);
-	// 	} finally {
-	// 		setIsLoadingMoreTracks(false);
-	// 	}
-	// }, [artist, isLoadingMoreTracks, makeApiRequest]);
-
 	if (isLoading && !artist) {
 		return <View style={styles.centeredMessageContainer}></View>;
 	}
@@ -229,17 +198,6 @@ export default function ArtistDetailScreen() {
 		</HapticPressable>
 	);
 
-	// const renderFooter = () => {
-	// 	if (!isLoadingMoreTracks) return null;
-	// 	return (
-	// 		<ActivityIndicator
-	// 			style={{ marginVertical: 20 }}
-	// 			size="large"
-	// 			color="white"
-	// 		/>
-	// 	);
-	// };
-
 	return (
 		<ContentContainer 
             headerTitle={artist.name} 
@@ -248,6 +206,35 @@ export default function ArtistDetailScreen() {
             headerIconPress={handleToggleFollowArtist}
             headerIconShowLength={isCheckingFollowingArtist ? 0 : 1}
         >
+            <View style={{ paddingBottom: 20 }}>
+                <CustomScrollView
+                    ListHeaderComponent={
+                        <>
+                            <View style={styles.albumArtContainer}>
+                                <Image
+                                    source={{ uri: artistImageUrl }}
+                                    style={styles.artistImage}
+                                />
+                            </View>
+                        </>
+                    }
+                    data={[]}
+                    renderItem={renderTrackItem}
+                    keyExtractor={(item, index) => item.id || index.toString()}
+                    contentContainerStyle={styles.listContentContainer}
+                    overScrollMode="never"
+                    // onEndReached={loadMoreTracks}
+                    onEndReachedThreshold={6}
+                    // ListFooterComponent={renderFooter}
+                    // ListEmptyComponent={
+                    //     isLoading ? null : album.tracks?.items?.length === 0 ? (
+                    //         <StyledText style={styles.emptyText}>
+                    //             No tracks found in this album.
+                    //         </StyledText>
+                    //     ) : null
+                    // }
+                />		
+            </View>
         </ContentContainer>
 	);
 }
@@ -261,7 +248,7 @@ const styles = StyleSheet.create({
 		alignItems: "center",
 		paddingBottom: 20,
 	},
-	albumImage: {
+	artistImage: {
 		width: 200,
 		height: 200,
 		marginBottom: 10,
