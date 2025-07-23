@@ -7,6 +7,7 @@ import type {
 	SavedTrackObject,
     SpotifyArtist,
     SpotifyTrack,
+    SpotifyAlbumSimple,
 	SpotifyPlaylistsResponse,
 	SpotifySavedAlbumsResponse,
 	SavedTracksResponse,
@@ -690,4 +691,68 @@ export const fetchArtistTopTracks = async (
 		logError("Error fetching top tracks for artist:", error);
 		return [];
 	}
+};
+
+export const fetchArtistAlbums = async (
+	artistId: string,
+	accessToken: string | null,
+	ensureValidToken?: () => Promise<string | null>
+): Promise<{ albums: SpotifyAlbumSimple[] | null; nextUrl: string | null }> => {
+	let validToken = accessToken;
+	if (ensureValidToken) {
+		const refreshedToken = await ensureValidToken();
+		if (refreshedToken) {
+			validToken = refreshedToken;
+		}
+	}
+
+	if (!validToken) {
+		console.warn("Cannot fetch artist's albums - no valid token available");
+		return { albums: [], nextUrl: null };
+	}
+
+	try {
+		const response = await fetch(
+			`https://api.spotify.com/v1/artists/${artistId}/albums?limit=50`,
+			{
+				method: "GET",
+				headers: {
+					Authorization: `Bearer ${validToken}`,
+					"Content-Type": "application/json",
+				},
+			}
+		);
+
+		if (response.ok) {
+			const data = await response.json();
+			log(`Albums for artist ${artistId} fetched successfully`);
+			return { albums: data.items, nextUrl: data.next };
+		} else {
+			const errorData = await response.json();
+			logError("Failed to fetch albums for artist:", errorData);
+			return { albums: [], nextUrl: null };
+		}
+	} catch (error) {
+		logError("Error fetching albums for artist:", error);
+		return { albums: [], nextUrl: null };
+	}
+};
+
+export const fetchMoreArtistAlbums = async (
+	nextUrl: string | null,
+	isLoadingMore: boolean,
+	accessToken: string | null,
+	makeApiRequest: (url: string, errorMessage: string) => Promise<any | null>
+): Promise<{ albums: import("../types/spotify").SpotifyAlbumSimple[] | null; nextUrl: string | null }> => {
+	if (!nextUrl || isLoadingMore || !accessToken) {
+		return { albums: null, nextUrl: null };
+	}
+
+	const data = await makeApiRequest(nextUrl, "More Artist Albums");
+
+	if (data) {
+		return { albums: data.items, nextUrl: data.next };
+	}
+
+	return { albums: null, nextUrl: null };
 };

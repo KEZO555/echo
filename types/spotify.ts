@@ -143,6 +143,16 @@ export interface SpotifySavedAlbumsResponse {
 	total: number;
 }
 
+export interface SpotifyArtistAlbumsResponse {
+	href: string;
+	items: SpotifyAlbumSimple[];
+	limit: number;
+	next: string | null;
+	offset: number;
+	previous: string | null;
+	total: number;
+}
+
 export interface SavedTrackObject {
 	added_at: string;
 	track: SpotifyTrackSimple;
@@ -340,6 +350,8 @@ export interface AuthContextType {
 	unfollowArtist: (artistId: string) => Promise<boolean>;
 	checkIfFollowingArtist: (artistId: string) => Promise<boolean>;
     fetchArtistTopTracks: (artistId: string) => Promise<SpotifyTrack[]>;
+    fetchArtistAlbums: (artistId: string) => Promise<{ albums: SpotifyAlbumSimple[] | null; nextUrl: string | null }>;
+    fetchMoreArtistAlbums: (nextUrl: string | null, isLoadingMore: boolean) => Promise<{ albums: SpotifyAlbumSimple[] | null; nextUrl: string | null }>;
 	refreshSavedAlbumsFromCache: () => Promise<void>;
 	refreshFollowedArtistsFromCache: () => Promise<void>;
 	playTrack: (

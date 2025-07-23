@@ -8,8 +8,8 @@ import {useLocalSearchParams, useRouter } from "expo-router";
 import {
 	useAuth,
 	SpotifyArtist,
-	SpotifyTrackSimple,
     SpotifyTrack,
+    SpotifyAlbumSimple,
 } from "@/contexts/AuthContext";
 import { StyledText } from "@/components/StyledText";
 import { HapticPressable } from "@/components/HapticPressable";
@@ -28,6 +28,7 @@ export default function ArtistDetailScreen() {
         followArtist,
         unfollowArtist,
         fetchArtistTopTracks,
+        fetchArtistAlbums,
         checkIfFollowingArtist,
 		makeApiRequest,
 	} = useAuth();
@@ -44,6 +45,8 @@ export default function ArtistDetailScreen() {
 	const [isFollowingArtist, setIsFollowingArtist] = useState(false);
 	const [isCheckingFollowingArtist, setIsCheckingFollowingArtist] = useState(false);
     const [topTracks, setTopTracks] = useState<SpotifyTrack[]>([]);
+    const [albums, setAlbums] = useState<SpotifyAlbumSimple[] | null>(null);
+    const [albumsNextUrl, setAlbumsNextUrl] = useState<string | null>(null);
 
 	const formatDuration = (ms: number) => {
 		const totalSeconds = Math.floor(ms / 1000);
@@ -140,8 +143,23 @@ export default function ArtistDetailScreen() {
             }
         };
 
+        const fetchAlbums = async () => {
+            if (!id) return;
+            setIsLoading(true);
+            try {
+                const data = await fetchArtistAlbums(id);
+                setAlbums(data.albums);
+                setAlbumsNextUrl(data.nextUrl);
+            } catch (e: any) {
+                logError("Error fetching artist albums:", e);
+            } finally {
+                setIsLoading(false);
+            }
+        };
+
         fetchArtistDetails();
         fetchTopTracks();
+        fetchAlbums();
 	}, [id, makeApiRequest]);
 
 	useEffect(() => {
