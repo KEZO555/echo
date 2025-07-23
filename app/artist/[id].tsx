@@ -178,7 +178,7 @@ export default function ArtistDetailScreen() {
 		item: track,
 		index,
 	}: {
-		item: SpotifyTrackSimple;
+		item: SpotifyTrack;
 		index: number;
 	}) => (
 		<HapticPressable
@@ -199,7 +199,7 @@ export default function ArtistDetailScreen() {
 			}}
 		>
 			<StyledText style={styles.trackNumber}>
-				{track.track_number}.
+				{index + 1}.
 			</StyledText>
 
 			<View style={styles.trackNameContainer}>
@@ -235,7 +235,7 @@ export default function ArtistDetailScreen() {
                             </View>
                         </>
                     }
-                    data={[]}
+                    data={topTracks}
                     renderItem={renderTrackItem}
                     keyExtractor={(item, index) => item.id || index.toString()}
                     contentContainerStyle={styles.listContentContainer}
@@ -243,13 +243,13 @@ export default function ArtistDetailScreen() {
                     // onEndReached={loadMoreTracks}
                     onEndReachedThreshold={6}
                     // ListFooterComponent={renderFooter}
-                    // ListEmptyComponent={
-                    //     isLoading ? null : album.tracks?.items?.length === 0 ? (
-                    //         <StyledText style={styles.emptyText}>
-                    //             No tracks found in this album.
-                    //         </StyledText>
-                    //     ) : null
-                    // }
+                    ListEmptyComponent={
+                        isLoading ? null : topTracks?.length === 0 ? (
+                            <StyledText style={styles.emptyText}>
+                                No tracks found for this artist.
+                            </StyledText>
+                        ) : null
+                    }
                 />		
             </View>
         </ContentContainer>
