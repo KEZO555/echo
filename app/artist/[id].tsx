@@ -9,6 +9,7 @@ import {
 	useAuth,
 	SpotifyArtist,
 	SpotifyTrackSimple,
+    SpotifyTrack,
 } from "@/contexts/AuthContext";
 import { StyledText } from "@/components/StyledText";
 import { HapticPressable } from "@/components/HapticPressable";
@@ -26,6 +27,7 @@ export default function ArtistDetailScreen() {
 		playTrackWithContext,
         followArtist,
         unfollowArtist,
+        fetchArtistTopTracks,
         checkIfFollowingArtist,
 		makeApiRequest,
 	} = useAuth();
@@ -41,6 +43,7 @@ export default function ArtistDetailScreen() {
 	const [error, setError] = useState<string | null>(null);
 	const [isFollowingArtist, setIsFollowingArtist] = useState(false);
 	const [isCheckingFollowingArtist, setIsCheckingFollowingArtist] = useState(false);
+    const [topTracks, setTopTracks] = useState<SpotifyTrack[]>([]);
 
 	const formatDuration = (ms: number) => {
 		const totalSeconds = Math.floor(ms / 1000);
@@ -124,7 +127,21 @@ export default function ArtistDetailScreen() {
 			}
 		};
 
-		fetchArtistDetails();
+        const fetchTopTracks = async () => {
+            if (!id) return;
+            setIsLoading(true);
+            try {
+                const data = await fetchArtistTopTracks(id);
+                setTopTracks(data);
+            } catch (e: any) {
+                logError("Error fetching artist top tracks:", e);
+            } finally {
+                setIsLoading(false);
+            }
+        };
+
+        fetchArtistDetails();
+        fetchTopTracks();
 	}, [id, makeApiRequest]);
 
 	useEffect(() => {

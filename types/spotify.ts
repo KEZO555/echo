@@ -339,6 +339,7 @@ export interface AuthContextType {
 	followArtist: (artistId: string) => Promise<boolean>;
 	unfollowArtist: (artistId: string) => Promise<boolean>;
 	checkIfFollowingArtist: (artistId: string) => Promise<boolean>;
+    fetchArtistTopTracks: (artistId: string) => Promise<SpotifyTrack[]>;
 	refreshSavedAlbumsFromCache: () => Promise<void>;
 	refreshFollowedArtistsFromCache: () => Promise<void>;
 	playTrack: (

@@ -42,6 +42,7 @@ import {
     followArtist as followArtistService,
     unfollowArtist as unfollowArtistService,
     checkIfFollowingArtist as checkIfFollowingArtistService,
+    fetchArtistTopTracks as fetchArtistTopTracksService,
 } from "../services/spotifyData";
 import {
 	ensureAppRemoteConnection,
@@ -614,6 +615,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 		[accessToken, ensureValidToken]
 	);
 
+    const fetchArtistTopTracks = useCallback(
+        (artistId: string) =>
+            fetchArtistTopTracksService(artistId, accessToken, ensureValidToken),
+        [accessToken, ensureValidToken]
+    );
+
 	// Cache refresh methods
 	const refreshSavedAlbumsFromCacheMethod = useCallback(async () => {
 		const cachedAlbums = await refreshSavedAlbumsFromCache();
@@ -920,6 +927,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         followArtist,
         unfollowArtist,
         checkIfFollowingArtist,
+        fetchArtistTopTracks,
         refreshFollowedArtistsFromCache: refreshFollowedArtistsFromCacheMethod,
 		playTrack,
 		playTrackWithContext,

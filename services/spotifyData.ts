@@ -6,6 +6,7 @@ import type {
 	SpotifySavedAlbum,
 	SavedTrackObject,
     SpotifyArtist,
+    SpotifyTrack,
 	SpotifyPlaylistsResponse,
 	SpotifySavedAlbumsResponse,
 	SavedTracksResponse,
@@ -642,5 +643,51 @@ export const checkIfFollowingArtist = async (
 			error
 		);
 		return false;
+	}
+};
+
+export const fetchArtistTopTracks = async (
+	artistId: string,
+	accessToken: string | null,
+	ensureValidToken?: () => Promise<string | null>
+): Promise<SpotifyTrack[]> => {
+	let validToken = accessToken;
+	if (ensureValidToken) {
+		const refreshedToken = await ensureValidToken();
+		if (refreshedToken) {
+			validToken = refreshedToken;
+		}
+	}
+
+	if (!validToken) {
+		console.warn("Cannot artist's top tracks - no valid token available");
+		return [];
+	}
+
+	try {
+		const response = await fetch(
+			`https://api.spotify.com/v1/artists/${artistId}/top-tracks`,
+			{
+				method: "GET",
+				headers: {
+					Authorization: `Bearer ${validToken}`,
+					"Content-Type": "application/json",
+				},
+			}
+		);
+        
+		if (response.ok) {
+			const data = await response.json();
+			log(`Top tracks for artist ${artistId} fetched successfully`);
+			return data.tracks;
+		} else {
+			const errorData = await response.json();
+			logError("Failed to fetch top tracks for artist:", errorData);
+			return [];
+		}
+	}
+    catch (error) {
+		logError("Error fetching top tracks for artist:", error);
+		return [];
 	}
 };
