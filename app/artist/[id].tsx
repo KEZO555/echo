@@ -5,7 +5,6 @@ import {
     Image,
 } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { MaterialIcons } from "@expo/vector-icons";
 import {
     useAuth,
     SpotifyArtist,
@@ -253,7 +252,6 @@ export default function ArtistDetailScreen() {
             : []),
     ];
 
-    // --- Renderers ---
     const renderSectionHeader = (title: string) => (
         <StyledText style={styles.sectionTitle}>{title}</StyledText>
     );
@@ -305,7 +303,6 @@ export default function ArtistDetailScreen() {
         item: any;
     }) => {
         const album = item.data;
-        const index = item.index;
         const hasImage = album.images && album.images.length > 0;
         return (
             <HapticPressable
@@ -455,7 +452,6 @@ const styles = StyleSheet.create({
     artistImage: {
         width: 200,
         height: 200,
-        marginBottom: 10,
     },
     scrollContentContainer: {
         alignItems: "center",
@@ -494,7 +490,7 @@ const styles = StyleSheet.create({
     sectionTitle: {
         fontSize: 20,
         color: "white",
-        marginTop: 20,
+        marginTop: 10,
         marginBottom: 10,
         alignSelf: "flex-start",
     },

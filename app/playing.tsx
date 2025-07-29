@@ -420,9 +420,34 @@ export default function PlayingScreen() {
 					<StyledText style={styles.trackName} numberOfLines={1}>
 						{item.name}
 					</StyledText>
-					<StyledText style={styles.artistName} numberOfLines={1}>
-						{getArtistNames(item.artists)}
-					</StyledText>
+					<HapticPressable 
+						onPress={async () => {
+							if (item.artists.length > 0) {
+								const artist = item.artists[0];
+								// Fetch complete artist data to ensure images are available
+								try {
+									const artistData = await makeApiRequest(
+										`https://api.spotify.com/v1/artists/${artist.id}`,
+										"Artist details for navigation"
+									);
+									router.push({
+										pathname: "/artist/[id]",
+										params: { id: artist.id, artistString: JSON.stringify(artistData) }
+									});
+								} catch (error) {
+									// Fallback to basic artist data if API call fails
+									router.push({
+										pathname: "/artist/[id]",
+										params: { id: artist.id, artistString: JSON.stringify(artist) }
+									});
+								}
+							}
+						}}
+					>
+						<StyledText style={styles.artistName} numberOfLines={1}>
+							{getArtistNames(item.artists)}
+						</StyledText>
+					</HapticPressable>
 				</View>
 
 				<View style={styles.timeIndicatorContainer}>
