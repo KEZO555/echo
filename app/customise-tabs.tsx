@@ -4,19 +4,19 @@ import { useTabPreferences } from "@/contexts/TabPreferencesContext";
 import ContentContainer from "@/components/ContentContainer";
 
 export default function CustomiseTabsScreen() {
-	const { preferences, updatePreference, isLoading } = useTabPreferences();
+    const { preferences, updatePreference, isLoading } = useTabPreferences();
 
-	if (isLoading) {
-		return (
-			<ContentContainer headerTitle="Customise Tabs">
-			</ContentContainer>
-		);
-	}
+    if (isLoading) {
+        return (
+            <ContentContainer headerTitle="Customise Tabs">
+            </ContentContainer>
+        );
+    }
 
-	return (
-		<ContentContainer
-			headerTitle="Customise Tabs"
-		>
+    return (
+        <ContentContainer
+            headerTitle="Customise Tabs"
+        >
             <ToggleSwitch
                 value={preferences.showPlayingInNavbar}
                 label="Now Playing"
@@ -59,6 +59,6 @@ export default function CustomiseTabsScreen() {
                     updatePreference("showSearch", value)
                 }
             />
-		</ContentContainer>
-	);
+        </ContentContainer>
+    );
 }

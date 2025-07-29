@@ -4,39 +4,28 @@ import { useAuth } from "@/contexts/AuthContext";
 import { StyledButton } from "@/components/StyledButton";
 import { useRouter } from "expo-router";
 import * as Application from "expo-application";
-import { ToggleSwitch } from "@/components/ToggleSwitch";
-import { useInvertColors } from "@/contexts/InvertColorsContext";
 import ContentContainer from "@/components/ContentContainer";
 
 export default function SettingsScreen() {
-	const { logout } = useAuth();
-	const router = useRouter();
-	const handleLogout = async () => {
-		await logout();
-	};
-	const handleCustomiseTabs = () => {
-		router.push("/customise-tabs" as any);
-	};
-	const { invertColors, setInvertColors } = useInvertColors();
-	const handleDebug = () => {
-		router.push("/debug" as any);
-	};
+    const { logout } = useAuth();
+    const router = useRouter();
+    const handleLogout = async () => {
+        await logout();
+    };
+    const handleDebug = () => {
+        router.push("/debug" as any);
+    };
+    const handleCustomise = () => {
+        router.push("/customise" as any);
+    };
 
-	return (
-		<ContentContainer
-			headerTitle="Settings"
-			hideBackButton={true}
-		>
-            <ToggleSwitch
-            value={invertColors}
-            label="Invert Colours"
-            onValueChange={setInvertColors}
-            />
+    return (
+        <ContentContainer
+            headerTitle="Settings"
+            hideBackButton={true}
+        >
 
-            <StyledButton
-                text="Customise Tabs"
-                onPress={handleCustomiseTabs}
-            />
+            <StyledButton text="Customise" onPress={handleCustomise} />
 
             <StyledButton text="Debug" onPress={handleDebug} />
 
@@ -47,20 +36,20 @@ export default function SettingsScreen() {
                     v{Application.nativeApplicationVersion}
                 </Text>
             </View>
-		</ContentContainer>
-	);
+        </ContentContainer>
+    );
 }
 
 const styles = StyleSheet.create({
-	versionContainer: {
+    versionContainer: {
         width: "100%",
-		alignItems: "center",
+        alignItems: "center",
         justifyContent: "flex-end",
         flex: 1,
-	},
-	versionText: {
-		color: "#666",
-		fontSize: 12,
-		fontWeight: "400",
-	},
+    },
+    versionText: {
+        color: "#666",
+        fontSize: 12,
+        fontWeight: "400",
+    },
 });
