@@ -267,7 +267,7 @@ export default function ArtistDetailScreen() {
         const index = item.index;
         return (
             <HapticPressable
-                key={track.id || index.toString()}
+
                 style={styles.trackItemContainer}
                 onPress={async () => {
                     try {
@@ -309,7 +309,7 @@ export default function ArtistDetailScreen() {
         const hasImage = album.images && album.images.length > 0;
         return (
             <HapticPressable
-                key={album.id || index.toString()}
+
                 style={styles.itemContainer}
                 onPress={() => router.push(`/album/${album.id}`)}
             >
@@ -349,10 +349,10 @@ export default function ArtistDetailScreen() {
     };
 
     const keyExtractor = (item: any, index: number) => {
-        if (item.type === 'header') return `header-${item.title}`;
-        if (item.type === 'track') return `track-${item.data.id}`;
-        if (item.type === 'album') return `album-${item.data.id}`;
-        return index.toString();
+        if (item.type === 'header') return `header-${item.title}-${index}`;
+        if (item.type === 'track') return `track-${item.data.id}-${index}`;
+        if (item.type === 'album') return `album-${item.data.id}-${index}`;
+        return `item-${index}`;
     };
 
     return (
