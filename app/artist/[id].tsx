@@ -376,7 +376,9 @@ export default function ArtistDetailScreen() {
                     renderItem={renderItem}
                     keyExtractor={keyExtractor}
                     ItemSeparatorComponent={({ leadingItem }) => {
-                        if (leadingItem.type === 'album' || leadingItem.type === 'track') {
+                        if (
+                            leadingItem.type === 'album'
+                        ) {
                             return <View style={{ height: 8 }} />;
                         }
                         return null;
