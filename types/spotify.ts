@@ -5,6 +5,11 @@ export interface SpotifyImage {
 	width?: number;
 }
 
+export interface SpotifyFollowers {
+    href?: string;
+    total: number;
+}
+
 export interface SpotifyPlaylistOwner {
 	display_name?: string;
 	id: string;
@@ -63,6 +68,37 @@ export interface SpotifyAlbum {
 	tracks?: SpotifyAlbumTracks;
 }
 
+export interface SpotifyArtist {
+    external_urls: string;
+    followers: SpotifyFollowers;
+    genres: string[];
+    href: string;
+    id: string;
+    images: SpotifyImage[];
+    name: string;
+    popularity: number;
+    type: string;
+    uri: string;
+}
+
+export interface SpotifyArtists {
+	href: string;
+	limit: number;
+	next: string | null;
+    cursors: Cursor;
+	total: number;
+    items: SpotifyArtist[];
+}
+
+export interface Cursor {
+    after: string;
+    before: string;
+}
+
+export interface SpotifyFollowedArtistsResponse {
+    artists: SpotifyArtists;
+}
+
 export interface SpotifyAlbumTracks {
 	href: string;
 	items: SpotifyTrackSimple[];
@@ -107,7 +143,16 @@ export interface SpotifySavedAlbumsResponse {
 	total: number;
 }
 
-// Spotify API Types - Saved Tracks
+export interface SpotifyArtistAlbumsResponse {
+	href: string;
+	items: SpotifyAlbumSimple[];
+	limit: number;
+	next: string | null;
+	offset: number;
+	previous: string | null;
+	total: number;
+}
+
 export interface SavedTrackObject {
 	added_at: string;
 	track: SpotifyTrackSimple;
@@ -237,6 +282,15 @@ export interface SpotifySearchResults {
 		previous: string | null;
 		total: number;
 	};
+	artists?: {
+		href: string;
+		items: SpotifyArtist[];
+		limit: number;
+		next: string | null;
+		offset: number;
+		previous: string | null;
+		total: number;
+	};
 	playlists?: {
 		href: string;
 		items: SpotifyPlaylistSimple[];
@@ -263,6 +317,11 @@ export interface AuthContextType {
 	albumsNextUrl: string | null;
 	isLoadingMoreAlbums: boolean;
 	fetchMoreAlbums: () => Promise<void>;
+    
+	artists: SpotifyArtist[] | null;
+	artistsNextUrl: string | null;
+	isLoadingMoreArtists: boolean;
+	fetchMoreArtists: () => Promise<void>;
 
 	savedTracks: SavedTrackObject[] | null;
 	savedTracksNextUrl: string | null;
@@ -272,6 +331,7 @@ export interface AuthContextType {
 	isLoading: boolean;
 	isRefreshingPlaylists: boolean;
 	isRefreshingAlbums: boolean;
+	isRefreshingArtists: boolean;
 	isRefreshingSavedTracks: boolean;
 	isConnectedToAppRemote: boolean;
 
@@ -280,12 +340,20 @@ export interface AuthContextType {
 
 	fetchPlaylists: () => Promise<void>;
 	fetchAlbums: () => Promise<void>;
+	fetchArtists: () => Promise<void>;
 	fetchSavedTracks: () => Promise<void>;
 	refreshSavedTracksFromCache: () => Promise<void>;
 	saveAlbum: (albumId: string) => Promise<boolean>;
 	removeAlbum: (albumId: string) => Promise<boolean>;
 	checkIfAlbumIsSaved: (albumId: string) => Promise<boolean>;
+	followArtist: (artistId: string) => Promise<boolean>;
+	unfollowArtist: (artistId: string) => Promise<boolean>;
+	checkIfFollowingArtist: (artistId: string) => Promise<boolean>;
+    fetchArtistTopTracks: (artistId: string) => Promise<SpotifyTrack[]>;
+    fetchArtistAlbums: (artistId: string) => Promise<{ albums: SpotifyAlbumSimple[] | null; nextUrl: string | null }>;
+    fetchMoreArtistAlbums: (nextUrl: string | null, isLoadingMore: boolean) => Promise<{ albums: SpotifyAlbumSimple[] | null; nextUrl: string | null }>;
 	refreshSavedAlbumsFromCache: () => Promise<void>;
+	refreshFollowedArtistsFromCache: () => Promise<void>;
 	playTrack: (
 		trackUri: string,
 		deviceId?: string,

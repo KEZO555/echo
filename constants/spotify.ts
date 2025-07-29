@@ -6,6 +6,8 @@ export const SPOTIFY_SCOPES = [
 	"user-library-modify",
 	"user-read-recently-played",
 	"user-top-read",
+    "user-follow-read",
+    "user-follow-modify",
 	"playlist-read-private",
 	"playlist-read-collaborative",
 	"playlist-modify-public",
@@ -28,5 +30,6 @@ export const USER_INFO_KEY = "spotifyUserInfo";
 export const TOKEN_EXPIRY_KEY = "spotifyTokenExpiry";
 export const PLAYLISTS_KEY = "spotifyPlaylists";
 export const ALBUMS_KEY = "spotifyAlbums";
+export const ARTISTS_KEY = "spotifyArtists";
 export const SAVED_TRACKS_KEY = "spotifySavedTracks";
 export const ALBUM_ART_CACHE_KEY = "spotifyAlbumArtCache";

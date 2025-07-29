@@ -9,6 +9,10 @@ export const TABS_CONFIG: ReadonlyArray<TabConfigItem> = [
         screenName: "index",
         iconName: "favorite"
     },
+    {   name: "Artists",
+        screenName: "artists",
+        iconName: "person"
+    },
     {   name: "Albums",
         screenName: "albums",
         iconName: "album"
@@ -36,6 +40,8 @@ export default function TabLayout() {
 			switch (tab.screenName) {
 				case "index":
 					return preferences.showLikedSongs;
+				case "artists":
+					return preferences.showArtists;
 				case "albums":
 					return preferences.showAlbums;
 				case "playlists":

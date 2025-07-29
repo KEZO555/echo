@@ -7,8 +7,7 @@ import {
 } from "react-native";
 import {
     useAuth,
-    SpotifySavedAlbum,
-    SpotifyArtistSimple,
+    SpotifyArtist,
 } from "@/contexts/AuthContext";
 import { HapticPressable } from "@/components/HapticPressable";
 import { StyledText } from "@/components/StyledText";
@@ -17,165 +16,140 @@ import { useRouter } from "expo-router";
 import ContentContainer from "@/components/ContentContainer";
 import { useTabPreferences } from "@/contexts/TabPreferencesContext";
 import CustomScrollView from "@/components/CustomScrollView";
-import { logError } from "@/utils/logger";
+import { log, logError } from "@/utils/logger";
 
-export default function AlbumsScreen() {
+export default function ArtistsScreen() {
     const {
-        albums,
+        artists,
         isLoading,
-        accessToken,
-        fetchAlbums,
-        user,
-        isRefreshingAlbums,
-        fetchMoreAlbums,
-        isLoadingMoreAlbums,
-        albumsNextUrl,
+        fetchArtists,
+        isRefreshingArtists,
+        fetchMoreArtists,
+        isLoadingMoreArtists,
+        artistsNextUrl,
         makeApiRequest,
     } = useAuth();
     const router = useRouter();
     const { preferences } = useTabPreferences();
-    const [sortedAlbums, setSortedAlbums] = useState<
-        SpotifySavedAlbum[] | null
+    const [sortedArtists, setSortedArtists] = useState<
+        SpotifyArtist[] | null
     >(null);
-    const [loadingAlbumId, setLoadingAlbumId] = useState<string | null>(null);
+    const [loadingArtistId, setLoadingArtistId] = useState<string | null>(null);
 
     useEffect(() => {
-        if (
-            accessToken &&
-            user &&
-            !albums &&
-            !isLoading &&
-            !isRefreshingAlbums
-        ) {
-            fetchAlbums();
+        if (artists) {
+            const newSortedArtists = [...artists]
+                .filter((artist) => artist.id && artist.name)
+                .sort((a, b) => {
+                    const artistA = (a.name || "").toLowerCase();
+                    const artistB = (b.name || "").toLowerCase();
+                    if (artistA < artistB) return -1;
+                    if (artistA > artistB) return 1;
+                    return 0;
+                });
+            setSortedArtists(newSortedArtists);
         }
-    }, [accessToken, user, albums, isLoading, isRefreshingAlbums]);
-
-    useEffect(() => {
-        if (albums) {
-            const newSortedAlbums = [...albums].sort((a, b) => {
-                const artistA = a.album.artists[0]?.name.toLowerCase() || "";
-                const artistB = b.album.artists[0]?.name.toLowerCase() || "";
-                if (artistA < artistB) return -1;
-                if (artistA > artistB) return 1;
-                return 0;
-            });
-            setSortedAlbums(newSortedAlbums);
-        }
-    }, [albums]);
+    }, [artists]);
 
     const handleRefresh = useCallback(() => {
-        if (!isRefreshingAlbums) {
-            fetchAlbums();
+        if (!isRefreshingArtists) {
+            fetchArtists();
         }
-    }, [fetchAlbums, isRefreshingAlbums]);
+    }, [fetchArtists, isRefreshingArtists]);
 
-    const getArtistNames = (artists: SpotifyArtistSimple[]) => {
-        return artists.map((artist) => artist.name).join(", ");
-    };
-
-    const renderAlbumItem = ({ item }: { item: SpotifySavedAlbum }) => (
+    const renderArtistItem = ({ item }: { item: SpotifyArtist }) => (
         <HapticPressable
             style={styles.itemContainer}
             onPress={async () => {
-                if (loadingAlbumId) return; // Prevent multiple simultaneous requests
+                if (loadingArtistId) return;
 
-                setLoadingAlbumId(item.album.id);
+                setLoadingArtistId(item.id);
                 try {
-                    // Fetch album details first, similar to how liked songs awaits playback
-                    const albumData = await makeApiRequest(
-                        `https://api.spotify.com/v1/albums/${item.album.id}`,
-                        "Album details for navigation"
+                    const artistData = await makeApiRequest(
+                        `https://api.spotify.com/v1/artists/${item.id}`,
+                        "Artist details for navigation"
                     );
 
-                    if (albumData) {
-                        // Navigate with the loaded data
+                    if (artistData) {
                         router.push({
-                            pathname: `/album/${item.album.id}`,
-                            params: { albumString: JSON.stringify(albumData) },
+                            pathname: `/artist/${item.id}`,
+                            params: { artistString: JSON.stringify(artistData) },
                         } as any);
                     } else {
-                        // Fallback to original navigation if fetch fails
                         router.push({
-                            pathname: `/album/${item.album.id}`,
-                            params: { albumString: JSON.stringify(item.album) },
+                            pathname: `/artist/${item.id}`,
+                            params: { artistString: JSON.stringify(item) },
                         } as any);
                     }
                 } catch (error) {
                     logError(
-                        "Error fetching album details for navigation:",
+                        "Error fetching artist details for navigation:",
                         error
                     );
-                    // Fallback to original navigation on error
                     router.push({
-                        pathname: `/album/${item.album.id}`,
-                        params: { albumString: JSON.stringify(item.album) },
+                        pathname: `/artist/${item.id}`,
+                        params: { artistString: JSON.stringify(item) },
                     } as any);
                 } finally {
-                    setLoadingAlbumId(null);
+                    setLoadingArtistId(null);
                 }
             }}
         >
-            {item.album.images && item.album.images.length > 0 ? (
-                <View style={styles.albumImageContainer}>
+            {item.images && item.images.length > 0 ? (
+                <View style={styles.artistImageContainer}>
                     <Image
-                        source={{ uri: item.album.images[0].url }}
-                        style={styles.albumImage}
+                        source={{ uri: item.images[0].url }}
+                        style={styles.artistImage}
                     />
-                    {loadingAlbumId === item.album.id && (
+                    {loadingArtistId === item.id && (
                         <View style={styles.loadingOverlay}></View>
                     )}
                 </View>
             ) : (
                 <View style={styles.placeholderImageContainer}>
-                    <MaterialIcons name="album" size={24} color="white" />
-                    {loadingAlbumId === item.album.id && (
+                    <MaterialIcons name="person" size={24} color="white" />
+                    {loadingArtistId === item.id && (
                         <View style={styles.loadingOverlay}></View>
                     )}
                 </View>
             )}
             <View style={styles.textContainer}>
-                <StyledText style={styles.albumName} numberOfLines={1}>
-                    {item.album.name}
-                </StyledText>
-                <StyledText style={styles.albumArtist} numberOfLines={1}>
-                    {getArtistNames(item.album.artists)}
+                <StyledText style={styles.artistName} numberOfLines={1}>
+                    {item.name}
                 </StyledText>
             </View>
         </HapticPressable>
     );
 
-    // Show global loading indicator if initial data is loading and no albums are yet available
-    if (isLoading && !sortedAlbums) {
+    if (isLoading && !sortedArtists) {
         return <View style={styles.centeredMessageContainer}></View>;
     }
 
-    // Show specific refresh indicator if only manual refresh is happening for albums
-    if (isRefreshingAlbums && !sortedAlbums) {
+    if (isRefreshingArtists && !sortedArtists) {
         return <View style={styles.centeredMessageContainer}></View>;
     }
 
-    if (!sortedAlbums || sortedAlbums.length === 0) {
+    if (!sortedArtists || sortedArtists.length === 0) {
         return (
             <View style={styles.centeredMessageContainer}>
                 <StyledText style={styles.emptyText}>
-                    No saved albums found.
+                    No saved artists found.
                 </StyledText>
                 <StyledText style={styles.emptySubText}>
-                    Try saving some albums in Spotify or pull down to refresh.
+                    Try saving some artists in Spotify or pull down to refresh.
                 </StyledText>
             </View>
         );
     }
 
     const handleLoadMore = () => {
-        if (albumsNextUrl && !isLoadingMoreAlbums) {
-            fetchMoreAlbums();
+        if (artistsNextUrl && !isLoadingMoreArtists) {
+            fetchMoreArtists();
         }
     };
 
     const renderFooter = () => {
-        if (!isLoadingMoreAlbums) return null;
+        if (!isLoadingMoreArtists) return null;
         return;
     };
 
@@ -185,7 +159,7 @@ export default function AlbumsScreen() {
 
     return (
         <ContentContainer
-            headerTitle="Albums"
+            headerTitle="Artists"
             hideBackButton={true}
             style={{ paddingHorizontal: 20 }}
             headerIcon="multitrack-audio"
@@ -193,19 +167,19 @@ export default function AlbumsScreen() {
             headerIconShowLength={preferences.showPlayingInNavbar ? 0 : 1}
         >
             <CustomScrollView
-                data={sortedAlbums}
-                renderItem={renderAlbumItem}
-                keyExtractor={(item) => item.album.id} // Use album id as key
+                data={sortedArtists}
+                renderItem={renderArtistItem}
+                keyExtractor={(item) => item.id}
                 style={styles.list}
                 contentContainerStyle={styles.listContentContainer}
                 ItemSeparatorComponent={() => <View style={{ height: 8 }} />}
                 overScrollMode={"never"}
-                onEndReached={handleLoadMore} // Added onEndReached
+                onEndReached={handleLoadMore}
                 onEndReachedThreshold={6}
-                ListFooterComponent={renderFooter} // Added ListFooterComponent
+                ListFooterComponent={renderFooter}
                 refreshControl={
                     <RefreshControl
-                        refreshing={isRefreshingAlbums}
+                        refreshing={isRefreshingArtists}
                         onRefresh={handleRefresh}
                         colors={["white"]}
                         progressBackgroundColor={"black"}
@@ -247,15 +221,16 @@ const styles = StyleSheet.create({
         flexDirection: "row",
         alignItems: "center",
     },
-    albumImageContainer: {
+    artistImageContainer: {
         width: 50,
         height: 50,
         marginRight: 15,
         position: "relative",
     },
-    albumImage: {
+    artistImage: {
         width: 50,
         height: 50,
+        borderRadius: 100,
     },
     placeholderImageContainer: {
         width: 50,
@@ -269,14 +244,10 @@ const styles = StyleSheet.create({
         flex: 1,
         gap: 0,
     },
-    albumName: {
+    artistName: {
         fontSize: 22,
         lineHeight: 24,
         color: "white",
-    },
-    albumArtist: {
-        fontSize: 16,
-        lineHeight: 18,
     },
     loadingOverlay: {
         position: "absolute",
