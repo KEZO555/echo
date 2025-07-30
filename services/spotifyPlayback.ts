@@ -65,96 +65,85 @@ export const forceAppRemoteConnection = async (): Promise<boolean> => {
     return false;
 };
 
-export const playTrackWithNativeSdk = async (
-    trackUri: string,
-    _deviceId?: string,
-    contextUri?: string,
-    accessToken?: string | null,
+export const playTracksWithWebApi = async (
+    uris: string[],
+    accessToken: string | null,
     ensureValidToken?: () => Promise<string | null>
 ): Promise<void> => {
-    log(`Playback: Playing track: ${trackUri.split(":").pop()}`);
-
-    try {
-        let connected = await ensureAppRemoteConnection();
-
-        if (!connected) {
-            await new Promise((resolve) => setTimeout(resolve, 1000));
-            connected = await ensureAppRemoteConnection();
-        }
-
-        if (!connected) {
-            connected = await forceAppRemoteConnection();
-            if (connected) {
-                await new Promise((resolve) => setTimeout(resolve, 500));
-            }
-        }
-
-        if (!connected) {
-            logError("Playback: Cannot play - not connected to Spotify");
-            return;
-        }
-
-        if (contextUri && accessToken) {
-            try {
-                // Use token validation if available, otherwise use the provided token
-                let validToken = accessToken;
-                if (ensureValidToken) {
-                    const refreshedToken = await ensureValidToken();
-                    if (refreshedToken) {
-                        validToken = refreshedToken;
-                    }
-                }
-
-                // Use centralized API request with token refresh handling
-                const response = await fetch(
-                    "https://api.spotify.com/v1/me/player/play",
-                    {
-                        method: "PUT",
-                        headers: {
-                            Authorization: `Bearer ${validToken}`,
-                            "Content-Type": "application/json",
-                        },
-                        body: JSON.stringify({
-                            context_uri: contextUri,
-                            offset: { uri: trackUri },
-                        }),
-                    }
-                );
-
-                if (response.ok) {
-                    log(
-                        "Playback: Web API successfully set context and initiated playback."
-                    );
-                    return;
-                } else if (response.status === 401) {
-                    log(
-                        "Playback: Token expired, falling back to direct play"
-                    );
-                    throw new Error("Token expired - using fallback");
-                } else {
-                    throw new Error("Web API context failed");
-                }
-            } catch (webApiError: any) {
-                log(
-                    "Playback: Web API error, using fallback method:",
-                    webApiError.message
-                );
-                const playResult = await SpotifySdk.play(trackUri);
-                if (playResult.playing) {
-                    log("Playback: Direct track playback started");
-                }
-            }
+    let validToken = accessToken;
+    if (ensureValidToken) {
+        const refreshedToken = await ensureValidToken();
+        if (refreshedToken) {
+            validToken = refreshedToken;
         } else {
-            const playResult = await SpotifySdk.play(trackUri);
-            if (playResult.playing) {
-                log(
-                    "Playback: Native SDK direct playback started successfully"
-                );
-            }
+            log("Playback: Token validation failed, cannot play with Web API");
+            throw new Error("Token validation failed");
         }
-    } catch (error: any) {
-        logError("Playback: Error with playback:", error);
-        throw error;
+    }
+
+    if (!validToken) {
+        log("Playback: No valid token available for Web API playback");
+        throw new Error("No valid token");
+    }
+
+    // Try to get available devices to target the call properly
+    let deviceId: string | undefined;
+    try {
+        const devicesResponse = await fetch(
+            "https://api.spotify.com/v1/me/player/devices",
+            {
+                headers: {
+                    Authorization: `Bearer ${validToken}`,
+                },
+            }
+        );
+
+        if (devicesResponse.ok) {
+            const devicesData = await devicesResponse.json();
+            const activeDevice = devicesData.devices?.find((d: any) => d.is_active);
+            const availableDevice = devicesData.devices?.[0];
+            deviceId = activeDevice?.id || availableDevice?.id;
+        }
+    } catch (deviceError) {
+        log("Playback: Device detection failed, proceeding without device_id:", deviceError);
+    }
+
+    const playUrl = deviceId
+        ? `https://api.spotify.com/v1/me/player/play?device_id=${deviceId}`
+        : "https://api.spotify.com/v1/me/player/play";
+
+    const response = await fetch(
+        playUrl,
+        {
+            method: "PUT",
+            headers: {
+                Authorization: `Bearer ${validToken}`,
+                "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+                uris: uris,
+            }),
+        }
+    );
+
+    if (response.ok) {
+        log(
+            "Playback: Web API successfully set context and initiated playback."
+        );
+        return;
+    } else if (response.status === 401) {
+        log(
+            "Playback: Token expired, falling back to direct play"
+        );
+        throw new Error("Token expired - using fallback");
+    } else {
+        const errorText = await response.text();
+        log("Playback: Web API context failed:", {
+            status: response.status,
+            statusText: response.statusText,
+            error: errorText
+        });
+        throw new Error(`Web API context failed: ${errorText}`);
     }
 };
 
@@ -893,8 +882,7 @@ export const skipToIndex = async (
         if (
             sourceContext?.uri &&
             sourceContext.currentIndex !== undefined &&
-            sourceContext.currentIndex !== null &&
-            sourceContext.type !== "artist"
+            sourceContext.currentIndex !== null
         ) {
             log("Index:", {
                 currentIndex: sourceContext.currentIndex,

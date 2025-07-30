@@ -48,7 +48,7 @@ import {
 } from "../services/spotifyData";
 import {
     forceAppRemoteConnection,
-    playTrackWithNativeSdk,
+    playTracksWithWebApi as playTracksWithWebApiService,
     getPlaybackStateFromNativeSdk,
     startPlayback as startPlaybackService,
     pausePlayback as pausePlaybackService,
@@ -566,8 +566,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
                 const cachedAlbums = await refreshSavedAlbumsFromCache();
                 if (cachedAlbums) setAlbums(cachedAlbums);
             }
-            return result;
-        },
+_        },
         [accessToken, ensureValidToken]
     );
 
@@ -651,22 +650,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }, []);
 
     // Playback methods
-    const playTrack = useCallback(
-        async (trackUri: string, deviceId?: string, contextUri?: string) => {
-            try {
-                // Ensure we have a valid token before playback
-                const validToken = await ensureValidToken();
-                await playTrackWithNativeSdk(
-                    trackUri,
-                    deviceId,
-                    contextUri,
-                    validToken,
-                    ensureValidToken
-                );
-            } catch (error) {
-                setIsConnectedToAppRemote(false);
-                throw error;
-            }
+    const playTracksWithWebApi = useCallback(
+        async (uris: string[]) => {
+            return playTracksWithWebApiService(uris, accessToken, ensureValidToken);
         },
         [accessToken, ensureValidToken]
     );
@@ -960,7 +946,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         fetchArtistAlbums,
         fetchMoreArtistAlbums,
         refreshFollowedArtistsFromCache: refreshFollowedArtistsFromCacheMethod,
-        playTrack,
+        playTracksWithWebApi,
         playTrackWithContext,
         skipToIndex,
         getPlaybackState,

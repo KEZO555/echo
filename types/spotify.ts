@@ -354,10 +354,8 @@ export interface AuthContextType {
     fetchMoreArtistAlbums: (nextUrl: string | null, isLoadingMore: boolean) => Promise<{ albums: SpotifyAlbumSimple[] | null; nextUrl: string | null }>;
     refreshSavedAlbumsFromCache: () => Promise<void>;
     refreshFollowedArtistsFromCache: () => Promise<void>;
-    playTrack: (
-        trackUri: string,
-        deviceId?: string,
-        contextUri?: string
+    playTracksWithWebApi: (
+        uris: string[],
     ) => Promise<void>;
     playTrackWithContext: (
         trackUri: string,

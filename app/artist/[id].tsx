@@ -24,7 +24,7 @@ export default function ArtistDetailScreen() {
     }>();
     const {
         accessToken,
-        playTrackWithContext,
+        playTracksWithWebApi,
         followArtist,
         unfollowArtist,
         fetchArtistTopTracks,
@@ -265,14 +265,12 @@ export default function ArtistDetailScreen() {
         const index = item.index;
         return (
             <HapticPressable
-
                 style={styles.trackItemContainer}
                 onPress={async () => {
                     try {
-                        await playTrackWithContext(track.uri, {
-                            type: "artist",
-                            uri: `spotify:artist:${id}`,
-                        });
+                        const trackUris = topTracks.map((t) => t.uri);
+                        const urisToPlay = trackUris.slice(item.index);
+                        await playTracksWithWebApi(urisToPlay);
                         router.push("/playing");
                     } catch (error) {
                         logError("Error playing track:", error);
