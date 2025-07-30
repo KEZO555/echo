@@ -31,9 +31,7 @@ export default function LikedSongsScreen() {
         fetchMoreSavedTracks,
         isLoadingMoreSavedTracks,
         savedTracksNextUrl,
-        playTrackWithContext,
-        getPlaybackState,
-        toggleShuffle,
+        skipToIndex,
     } = useAuth();
     const router = useRouter();
 
@@ -92,25 +90,12 @@ export default function LikedSongsScreen() {
                     const collectionUri = `spotify:user:${user.id}:collection`;
 
                     try {
-                        let wasShuffling = false;
-                        try {
-                            const playbackState = await getPlaybackState();
-                            wasShuffling = !!playbackState?.shuffle_state;
-                        } catch (e) {
-                            logWarn("Could not get playback state, proceeding without shuffle workaround");
-                        }
-                        if (wasShuffling) {
-                            await toggleShuffle(false);
-                        }
-                        await playTrackWithContext(item.track.uri, {
-                            type: "liked",
-                            uri: collectionUri,
-                            tracks: savedTracks || [],
-                            currentIndex: index,
-                        });
-                        if (wasShuffling) {
-                            await toggleShuffle(true);
-                        }
+                        await skipToIndex(
+                            {
+                                type: "liked",
+                                uri: collectionUri,
+                                currentIndex: index,
+                            });
                         router.push("/playing");
                     } catch (error) {
                         logError("Error playing track:", error);

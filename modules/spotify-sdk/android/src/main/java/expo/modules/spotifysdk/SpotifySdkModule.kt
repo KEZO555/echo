@@ -443,18 +443,29 @@ class SpotifySdkModule : Module() {
       }
     }
 
-    AsyncFunction("skipPrevious") { promise: Promise ->
-      try {
-        spotifyAppRemote?.playerApi?.skipPrevious()?.setResultCallback {
-          promise.resolve(mapOf("skipped" to true))
-        }?.setErrorCallback { error ->
-          promise.reject("SKIP_ERROR", error.message, error)
-        } ?: promise.reject("NOT_CONNECTED", "Spotify not connected", null)
-      } catch (e: Exception) {
-        promise.reject("SKIP_ERROR", e.message, e)
-      }
-    }
+AsyncFunction("skipPrevious") { promise: Promise ->
+       try {
+         spotifyAppRemote?.playerApi?.skipPrevious()?.setResultCallback {
+           promise.resolve(mapOf("skipped" to true))
+         }?.setErrorCallback { error ->
+           promise.reject("SKIP_ERROR", error.message, error)
+         } ?: promise.reject("NOT_CONNECTED", "Spotify not connected", null)
+       } catch (e: Exception) {
+         promise.reject("SKIP_ERROR", e.message, e)
+       }
+     }
 
+     AsyncFunction("skipToIndex") { uri: String, index: Int, promise: Promise ->
+       try {
+         spotifyAppRemote?.playerApi?.skipToIndex(uri, index)?.setResultCallback {
+           promise.resolve(mapOf("skipped" to true))
+         }?.setErrorCallback { error ->
+           promise.reject("SKIP_TO_INDEX_ERROR", error.message, error)
+         } ?: promise.reject("NOT_CONNECTED", "Spotify not connected", null)
+       } catch (e: Exception) {
+         promise.reject("SKIP_TO_INDEX_ERROR", e.message, e)
+       }
+     }
     AsyncFunction("seekTo") { positionMs: Long, promise: Promise ->
       try {
         spotifyAppRemote?.playerApi?.seekTo(positionMs)?.setResultCallback {

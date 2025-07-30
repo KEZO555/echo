@@ -62,6 +62,7 @@ import {
     searchItems as searchItemsService,
     addTrackToPlaylist as addTrackToPlaylistService,
     playTrackWithContext as playTrackWithContextService,
+    skipToIndex as skipToIndexService,
 } from "../services/spotifyPlayback";
 
 // Import utilities
@@ -696,6 +697,22 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         [ensureValidToken]
     );
 
+    const skipToIndex = useCallback(
+        async (
+            sourceContext: {
+                type: "album" | "playlist" | "liked" | "artist";
+                uri?: string;
+                tracks?: any[];
+                currentIndex?: number;
+            }
+        ) => {
+            return skipToIndexService(
+                sourceContext,
+            );
+        },
+        []
+    );
+
     const getPlaybackState = useCallback(
         (): Promise<SpotifyCurrentlyPlaying | null> =>
             getPlaybackStateFromNativeSdk(accessToken, ensureValidToken),
@@ -945,6 +962,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         refreshFollowedArtistsFromCache: refreshFollowedArtistsFromCacheMethod,
         playTrack,
         playTrackWithContext,
+        skipToIndex,
         getPlaybackState,
         getCurrentTrack,
         getAlbumArt,

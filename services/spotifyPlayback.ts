@@ -871,3 +871,40 @@ export const playTrackWithContext = async (
         throw error;
     }
 };
+
+export const skipToIndex = async (
+    sourceContext: {
+        type: "album" | "playlist" | "liked" | "artist";
+        uri?: string;
+        tracks?: any[];
+        currentIndex?: number;
+    }
+): Promise<void> => {
+    log(
+        "Playback: Playing track with context via SkipToIndex:",
+        sourceContext?.type || "none"
+    );
+    {
+        const connected = await ensureAppRemoteConnection(); if (!connected) {
+            log("Playback: Cannot play - App Remote not connected");
+            return;
+        }
+
+        if (
+            sourceContext?.uri &&
+            sourceContext.currentIndex !== undefined &&
+            sourceContext.currentIndex !== null &&
+            sourceContext.type !== "artist"
+        ) {
+            log("Index:", {
+                currentIndex: sourceContext.currentIndex,
+            });
+            log("URI:", {
+                uri: sourceContext.uri,
+            });
+            await SpotifySdk.skipToIndex(sourceContext.uri, sourceContext.currentIndex);
+        }
+        log("Playback: Skipped to index");
+        return;
+    }
+};

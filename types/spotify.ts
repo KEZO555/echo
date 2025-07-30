@@ -1,8 +1,8 @@
 // Spotify API Types
 export interface SpotifyImage {
-	url: string;
-	height?: number;
-	width?: number;
+    url: string;
+    height?: number;
+    width?: number;
 }
 
 export interface SpotifyFollowers {
@@ -11,61 +11,61 @@ export interface SpotifyFollowers {
 }
 
 export interface SpotifyPlaylistOwner {
-	display_name?: string;
-	id: string;
+    display_name?: string;
+    id: string;
 }
 
 export interface SpotifyPlaylist {
-	id: string;
-	name: string;
-	description: string | null;
-	images: SpotifyImage[];
-	owner: SpotifyPlaylistOwner;
-	tracks: {
-		href: string;
-		total: number;
-	};
-	public?: boolean;
-	collaborative: boolean;
-	uri: string;
-	href: string;
+    id: string;
+    name: string;
+    description: string | null;
+    images: SpotifyImage[];
+    owner: SpotifyPlaylistOwner;
+    tracks: {
+        href: string;
+        total: number;
+    };
+    public?: boolean;
+    collaborative: boolean;
+    uri: string;
+    href: string;
 }
 
 export interface SpotifyPlaylistsResponse {
-	href: string;
-	items: SpotifyPlaylist[];
-	limit: number;
-	next: string | null;
-	offset: number;
-	previous: string | null;
-	total: number;
+    href: string;
+    items: SpotifyPlaylist[];
+    limit: number;
+    next: string | null;
+    offset: number;
+    previous: string | null;
+    total: number;
 }
 
 // Spotify API Types - Albums
 export interface SpotifyArtistSimple {
-	external_urls: { spotify: string };
-	href: string;
-	id: string;
-	name: string;
-	type: string;
-	uri: string;
+    external_urls: { spotify: string };
+    href: string;
+    id: string;
+    name: string;
+    type: string;
+    uri: string;
 }
 
 export interface SpotifyAlbum {
-	album_type: string;
-	total_tracks: number;
-	available_markets: string[];
-	external_urls: { spotify: string };
-	href: string;
-	id: string;
-	images: SpotifyImage[];
-	name: string;
-	release_date: string;
-	release_date_precision: string;
-	type: string;
-	uri: string;
-	artists: SpotifyArtistSimple[];
-	tracks?: SpotifyAlbumTracks;
+    album_type: string;
+    total_tracks: number;
+    available_markets: string[];
+    external_urls: { spotify: string };
+    href: string;
+    id: string;
+    images: SpotifyImage[];
+    name: string;
+    release_date: string;
+    release_date_precision: string;
+    type: string;
+    uri: string;
+    artists: SpotifyArtistSimple[];
+    tracks?: SpotifyAlbumTracks;
 }
 
 export interface SpotifyArtist {
@@ -82,11 +82,11 @@ export interface SpotifyArtist {
 }
 
 export interface SpotifyArtists {
-	href: string;
-	limit: number;
-	next: string | null;
+    href: string;
+    limit: number;
+    next: string | null;
     cursors: Cursor;
-	total: number;
+    total: number;
     items: SpotifyArtist[];
 }
 
@@ -100,301 +100,309 @@ export interface SpotifyFollowedArtistsResponse {
 }
 
 export interface SpotifyAlbumTracks {
-	href: string;
-	items: SpotifyTrackSimple[];
-	limit: number;
-	next: string | null;
-	offset: number;
-	previous: string | null;
-	total: number;
-	uri: string;
+    href: string;
+    items: SpotifyTrackSimple[];
+    limit: number;
+    next: string | null;
+    offset: number;
+    previous: string | null;
+    total: number;
+    uri: string;
 }
 
 export interface SpotifyTrackSimple {
-	artists: SpotifyArtistSimple[];
-	available_markets: string[];
-	disc_number: number;
-	duration_ms: number;
-	explicit: boolean;
-	external_urls: { spotify: string };
-	href: string;
-	id: string;
-	is_local: boolean;
-	name: string;
-	preview_url: string | null;
-	track_number: number;
-	type: string;
-	uri: string;
-	album?: SpotifyAlbum;
+    artists: SpotifyArtistSimple[];
+    available_markets: string[];
+    disc_number: number;
+    duration_ms: number;
+    explicit: boolean;
+    external_urls: { spotify: string };
+    href: string;
+    id: string;
+    is_local: boolean;
+    name: string;
+    preview_url: string | null;
+    track_number: number;
+    type: string;
+    uri: string;
+    album?: SpotifyAlbum;
 }
 
 export interface SpotifySavedAlbum {
-	added_at: string;
-	album: SpotifyAlbum;
+    added_at: string;
+    album: SpotifyAlbum;
 }
 
 export interface SpotifySavedAlbumsResponse {
-	href: string;
-	items: SpotifySavedAlbum[];
-	limit: number;
-	next: string | null;
-	offset: number;
-	previous: string | null;
-	total: number;
+    href: string;
+    items: SpotifySavedAlbum[];
+    limit: number;
+    next: string | null;
+    offset: number;
+    previous: string | null;
+    total: number;
 }
 
 export interface SpotifyArtistAlbumsResponse {
-	href: string;
-	items: SpotifyAlbumSimple[];
-	limit: number;
-	next: string | null;
-	offset: number;
-	previous: string | null;
-	total: number;
+    href: string;
+    items: SpotifyAlbumSimple[];
+    limit: number;
+    next: string | null;
+    offset: number;
+    previous: string | null;
+    total: number;
 }
 
 export interface SavedTrackObject {
-	added_at: string;
-	track: SpotifyTrackSimple;
+    added_at: string;
+    track: SpotifyTrackSimple;
 }
 
 export interface SavedTracksResponse {
-	href: string;
-	items: SavedTrackObject[];
-	limit: number;
-	next: string | null;
-	offset: number;
-	previous: string | null;
-	total: number;
+    href: string;
+    items: SavedTrackObject[];
+    limit: number;
+    next: string | null;
+    offset: number;
+    previous: string | null;
+    total: number;
 }
 
 // Spotify API Types - Player / Devices
 export interface SpotifyDevice {
-	id: string | null;
-	is_active: boolean;
-	is_private_session: boolean;
-	is_restricted: boolean;
-	name: string;
-	type: string;
-	volume_percent: number | null;
-	supports_volume: boolean;
-	uri: string;
+    id: string | null;
+    is_active: boolean;
+    is_private_session: boolean;
+    is_restricted: boolean;
+    name: string;
+    type: string;
+    volume_percent: number | null;
+    supports_volume: boolean;
+    uri: string;
 }
 
 export interface SpotifyDevicesResponse {
-	devices: SpotifyDevice[];
+    devices: SpotifyDevice[];
 }
 
 export interface SpotifyRepeatState {
-	state: "off" | "track" | "context";
+    state: "off" | "track" | "context";
 }
 
 export interface SpotifyCurrentlyPlaying {
-	timestamp: number;
-	context: SpotifyPlaybackContext | null;
-	progress_ms: number | null;
-	is_playing: boolean;
-	item: SpotifyTrackSimple | null;
-	currently_playing_type: "track" | "episode" | "ad" | "unknown";
-	actions: { disallows: Record<string, boolean> };
-	device: SpotifyDevice;
-	shuffle_state: boolean;
-	repeat_state: SpotifyRepeatState["state"];
+    timestamp: number;
+    context: SpotifyPlaybackContext | null;
+    progress_ms: number | null;
+    is_playing: boolean;
+    item: SpotifyTrackSimple | null;
+    currently_playing_type: "track" | "episode" | "ad" | "unknown";
+    actions: { disallows: Record<string, boolean> };
+    device: SpotifyDevice;
+    shuffle_state: boolean;
+    repeat_state: SpotifyRepeatState["state"];
 }
 
 export interface SpotifyPlaybackContext {
-	type: "album" | "artist" | "playlist" | "show";
-	href: string;
-	external_urls: { spotify: string };
-	uri: string;
+    type: "album" | "artist" | "playlist" | "show";
+    href: string;
+    external_urls: { spotify: string };
+    uri: string;
 }
 
 // Spotify API Types - Search
 export interface SpotifyAlbumSimple {
-	album_type: string;
-	total_tracks: number;
-	href: string;
-	id: string;
-	images: SpotifyImage[];
-	name: string;
-	release_date: string;
-	release_date_precision: string;
-	type: "album";
-	uri: string;
-	artists: SpotifyArtistSimple[];
+    album_type: string;
+    total_tracks: number;
+    href: string;
+    id: string;
+    images: SpotifyImage[];
+    name: string;
+    release_date: string;
+    release_date_precision: string;
+    type: "album";
+    uri: string;
+    artists: SpotifyArtistSimple[];
 }
 
 export interface SpotifyTrack {
-	album: SpotifyAlbumSimple;
-	artists: SpotifyArtistSimple[];
-	available_markets: string[];
-	disc_number: number;
-	duration_ms: number;
-	explicit: boolean;
-	external_ids: { isrc?: string; ean?: string; upc?: string };
-	external_urls: { spotify: string };
-	href: string;
-	id: string;
-	is_local: boolean;
-	name: string;
-	popularity: number;
-	preview_url: string | null;
-	track_number: number;
-	type: "track";
-	uri: string;
+    album: SpotifyAlbumSimple;
+    artists: SpotifyArtistSimple[];
+    available_markets: string[];
+    disc_number: number;
+    duration_ms: number;
+    explicit: boolean;
+    external_ids: { isrc?: string; ean?: string; upc?: string };
+    external_urls: { spotify: string };
+    href: string;
+    id: string;
+    is_local: boolean;
+    name: string;
+    popularity: number;
+    preview_url: string | null;
+    track_number: number;
+    type: "track";
+    uri: string;
 }
 
 export interface SpotifyPlaylistSimple {
-	collaborative: boolean;
-	description: string | null;
-	external_urls: { spotify: string };
-	href: string;
-	id: string;
-	images: SpotifyImage[];
-	name: string;
-	owner: SpotifyPlaylistOwner;
-	public: boolean | null;
-	snapshot_id: string;
-	tracks: {
-		href: string;
-		total: number;
-	};
-	type: "playlist";
-	uri: string;
+    collaborative: boolean;
+    description: string | null;
+    external_urls: { spotify: string };
+    href: string;
+    id: string;
+    images: SpotifyImage[];
+    name: string;
+    owner: SpotifyPlaylistOwner;
+    public: boolean | null;
+    snapshot_id: string;
+    tracks: {
+        href: string;
+        total: number;
+    };
+    type: "playlist";
+    uri: string;
 }
 
 export interface SpotifySearchResults {
-	tracks?: {
-		href: string;
-		items: SpotifyTrack[];
-		limit: number;
-		next: string | null;
-		offset: number;
-		previous: string | null;
-		total: number;
-	};
-	albums?: {
-		href: string;
-		items: SpotifyAlbumSimple[];
-		limit: number;
-		next: string | null;
-		offset: number;
-		previous: string | null;
-		total: number;
-	};
-	artists?: {
-		href: string;
-		items: SpotifyArtist[];
-		limit: number;
-		next: string | null;
-		offset: number;
-		previous: string | null;
-		total: number;
-	};
-	playlists?: {
-		href: string;
-		items: SpotifyPlaylistSimple[];
-		limit: number;
-		next: string | null;
-		offset: number;
-		previous: string | null;
-		total: number;
-	};
+    tracks?: {
+        href: string;
+        items: SpotifyTrack[];
+        limit: number;
+        next: string | null;
+        offset: number;
+        previous: string | null;
+        total: number;
+    };
+    albums?: {
+        href: string;
+        items: SpotifyAlbumSimple[];
+        limit: number;
+        next: string | null;
+        offset: number;
+        previous: string | null;
+        total: number;
+    };
+    artists?: {
+        href: string;
+        items: SpotifyArtist[];
+        limit: number;
+        next: string | null;
+        offset: number;
+        previous: string | null;
+        total: number;
+    };
+    playlists?: {
+        href: string;
+        items: SpotifyPlaylistSimple[];
+        limit: number;
+        next: string | null;
+        offset: number;
+        previous: string | null;
+        total: number;
+    };
 }
 
 // Context Types
 export interface AuthContextType {
-	accessToken: string | null;
-	refreshToken: string | null;
-	user: any | null;
+    accessToken: string | null;
+    refreshToken: string | null;
+    user: any | null;
 
-	playlists: SpotifyPlaylist[] | null;
-	playlistsNextUrl: string | null;
-	isLoadingMorePlaylists: boolean;
-	fetchMorePlaylists: () => Promise<void>;
+    playlists: SpotifyPlaylist[] | null;
+    playlistsNextUrl: string | null;
+    isLoadingMorePlaylists: boolean;
+    fetchMorePlaylists: () => Promise<void>;
 
-	albums: SpotifySavedAlbum[] | null;
-	albumsNextUrl: string | null;
-	isLoadingMoreAlbums: boolean;
-	fetchMoreAlbums: () => Promise<void>;
-    
-	artists: SpotifyArtist[] | null;
-	artistsNextUrl: string | null;
-	isLoadingMoreArtists: boolean;
-	fetchMoreArtists: () => Promise<void>;
+    albums: SpotifySavedAlbum[] | null;
+    albumsNextUrl: string | null;
+    isLoadingMoreAlbums: boolean;
+    fetchMoreAlbums: () => Promise<void>;
 
-	savedTracks: SavedTrackObject[] | null;
-	savedTracksNextUrl: string | null;
-	isLoadingMoreSavedTracks: boolean;
-	fetchMoreSavedTracks: () => Promise<void>;
+    artists: SpotifyArtist[] | null;
+    artistsNextUrl: string | null;
+    isLoadingMoreArtists: boolean;
+    fetchMoreArtists: () => Promise<void>;
 
-	isLoading: boolean;
-	isRefreshingPlaylists: boolean;
-	isRefreshingAlbums: boolean;
-	isRefreshingArtists: boolean;
-	isRefreshingSavedTracks: boolean;
-	isConnectedToAppRemote: boolean;
+    savedTracks: SavedTrackObject[] | null;
+    savedTracksNextUrl: string | null;
+    isLoadingMoreSavedTracks: boolean;
+    fetchMoreSavedTracks: () => Promise<void>;
 
-	login: () => Promise<void>;
-	logout: () => Promise<void>;
+    isLoading: boolean;
+    isRefreshingPlaylists: boolean;
+    isRefreshingAlbums: boolean;
+    isRefreshingArtists: boolean;
+    isRefreshingSavedTracks: boolean;
+    isConnectedToAppRemote: boolean;
 
-	fetchPlaylists: () => Promise<void>;
-	fetchAlbums: () => Promise<void>;
-	fetchArtists: () => Promise<void>;
-	fetchSavedTracks: () => Promise<void>;
-	refreshSavedTracksFromCache: () => Promise<void>;
-	saveAlbum: (albumId: string) => Promise<boolean>;
-	removeAlbum: (albumId: string) => Promise<boolean>;
-	checkIfAlbumIsSaved: (albumId: string) => Promise<boolean>;
-	followArtist: (artistId: string) => Promise<boolean>;
-	unfollowArtist: (artistId: string) => Promise<boolean>;
-	checkIfFollowingArtist: (artistId: string) => Promise<boolean>;
+    login: () => Promise<void>;
+    logout: () => Promise<void>;
+
+    fetchPlaylists: () => Promise<void>;
+    fetchAlbums: () => Promise<void>;
+    fetchArtists: () => Promise<void>;
+    fetchSavedTracks: () => Promise<void>;
+    refreshSavedTracksFromCache: () => Promise<void>;
+    saveAlbum: (albumId: string) => Promise<boolean>;
+    removeAlbum: (albumId: string) => Promise<boolean>;
+    checkIfAlbumIsSaved: (albumId: string) => Promise<boolean>;
+    followArtist: (artistId: string) => Promise<boolean>;
+    unfollowArtist: (artistId: string) => Promise<boolean>;
+    checkIfFollowingArtist: (artistId: string) => Promise<boolean>;
     fetchArtistTopTracks: (artistId: string) => Promise<SpotifyTrack[]>;
     fetchArtistAlbums: (artistId: string) => Promise<{ albums: SpotifyAlbumSimple[] | null; nextUrl: string | null }>;
     fetchMoreArtistAlbums: (nextUrl: string | null, isLoadingMore: boolean) => Promise<{ albums: SpotifyAlbumSimple[] | null; nextUrl: string | null }>;
-	refreshSavedAlbumsFromCache: () => Promise<void>;
-	refreshFollowedArtistsFromCache: () => Promise<void>;
-	playTrack: (
-		trackUri: string,
-		deviceId?: string,
-		contextUri?: string
-	) => Promise<void>;
-	playTrackWithContext: (
-		trackUri: string,
-		sourceContext?: {
-			type: "album" | "playlist" | "liked" | "artist";
-			uri?: string;
-			tracks?: any[];
-			currentIndex?: number;
-		}
-	) => Promise<void>;
-	getPlaybackState: () => Promise<SpotifyCurrentlyPlaying | null>;
-	getCurrentTrack: () => Promise<any | null>;
-	getAlbumArt: (uri?: string, size?: string) => Promise<string | null>;
-	startPlayback: () => Promise<void>;
-	pausePlayback: () => Promise<void>;
-	skipToNext: () => Promise<void>;
-	skipToPrevious: () => Promise<void>;
-	toggleShuffle: (state: boolean) => Promise<void>;
-	toggleRepeat: (state: "off" | "context" | "track") => Promise<void>;
-	addTrackToPlaylist: (
-		playlistId: string,
-		trackUri: string
-	) => Promise<boolean>;
-	seekToPosition: (positionMs: number) => Promise<void>;
-	searchItems: (
-		query: string,
-		types: string[]
-	) => Promise<SpotifySearchResults | null>;
-	clearCachedData: () => Promise<void>;
-	forceAppRemoteConnection: () => Promise<boolean>;
-	makeApiRequest: (
-		url: string,
-		errorMessage: string,
-		isRefreshing?: boolean,
-		retryCount?: number
-	) => Promise<any | null>;
-	ensureValidToken: () => Promise<string | null>;
-	// Development/testing methods
-	forceTokenExpiry?: () => Promise<void>;
+    refreshSavedAlbumsFromCache: () => Promise<void>;
+    refreshFollowedArtistsFromCache: () => Promise<void>;
+    playTrack: (
+        trackUri: string,
+        deviceId?: string,
+        contextUri?: string
+    ) => Promise<void>;
+    playTrackWithContext: (
+        trackUri: string,
+        sourceContext?: {
+            type: "album" | "playlist" | "liked" | "artist";
+            uri?: string;
+            tracks?: any[];
+            currentIndex?: number;
+        }
+    ) => Promise<void>;
+    skipToIndex: (
+        sourceContext: {
+            type: "album" | "playlist" | "liked" | "artist";
+            uri?: string;
+            tracks?: any[];
+            currentIndex?: number;
+        }
+    ) => Promise<void>;
+    getPlaybackState: () => Promise<SpotifyCurrentlyPlaying | null>;
+    getCurrentTrack: () => Promise<any | null>;
+    getAlbumArt: (uri?: string, size?: string) => Promise<string | null>;
+    startPlayback: () => Promise<void>;
+    pausePlayback: () => Promise<void>;
+    skipToNext: () => Promise<void>;
+    skipToPrevious: () => Promise<void>;
+    toggleShuffle: (state: boolean) => Promise<void>;
+    toggleRepeat: (state: "off" | "context" | "track") => Promise<void>;
+    addTrackToPlaylist: (
+        playlistId: string,
+        trackUri: string
+    ) => Promise<boolean>;
+    seekToPosition: (positionMs: number) => Promise<void>;
+    searchItems: (
+        query: string,
+        types: string[]
+    ) => Promise<SpotifySearchResults | null>;
+    clearCachedData: () => Promise<void>;
+    forceAppRemoteConnection: () => Promise<boolean>;
+    makeApiRequest: (
+        url: string,
+        errorMessage: string,
+        isRefreshing?: boolean,
+        retryCount?: number
+    ) => Promise<any | null>;
+    ensureValidToken: () => Promise<string | null>;
+    // Development/testing methods
+    forceTokenExpiry?: () => Promise<void>;
 }
