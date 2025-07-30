@@ -15,7 +15,6 @@ import {
 import { MaterialIcons } from "@expo/vector-icons";
 import { useFocusEffect, router } from "expo-router";
 import { HapticPressable } from "@/components/HapticPressable";
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import ContentContainer from "@/components/ContentContainer";
 import { useInvertColors } from "@/contexts/InvertColorsContext";
 import { log, logError } from "@/utils/logger";
@@ -30,7 +29,6 @@ const formatTime = (ms: number | null | undefined): string => {
 
 export default function PlayingScreen() {
     const {
-        accessToken,
         startPlayback,
         pausePlayback,
         skipToNext,
@@ -39,7 +37,6 @@ export default function PlayingScreen() {
         toggleRepeat,
         seekToPosition,
         makeApiRequest,
-        ensureValidToken,
         addToLibrary,
         removeFromLibrary,
         getLibraryState,

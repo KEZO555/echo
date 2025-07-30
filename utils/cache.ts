@@ -4,7 +4,6 @@ import {
     ALBUMS_KEY,
     ARTISTS_KEY,
     SAVED_TRACKS_KEY,
-    ALBUM_ART_CACHE_KEY,
 } from "../constants/spotify";
 import { log, logError } from "../utils/logger";
 import type {
@@ -12,7 +11,6 @@ import type {
     SpotifySavedAlbum,
     SpotifyArtist,
     SavedTrackObject,
-    SpotifyImage,
 } from "../types/spotify";
 
 export const loadCachedData = async () => {
@@ -48,8 +46,6 @@ export const loadCachedData = async () => {
             cachedData.savedTracks = JSON.parse(cachedSavedTracks);
             hasAnyCache = true;
         }
-
-
 
         if (hasAnyCache) {
             log("Cache: Loaded cached data");
@@ -99,28 +95,12 @@ export const saveCachedData = async (
     }
 };
 
-export const loadCachedAlbumArt = async (
-    albumId: string
-): Promise<SpotifyImage[] | null> => {
-    try {
-        const cachedAlbumArt = await AsyncStorage.getItem(ALBUM_ART_CACHE_KEY);
-        if (cachedAlbumArt) {
-            const albumArtCache = JSON.parse(cachedAlbumArt);
-            return albumArtCache[albumId] || null;
-        }
-    } catch (error) {
-        logError("Cache: Error loading cached album art:", error);
-    }
-    return null;
-};
-
 export const clearCachedData = async () => {
     try {
         await AsyncStorage.removeItem(PLAYLISTS_KEY);
         await AsyncStorage.removeItem(ALBUMS_KEY);
         await AsyncStorage.removeItem(ARTISTS_KEY);
         await AsyncStorage.removeItem(SAVED_TRACKS_KEY);
-        await AsyncStorage.removeItem(ALBUM_ART_CACHE_KEY);
         log("Cache: Cache cleared");
     } catch (error) {
         logError("Cache: Error clearing cache:", error);
