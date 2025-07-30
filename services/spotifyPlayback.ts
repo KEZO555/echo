@@ -896,3 +896,51 @@ export const skipToIndex = async (
         return;
     }
 };
+
+export const addToLibrary = async (uri: string): Promise<boolean> => {
+    try {
+        const connected = await ensureAppRemoteConnection();
+        if (!connected) {
+            log("Playback: Cannot add to library - App Remote not connected");
+            return false;
+        }
+        const result = await SpotifySdk.addToLibrary(uri);
+        log(`Playback: Added to library: ${uri}`, result);
+        return result.added;
+    } catch (error) {
+        logError("Playback: Error adding to library:", error);
+        return false;
+    }
+};
+
+export const removeFromLibrary = async (uri: string): Promise<boolean> => {
+    try {
+        const connected = await ensureAppRemoteConnection();
+        if (!connected) {
+            log("Playback: Cannot remove from library - App Remote not connected");
+            return false;
+        }
+        const result = await SpotifySdk.removeFromLibrary(uri);
+        log(`Playback: Removed from library: ${uri}`, result);
+        return result.removed;
+    } catch (error) {
+        logError("Playback: Error removing from library:", error);
+        return false;
+    }
+};
+
+export const getLibraryState = async (uri: string): Promise<{ isAdded: boolean; canAdd: boolean } | null> => {
+    try {
+        const connected = await ensureAppRemoteConnection();
+        if (!connected) {
+            log("Playback: Cannot get library state - App Remote not connected");
+            return null;
+        }
+        const result = await SpotifySdk.getLibraryState(uri);
+        log(`Playback: Library state for ${uri}`, result);
+        return result;
+    } catch (error) {
+        logError("Playback: Error getting library state:", error);
+        return null;
+    }
+};

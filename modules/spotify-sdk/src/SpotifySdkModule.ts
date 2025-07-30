@@ -94,6 +94,7 @@ declare class SpotifySdkModule extends NativeModule<SpotifySdkEvents> {
     // User API methods (additional)
     addToLibrary(uri: string): Promise<{ added: boolean }>;
     removeFromLibrary(uri: string): Promise<{ removed: boolean }>;
+    getLibraryState(uri: string): Promise<{ isAdded: boolean; canAdd: boolean }>;
 }
 
 // This call loads the native module object from the JSI.

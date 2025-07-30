@@ -786,6 +786,21 @@ AsyncFunction("skipPrevious") { promise: Promise ->
       }
     }
 
+    AsyncFunction("getLibraryState") { uri: String, promise: Promise ->
+      try {
+        spotifyAppRemote?.userApi?.getLibraryState(uri)?.setResultCallback { libraryState ->
+          promise.resolve(mapOf(
+            "isAdded" to libraryState.isAdded,
+            "canAdd" to libraryState.canAdd
+          ))
+        }?.setErrorCallback { error ->
+          promise.reject("GET_LIBRARY_STATE_ERROR", error.message, error)
+        } ?: promise.reject("NOT_CONNECTED", "Spotify not connected", null)
+      } catch (e: Exception) {
+        promise.reject("GET_LIBRARY_STATE_ERROR", e.message, e)
+      }
+    }
+
     // ========================
     // ACTIVITY RESULT HANDLING
     // ========================

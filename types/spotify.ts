@@ -401,6 +401,9 @@ export interface AuthContextType {
         retryCount?: number
     ) => Promise<any | null>;
     ensureValidToken: () => Promise<string | null>;
+    addToLibrary: (uri: string) => Promise<boolean>;
+    removeFromLibrary: (uri: string) => Promise<boolean>;
+    getLibraryState: (uri: string) => Promise<{ isAdded: boolean; canAdd: boolean } | null>;
     // Development/testing methods
     forceTokenExpiry?: () => Promise<void>;
 }

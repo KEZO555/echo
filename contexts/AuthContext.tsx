@@ -63,6 +63,9 @@ import {
     addTrackToPlaylist as addTrackToPlaylistService,
     playTrackWithContext as playTrackWithContextService,
     skipToIndex as skipToIndexService,
+    addToLibrary as addToLibraryService,
+    removeFromLibrary as removeFromLibraryService,
+    getLibraryState as getLibraryStateService,
 } from "../services/spotifyPlayback";
 
 // Import utilities
@@ -566,7 +569,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
                 const cachedAlbums = await refreshSavedAlbumsFromCache();
                 if (cachedAlbums) setAlbums(cachedAlbums);
             }
-_        },
+            _
+        },
         [accessToken, ensureValidToken]
     );
 
@@ -744,6 +748,21 @@ _        },
                 ensureValidToken
             ),
         [accessToken, ensureValidToken]
+    );
+
+    const addToLibrary = useCallback(
+        (uri: string) => addToLibraryService(uri),
+        []
+    );
+
+    const removeFromLibrary = useCallback(
+        (uri: string) => removeFromLibraryService(uri),
+        []
+    );
+
+    const getLibraryState = useCallback(
+        (uri: string) => getLibraryStateService(uri),
+        []
     );
 
     const forceAppRemoteConnectionMethod =
@@ -965,6 +984,9 @@ _        },
         forceAppRemoteConnection: forceAppRemoteConnectionMethod,
         makeApiRequest: makeApiRequestWithContext,
         ensureValidToken,
+        addToLibrary,
+        removeFromLibrary,
+        getLibraryState,
         // Development/testing methods
         ...(__DEV__ && { forceTokenExpiry: forceTokenExpiryMethod }),
     };
