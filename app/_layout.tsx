@@ -1,4 +1,4 @@
-import React, { useEffect } from "react";
+import React, { useEffect, useRef } from "react";
 import { Stack, SplashScreen, useRouter } from "expo-router";
 import { HapticProvider } from "../contexts/HapticContext";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
@@ -27,6 +27,7 @@ function RootNavigation() {
     });
     const isLoading =
         authLoading || preferencesLoading || (!fontsLoaded && !fontError);
+    const hasDoneInitialRouting = useRef(false);
 
     const getFirstAvailableTab = () => {
         if (preferences.showLikedSongs) return "/(tabs)";
@@ -47,7 +48,7 @@ function RootNavigation() {
     }, [invertColors]);
 
     useEffect(() => {
-        if (!isLoading) {
+        if (!isLoading && !hasDoneInitialRouting.current) {
             SplashScreen.hideAsync();
             if (accessToken) {
                 const firstAvailableTab = getFirstAvailableTab();
@@ -55,6 +56,7 @@ function RootNavigation() {
             } else {
                 router.replace("/login");
             }
+            hasDoneInitialRouting.current = true;
         }
     }, [accessToken, isLoading, router]);
 
