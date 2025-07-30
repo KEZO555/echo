@@ -75,7 +75,6 @@ import {
     clearCachedData,
     refreshSavedAlbumsFromCache,
     refreshFollowedArtistsFromCache,
-    refreshSavedTracksFromCache,
 } from "../utils/cache";
 import { makeApiRequest } from "../utils/spotifyApi";
 
@@ -648,10 +647,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         if (cachedArtists) setArtists(cachedArtists);
     }, []);
 
-    const refreshSavedTracksFromCacheMethod = useCallback(async () => {
-        const cachedTracks = await refreshSavedTracksFromCache();
-        if (cachedTracks) setSavedTracks(cachedTracks);
-    }, []);
+
 
     // Playback methods
     const playTracksWithWebApi = useCallback(
@@ -705,7 +701,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
     const getPlaybackState = useCallback(
         (): Promise<SpotifyCurrentlyPlaying | null> =>
-            getPlaybackStateFromNativeSdk(accessToken, ensureValidToken),
+            getPlaybackStateFromNativeSdk(),
         [accessToken, ensureValidToken]
     );
 
@@ -953,7 +949,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         fetchAlbums,
         fetchArtists,
         fetchSavedTracks,
-        refreshSavedTracksFromCache: refreshSavedTracksFromCacheMethod,
         saveAlbum,
         removeAlbum,
         checkIfAlbumIsSaved,

@@ -342,7 +342,6 @@ export interface AuthContextType {
     fetchAlbums: () => Promise<void>;
     fetchArtists: () => Promise<void>;
     fetchSavedTracks: () => Promise<void>;
-    refreshSavedTracksFromCache: () => Promise<void>;
     saveAlbum: (albumId: string) => Promise<boolean>;
     removeAlbum: (albumId: string) => Promise<boolean>;
     checkIfAlbumIsSaved: (albumId: string) => Promise<boolean>;

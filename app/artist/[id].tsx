@@ -35,10 +35,16 @@ export default function ArtistDetailScreen() {
     } = useAuth();
 
     const router = useRouter();
+    let initialArtist = null
 
-    const initialArtist = artistString
-        ? (JSON.parse(artistString) as SpotifyArtist)
-        : null;
+    if (artistString) {
+        const artistData = JSON.parse(artistString);
+        if (artistData.images && artistData.images.length > 0) {
+            initialArtist = artistData as SpotifyArtist;
+        } else {
+            initialArtist = null;
+        }
+    }
 
     const [artist, setArtist] = useState<SpotifyArtist | null>(initialArtist);
     const [isLoading, setIsLoading] = useState(!initialArtist);

@@ -38,12 +38,12 @@ export default function PlayingScreen() {
         toggleShuffle,
         toggleRepeat,
         seekToPosition,
-        refreshSavedTracksFromCache,
         makeApiRequest,
         ensureValidToken,
         addToLibrary,
         removeFromLibrary,
         getLibraryState,
+        getPlaybackState,
     } = useAuth();
     const { invertColors } = useInvertColors();
     const [playbackState, setPlaybackState] =
@@ -60,48 +60,18 @@ export default function PlayingScreen() {
     const checkIfTrackIsSaved = async (trackId: string) => {
         if (!trackId) return;
 
-        try {
-            await getLibraryState(`spotify:track:${trackId}`);
-        } catch (error) {
-            logError("Error checking cached saved tracks:", error);
-        }
+        const result = await getLibraryState(`spotify:track:${trackId}`);
 
-        if (!accessToken) {
-            setIsCurrentTrackSaved(false);
-            return;
-        }
-
-        try {
-            const data = await makeApiRequest(
-                `https://api.spotify.com/v1/me/tracks/contains?ids=${trackId}`,
-                "Track saved status check"
-            );
-            if (data && data.length > 0) {
-                setIsCurrentTrackSaved(data[0]);
-                log(`Track ${trackId} API check - saved: ${data[0]}`);
-            } else {
-                setIsCurrentTrackSaved(false);
-            }
-        } catch (error) {
-            log(
-                "Error checking if track is saved:",
-                error
-            );
+        if (result) {
+            setIsCurrentTrackSaved(result.isAdded);
+        } else {
             setIsCurrentTrackSaved(false);
         }
     };
 
     const fetchAndUpdatePlaybackState = async () => {
         let state: any = null;
-        try {
-            state = await makeApiRequest(
-                "https://api.spotify.com/v1/me/player",
-                "Fetch playback state"
-            );
-        } catch (error) {
-            logError("Error fetching playback state via Web API:", error);
-            return;
-        }
+        state = await getPlaybackState();
         setPlaybackState(state as SpotifyCurrentlyPlaying);
 
         if (state && state.item && state.item.id) {
@@ -227,90 +197,18 @@ export default function PlayingScreen() {
         const trackId = playbackState.item.id;
         const currentlySaved = isCurrentTrackSaved;
 
-        if (!accessToken) {
-            console.warn(
-                "Cannot save/unsave track - no access token (likely offline)"
-            );
-            return;
-        }
-
-        const method = currentlySaved ? "DELETE" : "PUT";
-        const url = `https://api.spotify.com/v1/me/tracks?ids=${trackId}`;
-
         try {
-            const validToken = await ensureValidToken();
-            if (!validToken) {
-                console.warn(
-                    "Cannot save/unsave track - no valid token available"
-                );
-                return;
-            }
-
-            const response = await fetch(url, {
-                method,
-                headers: {
-                    Authorization: `Bearer ${validToken}`,
-                    "Content-Type": "application/json",
-                },
-            });
-
-            if (response.ok) {
-                setIsCurrentTrackSaved(!currentlySaved);
-                log(
-                    `Track ${currentlySaved ? "unsaved" : "saved"
-                    } successfully.`
-                );
-
-                try {
-                    const cachedSavedTracks = await AsyncStorage.getItem(
-                        "spotifySavedTracks"
-                    );
-                    if (cachedSavedTracks) {
-                        let parsedTracks = JSON.parse(cachedSavedTracks);
-
-                        if (currentlySaved) {
-                            parsedTracks = parsedTracks.filter(
-                                (savedTrack: any) =>
-                                    savedTrack.track?.id !== trackId
-                            );
-                        } else {
-                            const newSavedTrack = {
-                                added_at: new Date().toISOString(),
-                                track: playbackState.item,
-                            };
-                            parsedTracks.unshift(newSavedTrack);
-                        }
-
-                        await AsyncStorage.setItem(
-                            "spotifySavedTracks",
-                            JSON.stringify(parsedTracks)
-                        );
-                        log(
-                            `Updated local saved tracks cache: ${currentlySaved ? "removed" : "added"
-                            } track ${trackId}`
-                        );
-
-                        await refreshSavedTracksFromCache();
-                    }
-                } catch (cacheError) {
-                    logError(
-                        "Error updating saved tracks cache:",
-                        cacheError
-                    );
-                }
+            if (currentlySaved) {
+                await removeFromLibrary(`spotify:track:${trackId}`);
+                setIsCurrentTrackSaved(false);
             } else {
-                const errorData = await response.json();
-                logError(
-                    `Failed to ${currentlySaved ? "unsave" : "save"} track:`,
-                    errorData
-                );
+                await addToLibrary(`spotify:track:${trackId}`);
+                setIsCurrentTrackSaved(true);
             }
-        } catch (error) {
-            log(
-                `Error ${currentlySaved ? "unsaving" : "saving"
-                } track (likely offline):`,
-                error
-            );
+        }
+        catch (error) {
+            logError("Error toggling track save status:", error);
+            return;
         }
     };
 
@@ -408,23 +306,10 @@ export default function PlayingScreen() {
                         onPress={async () => {
                             if (item.artists.length > 0) {
                                 const artist = item.artists[0];
-                                // Fetch complete artist data to ensure images are available
-                                try {
-                                    const artistData = await makeApiRequest(
-                                        `https://api.spotify.com/v1/artists/${artist.id}`,
-                                        "Artist details for navigation"
-                                    );
-                                    router.push({
-                                        pathname: "/artist/[id]",
-                                        params: { id: artist.id, artistString: JSON.stringify(artistData) }
-                                    });
-                                } catch (error) {
-                                    // Fallback to basic artist data if API call fails
-                                    router.push({
-                                        pathname: "/artist/[id]",
-                                        params: { id: artist.id, artistString: JSON.stringify(artist) }
-                                    });
-                                }
+                                router.push({
+                                    pathname: "/artist/[id]",
+                                    params: { id: artist.id, artistString: JSON.stringify(artist) }
+                                });
                             }
                         }}
                     >
@@ -556,7 +441,7 @@ export default function PlayingScreen() {
                     </HapticPressable>
                 </View>
             </View>
-        </ContentContainer>
+        </ContentContainer >
     );
 }
 
