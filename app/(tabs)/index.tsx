@@ -153,18 +153,6 @@ export default function LikedSongsScreen() {
         return <View style={styles.centeredMessageContainer}></View>;
     }
 
-    if (!savedTracks || savedTracks.length === 0) {
-        return (
-            <View style={styles.centeredMessageContainer}>
-                <StyledText style={styles.emptyText}>
-                    No liked songs found.
-                </StyledText>
-                <StyledText style={styles.emptySubText}>
-                    Like some songs in Spotify to see them here.
-                </StyledText>
-            </View>
-        );
-    }
 
     const handleLoadMore = () => {
         if (savedTracksNextUrl && !isLoadingMoreSavedTracks) {
@@ -181,6 +169,38 @@ export default function LikedSongsScreen() {
         router.push("/playing");
     };
 
+    if (!savedTracks || savedTracks.length === 0) {
+        return (
+            <ContentContainer
+                headerTitle="Liked Songs"
+                hideBackButton={true}
+                style={{ paddingHorizontal: 20 }}
+                headerIcon="multitrack-audio"
+                headerIconPress={handlePlayingPress}
+                headerIconShowLength={preferences.showPlayingInNavbar ? 0 : 1}
+            >
+                <CustomScrollView
+                    data={[]}
+                    renderItem={null}
+                    overScrollMode={"never"}
+                    ListHeaderComponent={
+                        <StyledText style={styles.emptyText}>
+                            No saved tracks found.
+                        </StyledText>
+                    }
+                    refreshControl={
+                        <RefreshControl
+                            refreshing={isRefreshingSavedTracks}
+                            onRefresh={handleRefresh}
+                            colors={["white"]}
+                            progressBackgroundColor={"black"}
+                            size={"large" as any}
+                        />
+                    }
+                />
+            </ContentContainer>
+        );
+    }
 
     return (
         <ContentContainer
@@ -197,7 +217,7 @@ export default function LikedSongsScreen() {
                 keyExtractor={(item) =>
                     `${item.added_at}-${item.track?.id || "unknown"}`
                 }
-                style={[styles.list, { backgroundColor: invertColors ? "white" : "black" }]}
+                style={styles.list}
                 contentContainerStyle={styles.listContentContainer}
                 ItemSeparatorComponent={() => <View style={{ height: 8 }} />}
                 overScrollMode={"never"}
@@ -234,9 +254,8 @@ const styles = StyleSheet.create({
         alignItems: "center",
     },
     emptyText: {
-        fontSize: 22,
+        marginTop: 20,
         textAlign: "center",
-        marginBottom: 10,
     },
     emptySubText: {
         fontSize: 14,

@@ -129,19 +129,6 @@ export default function ArtistsScreen() {
         return <View style={styles.centeredMessageContainer}></View>;
     }
 
-    if (!sortedArtists || sortedArtists.length === 0) {
-        return (
-            <View style={styles.centeredMessageContainer}>
-                <StyledText style={styles.emptyText}>
-                    No saved artists found.
-                </StyledText>
-                <StyledText style={styles.emptySubText}>
-                    Try saving some artists in Spotify or pull down to refresh.
-                </StyledText>
-            </View>
-        );
-    }
-
     const handleLoadMore = () => {
         if (artistsNextUrl && !isLoadingMoreArtists) {
             fetchMoreArtists();
@@ -156,6 +143,39 @@ export default function ArtistsScreen() {
     const handlePlayingPress = () => {
         router.push("/playing");
     };
+
+    if (!sortedArtists || sortedArtists.length === 0) {
+        return (
+            <ContentContainer
+                headerTitle="Artists"
+                hideBackButton={true}
+                style={{ paddingHorizontal: 20 }}
+                headerIcon="multitrack-audio"
+                headerIconPress={handlePlayingPress}
+                headerIconShowLength={preferences.showPlayingInNavbar ? 0 : 1}
+            >
+                <CustomScrollView
+                    data={[]}
+                    renderItem={null}
+                    overScrollMode={"never"}
+                    ListHeaderComponent={
+                        <StyledText style={styles.emptyText}>
+                            No saved artists found.
+                        </StyledText>
+                    }
+                    refreshControl={
+                        <RefreshControl
+                            refreshing={isRefreshingArtists}
+                            onRefresh={handleRefresh}
+                            colors={["white"]}
+                            progressBackgroundColor={"black"}
+                            size={"large" as any}
+                        />
+                    }
+                />
+            </ContentContainer>
+        );
+    }
 
     return (
         <ContentContainer
@@ -207,10 +227,8 @@ const styles = StyleSheet.create({
         alignItems: "center",
     },
     emptyText: {
-        fontSize: 22,
+        marginTop: 20,
         textAlign: "center",
-        marginBottom: 10,
-        color: "white",
     },
     emptySubText: {
         fontSize: 14,
