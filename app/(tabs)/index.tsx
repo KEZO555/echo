@@ -64,7 +64,6 @@ export default function LikedSongsScreen() {
         return artists.map((artist) => artist.name).join(", ");
     };
 
-    const { invertColors } = useInvertColors();
     const { preferences } = useTabPreferences();
 
     const renderTrackItem = ({

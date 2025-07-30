@@ -50,10 +50,9 @@ export default function PlaylistDetailScreen() {
         id: string;
         playlistString?: string;
     }>();
-    const { playTrackWithContext, skipToIndex, makeApiRequest } = useAuth();
+    const { skipToIndex, makeApiRequest } = useAuth();
     const router = useRouter();
 
-    // Try to parse the passed playlist string for initial state
     const initialPlaylist = playlistString
         ? (JSON.parse(playlistString) as SpotifyPlaylist)
         : null;
