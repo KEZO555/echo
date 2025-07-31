@@ -4,7 +4,6 @@ import {
     SpotifyPlayerState,
     SpotifyAuthConfig,
     SpotifyAuthResponse,
-    SpotifyCapabilities,
     SpotifyListItem,
     SpotifyApiResponse,
 } from "./SpotifySdk.types";
@@ -17,21 +16,6 @@ declare class SpotifySdkModule extends NativeModule<SpotifySdkEvents> {
     authorize(
         config: SpotifyAuthConfig
     ): Promise<SpotifyApiResponse<SpotifyAuthResponse>>;
-    authorizeWithCode(
-        clientId: string,
-        redirectUri: string,
-        scopes: string[],
-        state?: string,
-        showDialog?: boolean
-    ): Promise<SpotifyApiResponse<SpotifyAuthResponse>>;
-    authorizeWithToken(
-        clientId: string,
-        redirectUri: string,
-        scopes: string[],
-        state?: string,
-        showDialog?: boolean
-    ): Promise<SpotifyApiResponse<SpotifyAuthResponse>>;
-    clearCookies(): Promise<{ cleared: boolean }>;
 
     // Auth Session Management
     getAccessToken(): Promise<string | null>;
@@ -44,15 +28,10 @@ declare class SpotifySdkModule extends NativeModule<SpotifySdkEvents> {
         redirectUri: string
     ): Promise<{ connected: boolean }>;
     disconnect(): Promise<{ disconnected: boolean }>;
-    forceDisconnect(): Promise<{ disconnected: boolean; forced: boolean }>;
-    isConnected(): Promise<boolean>;
 
     // Playback control methods
     play(uri?: string): Promise<{ playing: boolean }>;
-    playWithOptions(
-        uri: string,
-        startPosition?: number
-    ): Promise<{ playing: boolean }>;
+
     pause(): Promise<{ paused: boolean }>;
     resume(): Promise<{ resumed: boolean }>;
     skipNext(): Promise<{ skipped: boolean }>;
@@ -68,27 +47,17 @@ declare class SpotifySdkModule extends NativeModule<SpotifySdkEvents> {
 
     // State methods
     getPlayerState(): Promise<SpotifyPlayerState>;
-    subscribeToPlayerState(): Promise<{ subscribed: boolean }>;
-    unsubscribeFromPlayerState(): Promise<{ unsubscribed: boolean }>;
 
     // User methods
-    getUserCapabilities(): Promise<SpotifyCapabilities>;
     subscribeToCapabilities(): Promise<{ subscribed: boolean }>;
 
     // Content API methods
     getRecommendedContentItems(
         contentType?: string
     ): Promise<SpotifyListItem[]>;
-    getChildrenOfItem(
-        uri: string,
-        perPage?: number,
-        offset?: number
-    ): Promise<SpotifyListItem[]>;
-    playContentItem(item: SpotifyListItem): Promise<{ playing: boolean }>;
 
     // Images API methods
     getImage(uri: string, size?: string): Promise<string>;
-    getCurrentTrackImage(size?: string): Promise<string>;
 
     // User API methods (additional)
     addToLibrary(uri: string): Promise<{ added: boolean }>;
