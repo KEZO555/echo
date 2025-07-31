@@ -798,7 +798,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
                 logInfo("AuthContext: App resumed - relying on auto-connect");
                 // Just ensure auto-connect is enabled, let native SDK handle connection
                 if (accessToken) {
-                    SpotifySdk.enableAutoConnect(true);
                 }
             } else if (
                 appState === "active" &&
@@ -939,6 +938,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         isRefreshingArtists,
         isRefreshingSavedTracks,
         isConnectedToAppRemote,
+        appState,
+        appState,
         login,
         logout,
         fetchPlaylists,

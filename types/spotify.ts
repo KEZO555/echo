@@ -334,6 +334,8 @@ export interface AuthContextType {
     isRefreshingArtists: boolean;
     isRefreshingSavedTracks: boolean;
     isConnectedToAppRemote: boolean;
+    appState: string;
+    appState: string;
 
     login: () => Promise<void>;
     logout: () => Promise<void>;

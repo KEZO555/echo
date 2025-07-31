@@ -35,7 +35,6 @@ class SpotifySdkModule : Module() {
 
   // Connection parameters for lifecycle management
   private var lastConnectionParams: ConnectionParams? = null
-  private var shouldAutoConnect: Boolean = false
   private var isAuthenticating: Boolean = false
 
   // Preferences for storing auth data
@@ -77,7 +76,7 @@ class SpotifySdkModule : Module() {
       sendEvent("onActivityStarted", mapOf("foreground" to true))
 
       // Only reconnect if we should auto-connect, have connection params, and are NOT already connected
-      if (shouldAutoConnect && lastConnectionParams != null && spotifyAppRemote?.isConnected != true) {
+      if (lastConnectionParams != null && spotifyAppRemote?.isConnected != true) {
         Log.d(TAG, "Auto-reconnecting to Spotify App Remote")
         connectInternal(lastConnectionParams!!)
       } else if (spotifyAppRemote?.isConnected == true) {
@@ -259,7 +258,6 @@ class SpotifySdkModule : Module() {
 
         // Store connection parameters for lifecycle management
         lastConnectionParams = connectionParams
-        shouldAutoConnect = true
         currentAuthPromise = promise
 
         // Check if we're already connected
@@ -281,7 +279,6 @@ class SpotifySdkModule : Module() {
       try {
         Log.d(TAG, "Manual disconnect requested - disabling auto-reconnect")
         // Disable auto-reconnect when manually disconnecting
-        shouldAutoConnect = false
         lastConnectionParams = null
         currentAuthPromise = promise
 
@@ -301,13 +298,11 @@ AsyncFunction("isConnected") { promise: Promise ->
          promise.reject("CONNECTION_CHECK_ERROR", e.message, e)
        }
      }
-    }
 
 
     AsyncFunction("forceDisconnect") { promise: Promise ->
       try {
         Log.d(TAG, "Force disconnect requested - clearing all state")
-        shouldAutoConnect = false
         lastConnectionParams = null
         isAuthenticating = false
         currentAuthPromise = promise

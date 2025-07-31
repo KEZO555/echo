@@ -75,12 +75,6 @@ export class SpotifySDK {
 		return SpotifySdkModule.isConnected();
 	}
 
-	async enableAutoConnect(
-		enable: boolean
-	): Promise<{ autoConnect: boolean }> {
-		return SpotifySdkModule.enableAutoConnect(enable);
-	}
-
 	async clearSession(): Promise<{ cleared: boolean }> {
 		return SpotifySdkModule.clearSession();
 	}

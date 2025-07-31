@@ -1,4 +1,4 @@
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import {
     View,
     StyleSheet,
@@ -40,6 +40,7 @@ export default function PlayingScreen() {
         removeFromLibrary,
         getLibraryState,
         getPlaybackState,
+        appState,
     } = useAuth();
     const { invertColors } = useInvertColors();
     const [playbackState, setPlaybackState] =
@@ -48,6 +49,12 @@ export default function PlayingScreen() {
 
     const progress = useRef(new Animated.Value(0)).current;
     const progressBarWidthRef = useRef<number | null>(null);
+    const appStateRef = useRef(appState);
+    const isFocusedRef = useRef(true);
+
+    useEffect(() => {
+        appStateRef.current = appState;
+    }, [appState]);
 
     const checkIfTrackIsSaved = async (trackId: string) => {
         if (!trackId) return;
@@ -206,7 +213,13 @@ export default function PlayingScreen() {
 
     useFocusEffect(
         React.useCallback(() => {
+            isFocusedRef.current = true;
+
             const fetchAll = async () => {
+                if (!isFocusedRef.current || appStateRef.current !== "active") {
+                    return;
+                }
+
                 await fetchAndUpdatePlaybackState();
                 const state = await getPlaybackState();
                 if (state && state.item && state.item.id) {
@@ -218,13 +231,10 @@ export default function PlayingScreen() {
 
             fetchAll();
 
-            const intervalId = setInterval(() => {
-                if (AppState.currentState === "active") {
-                    fetchAll();
-                }
-            }, 5);
+            const intervalId = setInterval(fetchAll, 500);
 
             return () => {
+                isFocusedRef.current = false;
                 clearInterval(intervalId);
                 log("PlayingScreen unfocused, cleared interval.");
             };

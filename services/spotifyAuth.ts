@@ -88,7 +88,6 @@ export const loginWithSpotify = async (
 			await new Promise((resolve) => setTimeout(resolve, 500));
 
 			// Enable auto-connect for proper lifecycle management
-			SpotifySdk.enableAutoConnect(true);
 
 			// Immediately establish App Remote connection after authentication
 			try {
@@ -141,7 +140,6 @@ export const logoutFromSpotify = async (
 	log("Logging out...");
 	// Disable auto-connect and clear native SDK session
 	try {
-		await SpotifySdk.enableAutoConnect(false);
 		await SpotifySdk.disconnect();
 		await SpotifySdk.clearSession();
 	} catch (error) {
@@ -172,7 +170,6 @@ export const loadStoredAuth = async () => {
 		// If we have stored tokens, enable auto-connect for App Remote
 		if (storedToken && storedRefreshToken) {
 			log("Auth: Found stored tokens, enabling auto-connect");
-			await SpotifySdk.enableAutoConnect(true);
 
 			// Immediately establish App Remote connection
 			try {
