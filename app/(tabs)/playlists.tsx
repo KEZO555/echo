@@ -81,7 +81,7 @@ export default function PlaylistsScreen() {
                 <HapticPressable
                     style={styles.itemContainer}
                     onPress={() => {
-                        router.push("/create-playlist"); // Navigate to create-playlist screen
+                        router.push("/create-playlist");
                     }}
                 >
                     <View style={styles.placeholderImageContainer}>

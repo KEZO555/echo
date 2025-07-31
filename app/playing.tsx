@@ -288,16 +288,25 @@ export default function PlayingScreen() {
                     </View>
                 )}
                 <View style={styles.trackInfoContainer}>
-                    <StyledText style={styles.trackName} numberOfLines={1}>
-                        {item.name}
-                    </StyledText>
+                    <HapticPressable
+                        onPress={async () => {
+                            router.push({
+                                pathname: "/album/[id]",
+                                params: { id: item.album?.id as any, albumName: item.album?.name as string }
+                            });
+                        }}
+                    >
+                        <StyledText style={styles.trackName} numberOfLines={1}>
+                            {item.name}
+                        </StyledText>
+                    </HapticPressable>
                     <HapticPressable
                         onPress={async () => {
                             if (item.artists.length > 0) {
                                 const artist = item.artists[0];
                                 router.push({
                                     pathname: "/artist/[id]",
-                                    params: { id: artist.id, artistString: JSON.stringify(artist) }
+                                    params: { id: artist.id, artistName: artist.name as string }
                                 });
                             }
                         }}
