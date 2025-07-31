@@ -36,7 +36,6 @@ export default function PlayingScreen() {
         toggleShuffle,
         toggleRepeat,
         seekToPosition,
-        makeApiRequest,
         addToLibrary,
         removeFromLibrary,
         getLibraryState,
@@ -45,7 +44,6 @@ export default function PlayingScreen() {
     const { invertColors } = useInvertColors();
     const [playbackState, setPlaybackState] =
         useState<SpotifyCurrentlyPlaying | null>(null);
-    const [isLoading, setIsLoading] = useState(true);
     const [isCurrentTrackSaved, setIsCurrentTrackSaved] = useState(false);
 
     const progress = useRef(new Animated.Value(0)).current;
@@ -79,7 +77,6 @@ export default function PlayingScreen() {
         } else {
             progress.setValue(0);
         }
-        setIsLoading(false);
     };
 
     const handlePlayPause = async () => {
@@ -209,13 +206,8 @@ export default function PlayingScreen() {
 
     useFocusEffect(
         React.useCallback(() => {
-            setIsLoading(true);
-            setPlaybackState(null);
-
-            // Helper to fetch playback state and check if track is saved
             const fetchAll = async () => {
                 await fetchAndUpdatePlaybackState();
-                // After updating playback state, check if track is saved
                 const state = await getPlaybackState();
                 if (state && state.item && state.item.id) {
                     await checkIfTrackIsSaved(state.item.id);
@@ -243,9 +235,6 @@ export default function PlayingScreen() {
         return artists.map((artist) => artist.name).join(", ");
     };
 
-    if (isLoading) {
-        return <ContentContainer headerTitle=" "></ContentContainer>;
-    }
 
     if (!playbackState || !playbackState.item) {
         return (

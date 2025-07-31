@@ -49,7 +49,7 @@ import {
 import {
     forceAppRemoteConnection,
     playTracksWithWebApi as playTracksWithWebApiService,
-    getPlaybackStateFromNativeSdk,
+    getPlaybackState as getPlaybackStateService,
     startPlayback as startPlaybackService,
     pausePlayback as pausePlaybackService,
     skipToNext as skipToNextService,
@@ -568,7 +568,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
                 const cachedAlbums = await refreshSavedAlbumsFromCache();
                 if (cachedAlbums) setAlbums(cachedAlbums);
             }
-            _
+            return result;
         },
         [accessToken, ensureValidToken]
     );
@@ -699,11 +699,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         []
     );
 
-    const getPlaybackState = useCallback(
-        (): Promise<SpotifyCurrentlyPlaying | null> =>
-            getPlaybackStateFromNativeSdk(),
-        [accessToken, ensureValidToken]
-    );
+    const getPlaybackState = useCallback((): Promise<SpotifyCurrentlyPlaying | null> => getPlaybackStateService(), []);
 
     const getCurrentTrack = useCallback(() => getCurrentTrackService(), []);
 

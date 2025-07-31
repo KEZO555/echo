@@ -146,7 +146,7 @@ export const playTracksWithWebApi = async (
     }
 };
 
-export const getPlaybackStateFromNativeSdk = async (): Promise<SpotifyCurrentlyPlaying | null> => {
+export const getPlaybackState = async (): Promise<SpotifyCurrentlyPlaying | null> => {
     try {
         const connected = await ensureAppRemoteConnection();
         if (!connected) {
@@ -328,8 +328,7 @@ export const toggleRepeat = async (
     try {
         const connected = await ensureAppRemoteConnection();
         if (!connected) return;
-        // Map Web API states to Android SDK repeat modes
-        // OFF = 0, ONE = 1 (track), ALL = 2 (context)
+
         const repeatMode = state === "off" ? 0 : state === "track" ? 1 : 2;
         const result = await SpotifySdk.setRepeat(repeatMode);
         if (result.repeatSet) log(`Playback: Repeat set to ${state}`);
@@ -610,11 +609,6 @@ export const playTrackWithContext = async (
                     offset: { uri: trackUri }, // Start from specific track
                 };
 
-                // Add device_id if we found one
-                if (deviceId) {
-                    // We'll add device_id as a query parameter instead of in the body
-                }
-
                 // Web API to set context + track offset
                 const playUrl = deviceId
                     ? `https://api.spotify.com/v1/me/player/play?device_id=${deviceId}`
@@ -748,7 +742,6 @@ export const getLibraryState = async (uri: string): Promise<{ isAdded: boolean; 
             return null;
         }
         const result = await SpotifySdk.getLibraryState(uri);
-        log(`Playback: Library state for ${uri}`, result);
         return result;
     } catch (error) {
         logError("Playback: Error getting library state:", error);
