@@ -222,7 +222,7 @@ export default function PlayingScreen() {
                 if (AppState.currentState === "active") {
                     fetchAll();
                 }
-            }, 1000);
+            }, 5);
 
             return () => {
                 clearInterval(intervalId);

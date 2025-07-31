@@ -292,25 +292,17 @@ class SpotifySdkModule : Module() {
       }
     }
 
-    AsyncFunction("isConnected") { promise: Promise ->
-      try {
-        val connected = spotifyAppRemote?.isConnected ?: false
-        Log.d(TAG, "Connection status check: $connected")
-        promise.resolve(connected)
-      } catch (e: Exception) {
-        promise.reject("CONNECTION_CHECK_ERROR", e.message, e)
-      }
+AsyncFunction("isConnected") { promise: Promise ->
+       try {
+         val connected = spotifyAppRemote?.isConnected ?: false
+         Log.d(TAG, "Connection status check: $connected")
+         promise.resolve(connected)
+       } catch (e: Exception) {
+         promise.reject("CONNECTION_CHECK_ERROR", e.message, e)
+       }
+     }
     }
 
-    AsyncFunction("enableAutoConnect") { enable: Boolean, promise: Promise ->
-      try {
-        shouldAutoConnect = enable
-        Log.d(TAG, "Auto-connect ${if (enable) "enabled" else "disabled"}")
-        promise.resolve(mapOf("autoConnect" to enable))
-      } catch (e: Exception) {
-        promise.reject("AUTO_CONNECT_ERROR", e.message, e)
-      }
-    }
 
     AsyncFunction("forceDisconnect") { promise: Promise ->
       try {

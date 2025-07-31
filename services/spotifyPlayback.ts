@@ -20,7 +20,6 @@ export const ensureAppRemoteConnection = async (): Promise<boolean> => {
         );
 
         if (connectionResult.connected) {
-            await new Promise((resolve) => setTimeout(resolve, 250));
             return true;
         } else {
             log("Playback: Failed to connect to App Remote");
