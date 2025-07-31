@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from "react";
+import React, { useState, useRef } from "react";
 import {
     View,
     StyleSheet,
@@ -47,9 +47,6 @@ export default function PlayingScreen() {
         useState<SpotifyCurrentlyPlaying | null>(null);
     const [isLoading, setIsLoading] = useState(true);
     const [isCurrentTrackSaved, setIsCurrentTrackSaved] = useState(false);
-    const [currentTrackIdChecked, setCurrentTrackIdChecked] = useState<
-        string | null
-    >(null);
 
     const progress = useRef(new Animated.Value(0)).current;
     const progressBarWidthRef = useRef<number | null>(null);
@@ -84,22 +81,6 @@ export default function PlayingScreen() {
         }
         setIsLoading(false);
     };
-
-    const checkCurrentTrackSavedStatus = async (trackId: string) => {
-        if (trackId !== currentTrackIdChecked) {
-            await checkIfTrackIsSaved(trackId);
-            setCurrentTrackIdChecked(trackId);
-        }
-    };
-
-    useEffect(() => {
-        if (playbackState && playbackState.item && playbackState.item.id) {
-            checkCurrentTrackSavedStatus(playbackState.item.id);
-        } else {
-            setIsCurrentTrackSaved(false);
-            setCurrentTrackIdChecked(null);
-        }
-    }, [playbackState?.item?.id]);
 
     const handlePlayPause = async () => {
         if (!playbackState) return;
@@ -230,11 +211,24 @@ export default function PlayingScreen() {
         React.useCallback(() => {
             setIsLoading(true);
             setPlaybackState(null);
-            fetchAndUpdatePlaybackState();
+
+            // Helper to fetch playback state and check if track is saved
+            const fetchAll = async () => {
+                await fetchAndUpdatePlaybackState();
+                // After updating playback state, check if track is saved
+                const state = await getPlaybackState();
+                if (state && state.item && state.item.id) {
+                    await checkIfTrackIsSaved(state.item.id);
+                } else {
+                    setIsCurrentTrackSaved(false);
+                }
+            };
+
+            fetchAll();
 
             const intervalId = setInterval(() => {
                 if (AppState.currentState === "active") {
-                    fetchAndUpdatePlaybackState();
+                    fetchAll();
                 }
             }, 1000);
 
@@ -242,7 +236,7 @@ export default function PlayingScreen() {
                 clearInterval(intervalId);
                 log("PlayingScreen unfocused, cleared interval.");
             };
-        }, [makeApiRequest])
+        }, [])
     );
 
     const getArtistNames = (artists: SpotifyArtistSimple[]) => {
