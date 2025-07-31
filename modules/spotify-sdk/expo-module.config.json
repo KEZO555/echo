@@ -1,19 +1,20 @@
 {
-	"platforms": ["apple", "android", "web"],
-	"apple": {
-		"modules": ["SpotifySdkModule"]
-	},
-	"android": {
-		"modules": ["expo.modules.spotifysdk.SpotifySdkModule"],
-		"gradleAarProjects": [
-			{
-				"name": "spotify-auth",
-				"aarFilePath": "../../../android/libs/spotify-auth-release-2.1.0.aar"
-			},
-			{
-				"name": "spotify-app-remote",
-				"aarFilePath": "../../../android/libs/spotify-app-remote-release-0.8.0.aar"
-			}
-		]
-	}
+  "platforms": [
+    "android"
+  ],
+  "android": {
+    "modules": [
+      "expo.modules.spotifysdk.SpotifySdkModule"
+    ],
+    "gradleAarProjects": [
+      {
+        "name": "spotify-auth",
+        "aarFilePath": "../../../android/libs/spotify-auth-release-2.1.0.aar"
+      },
+      {
+        "name": "spotify-app-remote",
+        "aarFilePath": "../../../android/libs/spotify-app-remote-release-0.8.0.aar"
+      }
+    ]
+  }
 }

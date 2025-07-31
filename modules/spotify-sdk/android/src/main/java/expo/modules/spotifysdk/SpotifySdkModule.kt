@@ -142,74 +142,6 @@ class SpotifySdkModule : Module() {
       }
     }
 
-    AsyncFunction("authorizeWithCode") { clientId: String, redirectUri: String, scopes: Array<String>, state: String?, showDialog: Boolean?, promise: Promise ->
-      try {
-        val activity = appContext.currentActivity as? AppCompatActivity
-        if (activity == null) {
-          promise.reject("ACTIVITY_NOT_FOUND", "Current activity not found", null)
-          return@AsyncFunction
-        }
-
-        currentAuthPromise = promise
-        isAuthenticating = true // Set flag to prevent lifecycle disconnection during auth
-
-        val builder = AuthorizationRequest.Builder(clientId, AuthorizationResponse.Type.CODE, redirectUri)
-        builder.setScopes(scopes)
-        if (showDialog == true) builder.setShowDialog(true)
-        if (state != null) builder.setState(state)
-
-        // Server handles PKCE, no need for client-side code challenge
-
-        val request = builder.build()
-        AuthorizationClient.openLoginActivity(activity, AUTH_CODE_REQUEST_CODE, request)
-      } catch (e: Exception) {
-        Log.e(TAG, "Authorization error", e)
-        isAuthenticating = false // Clear flag on error
-        promise.reject("AUTH_ERROR", e.message, e)
-      }
-    }
-
-    AsyncFunction("authorizeWithToken") { clientId: String, redirectUri: String, scopes: Array<String>, state: String?, showDialog: Boolean?, promise: Promise ->
-      try {
-        val activity = appContext.currentActivity as? AppCompatActivity
-        if (activity == null) {
-          promise.reject("ACTIVITY_NOT_FOUND", "Current activity not found", null)
-          return@AsyncFunction
-        }
-
-        currentAuthPromise = promise
-        isAuthenticating = true // Set flag to prevent lifecycle disconnection during auth
-
-        val builder = AuthorizationRequest.Builder(clientId, AuthorizationResponse.Type.TOKEN, redirectUri)
-        builder.setScopes(scopes)
-        if (showDialog == true) builder.setShowDialog(true)
-        if (state != null) builder.setState(state)
-
-        val request = builder.build()
-        AuthorizationClient.openLoginActivity(activity, AUTH_TOKEN_REQUEST_CODE, request)
-      } catch (e: Exception) {
-        Log.e(TAG, "Authorization error", e)
-        isAuthenticating = false // Clear flag on error
-        promise.reject("AUTH_ERROR", e.message, e)
-      }
-    }
-
-    AsyncFunction("getAccessToken") { promise: Promise ->
-      try {
-        val prefs = appContext.reactContext?.getSharedPreferences(prefsName, 0)
-        val token = prefs?.getString(accessTokenKey, null)
-        val expiresAt = prefs?.getLong(expiresAtKey, 0L) ?: 0L
-
-        if (token != null && System.currentTimeMillis() < expiresAt) {
-          promise.resolve(token)
-        } else {
-          promise.resolve(null)
-        }
-      } catch (e: Exception) {
-        promise.reject("TOKEN_ERROR", e.message, e)
-      }
-    }
-
     AsyncFunction("clearSession") { promise: Promise ->
       try {
         val prefs = appContext.reactContext?.getSharedPreferences(prefsName, 0)
@@ -218,30 +150,6 @@ class SpotifySdkModule : Module() {
         promise.resolve(mapOf("cleared" to true))
       } catch (e: Exception) {
         promise.reject("CLEAR_ERROR", e.message, e)
-      }
-    }
-
-    AsyncFunction("isUserLoggedIn") { promise: Promise ->
-      try {
-        val prefs = appContext.reactContext?.getSharedPreferences(prefsName, 0)
-        val token = prefs?.getString(accessTokenKey, null)
-        val expiresAt = prefs?.getLong(expiresAtKey, 0L) ?: 0L
-
-        val isLoggedIn = token != null && System.currentTimeMillis() < expiresAt
-        promise.resolve(isLoggedIn)
-      } catch (e: Exception) {
-        promise.reject("LOGIN_CHECK_ERROR", e.message, e)
-      }
-    }
-
-    AsyncFunction("clearCookies") { promise: Promise ->
-      try {
-        // Clear session data - note: clearCookies may not be available in all SDK versions
-        val prefs = appContext.reactContext?.getSharedPreferences(prefsName, 0)
-        prefs?.edit()?.clear()?.apply()
-        promise.resolve(mapOf("cleared" to true))
-      } catch (e: Exception) {
-        promise.reject("CLEAR_COOKIES_ERROR", e.message, e)
       }
     }
 
@@ -289,7 +197,7 @@ class SpotifySdkModule : Module() {
       }
     }
 
-AsyncFunction("isConnected") { promise: Promise ->
+    AsyncFunction("isConnected") { promise: Promise ->
        try {
          val connected = spotifyAppRemote?.isConnected ?: false
          Log.d(TAG, "Connection status check: $connected")
@@ -365,35 +273,6 @@ AsyncFunction("isConnected") { promise: Promise ->
       }
     }
 
-    AsyncFunction("playWithOptions") { uri: String, startPosition: Long?, promise: Promise ->
-      try {
-        val playerApi = spotifyAppRemote?.playerApi
-        if (playerApi == null) {
-          promise.reject("NOT_CONNECTED", "Spotify not connected", null)
-          return@AsyncFunction
-        }
-
-        // Play the track first, then seek if position is provided
-        val result = playerApi.play(uri)
-
-        result.setResultCallback {
-          if (startPosition != null) {
-            playerApi.seekTo(startPosition).setResultCallback {
-              promise.resolve(mapOf("playing" to true))
-            }.setErrorCallback { error ->
-              promise.reject("SEEK_ERROR", error.message, error)
-            }
-          } else {
-            promise.resolve(mapOf("playing" to true))
-          }
-        }.setErrorCallback { error ->
-          promise.reject("PLAY_ERROR", error.message, error)
-        }
-      } catch (e: Exception) {
-        promise.reject("PLAY_ERROR", e.message, e)
-      }
-    }
-
     AsyncFunction("pause") { promise: Promise ->
       try {
         spotifyAppRemote?.playerApi?.pause()?.setResultCallback {
@@ -430,7 +309,7 @@ AsyncFunction("isConnected") { promise: Promise ->
       }
     }
 
-AsyncFunction("skipPrevious") { promise: Promise ->
+    AsyncFunction("skipPrevious") { promise: Promise ->
        try {
          spotifyAppRemote?.playerApi?.skipPrevious()?.setResultCallback {
            promise.resolve(mapOf("skipped" to true))
@@ -489,38 +368,6 @@ AsyncFunction("skipPrevious") { promise: Promise ->
       }
     }
 
-    // ========================
-    // QUEUE MANAGEMENT
-    // ========================
-
-    AsyncFunction("queue") { uri: String, promise: Promise ->
-      try {
-        spotifyAppRemote?.playerApi?.queue(uri)?.setResultCallback {
-          promise.resolve(mapOf("queued" to true))
-        }?.setErrorCallback { error ->
-          promise.reject("QUEUE_ERROR", error.message, error)
-        } ?: promise.reject("NOT_CONNECTED", "Spotify not connected", null)
-      } catch (e: Exception) {
-        promise.reject("QUEUE_ERROR", e.message, e)
-      }
-    }
-
-    AsyncFunction("addToQueue") { uri: String, promise: Promise ->
-      try {
-        spotifyAppRemote?.playerApi?.queue(uri)?.setResultCallback {
-          promise.resolve(mapOf("added" to true))
-        }?.setErrorCallback { error ->
-          promise.reject("QUEUE_ERROR", error.message, error)
-        } ?: promise.reject("NOT_CONNECTED", "Spotify not connected", null)
-      } catch (e: Exception) {
-        promise.reject("QUEUE_ERROR", e.message, e)
-      }
-    }
-
-    // ========================
-    // STATE MANAGEMENT
-    // ========================
-
     AsyncFunction("getPlayerState") { promise: Promise ->
       try {
         spotifyAppRemote?.playerApi?.playerState?.setResultCallback { playerState ->
@@ -532,121 +379,6 @@ AsyncFunction("skipPrevious") { promise: Promise ->
         promise.reject("PLAYER_STATE_ERROR", e.message, e)
       }
     }
-
-    AsyncFunction("subscribeToPlayerState") { promise: Promise ->
-      try {
-        subscribeToPlayerStateInternal()
-        promise.resolve(mapOf("subscribed" to true))
-      } catch (e: Exception) {
-        promise.reject("SUBSCRIBE_ERROR", e.message, e)
-      }
-    }
-
-    AsyncFunction("unsubscribeFromPlayerState") { promise: Promise ->
-      try {
-        playerStateSubscription?.cancel()
-        playerStateSubscription = null
-        promise.resolve(mapOf("unsubscribed" to true))
-      } catch (e: Exception) {
-        promise.reject("UNSUBSCRIBE_ERROR", e.message, e)
-      }
-    }
-
-    // ========================
-    // USER CAPABILITIES
-    // ========================
-
-    AsyncFunction("getUserCapabilities") { promise: Promise ->
-      try {
-        spotifyAppRemote?.userApi?.capabilities?.setResultCallback { capabilities ->
-          promise.resolve(mapOf(
-            "canPlayOnDemand" to capabilities.canPlayOnDemand
-          ))
-        }?.setErrorCallback { error ->
-          promise.reject("CAPABILITIES_ERROR", error.message, error)
-        } ?: promise.reject("NOT_CONNECTED", "Spotify not connected", null)
-      } catch (e: Exception) {
-        promise.reject("CAPABILITIES_ERROR", e.message, e)
-      }
-    }
-
-    AsyncFunction("subscribeToCapabilities") { promise: Promise ->
-      try {
-        subscribeToCapabilitiesInternal()
-        promise.resolve(mapOf("subscribed" to true))
-      } catch (e: Exception) {
-        promise.reject("CAPABILITIES_SUBSCRIBE_ERROR", e.message, e)
-      }
-    }
-
-    // ========================
-    // CONTENT API
-    // ========================
-
-    AsyncFunction("getRecommendedContentItems") { contentType: String?, promise: Promise ->
-      try {
-        val type = contentType ?: "default"
-        spotifyAppRemote?.contentApi?.getRecommendedContentItems(type)?.setResultCallback { items ->
-          val itemsList = items.items.map { item ->
-            mapOf(
-              "id" to item.id,
-              "uri" to item.uri,
-              "name" to item.title,
-              "subtitle" to item.subtitle,
-              "playable" to item.playable,
-              "imageUri" to item.imageUri?.raw
-            )
-          }
-          promise.resolve(itemsList)
-        }?.setErrorCallback { error ->
-          promise.reject("CONTENT_ERROR", error.message, error)
-        } ?: promise.reject("NOT_CONNECTED", "Spotify not connected", null)
-      } catch (e: Exception) {
-        promise.reject("CONTENT_ERROR", e.message, e)
-      }
-    }
-
-    AsyncFunction("getChildrenOfItem") { uri: String, perPage: Int?, offset: Int?, promise: Promise ->
-      try {
-        // For now, return recommended content items as a fallback
-        // The actual getChildrenOfItem requires a ListItem object which is complex to create
-        spotifyAppRemote?.contentApi?.getRecommendedContentItems("default")?.setResultCallback { items ->
-          val itemsList = items.items.map { item ->
-            mapOf(
-              "id" to item.id,
-              "uri" to item.uri,
-              "name" to item.title,
-              "subtitle" to item.subtitle,
-              "playable" to item.playable,
-              "imageUri" to item.imageUri?.raw
-            )
-          }
-          promise.resolve(itemsList)
-        }?.setErrorCallback { error ->
-          promise.reject("CHILDREN_ERROR", error.message, error)
-        } ?: promise.reject("NOT_CONNECTED", "Spotify not connected", null)
-      } catch (e: Exception) {
-        promise.reject("CHILDREN_ERROR", e.message, e)
-      }
-    }
-
-    AsyncFunction("playContentItem") { item: Map<String, Any>, promise: Promise ->
-      try {
-        val uri = item["uri"] as? String ?: throw IllegalArgumentException("URI required")
-
-        spotifyAppRemote?.playerApi?.play(uri)?.setResultCallback {
-          promise.resolve(mapOf("playing" to true))
-        }?.setErrorCallback { error ->
-          promise.reject("PLAY_CONTENT_ERROR", error.message, error)
-        } ?: promise.reject("NOT_CONNECTED", "Spotify not connected", null)
-      } catch (e: Exception) {
-        promise.reject("PLAY_CONTENT_ERROR", e.message, e)
-      }
-    }
-
-    // ========================
-    // IMAGES API
-    // ========================
 
     AsyncFunction("getImage") { uri: String, size: String?, promise: Promise ->
       try {
@@ -745,10 +477,6 @@ AsyncFunction("skipPrevious") { promise: Promise ->
       }
     }
 
-    // ========================
-    // USER API
-    // ========================
-
     AsyncFunction("addToLibrary") { uri: String, promise: Promise ->
       try {
         spotifyAppRemote?.userApi?.addToLibrary(uri)?.setResultCallback {
@@ -787,10 +515,6 @@ AsyncFunction("skipPrevious") { promise: Promise ->
         promise.reject("GET_LIBRARY_STATE_ERROR", e.message, e)
       }
     }
-
-    // ========================
-    // ACTIVITY RESULT HANDLING
-    // ========================
 
     OnActivityResult { activity, result ->
       handleActivityResult(result.requestCode, result.resultCode, result.data)
