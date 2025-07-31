@@ -94,6 +94,7 @@ class SpotifySdkModule : Module() {
         promise.reject("AUTH_ERROR", e.message, e)
       }
     }
+
     AsyncFunction("clearSession") { promise: Promise ->
       try {
         val prefs = appContext.reactContext?.getSharedPreferences(prefsName, 0)

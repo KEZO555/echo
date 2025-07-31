@@ -4,7 +4,6 @@ import {
     SpotifyPlayerState,
     SpotifyAuthConfig,
     SpotifyAuthResponse,
-    SpotifyListItem,
     SpotifyApiResponse,
 } from "./SpotifySdk.types";
 
@@ -12,7 +11,7 @@ declare class SpotifySdkModule extends NativeModule<SpotifySdkEvents> {
     AUTH_TOKEN_REFRESH_REQUEST_CODE: number;
     AUTH_TOKEN_REQUEST_CODE: number;
 
-    authorize(config: SpotifyAuthConfig): Promise<SpotifyApiResponse<SpotifyAuthResponse>>;
+    authorize(clientId: string, redirectUri: string, scopes: string[], state?: string, showDialog?: boolean): Promise<SpotifyApiResponse<SpotifyAuthResponse>>;
     clearSession(): Promise<{ cleared: boolean }>;
 
     connect(clientId: string, redirectUri: string): Promise<{ connected: boolean }>;
