@@ -18,10 +18,12 @@ import CustomScrollView from "@/components/CustomScrollView";
 import { log, logError } from "@/utils/logger";
 
 export default function AlbumDetailScreen() {
-    const { id, albumString } = useLocalSearchParams<{
+    const { id, albumString, albumName } = useLocalSearchParams<{
         id: string;
         albumString?: string;
+        albumName?: string;
     }>();
+
     const {
         accessToken,
         skipToIndex,
@@ -167,7 +169,16 @@ export default function AlbumDetailScreen() {
     }, [album, isLoadingMoreTracks, makeApiRequest]);
 
     if (isLoading && !album) {
-        return <View style={styles.centeredMessageContainer}></View>;
+        return (
+            <ContentContainer
+                headerTitle={`${albumName}`}
+                style={{ paddingHorizontal: 20 }}
+                headerIcon={isAlbumSaved ? "remove" : "add"}
+                headerIconPress={handleToggleAlbumSave}
+                headerIconShowLength={isCheckingAlbumSaved ? 0 : 1}
+            >
+            </ContentContainer>
+        );
     }
 
     if (error) {

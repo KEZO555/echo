@@ -46,9 +46,10 @@ interface SpotifyPlaylistFull extends SpotifyPlaylist {
 }
 
 export default function PlaylistDetailScreen() {
-    const { id, playlistString } = useLocalSearchParams<{
+    const { id, playlistString, playlistName } = useLocalSearchParams<{
         id: string;
         playlistString?: string;
+        playlistName?: string;
     }>();
     const { skipToIndex, makeApiRequest } = useAuth();
     const router = useRouter();
@@ -152,7 +153,13 @@ export default function PlaylistDetailScreen() {
     }, [playlist, isLoadingMoreTracks, makeApiRequest]);
 
     if (isLoading && !playlist) {
-        return <View style={styles.centeredMessageContainer}></View>;
+        return (
+            <ContentContainer
+                headerTitle={playlistName}
+                style={{ paddingHorizontal: 20 }}
+            >
+            </ContentContainer>
+        );
     }
 
     if (error) {

@@ -132,7 +132,6 @@ export default function SearchResultsScreen() {
         let subtitle = "";
         let images: SpotifyImage[] | undefined = [];
         let itemUri = "";
-        let contextUri: string | undefined = undefined;
 
         switch (item.type) {
             case "track":
@@ -172,11 +171,15 @@ export default function SearchResultsScreen() {
                             router.push("/playing");
                         } catch (error) {
                             logError("Error playing track:", error);
-                            // Still navigate to playing screen even if playback fails
                             router.push("/playing");
                         }
                     } else if (item.type === "album") {
-                        router.push(`/album/${item.data.id}`);
+                        router.push({
+                            pathname: `album/${item.data.id}`,
+                            params: {
+                                albumName: item.data.name as string,
+                            },
+                        } as any)
                     } else if (item.type === "artist") {
                         router.push(`/artist/${item.data.id}`);
                     } else if (item.type === "playlist") {
@@ -210,6 +213,12 @@ export default function SearchResultsScreen() {
             </HapticPressable>
         );
     };
+
+    if (routeQuery === undefined) {
+        return (
+            <ContentContainer headerTitle={" "} style={{ paddingHorizontal: 20 }}></ContentContainer>
+        );
+    }
 
     return (
         <ContentContainer headerTitle={`Results for ${routeQuery ?? ""}`} style={{ paddingHorizontal: 20 }}>

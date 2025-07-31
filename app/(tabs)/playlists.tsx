@@ -105,7 +105,12 @@ export default function PlaylistsScreen() {
                 onPress={async () => {
                     if (loadingPlaylistId) return;
                     setLoadingPlaylistId(item.id);
-                    router.push({ pathname: `/playlist/${item.id}`, } as any);
+                    router.push({
+                        pathname: `/playlist/${item.id}`,
+                        params: {
+                            playlistName: item.name as string,
+                        },
+                    } as any)
                     setLoadingPlaylistId(null);
                 }}
             >

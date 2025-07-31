@@ -18,9 +18,10 @@ import CustomScrollView from "@/components/CustomScrollView";
 import { log, logError } from "@/utils/logger";
 
 export default function ArtistDetailScreen() {
-    const { id, artistString } = useLocalSearchParams<{
+    const { id, artistString, artistName } = useLocalSearchParams<{
         id: string;
         artistString?: string;
+        artistName?: string;
     }>();
 
     const {
@@ -198,7 +199,16 @@ export default function ArtistDetailScreen() {
     }, [id, accessToken, checkArtistFollowingStatus]);
 
     if (isLoading && !artist) {
-        return <View style={styles.centeredMessageContainer}></View>;
+        return (
+            <ContentContainer
+                headerTitle={`${artistName}`}
+                style={{ paddingHorizontal: 20 }}
+                headerIcon={isFollowingArtist ? "remove" : "add"}
+                headerIconPress={handleToggleFollowArtist}
+                headerIconShowLength={isCheckingFollowingArtist ? 0 : 1}
+            >
+            </ContentContainer>
+        );
     }
 
     if (error) {

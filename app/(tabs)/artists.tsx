@@ -64,35 +64,11 @@ export default function ArtistsScreen() {
                 if (loadingArtistId) return;
 
                 setLoadingArtistId(item.id);
-                try {
-                    const artistData = await makeApiRequest(
-                        `https://api.spotify.com/v1/artists/${item.id}`,
-                        "Artist details for navigation"
-                    );
-
-                    if (artistData) {
-                        router.push({
-                            pathname: `/artist/${item.id}`,
-                            params: { artistString: JSON.stringify(artistData) },
-                        } as any);
-                    } else {
-                        router.push({
-                            pathname: `/artist/${item.id}`,
-                            params: { artistString: JSON.stringify(item) },
-                        } as any);
-                    }
-                } catch (error) {
-                    logError(
-                        "Error fetching artist details for navigation:",
-                        error
-                    );
-                    router.push({
-                        pathname: `/artist/${item.id}`,
-                        params: { artistString: JSON.stringify(item) },
-                    } as any);
-                } finally {
-                    setLoadingArtistId(null);
-                }
+                router.push({
+                    pathname: `/artist/${item.id}`,
+                    params: { artistName: item.name as string },
+                } as any);
+                setLoadingArtistId(null);
             }}
         >
             {item.images && item.images.length > 0 ? (

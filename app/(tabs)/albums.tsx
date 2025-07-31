@@ -17,7 +17,7 @@ import { useRouter } from "expo-router";
 import ContentContainer from "@/components/ContentContainer";
 import { useTabPreferences } from "@/contexts/TabPreferencesContext";
 import CustomScrollView from "@/components/CustomScrollView";
-import { logError } from "@/utils/logger";
+import { log, logError } from "@/utils/logger";
 
 export default function AlbumsScreen() {
     const {
@@ -81,7 +81,12 @@ export default function AlbumsScreen() {
                 if (loadingAlbumId) return;
 
                 setLoadingAlbumId(item.album.id);
-                router.push({ pathname: `/album/${item.album.id}` } as any);
+                router.push({
+                    pathname: `album/${item.album.id}`,
+                    params: {
+                        albumName: item.album.name as string,
+                    },
+                } as any)
                 setLoadingAlbumId(null);
             }}
         >
