@@ -4,7 +4,6 @@ import {
     StyleSheet,
     Image,
     Animated,
-    AppState,
 } from "react-native";
 import { StyledText } from "@/components/StyledText";
 import {
@@ -417,11 +416,7 @@ export default function PlayingScreen() {
                         }
                     >
                         <MaterialIcons
-                            name={
-                                (
-                                    playbackState.device.type ?? ""
-                                ).toLowerCase() as any
-                            }
+                            name={"devices"}
                             size={30}
                             color={invertColors ? "black" : "white"}
                         />
