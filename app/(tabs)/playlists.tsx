@@ -103,47 +103,10 @@ export default function PlaylistsScreen() {
             <HapticPressable
                 style={styles.itemContainer}
                 onPress={async () => {
-                    if (loadingPlaylistId) return; // Prevent multiple simultaneous requests
-
+                    if (loadingPlaylistId) return;
                     setLoadingPlaylistId(item.id);
-                    try {
-                        // Fetch playlist details first, similar to how liked songs awaits playback
-                        const playlistData = await makeApiRequest(
-                            `https://api.spotify.com/v1/playlists/${item.id}`,
-                            "Playlist details for navigation"
-                        );
-
-                        if (playlistData) {
-                            // Navigate with the loaded data
-                            router.push({
-                                pathname: `/playlist/${item.id}`,
-                                params: {
-                                    playlistString:
-                                        JSON.stringify(playlistData),
-                                },
-                            } as any);
-                        } else {
-                            // Fallback to original navigation if fetch fails
-                            router.push({
-                                pathname: `/playlist/${item.id}`,
-                                params: {
-                                    playlistString: JSON.stringify(item),
-                                },
-                            } as any);
-                        }
-                    } catch (error) {
-                        logError(
-                            "Error fetching playlist details for navigation:",
-                            error
-                        );
-                        // Fallback to original navigation on error
-                        router.push({
-                            pathname: `/playlist/${item.id}`,
-                            params: { playlistString: JSON.stringify(item) },
-                        } as any);
-                    } finally {
-                        setLoadingPlaylistId(null);
-                    }
+                    router.push({ pathname: `/playlist/${item.id}`, } as any);
+                    setLoadingPlaylistId(null);
                 }}
             >
                 {item.images && item.images.length > 0 ? (

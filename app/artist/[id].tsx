@@ -22,6 +22,7 @@ export default function ArtistDetailScreen() {
         id: string;
         artistString?: string;
     }>();
+
     const {
         accessToken,
         playTracksWithWebApi,

@@ -78,42 +78,11 @@ export default function AlbumsScreen() {
         <HapticPressable
             style={styles.itemContainer}
             onPress={async () => {
-                if (loadingAlbumId) return; // Prevent multiple simultaneous requests
+                if (loadingAlbumId) return;
 
                 setLoadingAlbumId(item.album.id);
-                try {
-                    // Fetch album details first, similar to how liked songs awaits playback
-                    const albumData = await makeApiRequest(
-                        `https://api.spotify.com/v1/albums/${item.album.id}`,
-                        "Album details for navigation"
-                    );
-
-                    if (albumData) {
-                        // Navigate with the loaded data
-                        router.push({
-                            pathname: `/album/${item.album.id}`,
-                            params: { albumString: JSON.stringify(albumData) },
-                        } as any);
-                    } else {
-                        // Fallback to original navigation if fetch fails
-                        router.push({
-                            pathname: `/album/${item.album.id}`,
-                            params: { albumString: JSON.stringify(item.album) },
-                        } as any);
-                    }
-                } catch (error) {
-                    logError(
-                        "Error fetching album details for navigation:",
-                        error
-                    );
-                    // Fallback to original navigation on error
-                    router.push({
-                        pathname: `/album/${item.album.id}`,
-                        params: { albumString: JSON.stringify(item.album) },
-                    } as any);
-                } finally {
-                    setLoadingAlbumId(null);
-                }
+                router.push({ pathname: `/album/${item.album.id}` } as any);
+                setLoadingAlbumId(null);
             }}
         >
             {item.album.images && item.album.images.length > 0 ? (

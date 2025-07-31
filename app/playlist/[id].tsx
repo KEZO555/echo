@@ -80,7 +80,6 @@ export default function PlaylistDetailScreen() {
         }
 
         const fetchPlaylistDetails = async () => {
-            // If we already have complete playlist data with tracks, skip the fetch
             if (
                 initialPlaylist &&
                 (initialPlaylist as SpotifyPlaylistFull).tracks &&
