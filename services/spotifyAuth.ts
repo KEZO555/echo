@@ -34,7 +34,7 @@ export const loginWithSpotify = async (
         );
 
         // Use CODE flow (server handles PKCE and token exchange)
-        const authResult = await SpotifySdk.authorizeWithCode(
+        const authResult = await SpotifySdk.authorize(
             SPOTIFY_CLIENT_ID,
             REDIRECT_URI,
             SPOTIFY_SCOPES,

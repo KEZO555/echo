@@ -11,6 +11,7 @@ export default function SettingsScreen() {
     const router = useRouter();
     const handleLogout = async () => {
         await logout();
+        router.replace("/login");
     };
     const handleDebug = () => {
         router.push("/debug" as any);
