@@ -795,46 +795,30 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
                 appState.match(/inactive|background/) &&
                 nextAppState === "active"
             ) {
-                logInfo("AuthContext: App resumed - relying on auto-connect");
-                // Just ensure auto-connect is enabled, let native SDK handle connection
+                logInfo("AuthContext: App resumed");
                 if (accessToken) {
                 }
             } else if (
                 appState === "active" &&
                 nextAppState.match(/inactive|background/)
             ) {
+                logInfo("AuthContext: App suspended - disconnecting remote");
+                try {
+                    SpotifySdk.disconnect();
+                    logInfo("AuthContext: Remote disconnected");
+                } catch (e) { }
                 setIsConnectedToAppRemote(false);
             }
             setAppState(nextAppState);
-        };
-
-        const handleNativeConnected = () => {
-            logInfo("AuthContext: Connected to Spotify");
-            setIsConnectedToAppRemote(true);
-        };
-
-        const handleNativeDisconnected = () => {
-            logInfo("AuthContext: Disconnected from Spotify");
-            setIsConnectedToAppRemote(false);
         };
 
         const appStateSubscription = AppState.addEventListener(
             "change",
             handleAppStateChange
         );
-        const connectedSubscription = SpotifySdk.addListener(
-            "onConnected",
-            handleNativeConnected
-        );
-        const disconnectedSubscription = SpotifySdk.addListener(
-            "onDisconnected",
-            handleNativeDisconnected
-        );
 
         return () => {
             appStateSubscription?.remove();
-            connectedSubscription?.remove();
-            disconnectedSubscription?.remove();
         };
     }, [appState, accessToken]);
 
@@ -938,7 +922,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         isRefreshingArtists,
         isRefreshingSavedTracks,
         isConnectedToAppRemote,
-        appState,
         appState,
         login,
         logout,
