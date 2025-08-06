@@ -1,5 +1,6 @@
 import React, { useEffect, useRef } from "react";
-import { Stack, SplashScreen, useRouter } from "expo-router";
+import { Stack, useRouter } from "expo-router";
+import { View } from "react-native";
 import { HapticProvider } from "../contexts/HapticContext";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import {
@@ -14,9 +15,8 @@ import { useFonts } from "expo-font";
 import { setStatusBarHidden } from "expo-status-bar";
 import * as NavigationBar from 'expo-navigation-bar';
 import * as SystemUI from "expo-system-ui";
+import { StyledText } from "@/components/StyledText";
 import "../utils/logger";
-
-SplashScreen.preventAutoHideAsync();
 
 function RootNavigation() {
     const router = useRouter();
@@ -49,7 +49,6 @@ function RootNavigation() {
 
     useEffect(() => {
         if (!isLoading && !hasDoneInitialRouting.current) {
-            SplashScreen.hideAsync();
             if (accessToken) {
                 const firstAvailableTab = getFirstAvailableTab();
                 router.replace(firstAvailableTab as any);
@@ -61,7 +60,11 @@ function RootNavigation() {
     }, [accessToken, isLoading, router]);
 
     if (isLoading) {
-        return null;
+        return (
+            <View style={{ flex: 1, backgroundColor: 'black', justifyContent: 'center', alignItems: 'center' }}>
+                <StyledText>Loading data...</StyledText>
+            </View>
+        );
     }
 
     return (
