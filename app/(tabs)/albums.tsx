@@ -18,6 +18,8 @@ import ContentContainer from "@/components/ContentContainer";
 import { useTabPreferences } from "@/contexts/TabPreferencesContext";
 import CustomScrollView from "@/components/CustomScrollView";
 import { log, logError } from "@/utils/logger";
+import { saveCachedAlbumDetail, refreshSavedAlbumsFromCache } from "@/utils/cache";
+import { useNetworkState } from "@/hooks/useNetworkState";
 
 export default function AlbumsScreen() {
     const {
@@ -34,6 +36,7 @@ export default function AlbumsScreen() {
     } = useAuth();
     const router = useRouter();
     const { preferences } = useTabPreferences();
+    const { isOnline, isLoading: networkLoading } = useNetworkState();
     const [sortedAlbums, setSortedAlbums] = useState<
         SpotifySavedAlbum[] | null
     >(null);
@@ -64,11 +67,33 @@ export default function AlbumsScreen() {
         }
     }, [albums]);
 
-    const handleRefresh = useCallback(() => {
-        if (!isRefreshingAlbums) {
+    const handleRefresh = useCallback(async () => {
+        if (isRefreshingAlbums) return;
+        
+        if (!isOnline) {
+            log("Albums: Device is offline, loading cached albums");
+            try {
+                const cachedAlbums = await refreshSavedAlbumsFromCache();
+                if (cachedAlbums && cachedAlbums.length > 0) {
+                    const newSortedAlbums = [...cachedAlbums].sort((a, b) => {
+                        const artistA = a.album.artists[0]?.name.toLowerCase() || "";
+                        const artistB = b.album.artists[0]?.name.toLowerCase() || "";
+                        if (artistA < artistB) return -1;
+                        if (artistA > artistB) return 1;
+                        return 0;
+                    });
+                    setSortedAlbums(newSortedAlbums);
+                    log(`Albums: Loaded ${cachedAlbums.length} cached albums`);
+                } else {
+                    log("Albums: No cached albums found");
+                }
+            } catch (error) {
+                logError("Albums: Error loading cached albums:", error);
+            }
+        } else {
             fetchAlbums();
         }
-    }, [fetchAlbums, isRefreshingAlbums]);
+    }, [fetchAlbums, isRefreshingAlbums, isOnline]);
 
     const getArtistNames = (artists: SpotifyArtistSimple[]) => {
         return artists.map((artist) => artist.name).join(", ");
@@ -81,13 +106,51 @@ export default function AlbumsScreen() {
                 if (loadingAlbumId) return;
 
                 setLoadingAlbumId(item.album.id);
-                router.push({
-                    pathname: `album/${item.album.id}`,
-                    params: {
-                        albumName: item.album.name as string,
-                    },
-                } as any)
-                setLoadingAlbumId(null);
+                
+                try {
+                    if (isOnline) {
+                        const albumDetails = await makeApiRequest(
+                            `https://api.spotify.com/v1/albums/${item.album.id}`,
+                            "Album details for caching"
+                        );
+                        
+                        if (albumDetails) {
+                            await saveCachedAlbumDetail(albumDetails);
+                            
+                            router.push({
+                                pathname: `album/${item.album.id}`,
+                                params: {
+                                    albumName: item.album.name as string,
+                                    albumString: JSON.stringify(albumDetails),
+                                },
+                            } as any);
+                        } else {
+                            router.push({
+                                pathname: `album/${item.album.id}`,
+                                params: {
+                                    albumName: item.album.name as string,
+                                },
+                            } as any);
+                        }
+                    } else {
+                        router.push({
+                            pathname: `album/${item.album.id}`,
+                            params: {
+                                albumName: item.album.name as string,
+                            },
+                        } as any);
+                    }
+                } catch (error) {
+                    logError("Error navigating to album:", error);
+                    router.push({
+                        pathname: `album/${item.album.id}`,
+                        params: {
+                            albumName: item.album.name as string,
+                        },
+                    } as any);
+                } finally {
+                    setLoadingAlbumId(null);
+                }
             }}
         >
             {item.album.images && item.album.images.length > 0 ? (

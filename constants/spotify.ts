@@ -32,3 +32,4 @@ export const PLAYLISTS_KEY = "spotifyPlaylists";
 export const ALBUMS_KEY = "spotifyAlbums";
 export const ARTISTS_KEY = "spotifyArtists";
 export const SAVED_TRACKS_KEY = "spotifySavedTracks";
+export const ALBUM_DETAIL_KEY_PREFIX = "spotifyAlbumDetail_";

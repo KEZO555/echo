@@ -16,6 +16,7 @@ import { HapticPressable } from "@/components/HapticPressable";
 import ContentContainer from "@/components/ContentContainer";
 import CustomScrollView from "@/components/CustomScrollView";
 import { log, logError } from "@/utils/logger";
+import { getCachedAlbumDetail } from "@/utils/cache";
 
 export default function AlbumDetailScreen() {
     const { id, albumString, albumName } = useLocalSearchParams<{
@@ -107,9 +108,20 @@ export default function AlbumDetailScreen() {
                 return;
             }
 
-            if (!initialAlbum) {
-                setIsLoading(true);
+            setIsLoading(true);
+
+            try {
+                const cachedAlbum = await getCachedAlbumDetail(id);
+                if (cachedAlbum && cachedAlbum.tracks && cachedAlbum.tracks.items) {
+                    log("Album details: Using cached album data");
+                    setAlbum(cachedAlbum);
+                    setIsLoading(false);
+                    return;
+                }
+            } catch (error) {
+                logError("Error retrieving cached album:", error);
             }
+
             setError(null);
             try {
                 const data = await makeApiRequest(

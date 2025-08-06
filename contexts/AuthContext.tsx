@@ -5,6 +5,7 @@ import React, {
     useEffect,
     ReactNode,
     useCallback,
+    useRef,
 } from "react";
 import * as SecureStore from "expo-secure-store";
 import SpotifySdk from "../modules/spotify-sdk";
@@ -132,6 +133,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     
     // Network state for connection management
     const { isOnline } = useNetworkState();
+
+    // Disconnect timeout ref for delayed disconnection
+    const disconnectTimeoutRef = useRef<number | null>(null);
 
     // Token update callback
     const handleTokenUpdate = useCallback(
@@ -712,10 +716,53 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         []
     );
 
-    const startPlayback = useCallback(() => startPlaybackService(), []);
-    const pausePlayback = useCallback(() => pausePlaybackService(), []);
-    const skipToNext = useCallback(() => skipToNextService(), []);
-    const skipToPrevious = useCallback(() => skipToPreviousService(), []);
+    const startPlayback = useCallback(async () => {
+        const result = await startPlaybackService();
+        // Check if remote is connected after playback action
+        try {
+            const connected = await SpotifySdk.isConnected();
+            setIsConnectedToAppRemote(connected);
+        } catch (error) {
+            // Ignore connection check errors
+        }
+        return result;
+    }, []);
+    
+    const pausePlayback = useCallback(async () => {
+        const result = await pausePlaybackService();
+        // Check if remote is connected after playback action
+        try {
+            const connected = await SpotifySdk.isConnected();
+            setIsConnectedToAppRemote(connected);
+        } catch (error) {
+            // Ignore connection check errors
+        }
+        return result;
+    }, []);
+    
+    const skipToNext = useCallback(async () => {
+        const result = await skipToNextService();
+        // Check if remote is connected after playback action
+        try {
+            const connected = await SpotifySdk.isConnected();
+            setIsConnectedToAppRemote(connected);
+        } catch (error) {
+            // Ignore connection check errors
+        }
+        return result;
+    }, []);
+    
+    const skipToPrevious = useCallback(async () => {
+        const result = await skipToPreviousService();
+        // Check if remote is connected after playback action
+        try {
+            const connected = await SpotifySdk.isConnected();
+            setIsConnectedToAppRemote(connected);
+        } catch (error) {
+            // Ignore connection check errors
+        }
+        return result;
+    }, []);
     const toggleShuffle = useCallback(
         (state: boolean) => toggleShuffleService(state),
         []
@@ -800,6 +847,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
                 nextAppState === "active"
             ) {
                 logInfo("AuthContext: App resumed");
+                // Clear any pending disconnect timeout
+                if (disconnectTimeoutRef.current) {
+                    clearTimeout(disconnectTimeoutRef.current);
+                    disconnectTimeoutRef.current = null;
+                    logInfo("AuthContext: Cancelled pending disconnect timeout");
+                }
                 if (accessToken) {
                 }
             } else if (
@@ -808,12 +861,16 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             ) {
                 // Only disconnect if device is online to avoid losing connection during offline periods
                 if (isOnline) {
-                    logInfo("AuthContext: App suspended (online) - disconnecting remote");
-                    try {
-                        SpotifySdk.disconnect();
-                        logInfo("AuthContext: Remote disconnected");
-                    } catch (e) { }
-                    setIsConnectedToAppRemote(false);
+                    logInfo("AuthContext: App suspended (online) - scheduling disconnect in 5 minutes");
+                    // Set a 5-minute timeout before disconnecting
+                    disconnectTimeoutRef.current = setTimeout(() => {
+                        try {
+                            SpotifySdk.disconnect();
+                            logInfo("AuthContext: Remote disconnected after 5 minute delay");
+                        } catch (e) { }
+                        setIsConnectedToAppRemote(false);
+                        disconnectTimeoutRef.current = null;
+                    }, 5 * 60 * 1000); // 5 minutes
                 } else {
                     logInfo("AuthContext: App suspended (offline) - keeping remote connection");
                 }
@@ -830,6 +887,28 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             appStateSubscription?.remove();
         };
     }, [appState, accessToken, isOnline]);
+
+    // Periodic remote connection check
+    useEffect(() => {
+        if (!accessToken || !user) return;
+
+        const checkRemoteConnection = async () => {
+            try {
+                const connected = await SpotifySdk.isConnected();
+                setIsConnectedToAppRemote(connected);
+            } catch (error) {
+                setIsConnectedToAppRemote(false);
+            }
+        };
+
+        // Check immediately
+        checkRemoteConnection();
+
+        // Check every 5 seconds
+        const interval = setInterval(checkRemoteConnection, 5000);
+
+        return () => clearInterval(interval);
+    }, [accessToken, user]);
 
     // Initial load effect
     useEffect(() => {

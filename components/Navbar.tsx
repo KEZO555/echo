@@ -7,6 +7,8 @@ import { useRouter } from "expo-router";
 import type { BottomTabBarProps } from "@react-navigation/bottom-tabs";
 import { useInvertColors } from "@/contexts/InvertColorsContext";
 import { useNetworkState } from "@/hooks/useNetworkState";
+import { useAuth } from "@/contexts/AuthContext";
+import { useTabPreferences } from "@/contexts/TabPreferencesContext";
 
 export interface TabConfigItem {
     name: string;
@@ -30,10 +32,29 @@ export function Navbar({
     const router = useRouter();
     const { invertColors } = useInvertColors();
     const { isOnline } = useNetworkState();
+    const { isConnectedToAppRemote } = useAuth();
+    const { preferences } = useTabPreferences();
 
     const handlePlayingPress = () => {
         router.push("/playing");
     };
+
+    const getStatusText = () => {
+        const parts = [];
+        
+        if (!isOnline) {
+            parts.push("Device offline");
+        }
+        
+        // Show remote connection status based on preference
+        if (!isOnline || preferences.showRemoteStatusWhenOnline) {
+            parts.push(`Remote ${isConnectedToAppRemote ? "connected" : "not connected"}`);
+        }
+        
+        return parts.length > 0 ? parts.join(" • ") : null;
+    };
+
+    const statusText = getStatusText();
 
     return (
         <>
@@ -64,9 +85,9 @@ export function Navbar({
                     </HapticPressable>
                 ))}
             </View>
-            {isOnline === false && (
+            {statusText && (
                 <View style={[styles.offlineStrip, { backgroundColor: invertColors ? "black" : "white" }]}>
-                    <StyledText style={[styles.offlineText, { color: invertColors ? "white" : "black" }]}>Device offline</StyledText>
+                    <StyledText style={[styles.offlineText, { color: invertColors ? "white" : "black" }]}>{statusText}</StyledText>
                 </View>
             )}
         </>

@@ -4,6 +4,7 @@ import {
     ALBUMS_KEY,
     ARTISTS_KEY,
     SAVED_TRACKS_KEY,
+    ALBUM_DETAIL_KEY_PREFIX,
 } from "../constants/spotify";
 import { log, logError } from "../utils/logger";
 import type {
@@ -11,6 +12,7 @@ import type {
     SpotifySavedAlbum,
     SpotifyArtist,
     SavedTrackObject,
+    SpotifyAlbum,
 } from "../types/spotify";
 
 export const loadCachedData = async () => {
@@ -101,6 +103,7 @@ export const clearCachedData = async () => {
         await AsyncStorage.removeItem(ALBUMS_KEY);
         await AsyncStorage.removeItem(ARTISTS_KEY);
         await AsyncStorage.removeItem(SAVED_TRACKS_KEY);
+        await clearCachedAlbumDetails();
         log("Cache: Cache cleared");
     } catch (error) {
         logError("Cache: Error clearing cache:", error);
@@ -143,6 +146,44 @@ export const refreshFollowedArtistsFromCache = async () => {
         );
     }
     return null;
+};
+
+export const saveCachedAlbumDetail = async (album: SpotifyAlbum) => {
+    try {
+        const key = `${ALBUM_DETAIL_KEY_PREFIX}${album.id}`;
+        await AsyncStorage.setItem(key, JSON.stringify(album));
+        log(`Cache: Saved album detail for ${album.name} (${album.id})`);
+    } catch (error) {
+        logError("Cache: Error saving album detail:", error);
+    }
+};
+
+export const getCachedAlbumDetail = async (albumId: string): Promise<SpotifyAlbum | null> => {
+    try {
+        const key = `${ALBUM_DETAIL_KEY_PREFIX}${albumId}`;
+        const cachedAlbum = await AsyncStorage.getItem(key);
+        if (cachedAlbum) {
+            const parsedAlbum = JSON.parse(cachedAlbum);
+            log(`Cache: Retrieved cached album detail for ${albumId}`);
+            return parsedAlbum;
+        }
+    } catch (error) {
+        logError("Cache: Error retrieving cached album detail:", error);
+    }
+    return null;
+};
+
+export const clearCachedAlbumDetails = async () => {
+    try {
+        const keys = await AsyncStorage.getAllKeys();
+        const albumDetailKeys = keys.filter(key => key.startsWith(ALBUM_DETAIL_KEY_PREFIX));
+        if (albumDetailKeys.length > 0) {
+            await AsyncStorage.multiRemove(albumDetailKeys);
+            log(`Cache: Cleared ${albumDetailKeys.length} cached album details`);
+        }
+    } catch (error) {
+        logError("Cache: Error clearing cached album details:", error);
+    }
 };
 
 

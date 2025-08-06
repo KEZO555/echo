@@ -52,7 +52,7 @@ export default function PlayingScreen() {
     const progressBarWidthRef = useRef<number | null>(null);
     const appStateRef = useRef(appState);
     const isFocusedRef = useRef(true);
-    
+
     // Check if device is online
     const isOnline = networkState.isConnected && networkState.isInternetReachable;
 
@@ -235,7 +235,7 @@ export default function PlayingScreen() {
 
             fetchAll();
 
-            const intervalId = setInterval(fetchAll, 500);
+            const intervalId = setInterval(fetchAll, 1000);
 
             return () => {
                 isFocusedRef.current = false;
@@ -443,7 +443,7 @@ export default function PlayingScreen() {
                             color={invertColors ? "black" : "white"}
                         />
                     </HapticPressable>
-                    <HapticPressable 
+                    <HapticPressable
                         onPress={() => {
                             if (isOnline) {
                                 handleNavigateToAddToPlaylist();
