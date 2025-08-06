@@ -13,7 +13,9 @@ import { useRouter } from "expo-router";
 import ContentContainer from "@/components/ContentContainer";
 import { useTabPreferences } from "@/contexts/TabPreferencesContext";
 import CustomScrollView from "@/components/CustomScrollView";
-import { logError } from "@/utils/logger";
+import { logError, log } from "@/utils/logger";
+import { saveCachedPlaylistDetail, refreshPlaylistsFromCache } from "@/utils/cache";
+import { useNetworkState } from "@/hooks/useNetworkState";
 
 const CREATE_NEW_PLAYLIST_ID = "CREATE_NEW_PLAYLIST_ID";
 
@@ -32,6 +34,7 @@ export default function PlaylistsScreen() {
     } = useAuth();
     const router = useRouter();
     const { preferences } = useTabPreferences();
+    const { isOnline } = useNetworkState();
     const [sortedPlaylists, setSortedPlaylists] = useState<
         SpotifyPlaylist[] | null
     >(null);
@@ -40,10 +43,16 @@ export default function PlaylistsScreen() {
     );
 
     useEffect(() => {
-        if (accessToken && user && !playlists && !isLoading) {
+        if (
+            accessToken &&
+            user &&
+            !playlists &&
+            !isLoading &&
+            !isRefreshingPlaylists
+        ) {
             fetchPlaylists();
         }
-    }, [accessToken, user, playlists, fetchPlaylists, isLoading]);
+    }, [accessToken, user, playlists, fetchPlaylists, isLoading, isRefreshingPlaylists]);
 
     useEffect(() => {
         if (playlists) {
@@ -69,23 +78,64 @@ export default function PlaylistsScreen() {
         }
     }, [playlists]);
 
-    const handleRefresh = useCallback(() => {
-        if (!isRefreshingPlaylists) {
+    const handleRefresh = useCallback(async () => {
+        if (isRefreshingPlaylists) return;
+
+        if (!isOnline) {
+            log("Playlists: Device is offline, loading cached playlists");
+            try {
+                const cachedPlaylists = await refreshPlaylistsFromCache();
+                if (cachedPlaylists && cachedPlaylists.length > 0) {
+                    const newSortedPlaylists = [...cachedPlaylists].sort((a, b) => {
+                        const ownerA =
+                            a.owner.display_name?.toLowerCase() ||
+                            a.owner.id.toLowerCase() ||
+                            "";
+                        const ownerB =
+                            b.owner.display_name?.toLowerCase() ||
+                            b.owner.id.toLowerCase() ||
+                            "";
+                        if (ownerA < ownerB) return -1;
+                        if (ownerA > ownerB) return 1;
+                        // If owners are the same, sort by playlist name
+                        const nameA = a.name.toLowerCase();
+                        const nameB = b.name.toLowerCase();
+                        if (nameA < nameB) return -1;
+                        if (nameA > nameB) return 1;
+                        return 0;
+                    });
+                    setSortedPlaylists(newSortedPlaylists);
+                    log(`Playlists: Loaded ${cachedPlaylists.length} cached playlists`);
+                } else {
+                    log("Playlists: No cached playlists found");
+                }
+            } catch (error) {
+                logError("Playlists: Error loading cached playlists:", error);
+            }
+        } else {
             fetchPlaylists();
         }
-    }, [fetchPlaylists, isRefreshingPlaylists]);
+    }, [fetchPlaylists, isRefreshingPlaylists, isOnline]);
 
     const renderPlaylistItem = ({ item }: { item: SpotifyPlaylist }) => {
         if (item.id === CREATE_NEW_PLAYLIST_ID) {
+            const isDisabled = !isOnline;
+
             return (
                 <HapticPressable
-                    style={styles.itemContainer}
+                    style={[styles.itemContainer, isDisabled && styles.disabledContainer]}
                     onPress={() => {
+                        if (isDisabled) return;
                         router.push("/create-playlist");
                     }}
+                    disabled={isDisabled}
                 >
                     <View style={styles.placeholderImageContainer}>
-                        <MaterialIcons name="add" size={24} color="white" />
+                        <MaterialIcons
+                            name="add"
+                            size={24}
+                            color={isDisabled ? "#666" : "white"}
+                        />
                     </View>
                     <View style={styles.textContainer}>
                         <StyledText
@@ -104,14 +154,53 @@ export default function PlaylistsScreen() {
                 style={styles.itemContainer}
                 onPress={async () => {
                     if (loadingPlaylistId) return;
+
                     setLoadingPlaylistId(item.id);
-                    router.push({
-                        pathname: `/playlist/${item.id}`,
-                        params: {
-                            playlistName: item.name as string,
-                        },
-                    } as any)
-                    setLoadingPlaylistId(null);
+
+                    try {
+                        if (isOnline) {
+                            const playlistDetails = await makeApiRequest(
+                                `https://api.spotify.com/v1/playlists/${item.id}`,
+                                "Playlist details for caching"
+                            );
+
+                            if (playlistDetails) {
+                                await saveCachedPlaylistDetail(playlistDetails);
+
+                                router.push({
+                                    pathname: `/playlist/${item.id}`,
+                                    params: {
+                                        playlistName: item.name as string,
+                                        playlistString: JSON.stringify(playlistDetails),
+                                    },
+                                } as any);
+                            } else {
+                                router.push({
+                                    pathname: `/playlist/${item.id}`,
+                                    params: {
+                                        playlistName: item.name as string,
+                                    },
+                                } as any);
+                            }
+                        } else {
+                            router.push({
+                                pathname: `/playlist/${item.id}`,
+                                params: {
+                                    playlistName: item.name as string,
+                                },
+                            } as any);
+                        }
+                    } catch (error) {
+                        logError("Error navigating to playlist:", error);
+                        router.push({
+                            pathname: `/playlist/${item.id}`,
+                            params: {
+                                playlistName: item.name as string,
+                            },
+                        } as any);
+                    } finally {
+                        setLoadingPlaylistId(null);
+                    }
                 }}
             >
                 {item.images && item.images.length > 0 ? (
@@ -180,7 +269,7 @@ export default function PlaylistsScreen() {
         : [createNewPlaylistItem];
 
     const handleLoadMore = () => {
-        if (playlistsNextUrl && !isLoadingMorePlaylists) {
+        if (isOnline && playlistsNextUrl && !isLoadingMorePlaylists) {
             fetchMorePlaylists();
         }
     };
@@ -326,5 +415,8 @@ const styles = StyleSheet.create({
         backgroundColor: "rgba(0, 0, 0, 0)",
         justifyContent: "center",
         alignItems: "center",
+    },
+    disabledContainer: {
+        opacity: 0.3,
     },
 });

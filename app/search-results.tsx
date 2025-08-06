@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { View, StyleSheet, Text, Image } from "react-native";
+import { View, StyleSheet, Image } from "react-native";
 import { useGlobalSearchParams, useRouter } from "expo-router";
 import {
     useAuth,
@@ -15,6 +15,7 @@ import { StyledText } from "@/components/StyledText";
 import ContentContainer from "@/components/ContentContainer";
 import CustomScrollView from "@/components/CustomScrollView";
 import { logError } from "@/utils/logger";
+import { useNetworkState } from "@/hooks/useNetworkState";
 
 type SearchItem =
     | { type: "track"; data: SpotifyTrack }
@@ -26,6 +27,7 @@ export default function SearchResultsScreen() {
     const params = useGlobalSearchParams();
     const routeQuery = params.query as string | undefined;
     const { searchItems, playTrackWithContext } = useAuth();
+    const { isOnline } = useNetworkState();
     const router = useRouter();
     const [results, setResults] = useState<SearchItem[]>([]);
     const [loading, setLoading] = useState(true);
@@ -33,6 +35,12 @@ export default function SearchResultsScreen() {
     useEffect(() => {
         if (routeQuery) {
             setLoading(true);
+            
+            if (!isOnline) {
+                setLoading(false);
+                return;
+            }
+            
             searchItems(routeQuery, ["track", "album", "playlist", "artist"])
                 .then((apiResponse) => {
                     const newResults: SearchItem[] = [];
@@ -119,7 +127,7 @@ export default function SearchResultsScreen() {
             setResults([]);
             setLoading(false);
         }
-    }, [routeQuery, searchItems]);
+    }, [routeQuery, searchItems, isOnline]);
 
     const getArtistNames = (artists: SpotifyArtistSimple[]) => {
         return (
@@ -224,6 +232,12 @@ export default function SearchResultsScreen() {
         <ContentContainer headerTitle={`Results for ${routeQuery ?? ""}`} style={{ paddingHorizontal: 20 }}>
             {loading ? (
                 <View style={styles.centeredMessageContainer}></View>
+            ) : !isOnline ? (
+                <View style={styles.centeredMessageContainer}>
+                    <StyledText style={styles.emptyText}>
+                        Search is not available offline.
+                    </StyledText>
+                </View>
             ) : results.length > 0 ? (
                 <View style={{ paddingBottom: 20 }}>
                     <CustomScrollView
@@ -242,9 +256,9 @@ export default function SearchResultsScreen() {
                 </View>
             ) : routeQuery ? (
                 <View style={styles.centeredMessageContainer}>
-                    <Text style={styles.emptyText}>
+                    <StyledText style={styles.emptyText}>
                         No results found for "{routeQuery}".
-                    </Text>
+                    </StyledText>
                 </View>
             ) : (
                 <View style={styles.centeredMessageContainer}></View>

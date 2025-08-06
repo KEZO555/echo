@@ -17,6 +17,7 @@ import { HapticPressable } from "@/components/HapticPressable";
 import ContentContainer from "@/components/ContentContainer";
 import CustomScrollView from "@/components/CustomScrollView";
 import { log, logError } from "@/utils/logger";
+import { getCachedPlaylistDetail } from "@/utils/cache";
 
 // Interface for the structure of a track item within a playlist from Spotify API
 interface PlaylistTrack {
@@ -93,9 +94,20 @@ export default function PlaylistDetailScreen() {
                 return;
             }
 
-            if (!initialPlaylist) {
-                setIsLoading(true);
+            setIsLoading(true);
+
+            try {
+                const cachedPlaylist = await getCachedPlaylistDetail(id);
+                if (cachedPlaylist && cachedPlaylist.tracks && cachedPlaylist.tracks.items) {
+                    log("Playlist details: Using cached playlist data");
+                    setPlaylist(cachedPlaylist);
+                    setIsLoading(false);
+                    return;
+                }
+            } catch (error) {
+                logError("Error retrieving cached playlist:", error);
             }
+
             setError(null);
             try {
                 const data = await makeApiRequest(

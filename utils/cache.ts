@@ -5,6 +5,7 @@ import {
     ARTISTS_KEY,
     SAVED_TRACKS_KEY,
     ALBUM_DETAIL_KEY_PREFIX,
+    PLAYLIST_DETAIL_KEY_PREFIX,
 } from "../constants/spotify";
 import { log, logError } from "../utils/logger";
 import type {
@@ -14,6 +15,18 @@ import type {
     SavedTrackObject,
     SpotifyAlbum,
 } from "../types/spotify";
+
+interface SpotifyPlaylistFull extends SpotifyPlaylist {
+    tracks: {
+        href: string;
+        items: any[];
+        limit: number;
+        next: string | null;
+        offset: number;
+        previous: string | null;
+        total: number;
+    };
+}
 
 export const loadCachedData = async () => {
     try {
@@ -104,6 +117,7 @@ export const clearCachedData = async () => {
         await AsyncStorage.removeItem(ARTISTS_KEY);
         await AsyncStorage.removeItem(SAVED_TRACKS_KEY);
         await clearCachedAlbumDetails();
+        await clearCachedPlaylistDetails();
         log("Cache: Cache cleared");
     } catch (error) {
         logError("Cache: Error clearing cache:", error);
@@ -123,6 +137,25 @@ export const refreshSavedAlbumsFromCache = async () => {
     } catch (error) {
         logError(
             "Cache: Error refreshing saved albums from cache:",
+            error
+        );
+    }
+    return null;
+};
+
+export const refreshPlaylistsFromCache = async () => {
+    try {
+        const cachedPlaylists = await AsyncStorage.getItem(PLAYLISTS_KEY);
+        if (cachedPlaylists) {
+            const parsedPlaylists = JSON.parse(cachedPlaylists);
+            log(
+                `Cache: Refreshed playlists state from cache - ${parsedPlaylists.length} playlists`
+            );
+            return parsedPlaylists;
+        }
+    } catch (error) {
+        logError(
+            "Cache: Error refreshing playlists from cache:",
             error
         );
     }
@@ -171,6 +204,44 @@ export const getCachedAlbumDetail = async (albumId: string): Promise<SpotifyAlbu
         logError("Cache: Error retrieving cached album detail:", error);
     }
     return null;
+};
+
+export const saveCachedPlaylistDetail = async (playlist: SpotifyPlaylistFull) => {
+    try {
+        const key = `${PLAYLIST_DETAIL_KEY_PREFIX}${playlist.id}`;
+        await AsyncStorage.setItem(key, JSON.stringify(playlist));
+        log(`Cache: Saved playlist detail for ${playlist.name} (${playlist.id})`);
+    } catch (error) {
+        logError("Cache: Error saving playlist detail:", error);
+    }
+};
+
+export const getCachedPlaylistDetail = async (playlistId: string): Promise<SpotifyPlaylistFull | null> => {
+    try {
+        const key = `${PLAYLIST_DETAIL_KEY_PREFIX}${playlistId}`;
+        const cachedPlaylist = await AsyncStorage.getItem(key);
+        if (cachedPlaylist) {
+            const parsedPlaylist = JSON.parse(cachedPlaylist);
+            log(`Cache: Retrieved cached playlist detail for ${playlistId}`);
+            return parsedPlaylist;
+        }
+    } catch (error) {
+        logError("Cache: Error retrieving cached playlist detail:", error);
+    }
+    return null;
+};
+
+export const clearCachedPlaylistDetails = async () => {
+    try {
+        const keys = await AsyncStorage.getAllKeys();
+        const playlistDetailKeys = keys.filter(key => key.startsWith(PLAYLIST_DETAIL_KEY_PREFIX));
+        if (playlistDetailKeys.length > 0) {
+            await AsyncStorage.multiRemove(playlistDetailKeys);
+            log(`Cache: Cleared ${playlistDetailKeys.length} cached playlist details`);
+        }
+    } catch (error) {
+        logError("Cache: Error clearing cached playlist details:", error);
+    }
 };
 
 export const clearCachedAlbumDetails = async () => {

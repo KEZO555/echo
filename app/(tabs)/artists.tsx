@@ -17,6 +17,7 @@ import ContentContainer from "@/components/ContentContainer";
 import { useTabPreferences } from "@/contexts/TabPreferencesContext";
 import CustomScrollView from "@/components/CustomScrollView";
 import { log, logError } from "@/utils/logger";
+import { useNetworkState } from "@/hooks/useNetworkState";
 
 export default function ArtistsScreen() {
     const {
@@ -31,6 +32,7 @@ export default function ArtistsScreen() {
     } = useAuth();
     const router = useRouter();
     const { preferences } = useTabPreferences();
+    const { isOnline } = useNetworkState();
     const [sortedArtists, setSortedArtists] = useState<
         SpotifyArtist[] | null
     >(null);
@@ -57,45 +59,54 @@ export default function ArtistsScreen() {
         }
     }, [fetchArtists, isRefreshingArtists]);
 
-    const renderArtistItem = ({ item }: { item: SpotifyArtist }) => (
-        <HapticPressable
-            style={styles.itemContainer}
-            onPress={async () => {
-                if (loadingArtistId) return;
+    const renderArtistItem = ({ item }: { item: SpotifyArtist }) => {
+        const isDisabled = !isOnline;
+        
+        return (
+            <HapticPressable
+                style={[styles.itemContainer, isDisabled && styles.disabledContainer]}
+                onPress={async () => {
+                    if (isDisabled || loadingArtistId) return;
 
-                setLoadingArtistId(item.id);
-                router.push({
-                    pathname: `/artist/${item.id}`,
-                    params: { artistName: item.name as string },
-                } as any);
-                setLoadingArtistId(null);
-            }}
-        >
-            {item.images && item.images.length > 0 ? (
-                <View style={styles.artistImageContainer}>
-                    <Image
-                        source={{ uri: item.images[0].url }}
-                        style={styles.artistImage}
-                    />
-                    {loadingArtistId === item.id && (
-                        <View style={styles.loadingOverlay}></View>
-                    )}
+                    setLoadingArtistId(item.id);
+                    router.push({
+                        pathname: `/artist/${item.id}`,
+                        params: { artistName: item.name as string },
+                    } as any);
+                    setLoadingArtistId(null);
+                }}
+                disabled={isDisabled}
+            >
+                {item.images && item.images.length > 0 ? (
+                    <View style={styles.artistImageContainer}>
+                        <Image
+                            source={{ uri: item.images[0].url }}
+                            style={styles.artistImage}
+                        />
+                        {loadingArtistId === item.id && (
+                            <View style={styles.loadingOverlay}></View>
+                        )}
+                    </View>
+                ) : (
+                    <View style={styles.placeholderImageContainer}>
+                        <MaterialIcons 
+                            name="person" 
+                            size={24} 
+                            color={isDisabled ? "#666" : "white"} 
+                        />
+                        {loadingArtistId === item.id && (
+                            <View style={styles.loadingOverlay}></View>
+                        )}
+                    </View>
+                )}
+                <View style={styles.textContainer}>
+                    <StyledText style={styles.artistName} numberOfLines={1}>
+                        {item.name}
+                    </StyledText>
                 </View>
-            ) : (
-                <View style={styles.placeholderImageContainer}>
-                    <MaterialIcons name="person" size={24} color="white" />
-                    {loadingArtistId === item.id && (
-                        <View style={styles.loadingOverlay}></View>
-                    )}
-                </View>
-            )}
-            <View style={styles.textContainer}>
-                <StyledText style={styles.artistName} numberOfLines={1}>
-                    {item.name}
-                </StyledText>
-            </View>
-        </HapticPressable>
-    );
+            </HapticPressable>
+        );
+    };
 
     if (isLoading && !sortedArtists) {
         return <View style={styles.centeredMessageContainer}></View>;
@@ -106,7 +117,7 @@ export default function ArtistsScreen() {
     }
 
     const handleLoadMore = () => {
-        if (artistsNextUrl && !isLoadingMoreArtists) {
+        if (isOnline && artistsNextUrl && !isLoadingMoreArtists) {
             fetchMoreArtists();
         }
     };
@@ -139,16 +150,16 @@ export default function ArtistsScreen() {
                             No saved artists found.
                         </StyledText>
                     }
-                    refreshControl={
-                        <RefreshControl
-                            refreshing={isRefreshingArtists}
-                            onRefresh={handleRefresh}
-                            colors={["white"]}
-                            progressBackgroundColor={"black"}
-                            size={"large" as any}
-                        />
-                    }
-                />
+                        refreshControl={
+                            <RefreshControl
+                                refreshing={isRefreshingArtists}
+                                onRefresh={handleRefresh}
+                                colors={["white"]}
+                                progressBackgroundColor={"black"}
+                                size={"large" as any}
+                                enabled={isOnline === true}
+                            />
+                        }                />
             </ContentContainer>
         );
     }
@@ -180,6 +191,7 @@ export default function ArtistsScreen() {
                         colors={["white"]}
                         progressBackgroundColor={"black"}
                         size={"large" as any}
+                        enabled={isOnline === true}
                     />
                 }
             />
@@ -251,5 +263,8 @@ const styles = StyleSheet.create({
         backgroundColor: "rgba(0, 0, 0, 0)",
         justifyContent: "center",
         alignItems: "center",
+    },
+    disabledContainer: {
+        opacity: 0.3,
     },
 });
