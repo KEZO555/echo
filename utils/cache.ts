@@ -257,4 +257,26 @@ export const clearCachedAlbumDetails = async () => {
     }
 };
 
+export const isAlbumCached = async (albumId: string): Promise<boolean> => {
+    try {
+        const key = `${ALBUM_DETAIL_KEY_PREFIX}${albumId}`;
+        const cachedAlbum = await AsyncStorage.getItem(key);
+        return cachedAlbum !== null;
+    } catch (error) {
+        logError("Cache: Error checking if album is cached:", error);
+        return false;
+    }
+};
+
+export const isPlaylistCached = async (playlistId: string): Promise<boolean> => {
+    try {
+        const key = `${PLAYLIST_DETAIL_KEY_PREFIX}${playlistId}`;
+        const cachedPlaylist = await AsyncStorage.getItem(key);
+        return cachedPlaylist !== null;
+    } catch (error) {
+        logError("Cache: Error checking if playlist is cached:", error);
+        return false;
+    }
+};
+
 

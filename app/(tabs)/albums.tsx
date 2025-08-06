@@ -18,7 +18,7 @@ import ContentContainer from "@/components/ContentContainer";
 import { useTabPreferences } from "@/contexts/TabPreferencesContext";
 import CustomScrollView from "@/components/CustomScrollView";
 import { log, logError } from "@/utils/logger";
-import { saveCachedAlbumDetail, refreshSavedAlbumsFromCache } from "@/utils/cache";
+import { saveCachedAlbumDetail, refreshSavedAlbumsFromCache, isAlbumCached } from "@/utils/cache";
 import { useNetworkState } from "@/hooks/useNetworkState";
 
 export default function AlbumsScreen() {
@@ -41,6 +41,7 @@ export default function AlbumsScreen() {
         SpotifySavedAlbum[] | null
     >(null);
     const [loadingAlbumId, setLoadingAlbumId] = useState<string | null>(null);
+    const [cachedAlbumIds, setCachedAlbumIds] = useState<Set<string>>(new Set());
 
     useEffect(() => {
         if (
@@ -64,6 +65,19 @@ export default function AlbumsScreen() {
                 return 0;
             });
             setSortedAlbums(newSortedAlbums);
+            
+            // Check which albums are cached
+            const checkCachedAlbums = async () => {
+                const cachedIds = new Set<string>();
+                for (const album of newSortedAlbums) {
+                    const isCached = await isAlbumCached(album.album.id);
+                    if (isCached) {
+                        cachedIds.add(album.album.id);
+                    }
+                }
+                setCachedAlbumIds(cachedIds);
+            };
+            checkCachedAlbums();
         }
     }, [albums]);
 
@@ -99,31 +113,44 @@ export default function AlbumsScreen() {
         return artists.map((artist) => artist.name).join(", ");
     };
 
-    const renderAlbumItem = ({ item }: { item: SpotifySavedAlbum }) => (
-        <HapticPressable
-            style={styles.itemContainer}
-            onPress={async () => {
-                if (loadingAlbumId) return;
+    const renderAlbumItem = ({ item }: { item: SpotifySavedAlbum }) => {
+        const isOffline = !isOnline;
+        const isUncached = isOffline && !cachedAlbumIds.has(item.album.id);
+        
+        return (
+            <HapticPressable
+                style={[styles.itemContainer, isUncached && styles.disabledContainer]}
+                onPress={async () => {
+                    if (loadingAlbumId || isUncached) return;
 
-                setLoadingAlbumId(item.album.id);
-                
-                try {
-                    if (isOnline) {
-                        const albumDetails = await makeApiRequest(
-                            `https://api.spotify.com/v1/albums/${item.album.id}`,
-                            "Album details for caching"
-                        );
-                        
-                        if (albumDetails) {
-                            await saveCachedAlbumDetail(albumDetails);
+                    setLoadingAlbumId(item.album.id);
+                    
+                    try {
+                        if (isOnline) {
+                            const albumDetails = await makeApiRequest(
+                                `https://api.spotify.com/v1/albums/${item.album.id}`,
+                                "Album details for caching"
+                            );
                             
-                            router.push({
-                                pathname: `album/${item.album.id}`,
-                                params: {
-                                    albumName: item.album.name as string,
-                                    albumString: JSON.stringify(albumDetails),
-                                },
-                            } as any);
+                            if (albumDetails) {
+                                await saveCachedAlbumDetail(albumDetails);
+                                setCachedAlbumIds(prev => new Set(prev).add(item.album.id));
+                                
+                                router.push({
+                                    pathname: `album/${item.album.id}`,
+                                    params: {
+                                        albumName: item.album.name as string,
+                                        albumString: JSON.stringify(albumDetails),
+                                    },
+                                } as any);
+                            } else {
+                                router.push({
+                                    pathname: `album/${item.album.id}`,
+                                    params: {
+                                        albumName: item.album.name as string,
+                                    },
+                                } as any);
+                            }
                         } else {
                             router.push({
                                 pathname: `album/${item.album.id}`,
@@ -132,55 +159,53 @@ export default function AlbumsScreen() {
                                 },
                             } as any);
                         }
-                    } else {
+                    } catch (error) {
+                        logError("Error navigating to album:", error);
                         router.push({
                             pathname: `album/${item.album.id}`,
                             params: {
                                 albumName: item.album.name as string,
                             },
                         } as any);
+                    } finally {
+                        setLoadingAlbumId(null);
                     }
-                } catch (error) {
-                    logError("Error navigating to album:", error);
-                    router.push({
-                        pathname: `album/${item.album.id}`,
-                        params: {
-                            albumName: item.album.name as string,
-                        },
-                    } as any);
-                } finally {
-                    setLoadingAlbumId(null);
-                }
-            }}
-        >
-            {item.album.images && item.album.images.length > 0 ? (
-                <View style={styles.albumImageContainer}>
-                    <Image
-                        source={{ uri: item.album.images[0].url }}
-                        style={styles.albumImage}
-                    />
-                    {loadingAlbumId === item.album.id && (
-                        <View style={styles.loadingOverlay}></View>
-                    )}
+                }}
+                disabled={isUncached}
+            >
+                {item.album.images && item.album.images.length > 0 ? (
+                    <View style={styles.albumImageContainer}>
+                        <Image
+                            source={{ uri: item.album.images[0].url }}
+                            style={styles.albumImage}
+                        />
+                        {loadingAlbumId === item.album.id && (
+                            <View style={styles.loadingOverlay}></View>
+                        )}
+                    </View>
+                ) : (
+                    <View style={styles.placeholderImageContainer}>
+                        <MaterialIcons 
+                            name="album" 
+                            size={24} 
+                            color={isUncached ? "#666" : "white"} 
+                        />
+                        {loadingAlbumId === item.album.id && (
+                            <View style={styles.loadingOverlay}></View>
+                        )}
+                    </View>
+                )}
+                <View style={styles.textContainer}>
+                    <StyledText style={styles.albumName} numberOfLines={1}>
+                        {item.album.name}
+                    </StyledText>
+                    <StyledText style={styles.albumArtist} numberOfLines={1}>
+                        {getArtistNames(item.album.artists)}
+                    </StyledText>
                 </View>
-            ) : (
-                <View style={styles.placeholderImageContainer}>
-                    <MaterialIcons name="album" size={24} color="white" />
-                    {loadingAlbumId === item.album.id && (
-                        <View style={styles.loadingOverlay}></View>
-                    )}
-                </View>
-            )}
-            <View style={styles.textContainer}>
-                <StyledText style={styles.albumName} numberOfLines={1}>
-                    {item.album.name}
-                </StyledText>
-                <StyledText style={styles.albumArtist} numberOfLines={1}>
-                    {getArtistNames(item.album.artists)}
-                </StyledText>
-            </View>
-        </HapticPressable>
-    );
+            </HapticPressable>
+        );
+    };
 
     // Show global loading indicator if initial data is loading and no albums are yet available
     if (isLoading && !sortedAlbums) {
@@ -341,5 +366,8 @@ const styles = StyleSheet.create({
         backgroundColor: "rgba(0, 0, 0, 0)",
         justifyContent: "center",
         alignItems: "center",
+    },
+    disabledContainer: {
+        opacity: 0.3,
     },
 });

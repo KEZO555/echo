@@ -14,7 +14,7 @@ import ContentContainer from "@/components/ContentContainer";
 import { useTabPreferences } from "@/contexts/TabPreferencesContext";
 import CustomScrollView from "@/components/CustomScrollView";
 import { logError, log } from "@/utils/logger";
-import { saveCachedPlaylistDetail, refreshPlaylistsFromCache } from "@/utils/cache";
+import { saveCachedPlaylistDetail, refreshPlaylistsFromCache, isPlaylistCached } from "@/utils/cache";
 import { useNetworkState } from "@/hooks/useNetworkState";
 
 const CREATE_NEW_PLAYLIST_ID = "CREATE_NEW_PLAYLIST_ID";
@@ -41,6 +41,7 @@ export default function PlaylistsScreen() {
     const [loadingPlaylistId, setLoadingPlaylistId] = useState<string | null>(
         null
     );
+    const [cachedPlaylistIds, setCachedPlaylistIds] = useState<Set<string>>(new Set());
 
     useEffect(() => {
         if (
@@ -75,6 +76,19 @@ export default function PlaylistsScreen() {
                 return 0;
             });
             setSortedPlaylists(newSortedPlaylists);
+            
+            // Check which playlists are cached
+            const checkCachedPlaylists = async () => {
+                const cachedIds = new Set<string>();
+                for (const playlist of newSortedPlaylists) {
+                    const isCached = await isPlaylistCached(playlist.id);
+                    if (isCached) {
+                        cachedIds.add(playlist.id);
+                    }
+                }
+                setCachedPlaylistIds(cachedIds);
+            };
+            checkCachedPlaylists();
         }
     }, [playlists]);
 
@@ -149,11 +163,14 @@ export default function PlaylistsScreen() {
             );
         }
 
+        const isOffline = !isOnline;
+        const isUncached = isOffline && !cachedPlaylistIds.has(item.id);
+
         return (
             <HapticPressable
-                style={styles.itemContainer}
+                style={[styles.itemContainer, isUncached && styles.disabledContainer]}
                 onPress={async () => {
-                    if (loadingPlaylistId) return;
+                    if (loadingPlaylistId || isUncached) return;
 
                     setLoadingPlaylistId(item.id);
 
@@ -166,6 +183,7 @@ export default function PlaylistsScreen() {
 
                             if (playlistDetails) {
                                 await saveCachedPlaylistDetail(playlistDetails);
+                                setCachedPlaylistIds(prev => new Set(prev).add(item.id));
 
                                 router.push({
                                     pathname: `/playlist/${item.id}`,
@@ -202,6 +220,7 @@ export default function PlaylistsScreen() {
                         setLoadingPlaylistId(null);
                     }
                 }}
+                disabled={isUncached}
             >
                 {item.images && item.images.length > 0 ? (
                     <View style={styles.playlistImageContainer}>
@@ -218,7 +237,7 @@ export default function PlaylistsScreen() {
                         <MaterialIcons
                             name="music-note"
                             size={24}
-                            color="white"
+                            color={isUncached ? "#666" : "white"}
                         />
                         {loadingPlaylistId === item.id && (
                             <View style={styles.loadingOverlay}></View>
