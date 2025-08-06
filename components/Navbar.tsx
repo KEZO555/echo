@@ -1,12 +1,12 @@
 import React from "react";
 import { MaterialIcons } from "@expo/vector-icons";
 import { StyleSheet, View } from "react-native";
-import * as Network from "expo-network";
 import { HapticPressable } from "./HapticPressable";
 import { StyledText } from "./StyledText";
 import { useRouter } from "expo-router";
 import type { BottomTabBarProps } from "@react-navigation/bottom-tabs";
 import { useInvertColors } from "@/contexts/InvertColorsContext";
+import { useNetworkState } from "@/hooks/useNetworkState";
 
 export interface TabConfigItem {
     name: string;
@@ -29,10 +29,7 @@ export function Navbar({
 }: NavbarProps) {
     const router = useRouter();
     const { invertColors } = useInvertColors();
-    const networkState = Network.useNetworkState();
-
-    // Check if device is online
-    const isOnline = networkState.isConnected && networkState.isInternetReachable;
+    const { isOnline } = useNetworkState();
 
     const handlePlayingPress = () => {
         router.push("/playing");
@@ -67,7 +64,7 @@ export function Navbar({
                     </HapticPressable>
                 ))}
             </View>
-            {!isOnline && (
+            {isOnline === false && (
                 <View style={[styles.offlineStrip, { backgroundColor: invertColors ? "black" : "white" }]}>
                     <StyledText style={[styles.offlineText, { color: invertColors ? "white" : "black" }]}>Device offline</StyledText>
                 </View>
