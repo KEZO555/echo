@@ -36,7 +36,7 @@ export default function LikedSongsScreen() {
         toggleShuffle,
     } = useAuth();
     const router = useRouter();
-    const { isLoading: isNetworkLoading } = useNetworkState();
+    const { isLoading: isNetworkLoading, isOnline } = useNetworkState();
 
     useEffect(() => {
         log("LikedSongs: useEffect triggered", {
@@ -80,10 +80,14 @@ export default function LikedSongsScreen() {
             return null;
         }
 
+        const isDisabled = !isOnline;
+
         return (
             <HapticPressable
-                style={styles.itemContainer}
+                style={[styles.itemContainer, isDisabled && styles.disabledContainer]}
                 onPress={async () => {
+                    if (isDisabled) return;
+                    
                     if (!user?.id) {
                         logError("Cannot play track: User not loaded");
                         return;
@@ -117,6 +121,7 @@ export default function LikedSongsScreen() {
                         router.push("/playing");
                     }
                 }}
+                disabled={isDisabled}
             >
                 {item.track.album?.images &&
                     item.track.album.images.length > 0 ? (
@@ -129,12 +134,12 @@ export default function LikedSongsScreen() {
                         <MaterialIcons
                             name="music-note"
                             size={24}
-                            color="white"
+                            color={isDisabled ? "#666" : "white"}
                         />
                     </View>
                 )}
                 <View style={styles.textContainer}>
-                    <StyledText style={[styles.trackName]} numberOfLines={1}>
+                    <StyledText style={styles.trackName} numberOfLines={1}>
                         {item.track.name}
                     </StyledText>
                     <StyledText style={styles.trackArtist} numberOfLines={1}>
@@ -155,7 +160,7 @@ export default function LikedSongsScreen() {
 
 
     const handleLoadMore = () => {
-        if (savedTracksNextUrl && !isLoadingMoreSavedTracks) {
+        if (isOnline && savedTracksNextUrl && !isLoadingMoreSavedTracks) {
             fetchMoreSavedTracks();
         }
     };
@@ -195,6 +200,7 @@ export default function LikedSongsScreen() {
                             colors={["white"]}
                             progressBackgroundColor={"black"}
                             size={"large" as any}
+                            enabled={isOnline === true}
                         />
                     }
                 />
@@ -231,6 +237,7 @@ export default function LikedSongsScreen() {
                         colors={["white"]}
                         progressBackgroundColor={"black"}
                         size={"large" as any}
+                        enabled={isOnline === true}
                     />
                 }
             />
@@ -290,5 +297,8 @@ const styles = StyleSheet.create({
     trackArtist: {
         fontSize: 16,
         lineHeight: 18,
+    },
+    disabledContainer: {
+        opacity: 0.3,
     },
 });

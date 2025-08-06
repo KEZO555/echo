@@ -7,11 +7,11 @@ import React, {
     useCallback,
 } from "react";
 import * as SecureStore from "expo-secure-store";
-import * as Network from "expo-network";
 import SpotifySdk from "../modules/spotify-sdk";
 import { AppState, AppStateStatus } from "react-native";
 import { AUTH_TOKEN_KEY, TOKEN_EXPIRY_KEY, REFRESH_TOKEN_KEY } from "../constants/spotify";
 import { logWarn, logError, logInfo } from "../utils/logger";
+import { useNetworkState } from "../hooks/useNetworkState";
 
 import type {
     AuthContextType,
@@ -131,7 +131,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     const [appState, setAppState] = useState(AppState.currentState);
     
     // Network state for connection management
-    const networkState = Network.useNetworkState();
+    const { isOnline } = useNetworkState();
 
     // Token update callback
     const handleTokenUpdate = useCallback(
@@ -807,8 +807,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
                 nextAppState.match(/inactive|background/)
             ) {
                 // Only disconnect if device is online to avoid losing connection during offline periods
-                const isOnline = networkState.isConnected && networkState.isInternetReachable;
-                
                 if (isOnline) {
                     logInfo("AuthContext: App suspended (online) - disconnecting remote");
                     try {
@@ -831,7 +829,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         return () => {
             appStateSubscription?.remove();
         };
-    }, [appState, accessToken, networkState]);
+    }, [appState, accessToken, isOnline]);
 
     // Initial load effect
     useEffect(() => {
