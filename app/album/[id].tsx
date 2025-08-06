@@ -322,12 +322,10 @@ const styles = StyleSheet.create({
         padding: 20,
     },
     errorText: {
-        color: "red",
         fontSize: 16,
         textAlign: "center",
     },
     emptyText: {
-        color: "white",
         fontSize: 16,
         textAlign: "center",
         marginTop: 20,
@@ -343,26 +341,22 @@ const styles = StyleSheet.create({
     albumName: {
         fontSize: 24,
         fontWeight: "bold",
-        color: "white",
         textAlign: "center",
         marginBottom: 8,
     },
     artistName: {
         fontSize: 18,
-        color: "white",
         textAlign: "center",
         marginBottom: 12,
     },
     albumInfo: {
         fontSize: 14,
-        color: "white",
         textAlign: "center",
         marginBottom: 20,
     },
     sectionTitle: {
         fontSize: 20,
         fontWeight: "bold",
-        color: "white",
         marginTop: 20,
         marginBottom: 10,
         alignSelf: "flex-start",
@@ -385,7 +379,6 @@ const styles = StyleSheet.create({
     },
     trackName: {
         flex: 1,
-        color: "white",
         fontSize: 26,
     },
     trackArtistDuration: {

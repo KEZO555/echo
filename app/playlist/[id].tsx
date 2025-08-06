@@ -324,12 +324,10 @@ const styles = StyleSheet.create({
         padding: 20,
     },
     errorText: {
-        color: "red",
         fontSize: 16,
         textAlign: "center",
     },
     emptyText: {
-        color: "white",
         fontSize: 16,
         textAlign: "center",
     },
@@ -351,7 +349,6 @@ const styles = StyleSheet.create({
     },
     trackName: {
         flex: 1,
-        color: "white",
         fontSize: 26,
     },
     trackArtistDuration: {

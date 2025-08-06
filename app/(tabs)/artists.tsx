@@ -241,7 +241,6 @@ const styles = StyleSheet.create({
     artistName: {
         fontSize: 22,
         lineHeight: 24,
-        color: "white",
     },
     loadingOverlay: {
         position: "absolute",

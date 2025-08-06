@@ -7,107 +7,106 @@ import { useRouter } from "expo-router";
 import { useInvertColors } from "@/contexts/InvertColorsContext";
 
 interface TabHeaderProps {
-	leftIconName?: keyof typeof MaterialIcons.glyphMap;
-	leftOnIconPress?: () => void;
-	rightIconName?: keyof typeof MaterialIcons.glyphMap;
-	rightOnIconPress?: () => void;
-	iconShowLength?: number;
-	headerTitle?: string;
-	hideWaveformButton?: boolean;
-	hidePlayingButton?: boolean;
+    leftIconName?: keyof typeof MaterialIcons.glyphMap;
+    leftOnIconPress?: () => void;
+    rightIconName?: keyof typeof MaterialIcons.glyphMap;
+    rightOnIconPress?: () => void;
+    iconShowLength?: number;
+    headerTitle?: string;
+    hideWaveformButton?: boolean;
+    hidePlayingButton?: boolean;
 }
 
 export function TabHeader({
-	leftIconName,
-	leftOnIconPress,
-	rightIconName,
-	rightOnIconPress,
-	iconShowLength = 1,
-	headerTitle,
-	hideWaveformButton = false,
-	hidePlayingButton = false,
+    leftIconName,
+    leftOnIconPress,
+    rightIconName,
+    rightOnIconPress,
+    iconShowLength = 1,
+    headerTitle,
+    hideWaveformButton = false,
+    hidePlayingButton = false,
 }: TabHeaderProps) {
-	const router = useRouter();
+    const router = useRouter();
 
-	const handlePlayingPress = () => {
-		router.push("/playing");
-	};
+    const handlePlayingPress = () => {
+        router.push("/playing");
+    };
 
     const { invertColors } = useInvertColors();
 
-	return (
-		<View style={[
+    return (
+        <View style={[
             styles.header,
             { backgroundColor: invertColors ? "white" : "black" },]
         }>
-			{leftIconName ? (
-				<HapticPressable onPress={leftOnIconPress}>
-					<View
-						style={{ width: 32, height: 32, alignItems: "center" }}
-					>
-						<MaterialIcons
-							name={leftIconName}
-							size={32}
-							color={ invertColors ? "black" : "white" }
-						/>
-					</View>
-				</HapticPressable>
-			) : (
-				<View style={{ width: 32, height: 32 }} />
-			)}
-			<StyledText style={styles.title}>{headerTitle}</StyledText>
-			{rightIconName ? (
-				iconShowLength > 0 ? (
-					<HapticPressable onPress={rightOnIconPress}>
-						<View
-							style={{
-								width: 32,
-								height: 32,
-								alignItems: "center",
-							}}
-						>
-							<MaterialIcons
-								name={rightIconName}
-								size={32}
-                                color={ invertColors ? "black" : "white" }
-							/>
-						</View>
-					</HapticPressable>
-				) : (
-					<View style={{ width: 32 }} />
-				)
-			) : hideWaveformButton || hidePlayingButton ? (
-				<View style={{ width: 32, height: 32 }} />
-			) : (
-				<HapticPressable onPress={handlePlayingPress}>
-					<View
-						style={{ width: 32, height: 32, alignItems: "center" }}
-					>
-						<MaterialIcons
-							name="multitrack-audio"
-							size={32}
-							color={ invertColors ? "black" : "white" }
-						/>
-					</View>
-				</HapticPressable>
-			)}
-		</View>
-	);
+            {leftIconName ? (
+                <HapticPressable onPress={leftOnIconPress}>
+                    <View
+                        style={{ width: 32, height: 32, alignItems: "center" }}
+                    >
+                        <MaterialIcons
+                            name={leftIconName}
+                            size={32}
+                            color={invertColors ? "black" : "white"}
+                        />
+                    </View>
+                </HapticPressable>
+            ) : (
+                <View style={{ width: 32, height: 32 }} />
+            )}
+            <StyledText style={styles.title}>{headerTitle}</StyledText>
+            {rightIconName ? (
+                iconShowLength > 0 ? (
+                    <HapticPressable onPress={rightOnIconPress}>
+                        <View
+                            style={{
+                                width: 32,
+                                height: 32,
+                                alignItems: "center",
+                            }}
+                        >
+                            <MaterialIcons
+                                name={rightIconName}
+                                size={32}
+                                color={invertColors ? "black" : "white"}
+                            />
+                        </View>
+                    </HapticPressable>
+                ) : (
+                    <View style={{ width: 32 }} />
+                )
+            ) : hideWaveformButton || hidePlayingButton ? (
+                <View style={{ width: 32, height: 32 }} />
+            ) : (
+                <HapticPressable onPress={handlePlayingPress}>
+                    <View
+                        style={{ width: 32, height: 32, alignItems: "center" }}
+                    >
+                        <MaterialIcons
+                            name="multitrack-audio"
+                            size={32}
+                            color={invertColors ? "black" : "white"}
+                        />
+                    </View>
+                </HapticPressable>
+            )}
+        </View>
+    );
 }
 
 const styles = StyleSheet.create({
-	header: {
-		flexDirection: "row",
-		alignItems: "center",
-		justifyContent: "space-between",
-		paddingHorizontal: 22,
-		paddingVertical: 10,
-		zIndex: 1,
-	},
-	title: {
-		color: "white",
-		fontSize: 20,
-		fontFamily: "PublicSans-Regular",
-		paddingBottom: 5,
-	},
+    header: {
+        flexDirection: "row",
+        alignItems: "center",
+        justifyContent: "space-between",
+        paddingHorizontal: 22,
+        paddingVertical: 10,
+        zIndex: 1,
+    },
+    title: {
+        fontSize: 20,
+        fontFamily: "PublicSans-Regular",
+        paddingBottom: 5,
+    },
 });

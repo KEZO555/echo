@@ -264,7 +264,6 @@ const styles = StyleSheet.create({
     albumName: {
         fontSize: 22,
         lineHeight: 24,
-        color: "white",
     },
     albumArtist: {
         fontSize: 16,

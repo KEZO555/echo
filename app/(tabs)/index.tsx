@@ -15,7 +15,6 @@ import { StyledText } from "@/components/StyledText";
 import { MaterialIcons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { log, logWarn, logError } from "@/utils/logger";
-import { useInvertColors } from "@/contexts/InvertColorsContext";
 import ContentContainer from "@/components/ContentContainer";
 import { useTabPreferences } from "@/contexts/TabPreferencesContext";
 import CustomScrollView from "@/components/CustomScrollView";

@@ -262,7 +262,6 @@ const styles = StyleSheet.create({
         width: "100%",
     },
     emptyText: {
-        color: "white",
         fontSize: 18,
         textAlign: "center",
     },
@@ -296,7 +295,6 @@ const styles = StyleSheet.create({
         gap: 0,
     },
     itemName: {
-        color: "white",
         fontSize: 22,
         lineHeight: 24,
         fontFamily: "PublicSans-Regular",

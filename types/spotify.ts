@@ -335,7 +335,6 @@ export interface AuthContextType {
     isRefreshingSavedTracks: boolean;
     isConnectedToAppRemote: boolean;
     appState: string;
-    appState: string;
 
     login: () => Promise<void>;
     logout: () => Promise<void>;

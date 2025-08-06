@@ -7,6 +7,7 @@ import React, {
     useCallback,
 } from "react";
 import * as SecureStore from "expo-secure-store";
+import * as Network from "expo-network";
 import SpotifySdk from "../modules/spotify-sdk";
 import { AppState, AppStateStatus } from "react-native";
 import { AUTH_TOKEN_KEY, TOKEN_EXPIRY_KEY, REFRESH_TOKEN_KEY } from "../constants/spotify";
@@ -128,6 +129,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
     // App state for lifecycle management
     const [appState, setAppState] = useState(AppState.currentState);
+    
+    // Network state for connection management
+    const networkState = Network.useNetworkState();
 
     // Token update callback
     const handleTokenUpdate = useCallback(
@@ -802,12 +806,19 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
                 appState === "active" &&
                 nextAppState.match(/inactive|background/)
             ) {
-                logInfo("AuthContext: App suspended - disconnecting remote");
-                try {
-                    SpotifySdk.disconnect();
-                    logInfo("AuthContext: Remote disconnected");
-                } catch (e) { }
-                setIsConnectedToAppRemote(false);
+                // Only disconnect if device is online to avoid losing connection during offline periods
+                const isOnline = networkState.isConnected && networkState.isInternetReachable;
+                
+                if (isOnline) {
+                    logInfo("AuthContext: App suspended (online) - disconnecting remote");
+                    try {
+                        SpotifySdk.disconnect();
+                        logInfo("AuthContext: Remote disconnected");
+                    } catch (e) { }
+                    setIsConnectedToAppRemote(false);
+                } else {
+                    logInfo("AuthContext: App suspended (offline) - keeping remote connection");
+                }
             }
             setAppState(nextAppState);
         };
@@ -820,7 +831,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         return () => {
             appStateSubscription?.remove();
         };
-    }, [appState, accessToken]);
+    }, [appState, accessToken, networkState]);
 
     // Initial load effect
     useEffect(() => {

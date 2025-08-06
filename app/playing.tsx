@@ -5,6 +5,7 @@ import {
     Image,
     Animated,
 } from "react-native";
+import * as Network from "expo-network";
 import { StyledText } from "@/components/StyledText";
 import {
     useAuth,
@@ -42,6 +43,7 @@ export default function PlayingScreen() {
         appState,
     } = useAuth();
     const { invertColors } = useInvertColors();
+    const networkState = Network.useNetworkState();
     const [playbackState, setPlaybackState] =
         useState<SpotifyCurrentlyPlaying | null>(null);
     const [isCurrentTrackSaved, setIsCurrentTrackSaved] = useState(false);
@@ -50,6 +52,9 @@ export default function PlayingScreen() {
     const progressBarWidthRef = useRef<number | null>(null);
     const appStateRef = useRef(appState);
     const isFocusedRef = useRef(true);
+    
+    // Check if device is online
+    const isOnline = networkState.isConnected && networkState.isInternetReachable;
 
     useEffect(() => {
         appStateRef.current = appState;
@@ -290,11 +295,14 @@ export default function PlayingScreen() {
                 <View style={styles.trackInfoContainer}>
                     <HapticPressable
                         onPress={async () => {
-                            router.push({
-                                pathname: "/album/[id]",
-                                params: { id: item.album?.id as any, albumName: item.album?.name as string }
-                            });
+                            if (isOnline) {
+                                router.push({
+                                    pathname: "/album/[id]",
+                                    params: { id: item.album?.id as any, albumName: item.album?.name as string }
+                                });
+                            }
                         }}
+                        disabled={!isOnline}
                     >
                         <StyledText style={styles.trackName} numberOfLines={1}>
                             {item.name}
@@ -302,7 +310,7 @@ export default function PlayingScreen() {
                     </HapticPressable>
                     <HapticPressable
                         onPress={async () => {
-                            if (item.artists.length > 0) {
+                            if (isOnline && item.artists.length > 0) {
                                 const artist = item.artists[0];
                                 router.push({
                                     pathname: "/artist/[id]",
@@ -310,6 +318,7 @@ export default function PlayingScreen() {
                                 });
                             }
                         }}
+                        disabled={!isOnline}
                     >
                         <StyledText style={styles.artistName} numberOfLines={1}>
                             {getArtistNames(item.artists)}
@@ -420,9 +429,13 @@ export default function PlayingScreen() {
                         />
                     </HapticPressable>
                     <HapticPressable
-                        onPress={() =>
-                            router.push({ pathname: "/select-device" as any })
-                        }
+                        onPress={() => {
+                            if (isOnline) {
+                                router.push({ pathname: "/select-device" as any });
+                            }
+                        }}
+                        disabled={!isOnline}
+                        style={!isOnline && styles.disabledButton}
                     >
                         <MaterialIcons
                             name={"devices"}
@@ -430,7 +443,15 @@ export default function PlayingScreen() {
                             color={invertColors ? "black" : "white"}
                         />
                     </HapticPressable>
-                    <HapticPressable onPress={handleNavigateToAddToPlaylist}>
+                    <HapticPressable 
+                        onPress={() => {
+                            if (isOnline) {
+                                handleNavigateToAddToPlaylist();
+                            }
+                        }}
+                        disabled={!isOnline}
+                        style={!isOnline && styles.disabledButton}
+                    >
                         <MaterialIcons name="add" size={30} color={invertColors ? "black" : "white"} />
                     </HapticPressable>
                 </View>
@@ -533,5 +554,8 @@ const styles = StyleSheet.create({
     },
     timeText: {
         fontSize: 12,
+    },
+    disabledButton: {
+        opacity: 0.3,
     },
 });

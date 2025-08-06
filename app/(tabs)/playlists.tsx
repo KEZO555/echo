@@ -279,7 +279,6 @@ const styles = StyleSheet.create({
         fontSize: 22,
         textAlign: "center",
         marginBottom: 10,
-        color: "white",
     },
     emptySubText: {
         fontSize: 14,
