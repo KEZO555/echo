@@ -7,7 +7,7 @@ export function useNetworkState() {
 
     useEffect(() => {
         const updateNetworkState = (networkState: Network.NetworkState) => {
-            setIsOnline(networkState.isConnected === true && networkState.isInternetReachable === true);
+            setIsOnline(networkState.isConnected === true && networkState.isInternetReachable !== false);
             setIsLoading(false);
         };
 
@@ -20,11 +20,11 @@ export function useNetworkState() {
                 setIsLoading(false);
             }
         };
-        
+
         checkNetworkState();
-        
+
         const subscription = Network.addNetworkStateListener(updateNetworkState);
-        
+
         return () => subscription?.remove();
     }, []);
 
