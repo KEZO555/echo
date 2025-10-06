@@ -604,10 +604,61 @@ export const playTrackWithContext = async (
                 }
 
                 // Prepare the playback request body
-                const playbackBody: any = {
-                    context_uri: sourceContext.uri,
-                    offset: { uri: trackUri }, // Start from specific track
+                const playbackBody: Record<string, any> = {};
+
+                if (sourceContext.uri) {
+                    playbackBody.context_uri = sourceContext.uri;
+                }
+
+                const resolveLikedTrackPosition = () => {
+                    if (
+                        sourceContext?.currentIndex !== undefined &&
+                        sourceContext?.currentIndex !== null
+                    ) {
+                        return sourceContext.currentIndex;
+                    }
+
+                    if (!sourceContext?.tracks?.length) {
+                        return null;
+                    }
+
+                    const foundIndex = sourceContext.tracks.findIndex((track: any) => {
+                        if (!track) return false;
+
+                        if (typeof track === "string") {
+                            return track === trackUri;
+                        }
+
+                        if (track?.uri) {
+                            return track.uri === trackUri;
+                        }
+
+                        if (track?.track?.uri) {
+                            return track.track.uri === trackUri;
+                        }
+
+                        return false;
+                    });
+
+                    return foundIndex >= 0 ? foundIndex : null;
                 };
+
+                if (sourceContext?.type === "liked") {
+                    const likedPosition = resolveLikedTrackPosition();
+
+                    if (likedPosition !== null) {
+                        playbackBody.offset = { position: likedPosition };
+                        log("Playback: Using liked songs position", likedPosition);
+                    } else {
+                        playbackBody.offset = { uri: trackUri };
+                        log(
+                            "Playback: Falling back to URI offset for liked songs",
+                            trackUri
+                        );
+                    }
+                } else if (trackUri) {
+                    playbackBody.offset = { uri: trackUri }; // Start from specific track
+                }
 
                 // Web API to set context + track offset
                 const playUrl = deviceId

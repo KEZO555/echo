@@ -93,7 +93,7 @@ export default function LikedSongsScreen() {
                         return;
                     }
 
-                    const collectionUri = `spotify:user:${user.id}:collection`;
+                    const collectionUri = "spotify:collection:tracks";
 
                     try {
                         let wasShuffling = false;
