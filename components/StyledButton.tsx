@@ -1,6 +1,5 @@
 import React from "react";
-import { MaterialIcons } from "@expo/vector-icons";
-import { StyleSheet, View } from "react-native";
+import { StyleSheet } from "react-native";
 import { StyledText } from "./StyledText";
 import { HapticPressable } from "./HapticPressable";
 
