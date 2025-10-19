@@ -12,23 +12,25 @@ import { logError } from "../utils/logger";
 const TAB_PREFERENCES_KEY = "tab_preferences";
 
 export interface TabPreferences {
-	showLikedSongs: boolean;
-	showArtists: boolean;
-	showAlbums: boolean;
-	showPlaylists: boolean;
-	showSearch: boolean;
-	showPlayingInNavbar: boolean;
-	showRemoteStatusWhenOnline: boolean;
+        showLikedSongs: boolean;
+        showArtists: boolean;
+        showAlbums: boolean;
+        showPodcasts: boolean;
+        showPlaylists: boolean;
+        showSearch: boolean;
+        showPlayingInNavbar: boolean;
+        showRemoteStatusWhenOnline: boolean;
 }
 
 const defaultPreferences: TabPreferences = {
-	showLikedSongs: true,
-	showArtists: true,
-	showAlbums: true,
-	showPlaylists: true,
-	showSearch: true,
-	showPlayingInNavbar: false,
-	showRemoteStatusWhenOnline: false,
+        showLikedSongs: true,
+        showArtists: true,
+        showAlbums: true,
+        showPodcasts: true,
+        showPlaylists: true,
+        showSearch: true,
+        showPlayingInNavbar: false,
+        showRemoteStatusWhenOnline: false,
 };
 
 interface TabPreferencesContextType {

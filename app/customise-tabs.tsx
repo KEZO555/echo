@@ -46,6 +46,13 @@ export default function CustomiseTabsScreen() {
                 }
             />
             <ToggleSwitch
+                label="Podcasts"
+                value={preferences.showPodcasts}
+                onValueChange={(value) =>
+                    updatePreference("showPodcasts", value)
+                }
+            />
+            <ToggleSwitch
                 label="Playlists"
                 value={preferences.showPlaylists}
                 onValueChange={(value) =>

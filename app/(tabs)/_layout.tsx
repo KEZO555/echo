@@ -20,6 +20,11 @@ export const TABS_CONFIG: ReadonlyArray<TabConfigItem> = [
         iconName: "album"
     },
     {
+        name: "Podcasts",
+        screenName: "podcasts",
+        iconName: "podcasts",
+    },
+    {
         name: "Playlists",
         screenName: "playlists",
         iconName: "format-list-bulleted",
@@ -48,6 +53,8 @@ export default function TabLayout() {
                     return preferences.showArtists;
                 case "albums":
                     return preferences.showAlbums;
+                case "podcasts":
+                    return preferences.showPodcasts;
                 case "playlists":
                     return preferences.showPlaylists;
                 case "search":

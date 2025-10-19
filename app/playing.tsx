@@ -11,6 +11,7 @@ import {
     useAuth,
     SpotifyCurrentlyPlaying,
     SpotifyArtistSimple,
+    SpotifyEpisode,
 } from "@/contexts/AuthContext";
 import { MaterialIcons } from "@expo/vector-icons";
 import { useFocusEffect, router } from "expo-router";
@@ -61,7 +62,10 @@ export default function PlayingScreen() {
     }, [appState]);
 
     const checkIfTrackIsSaved = async (trackId: string) => {
-        if (!trackId) return;
+        if (!trackId || playbackState?.currently_playing_type !== "track") {
+            setIsCurrentTrackSaved(false);
+            return;
+        }
 
         const result = await getLibraryState(`spotify:track:${trackId}`);
 
@@ -123,6 +127,44 @@ export default function PlayingScreen() {
         }
     };
 
+    const handleSeekBackward = async () => {
+        if (!playbackState || !playbackState.item) return;
+
+        const currentPosition = playbackState.progress_ms ?? 0;
+        const newPosition = Math.max(currentPosition - 15000, 0);
+
+        try {
+            await seekToPosition(newPosition);
+            const totalDuration = playbackState.item.duration_ms;
+            if (totalDuration) {
+                const progressRatio = newPosition / totalDuration;
+                progress.setValue(progressRatio > 0 ? progressRatio : 0);
+            }
+            await fetchAndUpdatePlaybackState();
+        } catch (error) {
+            logError("Error seeking backward:", error);
+        }
+    };
+
+    const handleSeekForward = async () => {
+        if (!playbackState || !playbackState.item) return;
+
+        const currentPosition = playbackState.progress_ms ?? 0;
+        const totalDuration = playbackState.item.duration_ms;
+        if (!totalDuration) return;
+
+        const newPosition = Math.min(currentPosition + 15000, totalDuration);
+
+        try {
+            await seekToPosition(newPosition);
+            const progressRatio = newPosition / totalDuration;
+            progress.setValue(progressRatio > 0 ? progressRatio : 0);
+            await fetchAndUpdatePlaybackState();
+        } catch (error) {
+            logError("Error seeking forward:", error);
+        }
+    };
+
     const handleShuffleToggle = async () => {
         if (!playbackState) return;
 
@@ -177,7 +219,12 @@ export default function PlayingScreen() {
     };
 
     const handleToggleSaveTrack = async () => {
-        if (!playbackState || !playbackState.item || !playbackState.item.id)
+        if (
+            !playbackState ||
+            !playbackState.item ||
+            !playbackState.item.id ||
+            playbackState.currently_playing_type !== "track"
+        )
             return;
 
         const trackId = playbackState.item.id;
@@ -199,7 +246,12 @@ export default function PlayingScreen() {
     };
 
     const handleNavigateToAddToPlaylist = () => {
-        if (playbackState && playbackState.item && playbackState.item.uri) {
+        if (
+            playbackState &&
+            playbackState.item &&
+            playbackState.item.uri &&
+            playbackState.currently_playing_type === "track"
+        ) {
             log(
                 "Navigating to add-to-playlist with trackUri:",
                 playbackState.item.uri
@@ -226,7 +278,12 @@ export default function PlayingScreen() {
 
                 await fetchAndUpdatePlaybackState();
                 const state = await getPlaybackState();
-                if (state && state.item && state.item.id) {
+                if (
+                    state &&
+                    state.item &&
+                    state.item.id &&
+                    state.currently_playing_type === "track"
+                ) {
                     await checkIfTrackIsSaved(state.item.id);
                 } else {
                     setIsCurrentTrackSaved(false);
@@ -270,6 +327,33 @@ export default function PlayingScreen() {
 
     const { item } = playbackState;
 
+    const isEpisode =
+        playbackState.currently_playing_type === "episode" ||
+        item.type === "episode";
+    const currentEpisode = isEpisode
+        ? (item as unknown as SpotifyEpisode)
+        : null;
+    const artworkUrl = isEpisode
+        ? currentEpisode?.images?.[0]?.url || currentEpisode?.show?.images?.[0]?.url
+        : item.album?.images?.[0]?.url;
+    const displayTitle = isEpisode ? currentEpisode?.name ?? "" : item.name;
+    const subtitleParts = isEpisode
+        ? [currentEpisode?.show?.name, currentEpisode?.show?.publisher].filter(
+              (value): value is string => !!value
+          )
+        : [];
+    const displaySubtitle = isEpisode
+        ? subtitleParts.length > 0
+            ? subtitleParts.join(" • ")
+            : "Podcast"
+        : getArtistNames(item.artists);
+    const canNavigateToShow =
+        isEpisode && isOnline && !!currentEpisode?.show?.id;
+    const canNavigateToAlbum =
+        !isEpisode && isOnline && !!item.album?.id;
+    const canNavigateToArtist =
+        !isEpisode && isOnline && item.artists.length > 0;
+
     const animatedWidth = progress.interpolate({
         inputRange: [0, 1],
         outputRange: ["0%", "100%"],
@@ -278,15 +362,12 @@ export default function PlayingScreen() {
     return (
         <ContentContainer headerTitle=" " style={{ paddingHorizontal: 20 }}>
             <View style={styles.content}>
-                {item.album?.images && item.album.images.length > 0 ? (
-                    <Image
-                        source={{ uri: item.album.images[0].url }}
-                        style={styles.albumArt}
-                    />
+                {artworkUrl ? (
+                    <Image source={{ uri: artworkUrl }} style={styles.albumArt} />
                 ) : (
                     <View style={styles.placeholderImageContainer}>
                         <MaterialIcons
-                            name="music-note"
+                            name={isEpisode ? "mic" : "music-note"}
                             size={100}
                             color={invertColors ? "black" : "white"}
                         />
@@ -295,33 +376,57 @@ export default function PlayingScreen() {
                 <View style={styles.trackInfoContainer}>
                     <HapticPressable
                         onPress={async () => {
-                            if (isOnline) {
+                            if (!isOnline) return;
+                            if (isEpisode && currentEpisode?.show?.id) {
+                                router.push({
+                                    pathname: "/podcast/[id]",
+                                    params: {
+                                        id: currentEpisode.show.id,
+                                        showName: currentEpisode.show.name as string,
+                                    },
+                                } as any);
+                            } else if (item.album?.id) {
                                 router.push({
                                     pathname: "/album/[id]",
-                                    params: { id: item.album?.id as any, albumName: item.album?.name as string }
+                                    params: {
+                                        id: item.album?.id as any,
+                                        albumName: item.album?.name as string,
+                                    },
                                 });
                             }
                         }}
-                        disabled={!isOnline}
+                        disabled={!(isEpisode ? canNavigateToShow : canNavigateToAlbum)}
                     >
                         <StyledText style={styles.trackName} numberOfLines={1}>
-                            {item.name}
+                            {displayTitle}
                         </StyledText>
                     </HapticPressable>
                     <HapticPressable
                         onPress={async () => {
-                            if (isOnline && item.artists.length > 0) {
+                            if (!isOnline) return;
+                            if (isEpisode && currentEpisode?.show?.id) {
+                                router.push({
+                                    pathname: "/podcast/[id]",
+                                    params: {
+                                        id: currentEpisode.show.id,
+                                        showName: currentEpisode.show.name as string,
+                                    },
+                                } as any);
+                            } else if (item.artists.length > 0) {
                                 const artist = item.artists[0];
                                 router.push({
                                     pathname: "/artist/[id]",
-                                    params: { id: artist.id, artistName: artist.name as string }
+                                    params: {
+                                        id: artist.id,
+                                        artistName: artist.name as string,
+                                    },
                                 });
                             }
                         }}
-                        disabled={!isOnline}
+                        disabled={!(isEpisode ? canNavigateToShow : canNavigateToArtist)}
                     >
                         <StyledText style={styles.artistName} numberOfLines={1}>
-                            {getArtistNames(item.artists)}
+                            {displaySubtitle}
                         </StyledText>
                     </HapticPressable>
                 </View>
@@ -371,31 +476,63 @@ export default function PlayingScreen() {
                             ]}
                         ></View>
                     </HapticPressable>
-                    <HapticPressable onPress={handleSkipToPrevious}>
-                        <MaterialIcons
-                            name={"skip-previous"}
-                            size={52}
-                            color={invertColors ? "black" : "white"}
-                        />
-                    </HapticPressable>
-                    <HapticPressable onPress={handlePlayPause}>
-                        <MaterialIcons
-                            name={
-                                playbackState.is_playing
-                                    ? "pause"
-                                    : "play-arrow"
-                            }
-                            size={52}
-                            color={invertColors ? "black" : "white"}
-                        />
-                    </HapticPressable>
-                    <HapticPressable onPress={handleSkipToNext}>
-                        <MaterialIcons
-                            name={"skip-next"}
-                            size={52}
-                            color={invertColors ? "black" : "white"}
-                        />
-                    </HapticPressable>
+                    {isEpisode ? (
+                        <>
+                            <HapticPressable onPress={handleSeekBackward}>
+                                <MaterialIcons
+                                    name="replay-15"
+                                    size={44}
+                                    color={invertColors ? "black" : "white"}
+                                />
+                            </HapticPressable>
+                            <HapticPressable onPress={handlePlayPause}>
+                                <MaterialIcons
+                                    name={
+                                        playbackState.is_playing
+                                            ? "pause"
+                                            : "play-arrow"
+                                    }
+                                    size={52}
+                                    color={invertColors ? "black" : "white"}
+                                />
+                            </HapticPressable>
+                            <HapticPressable onPress={handleSeekForward}>
+                                <MaterialIcons
+                                    name="forward-15"
+                                    size={44}
+                                    color={invertColors ? "black" : "white"}
+                                />
+                            </HapticPressable>
+                        </>
+                    ) : (
+                        <>
+                            <HapticPressable onPress={handleSkipToPrevious}>
+                                <MaterialIcons
+                                    name={"skip-previous"}
+                                    size={52}
+                                    color={invertColors ? "black" : "white"}
+                                />
+                            </HapticPressable>
+                            <HapticPressable onPress={handlePlayPause}>
+                                <MaterialIcons
+                                    name={
+                                        playbackState.is_playing
+                                            ? "pause"
+                                            : "play-arrow"
+                                    }
+                                    size={52}
+                                    color={invertColors ? "black" : "white"}
+                                />
+                            </HapticPressable>
+                            <HapticPressable onPress={handleSkipToNext}>
+                                <MaterialIcons
+                                    name={"skip-next"}
+                                    size={52}
+                                    color={invertColors ? "black" : "white"}
+                                />
+                            </HapticPressable>
+                        </>
+                    )}
                     <HapticPressable onPress={handleRepeatToggle}>
                         <MaterialIcons
                             name={
@@ -417,7 +554,11 @@ export default function PlayingScreen() {
                     </HapticPressable>
                 </View>
                 <View style={styles.musicControlsExtra}>
-                    <HapticPressable onPress={handleToggleSaveTrack}>
+                    <HapticPressable
+                        onPress={handleToggleSaveTrack}
+                        disabled={isEpisode}
+                        style={isEpisode && styles.disabledButton}
+                    >
                         <MaterialIcons
                             name={
                                 isCurrentTrackSaved
@@ -445,12 +586,12 @@ export default function PlayingScreen() {
                     </HapticPressable>
                     <HapticPressable
                         onPress={() => {
-                            if (isOnline) {
+                            if (isOnline && !isEpisode) {
                                 handleNavigateToAddToPlaylist();
                             }
                         }}
-                        disabled={!isOnline}
-                        style={!isOnline && styles.disabledButton}
+                        disabled={!isOnline || isEpisode}
+                        style={(!isOnline || isEpisode) && styles.disabledButton}
                     >
                         <MaterialIcons name="add" size={30} color={invertColors ? "black" : "white"} />
                     </HapticPressable>

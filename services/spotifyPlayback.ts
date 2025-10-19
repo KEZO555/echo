@@ -513,7 +513,7 @@ export const playTrackWithContext = async (
     trackUri: string,
     accessToken: string | null,
     sourceContext?: {
-        type: "album" | "playlist" | "liked" | "artist";
+        type: "album" | "playlist" | "liked" | "artist" | "podcast";
         uri?: string;
         tracks?: any[];
         currentIndex?: number;
@@ -719,7 +719,7 @@ export const playTrackWithContext = async (
 
 export const skipToIndex = async (
     sourceContext: {
-        type: "album" | "playlist" | "liked" | "artist";
+        type: "album" | "playlist" | "liked" | "artist" | "podcast";
         uri?: string;
         tracks?: any[];
         currentIndex?: number;

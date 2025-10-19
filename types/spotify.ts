@@ -168,6 +168,73 @@ export interface SavedTracksResponse {
     total: number;
 }
 
+// Spotify API Types - Podcasts
+export interface SpotifyShow {
+    id: string;
+    name: string;
+    description: string;
+    html_description?: string;
+    publisher: string;
+    images: SpotifyImage[];
+    total_episodes: number;
+    uri: string;
+    href: string;
+    media_type: string;
+    explicit: boolean;
+    type: string;
+    languages: string[];
+    episodes?: SpotifyShowEpisodes;
+}
+
+export interface SpotifyEpisode {
+    id: string;
+    name: string;
+    description: string;
+    html_description?: string;
+    duration_ms: number;
+    release_date: string;
+    release_date_precision: string;
+    uri: string;
+    href: string;
+    type: string;
+    images: SpotifyImage[];
+    explicit: boolean;
+    is_externally_hosted: boolean;
+    is_playable: boolean;
+    language?: string;
+    languages?: string[];
+    resume_point?: {
+        fully_played: boolean;
+        resume_position_ms: number;
+    };
+    show?: SpotifyShow;
+}
+
+export interface SpotifyShowEpisodes {
+    href: string;
+    items: SpotifyEpisode[];
+    limit: number;
+    next: string | null;
+    offset: number;
+    previous: string | null;
+    total: number;
+}
+
+export interface SpotifySavedShow {
+    added_at: string;
+    show: SpotifyShow;
+}
+
+export interface SpotifySavedShowsResponse {
+    href: string;
+    items: SpotifySavedShow[];
+    limit: number;
+    next: string | null;
+    offset: number;
+    previous: string | null;
+    total: number;
+}
+
 // Spotify API Types - Player / Devices
 export interface SpotifyDevice {
     id: string | null;
@@ -194,7 +261,7 @@ export interface SpotifyCurrentlyPlaying {
     context: SpotifyPlaybackContext | null;
     progress_ms: number | null;
     is_playing: boolean;
-    item: SpotifyTrackSimple | null;
+    item: SpotifyTrackSimple | SpotifyEpisode | null;
     currently_playing_type: "track" | "episode" | "ad" | "unknown";
     actions: { disallows: Record<string, boolean> };
     device: SpotifyDevice;
@@ -318,6 +385,11 @@ export interface AuthContextType {
     isLoadingMoreAlbums: boolean;
     fetchMoreAlbums: () => Promise<void>;
 
+    podcasts: SpotifySavedShow[] | null;
+    podcastsNextUrl: string | null;
+    isLoadingMorePodcasts: boolean;
+    fetchMorePodcasts: () => Promise<void>;
+
     artists: SpotifyArtist[] | null;
     artistsNextUrl: string | null;
     isLoadingMoreArtists: boolean;
@@ -331,6 +403,7 @@ export interface AuthContextType {
     isLoading: boolean;
     isRefreshingPlaylists: boolean;
     isRefreshingAlbums: boolean;
+    isRefreshingPodcasts: boolean;
     isRefreshingArtists: boolean;
     isRefreshingSavedTracks: boolean;
     isConnectedToAppRemote: boolean;
@@ -341,11 +414,15 @@ export interface AuthContextType {
 
     fetchPlaylists: () => Promise<void>;
     fetchAlbums: () => Promise<void>;
+    fetchPodcasts: () => Promise<void>;
     fetchArtists: () => Promise<void>;
     fetchSavedTracks: () => Promise<void>;
     saveAlbum: (albumId: string) => Promise<boolean>;
     removeAlbum: (albumId: string) => Promise<boolean>;
     checkIfAlbumIsSaved: (albumId: string) => Promise<boolean>;
+    followPodcast: (showId: string) => Promise<boolean>;
+    unfollowPodcast: (showId: string) => Promise<boolean>;
+    checkIfFollowingPodcast: (showId: string) => Promise<boolean>;
     followArtist: (artistId: string) => Promise<boolean>;
     unfollowArtist: (artistId: string) => Promise<boolean>;
     checkIfFollowingArtist: (artistId: string) => Promise<boolean>;
@@ -353,6 +430,7 @@ export interface AuthContextType {
     fetchArtistAlbums: (artistId: string) => Promise<{ albums: SpotifyAlbumSimple[] | null; nextUrl: string | null }>;
     fetchMoreArtistAlbums: (nextUrl: string | null, isLoadingMore: boolean) => Promise<{ albums: SpotifyAlbumSimple[] | null; nextUrl: string | null }>;
     refreshSavedAlbumsFromCache: () => Promise<void>;
+    refreshFollowedPodcastsFromCache: () => Promise<void>;
     refreshFollowedArtistsFromCache: () => Promise<void>;
     playTracksWithWebApi: (
         uris: string[],
@@ -360,7 +438,7 @@ export interface AuthContextType {
     playTrackWithContext: (
         trackUri: string,
         sourceContext?: {
-            type: "album" | "playlist" | "liked" | "artist";
+            type: "album" | "playlist" | "liked" | "artist" | "podcast";
             uri?: string;
             tracks?: any[];
             currentIndex?: number;
@@ -368,7 +446,7 @@ export interface AuthContextType {
     ) => Promise<void>;
     skipToIndex: (
         sourceContext: {
-            type: "album" | "playlist" | "liked" | "artist";
+            type: "album" | "playlist" | "liked" | "artist" | "podcast";
             uri?: string;
             tracks?: any[];
             currentIndex?: number;

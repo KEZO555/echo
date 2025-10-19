@@ -1,16 +1,20 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { ALBUMS_KEY, ARTISTS_KEY, SAVED_TRACKS_KEY } from "../constants/spotify";
+import { ALBUMS_KEY, ARTISTS_KEY, PODCASTS_KEY, SAVED_TRACKS_KEY } from "../constants/spotify";
 import { log, logError } from "../utils/logger";
+import { saveCachedShowDetail } from "../utils/cache";
 import type {
     SpotifyPlaylist,
     SpotifySavedAlbum,
+    SpotifySavedShow,
     SavedTrackObject,
     SpotifyArtist,
     SpotifyTrack,
     SpotifyAlbumSimple,
     SpotifyPlaylistsResponse,
     SpotifySavedAlbumsResponse,
+    SpotifySavedShowsResponse,
     SavedTracksResponse,
+    SpotifyShow,
 } from "../types/spotify";
 
 export const fetchPlaylists = async (
@@ -94,6 +98,58 @@ export const fetchAlbums = async (
     } else {
         return { albums: [], nextUrl: null };
     }
+};
+
+export const fetchPodcasts = async (
+    accessToken: string | null,
+    makeApiRequest: (
+        url: string,
+        errorMessage: string,
+        isRefreshing?: boolean
+    ) => Promise<any | null>,
+    saveCachedData: (
+        playlists?: SpotifyPlaylist[],
+        albums?: SpotifySavedAlbum[],
+        artists?: SpotifyArtist[],
+        tracks?: SavedTrackObject[],
+        podcasts?: SpotifySavedShow[]
+    ) => Promise<void>
+): Promise<{ podcasts: SpotifySavedShow[] | null; nextUrl: string | null }> => {
+    if (!accessToken) {
+        return { podcasts: [], nextUrl: null };
+    }
+
+    const data: SpotifySavedShowsResponse | null = await makeApiRequest(
+        "https://api.spotify.com/v1/me/shows?limit=50",
+        "Podcasts",
+        true
+    );
+
+    if (data) {
+        await saveCachedData(undefined, undefined, undefined, undefined, data.items);
+        return { podcasts: data.items, nextUrl: data.next };
+    } else {
+        return { podcasts: [], nextUrl: null };
+    }
+};
+
+export const fetchMorePodcasts = async (
+    nextUrl: string | null,
+    isLoadingMore: boolean,
+    accessToken: string | null,
+    makeApiRequest: (url: string, errorMessage: string) => Promise<any | null>
+): Promise<{ podcasts: SpotifySavedShow[] | null; nextUrl: string | null }> => {
+    if (!nextUrl || isLoadingMore || !accessToken) {
+        return { podcasts: null, nextUrl: null };
+    }
+
+    const data = await makeApiRequest(nextUrl, "More Podcasts");
+
+    if (data) {
+        return { podcasts: data.items, nextUrl: data.next };
+    }
+
+    return { podcasts: null, nextUrl: null };
 };
 
 export const fetchMoreAlbums = async (
@@ -436,6 +492,202 @@ export const checkIfAlbumIsSaved = async (
             "Error checking if album is saved (likely offline):",
             error
         );
+        return false;
+    }
+};
+
+export const followPodcast = async (
+    showId: string,
+    accessToken: string | null,
+    ensureValidToken?: () => Promise<string | null>
+): Promise<boolean> => {
+    let validToken = accessToken;
+    if (ensureValidToken) {
+        const refreshedToken = await ensureValidToken();
+        if (refreshedToken) {
+            validToken = refreshedToken;
+        }
+    }
+
+    if (!validToken) {
+        console.warn("Cannot follow podcast - no valid token available");
+        return false;
+    }
+
+    try {
+        const response = await fetch(
+            `https://api.spotify.com/v1/me/shows?ids=${showId}`,
+            {
+                method: "PUT",
+                headers: {
+                    Authorization: `Bearer ${validToken}`,
+                    "Content-Type": "application/json",
+                },
+            }
+        );
+
+        if (response.ok) {
+            log(`Show ${showId} followed successfully`);
+            try {
+                const showResponse = await fetch(
+                    `https://api.spotify.com/v1/shows/${showId}`,
+                    {
+                        headers: {
+                            Authorization: `Bearer ${validToken}`,
+                        },
+                    }
+                );
+
+                if (showResponse.ok) {
+                    const showData: SpotifyShow = await showResponse.json();
+                    await saveCachedShowDetail(showData);
+                    const cachedShows = await AsyncStorage.getItem(PODCASTS_KEY);
+                    let parsedShows = cachedShows ? JSON.parse(cachedShows) : [];
+                    const alreadyExists = parsedShows.some(
+                        (item: SpotifySavedShow) => item.show.id === showId
+                    );
+                    if (!alreadyExists) {
+                        const newSavedShow: SpotifySavedShow = {
+                            added_at: new Date().toISOString(),
+                            show: showData,
+                        };
+                        parsedShows.unshift(newSavedShow);
+                        await AsyncStorage.setItem(
+                            PODCASTS_KEY,
+                            JSON.stringify(parsedShows)
+                        );
+                        log(`Updated cached podcasts: added show ${showId}`);
+                    }
+                }
+            } catch (cacheError) {
+                logError("Error updating podcasts cache:", cacheError);
+            }
+            return true;
+        } else {
+            const errorData = await response.json();
+            logError("Failed to follow podcast:", errorData);
+            return false;
+        }
+    } catch (error) {
+        logError("Error following podcast:", error);
+        return false;
+    }
+};
+
+export const unfollowPodcast = async (
+    showId: string,
+    accessToken: string | null,
+    ensureValidToken?: () => Promise<string | null>
+): Promise<boolean> => {
+    let validToken = accessToken;
+    if (ensureValidToken) {
+        const refreshedToken = await ensureValidToken();
+        if (refreshedToken) {
+            validToken = refreshedToken;
+        }
+    }
+
+    if (!validToken) {
+        console.warn("Cannot unfollow podcast - no valid token available");
+        return false;
+    }
+
+    try {
+        const response = await fetch(
+            `https://api.spotify.com/v1/me/shows?ids=${showId}`,
+            {
+                method: "DELETE",
+                headers: {
+                    Authorization: `Bearer ${validToken}`,
+                    "Content-Type": "application/json",
+                },
+            }
+        );
+
+        if (response.ok) {
+            log(`Show ${showId} removed successfully`);
+            try {
+                const cachedShows = await AsyncStorage.getItem(PODCASTS_KEY);
+                if (cachedShows) {
+                    const parsedShows: SpotifySavedShow[] = JSON.parse(cachedShows);
+                    const filteredShows = parsedShows.filter(
+                        (item) => item.show.id !== showId
+                    );
+                    await AsyncStorage.setItem(
+                        PODCASTS_KEY,
+                        JSON.stringify(filteredShows)
+                    );
+                    log(`Updated cached podcasts: removed show ${showId}`);
+                }
+            } catch (cacheError) {
+                logError("Error updating podcasts cache after removal:", cacheError);
+            }
+            return true;
+        } else {
+            const errorData = await response.json();
+            logError("Failed to unfollow podcast:", errorData);
+            return false;
+        }
+    } catch (error) {
+        logError("Error unfollowing podcast:", error);
+        return false;
+    }
+};
+
+export const checkIfFollowingPodcast = async (
+    showId: string,
+    accessToken: string | null,
+    ensureValidToken?: () => Promise<string | null>
+): Promise<boolean> => {
+    try {
+        const cachedShows = await AsyncStorage.getItem(PODCASTS_KEY);
+        if (cachedShows) {
+            const parsedShows: SpotifySavedShow[] = JSON.parse(cachedShows);
+            const exists = parsedShows.some((item) => item.show.id === showId);
+            if (exists) {
+                return true;
+            }
+        }
+    } catch (error) {
+        logError("Error checking podcasts cache:", error);
+    }
+
+    let validToken = accessToken;
+    if (ensureValidToken) {
+        const refreshedToken = await ensureValidToken();
+        if (refreshedToken) {
+            validToken = refreshedToken;
+        }
+    }
+
+    if (!validToken) {
+        return false;
+    }
+
+    try {
+        const response = await fetch(
+            `https://api.spotify.com/v1/me/shows/contains?ids=${showId}`,
+            {
+                headers: {
+                    Authorization: `Bearer ${validToken}`,
+                },
+            }
+        );
+        if (!response.ok) {
+            logError(
+                "Failed to check if podcast is followed",
+                await response.json()
+            );
+            return false;
+        }
+        const data: boolean[] = await response.json();
+        if (data && data.length > 0) {
+            log(`Podcast ${showId} API check - followed: ${data[0]}`);
+            return data[0];
+        }
+        return false;
+    } catch (error) {
+        log("Error checking if podcast is followed (likely offline):", error);
         return false;
     }
 };
