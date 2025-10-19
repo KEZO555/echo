@@ -128,7 +128,7 @@ export default function PodcastsScreen() {
                     try {
                         if (isOnline) {
                             const showDetails = await makeApiRequest(
-                                `https://api.spotify.com/v1/shows/${item.show.id}`,
+                                `https://api.spotify.com/v1/shows/${item.show.id}?limit=10`,
                                 "Show details for caching"
                             );
 
@@ -204,9 +204,6 @@ export default function PodcastsScreen() {
                     <StyledText style={styles.showPublisher} numberOfLines={1}>
                         {item.show.publisher}
                     </StyledText>
-                    <StyledText style={styles.episodeCount} numberOfLines={1}>
-                        {item.show.total_episodes} episodes
-                    </StyledText>
                 </View>
             </HapticPressable>
         );
@@ -214,11 +211,7 @@ export default function PodcastsScreen() {
 
     const renderFooter = () => {
         if (!isLoadingMorePodcasts) return null;
-        return (
-            <View style={styles.loadingMoreContainer}>
-                <StyledText>Loading more podcasts...</StyledText>
-            </View>
-        );
+        return <View style={{ paddingVertical: 20 }} />;
     };
 
     const handlePlayingPress = () => {
@@ -231,7 +224,7 @@ export default function PodcastsScreen() {
                 headerTitle="Podcasts"
                 hideBackButton={true}
                 style={{ paddingHorizontal: 20 }}
-                headerIcon={preferences.showPlayingInNavbar ? undefined : "multitrack-audio"}
+                headerIcon="multitrack-audio"
                 headerIconPress={handlePlayingPress}
                 headerIconShowLength={preferences.showPlayingInNavbar ? 0 : 1}
             >
@@ -248,7 +241,9 @@ export default function PodcastsScreen() {
                         <RefreshControl
                             refreshing={isRefreshingPodcasts}
                             onRefresh={handleRefresh}
-                            tintColor="white"
+                            colors={["white"]}
+                            progressBackgroundColor={"black"}
+                            size={"large" as any}
                         />
                     }
                 />
@@ -260,29 +255,34 @@ export default function PodcastsScreen() {
         <ContentContainer
             headerTitle="Podcasts"
             hideBackButton={true}
-            headerIcon={preferences.showPlayingInNavbar ? undefined : "multitrack-audio"}
+            headerIcon="multitrack-audio"
             headerIconPress={handlePlayingPress}
             headerIconShowLength={preferences.showPlayingInNavbar ? 0 : 1}
+            style={{ paddingHorizontal: 20 }}
         >
             <CustomScrollView
+                style={styles.list}
                 contentContainerStyle={styles.listContentContainer}
                 refreshControl={
                     <RefreshControl
                         refreshing={isRefreshingPodcasts}
                         onRefresh={handleRefresh}
-                        tintColor="white"
+                        colors={["white"]}
+                        progressBackgroundColor={"black"}
+                        size={"large" as any}
                     />
                 }
-                data={sortedPodcasts || []}
+                data={sortedPodcasts}
                 renderItem={renderShowItem}
-                keyExtractor={(item, index) => item.show.id || index.toString()}
+                keyExtractor={(item) => item.show.id}
                 overScrollMode="never"
+                ItemSeparatorComponent={() => <View style={{ height: 8 }} />}
                 onEndReached={() => {
                     if (podcastsNextUrl && !isLoadingMorePodcasts) {
                         fetchMorePodcasts();
                     }
                 }}
-                onEndReachedThreshold={0.6}
+                onEndReachedThreshold={2}
                 ListFooterComponent={renderFooter}
                 ListEmptyComponent={
                     isLoading || isRefreshingPodcasts ? null : (
@@ -297,63 +297,58 @@ export default function PodcastsScreen() {
 }
 
 const styles = StyleSheet.create({
+    list: {
+        flex: 1,
+        width: "100%",
+    },
     listContentContainer: {
-        paddingHorizontal: 20,
-        paddingBottom: 40,
+        paddingTop: 0,
+        paddingBottom: 0,
     },
     itemContainer: {
+        paddingVertical: 0,
         flexDirection: "row",
         alignItems: "center",
-        marginBottom: 16,
     },
     disabledContainer: {
-        opacity: 0.4,
+        opacity: 0.3,
     },
     showImageContainer: {
-        width: 80,
-        height: 80,
-        marginRight: 16,
+        width: 50,
+        height: 50,
+        marginRight: 15,
         position: "relative",
     },
     showImage: {
-        width: "100%",
-        height: "100%",
+        width: 50,
+        height: 50,
     },
     placeholderImageContainer: {
-        width: 80,
-        height: 80,
+        width: 50,
+        height: 50,
         backgroundColor: "#282828",
         justifyContent: "center",
         alignItems: "center",
-        marginRight: 16,
+        marginRight: 15,
     },
     loadingOverlay: {
         ...StyleSheet.absoluteFillObject,
-        backgroundColor: "rgba(0,0,0,0.4)",
+        backgroundColor: "rgba(0, 0, 0, 0)",
     },
     textContainer: {
         flex: 1,
+        gap: 0,
     },
     showName: {
-        fontSize: 20,
+        fontSize: 22,
+        lineHeight: 24,
     },
     showPublisher: {
-        fontSize: 14,
-        color: "#9A9A9A",
-        marginTop: 2,
-    },
-    episodeCount: {
-        fontSize: 12,
-        color: "#9A9A9A",
-        marginTop: 2,
-    },
-    loadingMoreContainer: {
-        alignItems: "center",
-        paddingVertical: 20,
+        fontSize: 16,
+        lineHeight: 18,
     },
     emptyText: {
-        fontSize: 16,
+        marginTop: 20,
         textAlign: "center",
-        marginTop: 40,
     },
 });

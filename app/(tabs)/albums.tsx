@@ -283,7 +283,7 @@ export default function AlbumsScreen() {
                 ItemSeparatorComponent={() => <View style={{ height: 8 }} />}
                 overScrollMode={"never"}
                 onEndReached={handleLoadMore} // Added onEndReached
-                onEndReachedThreshold={6}
+                onEndReachedThreshold={2}
                 ListFooterComponent={renderFooter} // Added ListFooterComponent
                 refreshControl={
                     <RefreshControl

@@ -287,7 +287,7 @@ export default function PlaylistDetailScreen() {
                     contentContainerStyle={styles.listContentContainer} // Changed from scrollContentContainer
                     overScrollMode="never"
                     onEndReached={loadMoreTracks}
-                    onEndReachedThreshold={6}
+                    onEndReachedThreshold={2}
                     ListFooterComponent={renderFooter}
                     ListEmptyComponent={
                         isLoading ? null : playlist.tracks?.items?.length === 0 ? (

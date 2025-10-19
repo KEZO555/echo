@@ -182,7 +182,7 @@ export default function ArtistsScreen() {
                 ItemSeparatorComponent={() => <View style={{ height: 8 }} />}
                 overScrollMode={"never"}
                 onEndReached={handleLoadMore}
-                onEndReachedThreshold={6}
+                onEndReachedThreshold={2}
                 ListFooterComponent={renderFooter}
                 refreshControl={
                     <RefreshControl

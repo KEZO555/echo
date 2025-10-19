@@ -126,6 +126,7 @@ export interface SpotifyTrackSimple {
     type: string;
     uri: string;
     album?: SpotifyAlbum;
+    isEpisode?: boolean;
 }
 
 export interface SpotifySavedAlbum {
@@ -208,6 +209,7 @@ export interface SpotifyEpisode {
         resume_position_ms: number;
     };
     show?: SpotifyShow;
+    isEpisode?: boolean;
 }
 
 export interface SpotifyShowEpisodes {

@@ -4,6 +4,9 @@ import type {
     SpotifyCurrentlyPlaying,
     SpotifySearchResults,
     SpotifyImage,
+    SpotifyEpisode,
+    SpotifyShow,
+    SpotifyTrackSimple,
 } from "../types/spotify";
 import { log, logError } from "../utils/logger";
 
@@ -161,15 +164,15 @@ export const getPlaybackState = async (): Promise<SpotifyCurrentlyPlaying | null
         }
 
         let albumImages: SpotifyImage[] = [];
-        const albumId = playerState.track.album.uri.split(":").pop();
+        const albumUri = playerState.track.album?.uri ?? "";
+        const albumId = albumUri.split(":").pop() || "";
+        const trackUri = playerState.track.uri;
+        const trackId = trackUri.split(":").pop() || "";
+        const isEpisode = playerState.track.isEpisode;
 
-        if (albumId) {
-            const nativeImageUrl =
-                await SpotifySdk.getCurrentTrackImage("LARGE");
-            if (
-                nativeImageUrl &&
-                nativeImageUrl.startsWith("data:image/")
-            ) {
+        if (albumUri) {
+            const nativeImageUrl = await SpotifySdk.getCurrentTrackImage("LARGE");
+            if (nativeImageUrl && nativeImageUrl.startsWith("data:image/")) {
                 albumImages = [
                     {
                         url: nativeImageUrl,
@@ -184,63 +187,13 @@ export const getPlaybackState = async (): Promise<SpotifyCurrentlyPlaying | null
             }
         }
 
-        return {
+        const baseResponse: SpotifyCurrentlyPlaying = {
             timestamp: Date.now(),
             context: null,
             progress_ms: playerState.playbackPosition,
             is_playing: !playerState.isPaused,
-            item: {
-                artists: [
-                    {
-                        external_urls: { spotify: "" },
-                        href: "",
-                        id: playerState.track.artist.uri.split(":").pop() || "",
-                        name: playerState.track.artist.name,
-                        type: "artist",
-                        uri: playerState.track.artist.uri,
-                    },
-                ],
-                available_markets: [],
-                disc_number: 1,
-                duration_ms: playerState.track.duration,
-                explicit: false,
-                external_urls: { spotify: "" },
-                href: "",
-                id: playerState.track.uri.split(":").pop() || "",
-                is_local: false,
-                name: playerState.track.name,
-                preview_url: null,
-                track_number: 1,
-                type: "track",
-                uri: playerState.track.uri,
-                album: {
-                    album_type: "album",
-                    total_tracks: 1,
-                    available_markets: [],
-                    external_urls: { spotify: "" },
-                    href: "",
-                    id: albumId || "",
-                    images: albumImages,
-                    name: playerState.track.album.name,
-                    release_date: "",
-                    release_date_precision: "day",
-                    type: "album",
-                    uri: playerState.track.album.uri,
-                    artists: [
-                        {
-                            external_urls: { spotify: "" },
-                            href: "",
-                            id:
-                                playerState.track.artist.uri.split(":").pop() ||
-                                "",
-                            name: playerState.track.artist.name,
-                            type: "artist",
-                            uri: playerState.track.artist.uri,
-                        },
-                    ],
-                },
-            },
-            currently_playing_type: "track",
+            item: null,
+            currently_playing_type: isEpisode ? "episode" : "track",
             actions: { disallows: {} },
             device: {
                 id: "spotify_app_remote",
@@ -260,6 +213,103 @@ export const getPlaybackState = async (): Promise<SpotifyCurrentlyPlaying | null
                     : playerState.playbackOptions.repeatMode === 1
                         ? "track"
                         : "context",
+        };
+
+        if (isEpisode) {
+            const showData: SpotifyShow = {
+                id: albumId,
+                name: playerState.track.album?.name || playerState.track.name,
+                description: "",
+                publisher: playerState.track.artist.name,
+                images: albumImages,
+                total_episodes: 0,
+                uri: albumUri,
+                href: "",
+                media_type: "audio",
+                explicit: false,
+                type: "show",
+                languages: [],
+            };
+
+            const episodeItem: SpotifyEpisode = {
+                id: trackId,
+                name: playerState.track.name,
+                description: "",
+                duration_ms: playerState.track.duration,
+                release_date: "",
+                release_date_precision: "day",
+                uri: trackUri,
+                href: "",
+                type: "episode",
+                images: albumImages,
+                explicit: false,
+                is_externally_hosted: false,
+                is_playable: true,
+                languages: [],
+                show: showData,
+                isEpisode: true,
+            };
+
+            return {
+                ...baseResponse,
+                item: episodeItem,
+            };
+        }
+
+        const trackItem: SpotifyTrackSimple = {
+            artists: [
+                {
+                    external_urls: { spotify: "" },
+                    href: "",
+                    id: playerState.track.artist.uri.split(":").pop() || "",
+                    name: playerState.track.artist.name,
+                    type: "artist",
+                    uri: playerState.track.artist.uri,
+                },
+            ],
+            available_markets: [],
+            disc_number: 1,
+            duration_ms: playerState.track.duration,
+            explicit: false,
+            external_urls: { spotify: "" },
+            href: "",
+            id: trackId,
+            is_local: false,
+            name: playerState.track.name,
+            preview_url: null,
+            track_number: 1,
+            type: "track",
+            uri: trackUri,
+            album: {
+                album_type: "album",
+                total_tracks: 1,
+                available_markets: [],
+                external_urls: { spotify: "" },
+                href: "",
+                id: albumId,
+                images: albumImages,
+                name: playerState.track.album.name,
+                release_date: "",
+                release_date_precision: "day",
+                type: "album",
+                uri: albumUri,
+                artists: [
+                    {
+                        external_urls: { spotify: "" },
+                        href: "",
+                        id: playerState.track.artist.uri.split(":").pop() || "",
+                        name: playerState.track.artist.name,
+                        type: "artist",
+                        uri: playerState.track.artist.uri,
+                    },
+                ],
+            },
+            isEpisode: false,
+        };
+
+        return {
+            ...baseResponse,
+            item: trackItem,
         };
     } catch (error) {
         log("Playback: Error getting playback state:", error);

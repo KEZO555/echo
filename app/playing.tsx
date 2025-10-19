@@ -13,7 +13,7 @@ import {
     SpotifyArtistSimple,
     SpotifyEpisode,
 } from "@/contexts/AuthContext";
-import { MaterialIcons } from "@expo/vector-icons";
+import { MaterialIcons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { useFocusEffect, router } from "expo-router";
 import { HapticPressable } from "@/components/HapticPressable";
 import ContentContainer from "@/components/ContentContainer";
@@ -62,7 +62,17 @@ export default function PlayingScreen() {
     }, [appState]);
 
     const checkIfTrackIsSaved = async (trackId: string) => {
-        if (!trackId || playbackState?.currently_playing_type !== "track") {
+        const isEpisodeItem =
+            playbackState?.item &&
+            ("isEpisode" in playbackState.item
+                ? (playbackState.item as any).isEpisode
+                : false);
+
+        if (
+            !trackId ||
+            playbackState?.currently_playing_type !== "track" ||
+            isEpisodeItem
+        ) {
             setIsCurrentTrackSaved(false);
             return;
         }
@@ -219,11 +229,18 @@ export default function PlayingScreen() {
     };
 
     const handleToggleSaveTrack = async () => {
+        const isEpisodeItem =
+            playbackState?.item &&
+            ("isEpisode" in playbackState.item
+                ? (playbackState.item as any).isEpisode
+                : false);
+
         if (
             !playbackState ||
             !playbackState.item ||
             !playbackState.item.id ||
-            playbackState.currently_playing_type !== "track"
+            playbackState.currently_playing_type !== "track" ||
+            isEpisodeItem
         )
             return;
 
@@ -246,11 +263,19 @@ export default function PlayingScreen() {
     };
 
     const handleNavigateToAddToPlaylist = () => {
+        const isEpisodeItem =
+            playbackState &&
+            playbackState.item &&
+            "isEpisode" in playbackState.item
+                ? (playbackState.item as any).isEpisode
+                : false;
+
         if (
             playbackState &&
             playbackState.item &&
             playbackState.item.uri &&
-            playbackState.currently_playing_type === "track"
+            playbackState.currently_playing_type === "track" &&
+            !isEpisodeItem
         ) {
             log(
                 "Navigating to add-to-playlist with trackUri:",
@@ -329,7 +354,8 @@ export default function PlayingScreen() {
 
     const isEpisode =
         playbackState.currently_playing_type === "episode" ||
-        item.type === "episode";
+        item.type === "episode" ||
+        ("isEpisode" in item && (item as any).isEpisode);
     const currentEpisode = isEpisode
         ? (item as unknown as SpotifyEpisode)
         : null;
@@ -479,8 +505,8 @@ export default function PlayingScreen() {
                     {isEpisode ? (
                         <>
                             <HapticPressable onPress={handleSeekBackward}>
-                                <MaterialIcons
-                                    name="replay-15"
+                                <MaterialCommunityIcons
+                                    name="rewind-15"
                                     size={44}
                                     color={invertColors ? "black" : "white"}
                                 />
@@ -497,8 +523,8 @@ export default function PlayingScreen() {
                                 />
                             </HapticPressable>
                             <HapticPressable onPress={handleSeekForward}>
-                                <MaterialIcons
-                                    name="forward-15"
+                                <MaterialCommunityIcons
+                                    name="fast-forward-15"
                                     size={44}
                                     color={invertColors ? "black" : "white"}
                                 />

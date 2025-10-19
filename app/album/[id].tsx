@@ -293,7 +293,7 @@ export default function AlbumDetailScreen() {
                     contentContainerStyle={styles.listContentContainer}
                     overScrollMode="never"
                     onEndReached={loadMoreTracks}
-                    onEndReachedThreshold={6}
+                    onEndReachedThreshold={2}
                     ListFooterComponent={renderFooter}
                     ListEmptyComponent={
                         isLoading ? null : album.tracks?.items?.length === 0 ? (

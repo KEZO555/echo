@@ -401,7 +401,7 @@ export default function ArtistDetailScreen() {
                     contentContainerStyle={styles.listContentContainer}
                     overScrollMode="never"
                     onEndReached={handleLoadMore}
-                    onEndReachedThreshold={6}
+                    onEndReachedThreshold={2}
                     ListFooterComponent={
                         isLoadingMore ? (
                             <View style={{ padding: 20 }}>

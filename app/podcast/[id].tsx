@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from "react";
+import React, { useEffect, useState, useCallback, useMemo } from "react";
 import {
     View,
     StyleSheet,
@@ -126,7 +126,7 @@ export default function PodcastDetailScreen() {
             setError(null);
             try {
                 const data = await makeApiRequest(
-                    `https://api.spotify.com/v1/shows/${id}?market=from_token`,
+                    `https://api.spotify.com/v1/shows/${id}?market=from_token&limit=10`,
                     "Podcast details"
                 );
                 if (data) {
@@ -217,6 +217,15 @@ export default function PodcastDetailScreen() {
 
     const showImageUrl = show.images?.[0]?.url;
 
+    const episodeItems = useMemo(
+        () =>
+            (show.episodes?.items || []).filter(
+                (episode): episode is SpotifyEpisode =>
+                    !!episode && typeof episode === "object" && !!episode.id
+            ),
+        [show.episodes?.items]
+    );
+
     const renderEpisodeItem = ({
         item: episode,
         index,
@@ -225,7 +234,6 @@ export default function PodcastDetailScreen() {
         index: number;
     }) => (
         <HapticPressable
-            key={episode.id || index.toString()}
             style={styles.episodeItemContainer}
             onPress={async () => {
                 try {
@@ -244,12 +252,14 @@ export default function PodcastDetailScreen() {
                 }
             }}
         >
-            <StyledText style={styles.episodeName} numberOfLines={2}>
-                {episode.name}
-            </StyledText>
-            <StyledText style={styles.episodeMeta} numberOfLines={1}>
-                {new Date(episode.release_date).toLocaleDateString()} · {formatDuration(episode.duration_ms)}
-            </StyledText>
+            <View style={styles.episodeInfoContainer}>
+                <StyledText style={styles.episodeName} numberOfLines={1}>
+                    {episode.name}
+                </StyledText>
+                <StyledText style={styles.episodeMeta} numberOfLines={1}>
+                    {new Date(episode.release_date).toLocaleDateString()} · {formatDuration(episode.duration_ms)}
+                </StyledText>
+            </View>
         </HapticPressable>
     );
 
@@ -289,29 +299,26 @@ export default function PodcastDetailScreen() {
                                         </StyledText>
                                     </View>
                                 )}
-                                <StyledText style={styles.publisher} numberOfLines={1}>
-                                    {show.publisher}
-                                </StyledText>
-                                <StyledText style={styles.showDescription} numberOfLines={3}>
-                                    {show.description}
-                                </StyledText>
                             </View>
                         </>
                     }
-                    data={show.episodes?.items || []}
+                    data={episodeItems}
                     renderItem={renderEpisodeItem}
-                    keyExtractor={(item, index) => item.id || index.toString()}
+                    keyExtractor={(item, index) => item?.id || index.toString()}
                     contentContainerStyle={styles.listContentContainer}
                     overScrollMode="never"
                     onEndReached={loadMoreEpisodes}
-                    onEndReachedThreshold={6}
+                    onEndReachedThreshold={2}
                     ListFooterComponent={renderFooter}
                     ListEmptyComponent={
-                        isLoading ? null : show.episodes?.items?.length === 0 ? (
+                        isLoading
+                            ? null
+                            : episodeItems.length === 0 ? (
                             <StyledText style={styles.emptyText}>
                                 No episodes found for this podcast.
                             </StyledText>
-                        ) : null
+                        )
+                            : null
                     }
                 />
             </View>
@@ -340,15 +347,6 @@ const styles = StyleSheet.create({
     placeholderText: {
         fontSize: 64,
     },
-    publisher: {
-        fontSize: 18,
-        marginBottom: 8,
-    },
-    showDescription: {
-        fontSize: 14,
-        textAlign: "center",
-        marginHorizontal: 10,
-    },
     centeredMessageContainer: {
         flex: 1,
         backgroundColor: "black",
@@ -366,19 +364,25 @@ const styles = StyleSheet.create({
         marginTop: 20,
     },
     episodeItemContainer: {
-        paddingVertical: 12,
-        borderBottomWidth: StyleSheet.hairlineWidth,
-        borderBottomColor: "#333",
+        flexDirection: "row",
+        justifyContent: "space-between",
+        alignItems: "flex-start",
+        width: "100%",
     },
     episodeName: {
-        fontSize: 20,
+        flex: 1,
+        fontSize: 26,
     },
     episodeMeta: {
-        fontSize: 14,
-        color: "#9A9A9A",
-        marginTop: 2,
+        fontSize: 16,
+        lineHeight: 18,
+        paddingBottom: 6,
     },
     listContentContainer: {
         paddingBottom: 0,
+    },
+    episodeInfoContainer: {
+        flex: 1,
+        alignItems: "flex-start",
     },
 });
