@@ -20,6 +20,7 @@ import {
     getCachedShowDetail,
     saveCachedShowDetail,
 } from "@/utils/cache";
+import { usePreventDoubleTap } from "@/hooks/usePreventDoubleTap";
 
 export default function PodcastDetailScreen() {
     const { id, showString, showName } = useLocalSearchParams<{
@@ -184,6 +185,34 @@ export default function PodcastDetailScreen() {
         }
     }, [show, isLoadingMoreEpisodes, makeApiRequest]);
 
+    const episodeItems = useMemo(
+        () =>
+            (show?.episodes?.items || []).filter(
+                (episode): episode is SpotifyEpisode =>
+                    !!episode && typeof episode === "object" && !!episode.id
+            ),
+        [show?.episodes?.items]
+    );
+
+    const handleEpisodePress = usePreventDoubleTap(
+        async (episode: SpotifyEpisode, index: number) => {
+            try {
+                await playTrackWithContext(
+                    episode.uri,
+                    {
+                        type: "podcast",
+                        uri: `spotify:show:${id}`,
+                        currentIndex: index,
+                    }
+                );
+                router.push("/playing");
+            } catch (error) {
+                logError("Error playing episode:", error);
+                router.push("/playing");
+            }
+        }
+    );
+
     if (isLoading && !show) {
         return (
             <ContentContainer
@@ -217,15 +246,6 @@ export default function PodcastDetailScreen() {
 
     const showImageUrl = show.images?.[0]?.url;
 
-    const episodeItems = useMemo(
-        () =>
-            (show.episodes?.items || []).filter(
-                (episode): episode is SpotifyEpisode =>
-                    !!episode && typeof episode === "object" && !!episode.id
-            ),
-        [show.episodes?.items]
-    );
-
     const renderEpisodeItem = ({
         item: episode,
         index,
@@ -235,22 +255,7 @@ export default function PodcastDetailScreen() {
     }) => (
         <HapticPressable
             style={styles.episodeItemContainer}
-            onPress={async () => {
-                try {
-                    await playTrackWithContext(
-                        episode.uri,
-                        {
-                            type: "podcast",
-                            uri: `spotify:show:${id}`,
-                            currentIndex: index,
-                        }
-                    );
-                    router.push("/playing");
-                } catch (error) {
-                    logError("Error playing episode:", error);
-                    router.push("/playing");
-                }
-            }}
+            onPress={() => handleEpisodePress(episode, index)}
         >
             <View style={styles.episodeInfoContainer}>
                 <StyledText style={styles.episodeName} numberOfLines={1}>

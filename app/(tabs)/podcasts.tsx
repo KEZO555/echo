@@ -23,6 +23,7 @@ import {
     isShowCached,
 } from "@/utils/cache";
 import { useNetworkState } from "@/hooks/useNetworkState";
+import { usePreventDoubleTap } from "@/hooks/usePreventDoubleTap";
 
 export default function PodcastsScreen() {
     const {
@@ -113,6 +114,62 @@ export default function PodcastsScreen() {
         }
     }, [fetchPodcasts, isRefreshingPodcasts, isOnline]);
 
+    const handleShowPress = usePreventDoubleTap(
+        async (item: SpotifySavedShow, isUncached: boolean) => {
+            if (loadingShowId || isUncached) return;
+
+            setLoadingShowId(item.show.id);
+
+            try {
+                if (isOnline) {
+                    const showDetails = await makeApiRequest(
+                        `https://api.spotify.com/v1/shows/${item.show.id}?limit=10`,
+                        "Show details for caching"
+                    );
+
+                    if (showDetails) {
+                        await saveCachedShowDetail(showDetails);
+                        setCachedShowIds((prev) =>
+                            new Set(prev).add(item.show.id)
+                        );
+
+                        router.push({
+                            pathname: `podcast/${item.show.id}`,
+                            params: {
+                                showName: item.show.name as string,
+                                showString: JSON.stringify(showDetails),
+                            },
+                        } as any);
+                    } else {
+                        router.push({
+                            pathname: `podcast/${item.show.id}`,
+                            params: {
+                                showName: item.show.name as string,
+                            },
+                        } as any);
+                    }
+                } else {
+                    router.push({
+                        pathname: `podcast/${item.show.id}`,
+                        params: {
+                            showName: item.show.name as string,
+                        },
+                    } as any);
+                }
+            } catch (error) {
+                logError("Error navigating to podcast:", error);
+                router.push({
+                    pathname: `podcast/${item.show.id}`,
+                    params: {
+                        showName: item.show.name as string,
+                    },
+                } as any);
+            } finally {
+                setLoadingShowId(null);
+            }
+        }
+    );
+
     const renderShowItem = ({ item }: { item: SpotifySavedShow }) => {
         const isOffline = !isOnline;
         const isUncached = isOffline && !cachedShowIds.has(item.show.id);
@@ -120,59 +177,7 @@ export default function PodcastsScreen() {
         return (
             <HapticPressable
                 style={[styles.itemContainer, isUncached && styles.disabledContainer]}
-                onPress={async () => {
-                    if (loadingShowId || isUncached) return;
-
-                    setLoadingShowId(item.show.id);
-
-                    try {
-                        if (isOnline) {
-                            const showDetails = await makeApiRequest(
-                                `https://api.spotify.com/v1/shows/${item.show.id}?limit=10`,
-                                "Show details for caching"
-                            );
-
-                            if (showDetails) {
-                                await saveCachedShowDetail(showDetails);
-                                setCachedShowIds((prev) =>
-                                    new Set(prev).add(item.show.id)
-                                );
-
-                                router.push({
-                                    pathname: `podcast/${item.show.id}`,
-                                    params: {
-                                        showName: item.show.name as string,
-                                        showString: JSON.stringify(showDetails),
-                                    },
-                                } as any);
-                            } else {
-                                router.push({
-                                    pathname: `podcast/${item.show.id}`,
-                                    params: {
-                                        showName: item.show.name as string,
-                                    },
-                                } as any);
-                            }
-                        } else {
-                            router.push({
-                                pathname: `podcast/${item.show.id}`,
-                                params: {
-                                    showName: item.show.name as string,
-                                },
-                            } as any);
-                        }
-                    } catch (error) {
-                        logError("Error navigating to podcast:", error);
-                        router.push({
-                            pathname: `podcast/${item.show.id}`,
-                            params: {
-                                showName: item.show.name as string,
-                            },
-                        } as any);
-                    } finally {
-                        setLoadingShowId(null);
-                    }
-                }}
+                onPress={() => handleShowPress(item, isUncached)}
                 disabled={isUncached}
             >
                 {item.show.images && item.show.images.length > 0 ? (
@@ -214,9 +219,9 @@ export default function PodcastsScreen() {
         return <View style={{ paddingVertical: 20 }} />;
     };
 
-    const handlePlayingPress = () => {
+    const handlePlayingPress = usePreventDoubleTap(() => {
         router.push("/playing");
-    };
+    });
 
     if (!sortedPodcasts || sortedPodcasts.length === 0) {
         return (

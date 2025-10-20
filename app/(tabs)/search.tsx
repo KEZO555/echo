@@ -6,10 +6,20 @@ import { HapticPressable } from "@/components/HapticPressable";
 import { useInvertColors } from "@/contexts/InvertColorsContext";
 import * as Haptics from "expo-haptics";
 import { MaterialIcons } from "@expo/vector-icons";
+import { usePreventDoubleTap } from "@/hooks/usePreventDoubleTap";
 
 export default function SearchScreen() {
 	const [searchQuery, setSearchQuery] = useState("");
     const { invertColors } = useInvertColors();
+
+    const handleSubmit = usePreventDoubleTap(() => {
+        if (searchQuery.length > 0) {
+            router.push({
+                pathname: "/search-results",
+                params: { query: searchQuery },
+            });
+        }
+    });
 
 	return (
         <ContentContainer 
@@ -17,12 +27,7 @@ export default function SearchScreen() {
             hideBackButton={true}
             headerIcon="check"
             headerIconShowLength={searchQuery.length}
-            headerIconPress={() => {
-					router.push({
-						pathname: "/search-results",
-						params: { query: searchQuery },
-					});
-				}}
+            headerIconPress={handleSubmit}
         >
 			<View
 				style={[
@@ -41,14 +46,7 @@ export default function SearchScreen() {
 					onChangeText={setSearchQuery}
 					cursorColor={invertColors ? "black" : "white"}
 					selectionColor={invertColors ? "black" : "white"}
-					onSubmitEditing={() => {
-						if (searchQuery.length > 0) {
-                            router.push({
-                                pathname: "/search-results",
-                                params: { query: searchQuery },
-                            });
-						}
-					}}
+					onSubmitEditing={handleSubmit}
 				/>
 				{searchQuery.length > 0 && (
 					<HapticPressable

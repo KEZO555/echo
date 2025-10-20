@@ -20,6 +20,7 @@ import CustomScrollView from "@/components/CustomScrollView";
 import { log, logError } from "@/utils/logger";
 import { saveCachedAlbumDetail, refreshSavedAlbumsFromCache, isAlbumCached } from "@/utils/cache";
 import { useNetworkState } from "@/hooks/useNetworkState";
+import { usePreventDoubleTap } from "@/hooks/usePreventDoubleTap";
 
 export default function AlbumsScreen() {
     const {
@@ -113,6 +114,60 @@ export default function AlbumsScreen() {
         return artists.map((artist) => artist.name).join(", ");
     };
 
+    const handleAlbumPress = usePreventDoubleTap(
+        async (item: SpotifySavedAlbum, isUncached: boolean) => {
+            if (loadingAlbumId || isUncached) return;
+
+            setLoadingAlbumId(item.album.id);
+
+            try {
+                if (isOnline) {
+                    const albumDetails = await makeApiRequest(
+                        `https://api.spotify.com/v1/albums/${item.album.id}`,
+                        "Album details for caching"
+                    );
+
+                    if (albumDetails) {
+                        await saveCachedAlbumDetail(albumDetails);
+                        setCachedAlbumIds((prev) => new Set(prev).add(item.album.id));
+
+                        router.push({
+                            pathname: `album/${item.album.id}`,
+                            params: {
+                                albumName: item.album.name as string,
+                                albumString: JSON.stringify(albumDetails),
+                            },
+                        } as any);
+                    } else {
+                        router.push({
+                            pathname: `album/${item.album.id}`,
+                            params: {
+                                albumName: item.album.name as string,
+                            },
+                        } as any);
+                    }
+                } else {
+                    router.push({
+                        pathname: `album/${item.album.id}`,
+                        params: {
+                            albumName: item.album.name as string,
+                        },
+                    } as any);
+                }
+            } catch (error) {
+                logError("Error navigating to album:", error);
+                router.push({
+                    pathname: `album/${item.album.id}`,
+                    params: {
+                        albumName: item.album.name as string,
+                    },
+                } as any);
+            } finally {
+                setLoadingAlbumId(null);
+            }
+        }
+    );
+
     const renderAlbumItem = ({ item }: { item: SpotifySavedAlbum }) => {
         const isOffline = !isOnline;
         const isUncached = isOffline && !cachedAlbumIds.has(item.album.id);
@@ -120,57 +175,7 @@ export default function AlbumsScreen() {
         return (
             <HapticPressable
                 style={[styles.itemContainer, isUncached && styles.disabledContainer]}
-                onPress={async () => {
-                    if (loadingAlbumId || isUncached) return;
-
-                    setLoadingAlbumId(item.album.id);
-                    
-                    try {
-                        if (isOnline) {
-                            const albumDetails = await makeApiRequest(
-                                `https://api.spotify.com/v1/albums/${item.album.id}`,
-                                "Album details for caching"
-                            );
-                            
-                            if (albumDetails) {
-                                await saveCachedAlbumDetail(albumDetails);
-                                setCachedAlbumIds(prev => new Set(prev).add(item.album.id));
-                                
-                                router.push({
-                                    pathname: `album/${item.album.id}`,
-                                    params: {
-                                        albumName: item.album.name as string,
-                                        albumString: JSON.stringify(albumDetails),
-                                    },
-                                } as any);
-                            } else {
-                                router.push({
-                                    pathname: `album/${item.album.id}`,
-                                    params: {
-                                        albumName: item.album.name as string,
-                                    },
-                                } as any);
-                            }
-                        } else {
-                            router.push({
-                                pathname: `album/${item.album.id}`,
-                                params: {
-                                    albumName: item.album.name as string,
-                                },
-                            } as any);
-                        }
-                    } catch (error) {
-                        logError("Error navigating to album:", error);
-                        router.push({
-                            pathname: `album/${item.album.id}`,
-                            params: {
-                                albumName: item.album.name as string,
-                            },
-                        } as any);
-                    } finally {
-                        setLoadingAlbumId(null);
-                    }
-                }}
+                onPress={() => handleAlbumPress(item, isUncached)}
                 disabled={isUncached}
             >
                 {item.album.images && item.album.images.length > 0 ? (
@@ -207,6 +212,10 @@ export default function AlbumsScreen() {
         );
     };
 
+    const handlePlayingPress = usePreventDoubleTap(() => {
+        router.push("/playing");
+    });
+
     // Show global loading indicator if initial data is loading and no albums are yet available
     if (isLoading && !sortedAlbums) {
         return <View style={styles.centeredMessageContainer}></View>;
@@ -226,10 +235,6 @@ export default function AlbumsScreen() {
     const renderFooter = () => {
         if (!isLoadingMoreAlbums) return null;
         return;
-    };
-
-    const handlePlayingPress = () => {
-        router.push("/playing");
     };
 
     if (!sortedAlbums || sortedAlbums.length === 0) {

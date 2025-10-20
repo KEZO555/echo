@@ -19,6 +19,7 @@ import { HapticPressable } from "@/components/HapticPressable";
 import ContentContainer from "@/components/ContentContainer";
 import { useInvertColors } from "@/contexts/InvertColorsContext";
 import { log, logError } from "@/utils/logger";
+import { usePreventDoubleTap } from "@/hooks/usePreventDoubleTap";
 
 const formatTime = (ms: number | null | undefined): string => {
     if (ms === null || ms === undefined) return "0:00";
@@ -262,7 +263,7 @@ export default function PlayingScreen() {
         }
     };
 
-    const handleNavigateToAddToPlaylist = () => {
+    const handleNavigateToAddToPlaylist = usePreventDoubleTap(() => {
         const isEpisodeItem =
             playbackState &&
             playbackState.item &&
@@ -290,7 +291,7 @@ export default function PlayingScreen() {
                 "Cannot navigate to add to playlist: No track playing or track URI is missing."
             );
         }
-    };
+    });
 
     useFocusEffect(
         React.useCallback(() => {
@@ -332,7 +333,93 @@ export default function PlayingScreen() {
     };
 
 
-    if (!playbackState || !playbackState.item) {
+    const item = playbackState?.item ?? null;
+
+    const isEpisode =
+        playbackState?.currently_playing_type === "episode" ||
+        item?.type === "episode" ||
+        (item && "isEpisode" in item && (item as any).isEpisode);
+    const currentEpisode = isEpisode
+        ? (item as unknown as SpotifyEpisode)
+        : null;
+    const artworkUrl = isEpisode
+        ? currentEpisode?.images?.[0]?.url || currentEpisode?.show?.images?.[0]?.url
+        : item?.album?.images?.[0]?.url;
+    const displayTitle = isEpisode ? currentEpisode?.name ?? "" : item?.name ?? "";
+    const subtitleParts = isEpisode
+        ? [currentEpisode?.show?.name, currentEpisode?.show?.publisher].filter(
+              (value): value is string => !!value
+          )
+        : [];
+    const displaySubtitle = isEpisode
+        ? subtitleParts.length > 0
+            ? subtitleParts.join(" • ")
+            : "Podcast"
+        : item
+            ? getArtistNames(item.artists)
+            : "";
+    const canNavigateToShow =
+        isEpisode && isOnline && !!currentEpisode?.show?.id;
+    const canNavigateToAlbum =
+        !isEpisode && isOnline && !!item?.album?.id;
+    const canNavigateToArtist =
+        !isEpisode && isOnline && !!item && item.artists.length > 0;
+
+    const animatedWidth = progress.interpolate({
+        inputRange: [0, 1],
+        outputRange: ["0%", "100%"],
+    });
+
+    const handleTitlePress = usePreventDoubleTap(async () => {
+        if (!isOnline || !item) return;
+        if (isEpisode && currentEpisode?.show?.id) {
+            router.push({
+                pathname: "/podcast/[id]",
+                params: {
+                    id: currentEpisode.show.id,
+                    showName: currentEpisode.show.name as string,
+                },
+            } as any);
+        } else if (item.album?.id) {
+            router.push({
+                pathname: "/album/[id]",
+                params: {
+                    id: item.album.id as any,
+                    albumName: item.album.name as string,
+                },
+            });
+        }
+    });
+
+    const handleSubtitlePress = usePreventDoubleTap(async () => {
+        if (!isOnline || !item) return;
+        if (isEpisode && currentEpisode?.show?.id) {
+            router.push({
+                pathname: "/podcast/[id]",
+                params: {
+                    id: currentEpisode.show.id,
+                    showName: currentEpisode.show.name as string,
+                },
+            } as any);
+        } else if (item.artists.length > 0) {
+            const artist = item.artists[0];
+            router.push({
+                pathname: "/artist/[id]",
+                params: {
+                    id: artist.id,
+                    artistName: artist.name as string,
+                },
+            });
+        }
+    });
+
+    const handleSelectDevicePress = usePreventDoubleTap(() => {
+        if (isOnline) {
+            router.push({ pathname: "/select-device" as any });
+        }
+    });
+
+    if (!playbackState || !item) {
         return (
             <ContentContainer headerTitle=" ">
                 <View style={styles.content}>
@@ -350,41 +437,6 @@ export default function PlayingScreen() {
         );
     }
 
-    const { item } = playbackState;
-
-    const isEpisode =
-        playbackState.currently_playing_type === "episode" ||
-        item.type === "episode" ||
-        ("isEpisode" in item && (item as any).isEpisode);
-    const currentEpisode = isEpisode
-        ? (item as unknown as SpotifyEpisode)
-        : null;
-    const artworkUrl = isEpisode
-        ? currentEpisode?.images?.[0]?.url || currentEpisode?.show?.images?.[0]?.url
-        : item.album?.images?.[0]?.url;
-    const displayTitle = isEpisode ? currentEpisode?.name ?? "" : item.name;
-    const subtitleParts = isEpisode
-        ? [currentEpisode?.show?.name, currentEpisode?.show?.publisher].filter(
-              (value): value is string => !!value
-          )
-        : [];
-    const displaySubtitle = isEpisode
-        ? subtitleParts.length > 0
-            ? subtitleParts.join(" • ")
-            : "Podcast"
-        : getArtistNames(item.artists);
-    const canNavigateToShow =
-        isEpisode && isOnline && !!currentEpisode?.show?.id;
-    const canNavigateToAlbum =
-        !isEpisode && isOnline && !!item.album?.id;
-    const canNavigateToArtist =
-        !isEpisode && isOnline && item.artists.length > 0;
-
-    const animatedWidth = progress.interpolate({
-        inputRange: [0, 1],
-        outputRange: ["0%", "100%"],
-    });
-
     return (
         <ContentContainer headerTitle=" " style={{ paddingHorizontal: 20 }}>
             <View style={styles.content}>
@@ -401,26 +453,7 @@ export default function PlayingScreen() {
                 )}
                 <View style={styles.trackInfoContainer}>
                     <HapticPressable
-                        onPress={async () => {
-                            if (!isOnline) return;
-                            if (isEpisode && currentEpisode?.show?.id) {
-                                router.push({
-                                    pathname: "/podcast/[id]",
-                                    params: {
-                                        id: currentEpisode.show.id,
-                                        showName: currentEpisode.show.name as string,
-                                    },
-                                } as any);
-                            } else if (item.album?.id) {
-                                router.push({
-                                    pathname: "/album/[id]",
-                                    params: {
-                                        id: item.album?.id as any,
-                                        albumName: item.album?.name as string,
-                                    },
-                                });
-                            }
-                        }}
+                        onPress={handleTitlePress}
                         disabled={!(isEpisode ? canNavigateToShow : canNavigateToAlbum)}
                     >
                         <StyledText style={styles.trackName} numberOfLines={1}>
@@ -428,27 +461,7 @@ export default function PlayingScreen() {
                         </StyledText>
                     </HapticPressable>
                     <HapticPressable
-                        onPress={async () => {
-                            if (!isOnline) return;
-                            if (isEpisode && currentEpisode?.show?.id) {
-                                router.push({
-                                    pathname: "/podcast/[id]",
-                                    params: {
-                                        id: currentEpisode.show.id,
-                                        showName: currentEpisode.show.name as string,
-                                    },
-                                } as any);
-                            } else if (item.artists.length > 0) {
-                                const artist = item.artists[0];
-                                router.push({
-                                    pathname: "/artist/[id]",
-                                    params: {
-                                        id: artist.id,
-                                        artistName: artist.name as string,
-                                    },
-                                });
-                            }
-                        }}
+                        onPress={handleSubtitlePress}
                         disabled={!(isEpisode ? canNavigateToShow : canNavigateToArtist)}
                     >
                         <StyledText style={styles.artistName} numberOfLines={1}>
@@ -596,11 +609,7 @@ export default function PlayingScreen() {
                         />
                     </HapticPressable>
                     <HapticPressable
-                        onPress={() => {
-                            if (isOnline) {
-                                router.push({ pathname: "/select-device" as any });
-                            }
-                        }}
+                        onPress={handleSelectDevicePress}
                         disabled={!isOnline}
                         style={!isOnline && styles.disabledButton}
                     >

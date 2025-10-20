@@ -16,6 +16,7 @@ import { HapticPressable } from "@/components/HapticPressable";
 import ContentContainer from "@/components/ContentContainer";
 import CustomScrollView from "@/components/CustomScrollView";
 import { log, logError } from "@/utils/logger";
+import { usePreventDoubleTap } from "@/hooks/usePreventDoubleTap";
 
 export default function ArtistDetailScreen() {
     const { id, artistString, artistName } = useLocalSearchParams<{
@@ -198,39 +199,6 @@ export default function ArtistDetailScreen() {
         }
     }, [id, accessToken, checkArtistFollowingStatus]);
 
-    if (isLoading && !artist) {
-        return (
-            <ContentContainer
-                headerTitle={`${artistName}`}
-                style={{ paddingHorizontal: 20 }}
-                headerIcon={isFollowingArtist ? "remove" : "add"}
-                headerIconPress={handleToggleFollowArtist}
-                headerIconShowLength={isCheckingFollowingArtist ? 0 : 1}
-            >
-            </ContentContainer>
-        );
-    }
-
-    if (error) {
-        return (
-            <View style={styles.centeredMessageContainer}>
-                <StyledText style={styles.errorText}>Error: {error}</StyledText>
-            </View>
-        );
-    }
-
-    if (!artist) {
-        return (
-            <View style={styles.centeredMessageContainer}>
-                <StyledText style={styles.emptyText}>
-                    Artist data is unavailable.
-                </StyledText>
-            </View>
-        );
-    }
-
-    const artistImageUrl = artist.images?.[0]?.url;
-
     const artistAlbums = (albums || []).filter(
         (album) => album.album_type === "album"
     );
@@ -273,6 +241,18 @@ export default function ArtistDetailScreen() {
         <StyledText style={styles.sectionTitle}>{title}</StyledText>
     );
 
+    const handleTrackPress = usePreventDoubleTap(async (trackIndex: number) => {
+        try {
+            const trackUris = topTracks.map((t) => t.uri);
+            const urisToPlay = trackUris.slice(trackIndex);
+            await playTracksWithWebApi(urisToPlay);
+            router.push("/playing");
+        } catch (error) {
+            logError("Error playing track:", error);
+            router.push("/playing");
+        }
+    });
+
     const renderTrackItem = ({
         item,
     }: {
@@ -283,17 +263,7 @@ export default function ArtistDetailScreen() {
         return (
             <HapticPressable
                 style={styles.trackItemContainer}
-                onPress={async () => {
-                    try {
-                        const trackUris = topTracks.map((t) => t.uri);
-                        const urisToPlay = trackUris.slice(item.index);
-                        await playTracksWithWebApi(urisToPlay);
-                        router.push("/playing");
-                    } catch (error) {
-                        logError("Error playing track:", error);
-                        router.push("/playing");
-                    }
-                }}
+                onPress={() => handleTrackPress(index)}
             >
                 <StyledText style={styles.trackNumber}>
                     {index + 1}.
@@ -312,6 +282,43 @@ export default function ArtistDetailScreen() {
         );
     };
 
+    const handleAlbumPress = usePreventDoubleTap((albumId: string) => {
+        router.push(`/album/${albumId}`);
+    });
+
+    if (isLoading && !artist) {
+        return (
+            <ContentContainer
+                headerTitle={`${artistName}`}
+                style={{ paddingHorizontal: 20 }}
+                headerIcon={isFollowingArtist ? "remove" : "add"}
+                headerIconPress={handleToggleFollowArtist}
+                headerIconShowLength={isCheckingFollowingArtist ? 0 : 1}
+            >
+            </ContentContainer>
+        );
+    }
+
+    if (error) {
+        return (
+            <View style={styles.centeredMessageContainer}>
+                <StyledText style={styles.errorText}>Error: {error}</StyledText>
+            </View>
+        );
+    }
+
+    if (!artist) {
+        return (
+            <View style={styles.centeredMessageContainer}>
+                <StyledText style={styles.emptyText}>
+                    Artist data is unavailable.
+                </StyledText>
+            </View>
+        );
+    }
+
+    const artistImageUrl = artist.images?.[0]?.url;
+
     const renderAlbumItem = ({
         item,
     }: {
@@ -323,7 +330,7 @@ export default function ArtistDetailScreen() {
             <HapticPressable
 
                 style={styles.itemContainer}
-                onPress={() => router.push(`/album/${album.id}`)}
+                onPress={() => handleAlbumPress(album.id)}
             >
                 {hasImage ? (
                     <View style={styles.albumImageContainer}>

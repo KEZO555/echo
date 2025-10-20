@@ -18,6 +18,7 @@ import { useTabPreferences } from "@/contexts/TabPreferencesContext";
 import CustomScrollView from "@/components/CustomScrollView";
 import { log, logError } from "@/utils/logger";
 import { useNetworkState } from "@/hooks/useNetworkState";
+import { usePreventDoubleTap } from "@/hooks/usePreventDoubleTap";
 
 export default function ArtistsScreen() {
     const {
@@ -59,22 +60,31 @@ export default function ArtistsScreen() {
         }
     }, [fetchArtists, isRefreshingArtists]);
 
+    const handleArtistPress = usePreventDoubleTap(
+        (item: SpotifyArtist, isDisabled: boolean) => {
+            if (isDisabled || loadingArtistId) return;
+
+            setLoadingArtistId(item.id);
+            try {
+                router.push({
+                    pathname: `/artist/${item.id}`,
+                    params: { artistName: item.name as string },
+                } as any);
+            } catch (error) {
+                logError("Error navigating to artist:", error);
+            } finally {
+                setLoadingArtistId(null);
+            }
+        }
+    );
+
     const renderArtistItem = ({ item }: { item: SpotifyArtist }) => {
         const isDisabled = !isOnline;
         
         return (
             <HapticPressable
                 style={[styles.itemContainer, isDisabled && styles.disabledContainer]}
-                onPress={async () => {
-                    if (isDisabled || loadingArtistId) return;
-
-                    setLoadingArtistId(item.id);
-                    router.push({
-                        pathname: `/artist/${item.id}`,
-                        params: { artistName: item.name as string },
-                    } as any);
-                    setLoadingArtistId(null);
-                }}
+                onPress={() => handleArtistPress(item, isDisabled)}
                 disabled={isDisabled}
             >
                 {item.images && item.images.length > 0 ? (
@@ -108,6 +118,10 @@ export default function ArtistsScreen() {
         );
     };
 
+    const handlePlayingPress = usePreventDoubleTap(() => {
+        router.push("/playing");
+    });
+
     if (isLoading && !sortedArtists) {
         return <View style={styles.centeredMessageContainer}></View>;
     }
@@ -125,10 +139,6 @@ export default function ArtistsScreen() {
     const renderFooter = () => {
         if (!isLoadingMoreArtists) return null;
         return;
-    };
-
-    const handlePlayingPress = () => {
-        router.push("/playing");
     };
 
     if (!sortedArtists || sortedArtists.length === 0) {

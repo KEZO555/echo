@@ -18,6 +18,7 @@ import ContentContainer from "@/components/ContentContainer";
 import CustomScrollView from "@/components/CustomScrollView";
 import { log, logError } from "@/utils/logger";
 import { getCachedPlaylistDetail } from "@/utils/cache";
+import { usePreventDoubleTap } from "@/hooks/usePreventDoubleTap";
 
 // Interface for the structure of a track item within a playlist from Spotify API
 interface PlaylistTrack {
@@ -164,6 +165,22 @@ export default function PlaylistDetailScreen() {
         }
     }, [playlist, isLoadingMoreTracks, makeApiRequest]);
 
+    const handleTrackPress = usePreventDoubleTap(
+        async (trackIndex: number) => {
+            try {
+                await skipToIndex({
+                    type: "playlist",
+                    uri: `spotify:playlist:${id}`,
+                    currentIndex: trackIndex,
+                });
+                router.push("/playing");
+            } catch (error) {
+                logError("Error playing track:", error);
+                router.push("/playing");
+            }
+        }
+    );
+
     if (isLoading && !playlist) {
         return (
             <ContentContainer
@@ -208,20 +225,7 @@ export default function PlaylistDetailScreen() {
             <HapticPressable
                 key={`${track.id || "unknown"}-${index}`}
                 style={styles.trackItemContainer}
-                onPress={async () => {
-                    try {
-                        await skipToIndex(
-                            {
-                                type: "playlist",
-                                uri: `spotify:playlist:${id}`,
-                                currentIndex: index,
-                            });
-                        router.push("/playing");
-                    } catch (error) {
-                        logError("Error playing track:", error);
-                        router.push("/playing");
-                    }
-                }}
+                onPress={() => handleTrackPress(index)}
             >
                 <StyledText style={styles.trackNumber}>
                     {(playlist.tracks?.offset || 0) + index + 1}.
