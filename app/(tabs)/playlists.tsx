@@ -16,6 +16,7 @@ import CustomScrollView from "@/components/CustomScrollView";
 import { logError, log } from "@/utils/logger";
 import { saveCachedPlaylistDetail, refreshPlaylistsFromCache, isPlaylistCached } from "@/utils/cache";
 import { useNetworkState } from "@/hooks/useNetworkState";
+import { usePreventDoubleTap } from "@/hooks/usePreventDoubleTap";
 
 const CREATE_NEW_PLAYLIST_ID = "CREATE_NEW_PLAYLIST_ID";
 
@@ -131,6 +132,64 @@ export default function PlaylistsScreen() {
         }
     }, [fetchPlaylists, isRefreshingPlaylists, isOnline]);
 
+    const handleCreatePlaylistPress = usePreventDoubleTap(() => {
+        router.push("/create-playlist");
+    });
+
+    const handlePlaylistPress = usePreventDoubleTap(
+        async (item: SpotifyPlaylist, isUncached: boolean) => {
+            if (loadingPlaylistId || isUncached) return;
+
+            setLoadingPlaylistId(item.id);
+
+            try {
+                if (isOnline) {
+                    const playlistDetails = await makeApiRequest(
+                        `https://api.spotify.com/v1/playlists/${item.id}`,
+                        "Playlist details for caching"
+                    );
+
+                    if (playlistDetails) {
+                        await saveCachedPlaylistDetail(playlistDetails);
+                        setCachedPlaylistIds((prev) => new Set(prev).add(item.id));
+
+                        router.push({
+                            pathname: `/playlist/${item.id}`,
+                            params: {
+                                playlistName: item.name as string,
+                                playlistString: JSON.stringify(playlistDetails),
+                            },
+                        } as any);
+                    } else {
+                        router.push({
+                            pathname: `/playlist/${item.id}`,
+                            params: {
+                                playlistName: item.name as string,
+                            },
+                        } as any);
+                    }
+                } else {
+                    router.push({
+                        pathname: `/playlist/${item.id}`,
+                        params: {
+                            playlistName: item.name as string,
+                        },
+                    } as any);
+                }
+            } catch (error) {
+                logError("Error navigating to playlist:", error);
+                router.push({
+                    pathname: `/playlist/${item.id}`,
+                    params: {
+                        playlistName: item.name as string,
+                    },
+                } as any);
+            } finally {
+                setLoadingPlaylistId(null);
+            }
+        }
+    );
+
     const renderPlaylistItem = ({ item }: { item: SpotifyPlaylist }) => {
         if (item.id === CREATE_NEW_PLAYLIST_ID) {
             const isDisabled = !isOnline;
@@ -140,7 +199,7 @@ export default function PlaylistsScreen() {
                     style={[styles.itemContainer, isDisabled && styles.disabledContainer]}
                     onPress={() => {
                         if (isDisabled) return;
-                        router.push("/create-playlist");
+                        handleCreatePlaylistPress();
                     }}
                     disabled={isDisabled}
                 >
@@ -169,57 +228,7 @@ export default function PlaylistsScreen() {
         return (
             <HapticPressable
                 style={[styles.itemContainer, isUncached && styles.disabledContainer]}
-                onPress={async () => {
-                    if (loadingPlaylistId || isUncached) return;
-
-                    setLoadingPlaylistId(item.id);
-
-                    try {
-                        if (isOnline) {
-                            const playlistDetails = await makeApiRequest(
-                                `https://api.spotify.com/v1/playlists/${item.id}`,
-                                "Playlist details for caching"
-                            );
-
-                            if (playlistDetails) {
-                                await saveCachedPlaylistDetail(playlistDetails);
-                                setCachedPlaylistIds(prev => new Set(prev).add(item.id));
-
-                                router.push({
-                                    pathname: `/playlist/${item.id}`,
-                                    params: {
-                                        playlistName: item.name as string,
-                                        playlistString: JSON.stringify(playlistDetails),
-                                    },
-                                } as any);
-                            } else {
-                                router.push({
-                                    pathname: `/playlist/${item.id}`,
-                                    params: {
-                                        playlistName: item.name as string,
-                                    },
-                                } as any);
-                            }
-                        } else {
-                            router.push({
-                                pathname: `/playlist/${item.id}`,
-                                params: {
-                                    playlistName: item.name as string,
-                                },
-                            } as any);
-                        }
-                    } catch (error) {
-                        logError("Error navigating to playlist:", error);
-                        router.push({
-                            pathname: `/playlist/${item.id}`,
-                            params: {
-                                playlistName: item.name as string,
-                            },
-                        } as any);
-                    } finally {
-                        setLoadingPlaylistId(null);
-                    }
-                }}
+                onPress={() => handlePlaylistPress(item, isUncached)}
                 disabled={isUncached}
             >
                 {item.images && item.images.length > 0 ? (
@@ -287,6 +296,10 @@ export default function PlaylistsScreen() {
         ? [createNewPlaylistItem, ...sortedPlaylists]
         : [createNewPlaylistItem];
 
+    const handlePlayingPress = usePreventDoubleTap(() => {
+        router.push("/playing");
+    });
+
     const handleLoadMore = () => {
         if (isOnline && playlistsNextUrl && !isLoadingMorePlaylists) {
             fetchMorePlaylists();
@@ -296,10 +309,6 @@ export default function PlaylistsScreen() {
     const renderFooter = () => {
         if (!isLoadingMorePlaylists) return null;
         return <View style={{ paddingVertical: 20 }}></View>;
-    };
-
-    const handlePlayingPress = () => {
-        router.push("/playing");
     };
 
     if (!sortedPlaylists || sortedPlaylists.length === 0) {
@@ -352,7 +361,7 @@ export default function PlaylistsScreen() {
                 ItemSeparatorComponent={() => <View style={{ height: 8 }} />}
                 overScrollMode={"never"}
                 onEndReached={handleLoadMore}
-                onEndReachedThreshold={6}
+                onEndReachedThreshold={2}
                 ListFooterComponent={renderFooter}
                 refreshControl={
                     <RefreshControl

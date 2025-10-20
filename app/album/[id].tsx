@@ -17,6 +17,7 @@ import ContentContainer from "@/components/ContentContainer";
 import CustomScrollView from "@/components/CustomScrollView";
 import { log, logError } from "@/utils/logger";
 import { getCachedAlbumDetail } from "@/utils/cache";
+import { usePreventDoubleTap } from "@/hooks/usePreventDoubleTap";
 
 export default function AlbumDetailScreen() {
     const { id, albumString, albumName } = useLocalSearchParams<{
@@ -180,6 +181,22 @@ export default function AlbumDetailScreen() {
         }
     }, [album, isLoadingMoreTracks, makeApiRequest]);
 
+    const handleTrackPress = usePreventDoubleTap(
+        async (trackIndex: number) => {
+            try {
+                await skipToIndex({
+                    type: "album",
+                    uri: `spotify:album:${id}`,
+                    currentIndex: trackIndex,
+                });
+                router.push("/playing");
+            } catch (error) {
+                logError("Error playing track:", error);
+                router.push("/playing");
+            }
+        }
+    );
+
     if (isLoading && !album) {
         return (
             <ContentContainer
@@ -223,21 +240,7 @@ export default function AlbumDetailScreen() {
         <HapticPressable
             key={track.id || index.toString()}
             style={styles.trackItemContainer}
-            onPress={async () => {
-                try {
-                    await skipToIndex(
-                        {
-                            type: "album",
-                            uri: `spotify:album:${id}`,
-                            currentIndex: index,
-                        });
-                    router.push("/playing");
-                } catch (error) {
-                    logError("Error playing track:", error);
-                    // Still navigate to playing screen even if playback fails
-                    router.push("/playing");
-                }
-            }}
+            onPress={() => handleTrackPress(index)}
         >
             <StyledText style={styles.trackNumber}>
                 {track.track_number}.
@@ -293,7 +296,7 @@ export default function AlbumDetailScreen() {
                     contentContainerStyle={styles.listContentContainer}
                     overScrollMode="never"
                     onEndReached={loadMoreTracks}
-                    onEndReachedThreshold={6}
+                    onEndReachedThreshold={2}
                     ListFooterComponent={renderFooter}
                     ListEmptyComponent={
                         isLoading ? null : album.tracks?.items?.length === 0 ? (

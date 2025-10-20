@@ -9,6 +9,7 @@ import {
     SpotifyArtistSimple,
     SpotifyImage,
     SpotifyArtist,
+    SpotifyShow,
 } from "@/contexts/AuthContext";
 import { HapticPressable } from "@/components/HapticPressable";
 import { StyledText } from "@/components/StyledText";
@@ -16,12 +17,14 @@ import ContentContainer from "@/components/ContentContainer";
 import CustomScrollView from "@/components/CustomScrollView";
 import { logError } from "@/utils/logger";
 import { useNetworkState } from "@/hooks/useNetworkState";
+import { usePreventDoubleTap } from "@/hooks/usePreventDoubleTap";
 
 type SearchItem =
     | { type: "track"; data: SpotifyTrack }
     | { type: "playlist"; data: SpotifyPlaylistSimple }
     | { type: "album"; data: SpotifyAlbumSimple }
-    | { type: "artist"; data: SpotifyArtist };
+    | { type: "artist"; data: SpotifyArtist }
+    | { type: "podcast"; data: SpotifyShow };
 
 export default function SearchResultsScreen() {
     const params = useGlobalSearchParams();
@@ -41,7 +44,7 @@ export default function SearchResultsScreen() {
                 return;
             }
             
-            searchItems(routeQuery, ["track", "album", "playlist", "artist"])
+            searchItems(routeQuery, ["track", "album", "playlist", "artist", "show"])
                 .then((apiResponse) => {
                     const newResults: SearchItem[] = [];
                     if (apiResponse?.tracks?.items) {
@@ -95,16 +98,20 @@ export default function SearchResultsScreen() {
                             }
                         });
                     }
-
-                    const firstArtistIndex = newResults.findIndex(
-                        (item) => item.type === "artist"
-                    );
-                    if (firstArtistIndex > -2) {
-                        const [firstArtist] = newResults.splice(
-                            firstArtistIndex,
-                            1
-                        );
-                        newResults.unshift(firstArtist);
+                    if (apiResponse?.shows?.items) {
+                        apiResponse.shows.items.forEach((show) => {
+                            if (show && show.id) {
+                                newResults.push({
+                                    type: "podcast",
+                                    data: show,
+                                });
+                            } else if (show) {
+                                console.warn(
+                                    "Search result show is missing an id or is invalid:",
+                                    show
+                                );
+                            }
+                        });
                     }
 
                     const firstAlbumIndex = newResults.findIndex(
@@ -116,6 +123,21 @@ export default function SearchResultsScreen() {
                             1
                         );
                         newResults.unshift(firstAlbum);
+                    }
+
+                    const firstPodcastIndex = newResults.findIndex(
+                        (item) => item.type === "podcast"
+                    );
+                    if (firstPodcastIndex > -1) {
+                        const [firstPodcast] = newResults.splice(
+                            firstPodcastIndex,
+                            1
+                        );
+                        const albumAtTop =
+                            newResults.length > 0 &&
+                            newResults[0].type === "album";
+                        const insertIndex = albumAtTop ? 1 : 0;
+                        newResults.splice(insertIndex, 0, firstPodcast);
                     }
 
 
@@ -134,6 +156,38 @@ export default function SearchResultsScreen() {
             artists?.map((artist) => artist.name).join(", ") || "Unknown Artist"
         );
     };
+
+    const handleResultPress = usePreventDoubleTap(
+        async (item: SearchItem, itemUri: string) => {
+            if (item.type === "track") {
+                try {
+                    await playTrackWithContext(itemUri);
+                    router.push("/playing");
+                } catch (error) {
+                    logError("Error playing track:", error);
+                    router.push("/playing");
+                }
+            } else if (item.type === "album") {
+                router.push({
+                    pathname: `album/${item.data.id}`,
+                    params: {
+                        albumName: item.data.name as string,
+                    },
+                } as any);
+            } else if (item.type === "artist") {
+                router.push(`/artist/${item.data.id}`);
+            } else if (item.type === "playlist") {
+                router.push(`/playlist/${item.data.id}`);
+            } else if (item.type === "podcast") {
+                router.push({
+                    pathname: `podcast/${item.data.id}`,
+                    params: {
+                        showName: item.data.name as string,
+                    },
+                } as any);
+            }
+        }
+    );
 
     const renderItem = ({ item }: { item: SearchItem }) => {
         let title = "";
@@ -167,33 +221,18 @@ export default function SearchResultsScreen() {
                 images = item.data.images;
                 itemUri = item.data.uri;
                 break;
+            case "podcast":
+                title = item.data.name;
+                subtitle = `Podcast • ${item.data.publisher}`;
+                images = item.data.images;
+                itemUri = item.data.uri;
+                break;
         }
 
         return (
             <HapticPressable
                 style={styles.itemContainer}
-                onPress={async () => {
-                    if (item.type === "track") {
-                        try {
-                            await playTrackWithContext(itemUri);
-                            router.push("/playing");
-                        } catch (error) {
-                            logError("Error playing track:", error);
-                            router.push("/playing");
-                        }
-                    } else if (item.type === "album") {
-                        router.push({
-                            pathname: `album/${item.data.id}`,
-                            params: {
-                                albumName: item.data.name as string,
-                            },
-                        } as any)
-                    } else if (item.type === "artist") {
-                        router.push(`/artist/${item.data.id}`);
-                    } else if (item.type === "playlist") {
-                        router.push(`/playlist/${item.data.id}`);
-                    }
-                }}
+                onPress={() => handleResultPress(item, itemUri)}
             >
                 {images && images.length > 0 ? (
                     <Image

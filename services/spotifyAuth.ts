@@ -15,6 +15,7 @@ import { log, logError } from "../utils/logger";
 import type {
     SpotifyPlaylistsResponse,
     SpotifySavedAlbumsResponse,
+    SpotifySavedShowsResponse,
     SpotifyFollowedArtistsResponse,
     SavedTracksResponse,
 } from "../types/spotify";
@@ -257,13 +258,15 @@ export const fetchInitialDataInParallel = async (
     token: string,
     onPlaylistsUpdate: (playlists: any[], nextUrl: string | null) => void,
     onAlbumsUpdate: (albums: any[], nextUrl: string | null) => void,
+    onPodcastsUpdate: (podcasts: any[], nextUrl: string | null) => void,
     onArtistsUpdate: (artists: any[], nextUrl: string | null) => void,
     onSavedTracksUpdate: (tracks: any[], nextUrl: string | null) => void,
     saveCachedData: (
         playlists?: any[],
         albums?: any[],
         artists?: any[],
-        tracks?: any[]
+        tracks?: any[],
+        podcasts?: any[]
     ) => Promise<void>,
     makeApiRequest: (
         url: string,
@@ -303,13 +306,33 @@ export const fetchInitialDataInParallel = async (
 
             if (data) {
                 onAlbumsUpdate(data.items, data.next);
-                await saveCachedData(undefined, data.items, undefined, undefined);
+                await saveCachedData(undefined, data.items, undefined, undefined, undefined);
             } else {
                 onAlbumsUpdate([], null);
             }
         } catch (error: any) {
             logError("Auth: Error fetching albums:", error.message);
             onAlbumsUpdate([], null);
+        }
+    };
+
+    const fetchPodcasts = async () => {
+        try {
+            const data: SpotifySavedShowsResponse | null = await makeApiRequest(
+                "https://api.spotify.com/v1/me/shows?limit=50",
+                "Podcasts",
+                true
+            );
+
+            if (data) {
+                onPodcastsUpdate(data.items, data.next);
+                await saveCachedData(undefined, undefined, undefined, undefined, data.items);
+            } else {
+                onPodcastsUpdate([], null);
+            }
+        } catch (error: any) {
+            logError("Auth: Error fetching podcasts:", error.message);
+            onPodcastsUpdate([], null);
         }
     };
 
@@ -343,7 +366,7 @@ export const fetchInitialDataInParallel = async (
 
             if (data) {
                 onSavedTracksUpdate(data.items, data.next);
-                await saveCachedData(undefined, undefined, undefined, data.items);
+                await saveCachedData(undefined, undefined, undefined, data.items, undefined);
             } else {
                 onSavedTracksUpdate([], null);
             }
@@ -358,6 +381,7 @@ export const fetchInitialDataInParallel = async (
         await Promise.all([
             fetchPlaylists(),
             fetchAlbums(),
+            fetchPodcasts(),
             fetchArtists(),
             fetchSavedTracks(),
         ]);

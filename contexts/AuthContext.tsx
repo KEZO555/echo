@@ -18,6 +18,7 @@ import type {
     AuthContextType,
     SpotifyPlaylist,
     SpotifySavedAlbum,
+    SpotifySavedShow,
     SpotifyArtist,
     SavedTrackObject,
     SpotifyCurrentlyPlaying,
@@ -34,6 +35,8 @@ import {
     fetchMorePlaylists as fetchMorePlaylistsService,
     fetchAlbums as fetchAlbumsService,
     fetchMoreAlbums as fetchMoreAlbumsService,
+    fetchPodcasts as fetchPodcastsService,
+    fetchMorePodcasts as fetchMorePodcastsService,
     fetchArtists as fetchArtistsService,
     fetchMoreArtists as fetchMoreArtistsService,
     fetchSavedTracks as fetchSavedTracksService,
@@ -41,6 +44,9 @@ import {
     saveAlbum as saveAlbumService,
     removeAlbum as removeAlbumService,
     checkIfAlbumIsSaved as checkIfAlbumIsSavedService,
+    followPodcast as followPodcastService,
+    unfollowPodcast as unfollowPodcastService,
+    checkIfFollowingPodcast as checkIfFollowingPodcastService,
     followArtist as followArtistService,
     unfollowArtist as unfollowArtistService,
     checkIfFollowingArtist as checkIfFollowingArtistService,
@@ -76,6 +82,7 @@ import {
     saveCachedData,
     clearCachedData,
     refreshSavedAlbumsFromCache,
+    refreshFollowedPodcastsFromCache,
     refreshFollowedArtistsFromCache,
 } from "../utils/cache";
 import { makeApiRequest } from "../utils/spotifyApi";
@@ -96,6 +103,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     );
     const [albums, setAlbums] = useState<SpotifySavedAlbum[] | null>(null);
     const [albumsNextUrl, setAlbumsNextUrl] = useState<string | null>(null);
+    const [podcasts, setPodcasts] = useState<SpotifySavedShow[] | null>(null);
+    const [podcastsNextUrl, setPodcastsNextUrl] = useState<string | null>(null);
     const [artists, setArtists] = useState<SpotifyArtist[] | null>(null);
     const [artistsNextUrl, setArtistsNextUrl] = useState<string | null>(null);
     const [savedTracks, setSavedTracks] = useState<SavedTrackObject[] | null>(
@@ -109,11 +118,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     const [isLoading, setIsLoading] = useState(true);
     const [isLoadingMorePlaylists, setIsLoadingMorePlaylists] = useState(false);
     const [isLoadingMoreAlbums, setIsLoadingMoreAlbums] = useState(false);
+    const [isLoadingMorePodcasts, setIsLoadingMorePodcasts] = useState(false);
     const [isLoadingMoreArtists, setIsLoadingMoreArtists] = useState(false);
     const [isLoadingMoreSavedTracks, setIsLoadingMoreSavedTracks] =
         useState(false);
     const [isRefreshingPlaylists, setIsRefreshingPlaylists] = useState(false);
     const [isRefreshingAlbums, setIsRefreshingAlbums] = useState(false);
+    const [isRefreshingPodcasts, setIsRefreshingPodcasts] = useState(false);
     const [isRefreshingArtists, setIsRefreshingArtists] = useState(false);
     const [isRefreshingSavedTracks, setIsRefreshingSavedTracks] =
         useState(false);
@@ -168,6 +179,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         setPlaylistsNextUrl(null);
         setAlbums(null);
         setAlbumsNextUrl(null);
+        setPodcasts(null);
+        setPodcastsNextUrl(null);
         setArtists(null);
         setArtistsNextUrl(null);
         setSavedTracks(null);
@@ -323,6 +336,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
                         setAlbums(albums);
                         setAlbumsNextUrl(nextUrl);
                     },
+                    (podcastsData, nextUrl) => {
+                        setPodcasts(podcastsData);
+                        setPodcastsNextUrl(nextUrl);
+                    },
                     (artists, nextUrl) => {
                         setArtists(artists);
                         setArtistsNextUrl(nextUrl);
@@ -450,6 +467,21 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         setIsRefreshingAlbums(false);
     }, [accessToken, makeApiRequestWithContext]);
 
+    const fetchPodcasts = useCallback(async () => {
+        if (!accessToken) return;
+        setIsRefreshingPodcasts(true);
+
+        const result = await fetchPodcastsService(
+            accessToken,
+            makeApiRequestWithContext,
+            saveCachedData
+        );
+
+        setPodcasts(result.podcasts || []);
+        setPodcastsNextUrl(result.nextUrl);
+        setIsRefreshingPodcasts(false);
+    }, [accessToken, makeApiRequestWithContext]);
+
     const fetchMoreAlbums = useCallback(async () => {
         setIsLoadingMoreAlbums(true);
 
@@ -468,6 +500,28 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }, [
         albumsNextUrl,
         isLoadingMoreAlbums,
+        accessToken,
+        makeApiRequestWithContext,
+    ]);
+
+    const fetchMorePodcasts = useCallback(async () => {
+        setIsLoadingMorePodcasts(true);
+
+        const result = await fetchMorePodcastsService(
+            podcastsNextUrl,
+            isLoadingMorePodcasts,
+            accessToken,
+            makeApiRequestWithContext
+        );
+
+        if (result.podcasts) {
+            setPodcasts((prev) => [...(prev || []), ...result.podcasts!]);
+            setPodcastsNextUrl(result.nextUrl);
+        }
+        setIsLoadingMorePodcasts(false);
+    }, [
+        podcastsNextUrl,
+        isLoadingMorePodcasts,
         accessToken,
         makeApiRequestWithContext,
     ]);
@@ -587,6 +641,44 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         [accessToken, ensureValidToken]
     );
 
+    const followPodcast = useCallback(
+        async (showId: string): Promise<boolean> => {
+            const result = await followPodcastService(
+                showId,
+                accessToken,
+                ensureValidToken
+            );
+            if (result) {
+                const cachedShows = await refreshFollowedPodcastsFromCache();
+                if (cachedShows) setPodcasts(cachedShows);
+            }
+            return result;
+        },
+        [accessToken, ensureValidToken]
+    );
+
+    const unfollowPodcast = useCallback(
+        async (showId: string): Promise<boolean> => {
+            const result = await unfollowPodcastService(
+                showId,
+                accessToken,
+                ensureValidToken
+            );
+            if (result) {
+                const cachedShows = await refreshFollowedPodcastsFromCache();
+                if (cachedShows) setPodcasts(cachedShows);
+            }
+            return result;
+        },
+        [accessToken, ensureValidToken]
+    );
+
+    const checkIfFollowingPodcast = useCallback(
+        (showId: string) =>
+            checkIfFollowingPodcastService(showId, accessToken, ensureValidToken),
+        [accessToken, ensureValidToken]
+    );
+
     // Artist management methods
     const followArtist = useCallback(
         async (artistId: string): Promise<boolean> => {
@@ -650,6 +742,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         if (cachedAlbums) setAlbums(cachedAlbums);
     }, []);
 
+    const refreshFollowedPodcastsFromCacheMethod = useCallback(async () => {
+        const cachedPodcasts = await refreshFollowedPodcastsFromCache();
+        if (cachedPodcasts) setPodcasts(cachedPodcasts);
+    }, []);
+
     const refreshFollowedArtistsFromCacheMethod = useCallback(async () => {
         const cachedArtists = await refreshFollowedArtistsFromCache();
         if (cachedArtists) setArtists(cachedArtists);
@@ -669,7 +766,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         async (
             trackUri: string,
             sourceContext?: {
-                type: "album" | "playlist" | "liked" | "artist";
+                type: "album" | "playlist" | "liked" | "artist" | "podcast";
                 uri?: string;
                 tracks?: any[];
                 currentIndex?: number;
@@ -694,7 +791,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     const skipToIndex = useCallback(
         async (
             sourceContext: {
-                type: "album" | "playlist" | "liked" | "artist";
+                type: "album" | "playlist" | "liked" | "artist" | "podcast";
                 uri?: string;
                 tracks?: any[];
                 currentIndex?: number;
@@ -926,6 +1023,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
                 const cachedData = await loadCachedData();
                 setPlaylists(cachedData.playlists);
                 setAlbums(cachedData.albums);
+                setPodcasts(cachedData.podcasts);
                 setArtists(cachedData.artists);
                 setSavedTracks(cachedData.savedTracks);
                 if (authData.accessToken) {
@@ -996,6 +1094,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         albumsNextUrl,
         isLoadingMoreAlbums,
         fetchMoreAlbums,
+        podcasts,
+        podcastsNextUrl,
+        isLoadingMorePodcasts,
+        fetchMorePodcasts,
         artists,
         isLoadingMoreArtists,
         fetchMoreArtists,
@@ -1007,6 +1109,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         isLoading,
         isRefreshingPlaylists,
         isRefreshingAlbums,
+        isRefreshingPodcasts,
         isRefreshingArtists,
         isRefreshingSavedTracks,
         isConnectedToAppRemote,
@@ -1015,12 +1118,17 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         logout,
         fetchPlaylists,
         fetchAlbums,
+        fetchPodcasts,
         fetchArtists,
         fetchSavedTracks,
         saveAlbum,
         removeAlbum,
         checkIfAlbumIsSaved,
+        followPodcast,
+        unfollowPodcast,
+        checkIfFollowingPodcast,
         refreshSavedAlbumsFromCache: refreshSavedAlbumsFromCacheMethod,
+        refreshFollowedPodcastsFromCache: refreshFollowedPodcastsFromCacheMethod,
         followArtist,
         unfollowArtist,
         checkIfFollowingArtist,
@@ -1092,4 +1200,8 @@ export type {
     SpotifyTrack,
     SpotifyPlaylistSimple,
     SpotifySearchResults,
+    SpotifyShow,
+    SpotifyEpisode,
+    SpotifySavedShow,
+    SpotifySavedShowsResponse,
 } from "../types/spotify";

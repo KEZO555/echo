@@ -33,6 +33,7 @@ function RootNavigation() {
         if (preferences.showLikedSongs) return "/(tabs)";
         if (preferences.showArtists) return "/(tabs)/artists";
         if (preferences.showAlbums) return "/(tabs)/albums";
+        if (preferences.showPodcasts) return "/(tabs)/podcasts";
         if (preferences.showPlaylists) return "/(tabs)/playlists";
         if (preferences.showSearch) return "/(tabs)/search";
         return "/(tabs)/settings";

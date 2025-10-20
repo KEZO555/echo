@@ -2,18 +2,22 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import {
     PLAYLISTS_KEY,
     ALBUMS_KEY,
+    PODCASTS_KEY,
     ARTISTS_KEY,
     SAVED_TRACKS_KEY,
     ALBUM_DETAIL_KEY_PREFIX,
     PLAYLIST_DETAIL_KEY_PREFIX,
+    SHOW_DETAIL_KEY_PREFIX,
 } from "../constants/spotify";
 import { log, logError } from "../utils/logger";
 import type {
     SpotifyPlaylist,
     SpotifySavedAlbum,
+    SpotifySavedShow,
     SpotifyArtist,
     SavedTrackObject,
     SpotifyAlbum,
+    SpotifyShow,
 } from "../types/spotify";
 
 interface SpotifyPlaylistFull extends SpotifyPlaylist {
@@ -34,6 +38,7 @@ export const loadCachedData = async () => {
         const cachedData = {
             playlists: null as SpotifyPlaylist[] | null,
             albums: null as SpotifySavedAlbum[] | null,
+            podcasts: null as SpotifySavedShow[] | null,
             artists: null as SpotifyArtist[] | null,
             savedTracks: null as SavedTrackObject[] | null,
         };
@@ -47,6 +52,12 @@ export const loadCachedData = async () => {
         const cachedAlbums = await AsyncStorage.getItem(ALBUMS_KEY);
         if (cachedAlbums) {
             cachedData.albums = JSON.parse(cachedAlbums);
+            hasAnyCache = true;
+        }
+
+        const cachedPodcasts = await AsyncStorage.getItem(PODCASTS_KEY);
+        if (cachedPodcasts) {
+            cachedData.podcasts = JSON.parse(cachedPodcasts);
             hasAnyCache = true;
         }
 
@@ -74,6 +85,7 @@ export const loadCachedData = async () => {
         return {
             playlists: null,
             albums: null,
+            podcasts: null,
             artists: null,
             savedTracks: null,
         };
@@ -84,7 +96,8 @@ export const saveCachedData = async (
     playlistsData?: SpotifyPlaylist[],
     albumsData?: SpotifySavedAlbum[],
     artistsData?: SpotifyArtist[],
-    tracksData?: SavedTrackObject[]
+    tracksData?: SavedTrackObject[],
+    podcastsData?: SpotifySavedShow[]
 ) => {
     try {
         if (playlistsData) {
@@ -95,6 +108,12 @@ export const saveCachedData = async (
         }
         if (albumsData) {
             await AsyncStorage.setItem(ALBUMS_KEY, JSON.stringify(albumsData));
+        }
+        if (podcastsData) {
+            await AsyncStorage.setItem(
+                PODCASTS_KEY,
+                JSON.stringify(podcastsData)
+            );
         }
         if (artistsData) {
             await AsyncStorage.setItem(ARTISTS_KEY, JSON.stringify(artistsData));
@@ -114,10 +133,12 @@ export const clearCachedData = async () => {
     try {
         await AsyncStorage.removeItem(PLAYLISTS_KEY);
         await AsyncStorage.removeItem(ALBUMS_KEY);
+        await AsyncStorage.removeItem(PODCASTS_KEY);
         await AsyncStorage.removeItem(ARTISTS_KEY);
         await AsyncStorage.removeItem(SAVED_TRACKS_KEY);
         await clearCachedAlbumDetails();
         await clearCachedPlaylistDetails();
+        await clearCachedShowDetails();
         log("Cache: Cache cleared");
     } catch (error) {
         logError("Cache: Error clearing cache:", error);
@@ -181,6 +202,25 @@ export const refreshFollowedArtistsFromCache = async () => {
     return null;
 };
 
+export const refreshFollowedPodcastsFromCache = async () => {
+    try {
+        const cachedPodcasts = await AsyncStorage.getItem(PODCASTS_KEY);
+        if (cachedPodcasts) {
+            const parsedPodcasts = JSON.parse(cachedPodcasts);
+            log(
+                `Cache: Refreshed followed podcasts state from cache - ${parsedPodcasts.length} shows`
+            );
+            return parsedPodcasts;
+        }
+    } catch (error) {
+        logError(
+            "Cache: Error refreshing followed podcasts from cache:",
+            error
+        );
+    }
+    return null;
+};
+
 export const saveCachedAlbumDetail = async (album: SpotifyAlbum) => {
     try {
         const key = `${ALBUM_DETAIL_KEY_PREFIX}${album.id}`;
@@ -202,6 +242,31 @@ export const getCachedAlbumDetail = async (albumId: string): Promise<SpotifyAlbu
         }
     } catch (error) {
         logError("Cache: Error retrieving cached album detail:", error);
+    }
+    return null;
+};
+
+export const saveCachedShowDetail = async (show: SpotifyShow) => {
+    try {
+        const key = `${SHOW_DETAIL_KEY_PREFIX}${show.id}`;
+        await AsyncStorage.setItem(key, JSON.stringify(show));
+        log(`Cache: Saved show detail for ${show.name} (${show.id})`);
+    } catch (error) {
+        logError("Cache: Error saving show detail:", error);
+    }
+};
+
+export const getCachedShowDetail = async (showId: string): Promise<SpotifyShow | null> => {
+    try {
+        const key = `${SHOW_DETAIL_KEY_PREFIX}${showId}`;
+        const cachedShow = await AsyncStorage.getItem(key);
+        if (cachedShow) {
+            const parsedShow = JSON.parse(cachedShow);
+            log(`Cache: Retrieved cached show detail for ${showId}`);
+            return parsedShow;
+        }
+    } catch (error) {
+        logError("Cache: Error retrieving cached show detail:", error);
     }
     return null;
 };
@@ -257,6 +322,19 @@ export const clearCachedAlbumDetails = async () => {
     }
 };
 
+export const clearCachedShowDetails = async () => {
+    try {
+        const keys = await AsyncStorage.getAllKeys();
+        const showDetailKeys = keys.filter(key => key.startsWith(SHOW_DETAIL_KEY_PREFIX));
+        if (showDetailKeys.length > 0) {
+            await AsyncStorage.multiRemove(showDetailKeys);
+            log(`Cache: Cleared ${showDetailKeys.length} cached show details`);
+        }
+    } catch (error) {
+        logError("Cache: Error clearing cached show details:", error);
+    }
+};
+
 export const isAlbumCached = async (albumId: string): Promise<boolean> => {
     try {
         const key = `${ALBUM_DETAIL_KEY_PREFIX}${albumId}`;
@@ -275,6 +353,17 @@ export const isPlaylistCached = async (playlistId: string): Promise<boolean> => 
         return cachedPlaylist !== null;
     } catch (error) {
         logError("Cache: Error checking if playlist is cached:", error);
+        return false;
+    }
+};
+
+export const isShowCached = async (showId: string): Promise<boolean> => {
+    try {
+        const key = `${SHOW_DETAIL_KEY_PREFIX}${showId}`;
+        const cachedShow = await AsyncStorage.getItem(key);
+        return cachedShow !== null;
+    } catch (error) {
+        logError("Cache: Error checking if show is cached:", error);
         return false;
     }
 };

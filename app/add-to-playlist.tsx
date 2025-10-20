@@ -13,6 +13,7 @@ import ContentContainer from "@/components/ContentContainer";
 import { useInvertColors } from "@/contexts/InvertColorsContext";
 import CustomScrollView from "@/components/CustomScrollView";
 import { log, logError } from "@/utils/logger";
+import { usePreventDoubleTap } from "@/hooks/usePreventDoubleTap";
 
 export default function AddToPlaylistScreen() {
     const {
@@ -121,6 +122,18 @@ export default function AddToPlaylistScreen() {
         }
     };
 
+    const handleDonePress = usePreventDoubleTap(handleDone);
+
+    const handleCreatePlaylistPress = usePreventDoubleTap(() => {
+        router.push({
+            pathname: "/create-playlist",
+            params: {
+                returnTo: "add-to-playlist",
+                trackUri,
+            },
+        } as any);
+    });
+
     const renderPlaylistItem = ({ item }: { item: SpotifyPlaylist }) => {
         const isSelected = selectedPlaylists.includes(item.id);
         return (
@@ -198,15 +211,7 @@ export default function AddToPlaylistScreen() {
                 ListHeaderComponent={() => (
                     <HapticPressable
                         style={styles.newPlaylistItemContainer}
-                        onPress={() =>
-                            router.push({
-                                pathname: "/create-playlist",
-                                params: {
-                                    returnTo: "add-to-playlist",
-                                    trackUri,
-                                },
-                            } as any)
-                        }
+                        onPress={handleCreatePlaylistPress}
                     >
                         <View style={styles.placeholderImageContainer}>
                             <MaterialIcons name="add" size={24} color="white" />
@@ -221,7 +226,7 @@ export default function AddToPlaylistScreen() {
             />
 
             <View style={{ width: "100%", justifyContent: "flex-end", alignItems: "center" }}>
-                <HapticPressable style={styles.doneButton} onPress={handleDone}>
+                <HapticPressable style={styles.doneButton} onPress={handleDonePress}>
                     <StyledText style={styles.doneButtonText}>Done</StyledText>
                 </HapticPressable>
             </View>

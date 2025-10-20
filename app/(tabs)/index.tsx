@@ -19,6 +19,7 @@ import ContentContainer from "@/components/ContentContainer";
 import { useTabPreferences } from "@/contexts/TabPreferencesContext";
 import CustomScrollView from "@/components/CustomScrollView";
 import { useNetworkState } from "@/hooks/useNetworkState";
+import { usePreventDoubleTap } from "@/hooks/usePreventDoubleTap";
 
 export default function LikedSongsScreen() {
     const {
@@ -67,6 +68,45 @@ export default function LikedSongsScreen() {
 
     const { preferences } = useTabPreferences();
 
+    const handleTrackPress = usePreventDoubleTap(
+        async (item: SavedTrackObject, index: number, isDisabled: boolean) => {
+            if (isDisabled) return;
+
+            if (!user?.id) {
+                logError("Cannot play track: User not loaded");
+                return;
+            }
+
+            const collectionUri = "spotify:collection:tracks";
+
+            try {
+                let wasShuffling = false;
+                try {
+                    const playbackState = await getPlaybackState();
+                    wasShuffling = !!playbackState?.shuffle_state;
+                } catch (e) {
+                    logWarn("Could not get playback state, proceeding without shuffle workaround");
+                }
+                if (wasShuffling) {
+                    await toggleShuffle(false);
+                }
+                await playTrackWithContext(item.track.uri, {
+                    type: "liked",
+                    uri: collectionUri,
+                    tracks: savedTracks || [],
+                    currentIndex: index,
+                });
+                if (wasShuffling) {
+                    await toggleShuffle(true);
+                }
+                router.push("/playing");
+            } catch (error) {
+                logError("Error playing track:", error);
+                router.push("/playing");
+            }
+        }
+    );
+
     const renderTrackItem = ({
         item,
         index,
@@ -85,42 +125,7 @@ export default function LikedSongsScreen() {
         return (
             <HapticPressable
                 style={[styles.itemContainer, isDisabled && styles.disabledContainer]}
-                onPress={async () => {
-                    if (isDisabled) return;
-                    
-                    if (!user?.id) {
-                        logError("Cannot play track: User not loaded");
-                        return;
-                    }
-
-                    const collectionUri = "spotify:collection:tracks";
-
-                    try {
-                        let wasShuffling = false;
-                        try {
-                            const playbackState = await getPlaybackState();
-                            wasShuffling = !!playbackState?.shuffle_state;
-                        } catch (e) {
-                            logWarn("Could not get playback state, proceeding without shuffle workaround");
-                        }
-                        if (wasShuffling) {
-                            await toggleShuffle(false);
-                        }
-                        await playTrackWithContext(item.track.uri, {
-                            type: "liked",
-                            uri: collectionUri,
-                            tracks: savedTracks || [],
-                            currentIndex: index,
-                        });
-                        if (wasShuffling) {
-                            await toggleShuffle(true);
-                        }
-                        router.push("/playing");
-                    } catch (error) {
-                        logError("Error playing track:", error);
-                        router.push("/playing");
-                    }
-                }}
+                onPress={() => handleTrackPress(item, index, isDisabled)}
                 disabled={isDisabled}
             >
                 {item.track.album?.images &&
@@ -150,6 +155,10 @@ export default function LikedSongsScreen() {
         );
     };
 
+    const handlePlayingPress = usePreventDoubleTap(() => {
+        router.push("/playing");
+    });
+
     if (isNetworkLoading || (isLoading && !savedTracks)) {
         return <View style={styles.centeredMessageContainer}></View>;
     }
@@ -168,10 +177,6 @@ export default function LikedSongsScreen() {
     const renderFooter = () => {
         if (!isLoadingMoreSavedTracks) return null;
         return;
-    };
-
-    const handlePlayingPress = () => {
-        router.push("/playing");
     };
 
     if (!savedTracks || savedTracks.length === 0) {
@@ -228,7 +233,7 @@ export default function LikedSongsScreen() {
                 ItemSeparatorComponent={() => <View style={{ height: 8 }} />}
                 overScrollMode={"never"}
                 onEndReached={handleLoadMore}
-                onEndReachedThreshold={6}
+                onEndReachedThreshold={2}
                 ListFooterComponent={renderFooter}
                 refreshControl={
                     <RefreshControl
