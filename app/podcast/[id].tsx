@@ -21,6 +21,7 @@ import {
     saveCachedShowDetail,
 } from "@/utils/cache";
 import { usePreventDoubleTap } from "@/hooks/usePreventDoubleTap";
+import { MaterialIcons } from "@expo/vector-icons";
 
 export default function PodcastDetailScreen() {
     const { id, showString, showName } = useLocalSearchParams<{
@@ -52,9 +53,22 @@ export default function PodcastDetailScreen() {
 
     const formatDuration = (ms: number) => {
         const totalSeconds = Math.floor(ms / 1000);
-        const minutes = Math.floor(totalSeconds / 60);
+        const hours = Math.floor(totalSeconds / 3600);
+        const minutes = Math.floor((totalSeconds % 3600) / 60);
         const seconds = totalSeconds % 60;
-        return `${minutes}:${seconds < 10 ? "0" : ""}${seconds}`;
+
+        const parts: string[] = [];
+        if (hours > 0) {
+            parts.push(`${hours}h`);
+        }
+        if (minutes > 0) {
+            parts.push(`${minutes}m`);
+        }
+        if (seconds > 0 || totalSeconds === 0) {
+            parts.push(`${seconds}s`);
+        }
+
+        return parts.join(" ");
     };
 
     const checkShowFollowedStatus = useCallback(async () => {
@@ -258,12 +272,44 @@ export default function PodcastDetailScreen() {
             onPress={() => handleEpisodePress(episode, index)}
         >
             <View style={styles.episodeInfoContainer}>
-                <StyledText style={styles.episodeName} numberOfLines={1}>
-                    {episode.name}
-                </StyledText>
-                <StyledText style={styles.episodeMeta} numberOfLines={1}>
-                    {new Date(episode.release_date).toLocaleDateString()} · {formatDuration(episode.duration_ms)}
-                </StyledText>
+                <View style={styles.titleRow}>
+                    {episode.resume_point?.fully_played && (
+                        <MaterialIcons
+                            name="check-circle"
+                            size={16}
+                            color="#1DB954"
+                            style={{ marginTop: 6 }}
+                        />
+                    )}
+                    <StyledText style={styles.episodeName} numberOfLines={1}>
+                        {episode.name}
+                    </StyledText>
+                </View>
+                {(() => {
+                    const resumePoint = episode.resume_point;
+                    const remainingMs =
+                        resumePoint && !resumePoint.fully_played
+                            ? Math.max(
+                                  episode.duration_ms -
+                                      (resumePoint.resume_position_ms ?? 0),
+                                  0
+                              )
+                            : 0;
+                    const progressLabel = resumePoint
+                        ? resumePoint.fully_played
+                            ? "Played"
+                            : resumePoint.resume_position_ms > 0
+                              ? `${formatDuration(remainingMs)} left`
+                              : null
+                        : null;
+                    return (
+                        <StyledText style={styles.episodeMeta} numberOfLines={1}>
+                            {new Date(episode.release_date).toLocaleDateString()} ·{" "}
+                            {formatDuration(episode.duration_ms)}
+                            {progressLabel ? ` · ${progressLabel}` : ""}
+                        </StyledText>
+                    );
+                })()}
             </View>
         </HapticPressable>
     );
@@ -389,5 +435,11 @@ const styles = StyleSheet.create({
     episodeInfoContainer: {
         flex: 1,
         alignItems: "flex-start",
+    },
+    titleRow: {
+        flexDirection: "row",
+        alignItems: "center",
+        gap: 6,
+        marginBottom: 4,
     },
 });

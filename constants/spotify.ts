@@ -14,6 +14,7 @@ export const SPOTIFY_SCOPES = [
     "playlist-modify-private",
     "user-modify-playback-state",
     "user-read-playback-state",
+    "user-read-playback-position",
     "streaming",
 ];
 
