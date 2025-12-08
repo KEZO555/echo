@@ -40,7 +40,7 @@ try {
 	);
 
 	console.log("\n🎉 Android version sync complete!");
-	console.log('💡 Run "npm run android" to rebuild with the new version');
+	console.log('💡 Run "bun run android" to rebuild with the new version');
 } catch (error) {
 	console.error("❌ Error syncing version:", error.message);
 	process.exit(1);
