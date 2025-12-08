@@ -9,6 +9,13 @@ import type {
     SpotifyTrackSimple,
 } from "../types/spotify";
 import { log, logError } from "../utils/logger";
+import {
+    isTrackInSavedCache,
+    addTrackToSavedCache,
+    removeTrackFromSavedCache,
+} from "../utils/cache";
+
+const inFlightLibraryChecks = new Map<string, Promise<{ isAdded: boolean; canAdd: boolean } | null>>();
 
 export const ensureAppRemoteConnection = async (): Promise<boolean> => {
     try {
@@ -803,7 +810,7 @@ export const skipToIndex = async (
     }
 };
 
-export const addToLibrary = async (uri: string): Promise<boolean> => {
+export const addToLibrary = async (uri: string, accessToken?: string | null): Promise<boolean> => {
     try {
         const connected = await ensureAppRemoteConnection();
         if (!connected) {
@@ -812,6 +819,11 @@ export const addToLibrary = async (uri: string): Promise<boolean> => {
         }
         const result = await SpotifySdk.addToLibrary(uri);
         log(`Playback: Added to library: ${uri}`, result);
+
+        if (result.added && accessToken) {
+            await addTrackToSavedCache(uri, accessToken);
+        }
+
         return result.added;
     } catch (error) {
         logError("Playback: Error adding to library:", error);
@@ -819,7 +831,7 @@ export const addToLibrary = async (uri: string): Promise<boolean> => {
     }
 };
 
-export const removeFromLibrary = async (uri: string): Promise<boolean> => {
+export const removeFromLibrary = async (uri: string, accessToken?: string | null): Promise<boolean> => {
     try {
         const connected = await ensureAppRemoteConnection();
         if (!connected) {
@@ -828,6 +840,12 @@ export const removeFromLibrary = async (uri: string): Promise<boolean> => {
         }
         const result = await SpotifySdk.removeFromLibrary(uri);
         log(`Playback: Removed from library: ${uri}`, result);
+
+        if (result.removed) {
+            const trackId = uri.replace("spotify:track:", "");
+            await removeTrackFromSavedCache(trackId);
+        }
+
         return result.removed;
     } catch (error) {
         logError("Playback: Error removing from library:", error);
@@ -836,16 +854,31 @@ export const removeFromLibrary = async (uri: string): Promise<boolean> => {
 };
 
 export const getLibraryState = async (uri: string): Promise<{ isAdded: boolean; canAdd: boolean } | null> => {
-    try {
+    if (inFlightLibraryChecks.has(uri)) {
+        log(`Playback: Reusing in-flight library check for ${uri}`);
+        return await inFlightLibraryChecks.get(uri)!;
+    }
+
+    const requestPromise = (async () => {
+        const trackId = uri.replace("spotify:track:", "");
+
+        const isInCache = await isTrackInSavedCache(trackId);
+        if (isInCache) {
+            log(`Playback: Track ${trackId} found in cache - returning saved state`);
+            return { isAdded: true, canAdd: true };
+        }
+
         const connected = await ensureAppRemoteConnection();
         if (!connected) {
             log("Playback: Cannot get library state - App Remote not connected");
             return null;
         }
+
         const result = await SpotifySdk.getLibraryState(uri);
+        inFlightLibraryChecks.delete(uri);
         return result;
-    } catch (error) {
-        logError("Playback: Error getting library state:", error);
-        return null;
-    }
+    })();
+
+    inFlightLibraryChecks.set(uri, requestPromise);
+    return await requestPromise;
 };

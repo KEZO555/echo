@@ -368,4 +368,83 @@ export const isShowCached = async (showId: string): Promise<boolean> => {
     }
 };
 
+export const refreshSavedTracksFromCache = async (): Promise<SavedTrackObject[] | null> => {
+    const cachedSavedTracks = await AsyncStorage.getItem(SAVED_TRACKS_KEY);
+    if (cachedSavedTracks) {
+        const parsedTracks = JSON.parse(cachedSavedTracks);
+        log(
+            `Cache: Refreshed saved tracks state from cache - ${parsedTracks.length} tracks`
+        );
+        return parsedTracks;
+    }
+    return null;
+};
+
+export const isTrackInSavedCache = async (trackId: string): Promise<boolean> => {
+    const cachedSavedTracks = await AsyncStorage.getItem(SAVED_TRACKS_KEY);
+    if (cachedSavedTracks) {
+        const parsedTracks = JSON.parse(cachedSavedTracks);
+        return parsedTracks.some(
+            (savedTrack: SavedTrackObject) => savedTrack.track?.id === trackId
+        );
+    }
+    return false;
+};
+
+export const addTrackToSavedCache = async (
+    trackUri: string,
+    accessToken: string | null
+): Promise<void> => {
+    const trackId = trackUri.replace("spotify:track:", "");
+
+    if (!accessToken) {
+        log("Cache: Cannot fetch track details - no access token");
+        return;
+    }
+
+    const trackResponse = await fetch(
+        `https://api.spotify.com/v1/tracks/${trackId}`,
+        {
+            headers: {
+                Authorization: `Bearer ${accessToken}`,
+            },
+        }
+    );
+
+    if (trackResponse.ok) {
+        const trackData = await trackResponse.json();
+        const cachedTracks = await AsyncStorage.getItem(SAVED_TRACKS_KEY);
+        let parsedTracks = cachedTracks ? JSON.parse(cachedTracks) : [];
+
+        const newSavedTrack: SavedTrackObject = {
+            added_at: new Date().toISOString(),
+            track: trackData,
+        };
+        parsedTracks.unshift(newSavedTrack);
+
+        await AsyncStorage.setItem(
+            SAVED_TRACKS_KEY,
+            JSON.stringify(parsedTracks)
+        );
+        log(`Cache: Updated cached tracks - added track ${trackId}`);
+    } else {
+        log(`Cache: Failed to fetch track details for ${trackId}`);
+    }
+};
+
+export const removeTrackFromSavedCache = async (trackId: string): Promise<void> => {
+    const cachedTracks = await AsyncStorage.getItem(SAVED_TRACKS_KEY);
+    if (cachedTracks) {
+        let parsedTracks = JSON.parse(cachedTracks);
+        parsedTracks = parsedTracks.filter(
+            (savedTrack: SavedTrackObject) => savedTrack.track?.id !== trackId
+        );
+        await AsyncStorage.setItem(
+            SAVED_TRACKS_KEY,
+            JSON.stringify(parsedTracks)
+        );
+        log(`Cache: Updated cached tracks - removed track ${trackId}`);
+    }
+};
+
 
