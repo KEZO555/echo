@@ -4,7 +4,7 @@ import { StyleSheet, View } from "react-native";
 import { router } from "expo-router";
 import { StyledText } from "./StyledText";
 import { HapticPressable } from "./HapticPressable";
-import { useInvertColors } from "@/features/settings/contexts/InvertColorsContext";
+import { useSettings } from "@/features/settings";
 
 interface HeaderProps {
     iconName?: keyof typeof MaterialIcons.glyphMap;
@@ -23,7 +23,7 @@ export function Header({
     backEvent,
     hideBackButton = false,
 }: HeaderProps) {
-    const { invertColors } = useInvertColors();
+    const { invertColors } = useSettings();
     const handleBack = backEvent
         ? backEvent
         : () => {

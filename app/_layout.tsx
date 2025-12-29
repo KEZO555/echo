@@ -1,7 +1,7 @@
 import React, { useEffect, useRef } from "react";
 import { Stack, useRouter } from "expo-router";
 import { View } from "react-native";
-import { HapticProvider, TabPreferencesProvider, useTabPreferences, InvertColorsProvider, useInvertColors } from "@/features/settings";
+import { SettingsProvider, useSettings } from "@/features/settings";
 import { AuthProvider, useAuth } from "@/features/auth";
 import { LibraryProvider } from "@/features/library";
 import { PlaybackProvider } from "@/features/playback";
@@ -15,7 +15,7 @@ import "@/shared/utils/logger";
 function RootNavigation() {
     const router = useRouter();
     const { accessToken, isLoading: authLoading } = useAuth();
-    const { preferences, isLoading: preferencesLoading } = useTabPreferences();
+    const { tabPreferences, isLoading: preferencesLoading, invertColors } = useSettings();
     const [fontsLoaded, fontError] = useFonts({
         "PublicSans-Regular": require("../assets/fonts/PublicSans-Regular.ttf"),
     });
@@ -24,16 +24,14 @@ function RootNavigation() {
     const hasDoneInitialRouting = useRef(false);
 
     const getFirstAvailableTab = () => {
-        if (preferences.showLikedSongs) return "/(tabs)";
-        if (preferences.showArtists) return "/(tabs)/artists";
-        if (preferences.showAlbums) return "/(tabs)/albums";
-        if (preferences.showPodcasts) return "/(tabs)/podcasts";
-        if (preferences.showPlaylists) return "/(tabs)/playlists";
-        if (preferences.showSearch) return "/(tabs)/search";
+        if (tabPreferences.showLikedSongs) return "/(tabs)";
+        if (tabPreferences.showArtists) return "/(tabs)/artists";
+        if (tabPreferences.showAlbums) return "/(tabs)/albums";
+        if (tabPreferences.showPodcasts) return "/(tabs)/podcasts";
+        if (tabPreferences.showPlaylists) return "/(tabs)/playlists";
+        if (tabPreferences.showSearch) return "/(tabs)/search";
         return "/(tabs)/settings";
     };
-
-    const { invertColors } = useInvertColors();
 
     useEffect(() => {
         setStatusBarHidden(true, "none");
@@ -74,18 +72,14 @@ function RootNavigation() {
 
 export default function RootLayout() {
     return (
-        <HapticProvider>
-            <InvertColorsProvider>
-                <TabPreferencesProvider>
-                    <AuthProvider>
-                        <LibraryProvider>
-                            <PlaybackProvider>
-                                <RootNavigation />
-                            </PlaybackProvider>
-                        </LibraryProvider>
-                    </AuthProvider>
-                </TabPreferencesProvider>
-            </InvertColorsProvider>
-        </HapticProvider>
+        <SettingsProvider>
+            <AuthProvider>
+                <LibraryProvider>
+                    <PlaybackProvider>
+                        <RootNavigation />
+                    </PlaybackProvider>
+                </LibraryProvider>
+            </AuthProvider>
+        </SettingsProvider>
     );
 }

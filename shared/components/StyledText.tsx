@@ -1,13 +1,13 @@
 import React from "react";
 import { Text as DefaultText, TextProps, StyleSheet } from "react-native";
-import { useInvertColors } from "@/features/settings/contexts/InvertColorsContext";
+import { useSettings } from "@/features/settings";
 
 interface StyledTextProps extends TextProps {
     children: React.ReactNode;
 }
 
 export function StyledText({ style, ...rest }: StyledTextProps) {
-    const { invertColors } = useInvertColors();
+    const { invertColors } = useSettings();
     return (
         <DefaultText
             style={[

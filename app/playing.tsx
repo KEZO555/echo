@@ -4,20 +4,76 @@ import {
     StyleSheet,
     Image,
     Animated,
+    TextStyle,
+    StyleProp,
+    LayoutChangeEvent,
 } from "react-native";
 import * as Network from "expo-network";
+import AutoScroll from "@homielab/react-native-auto-scroll";
 import { StyledText } from "@/shared/components/StyledText";
 import { useAuth } from "@/features/auth/contexts/AuthContext";
 import { usePlayback } from "@/features/playback/contexts/PlaybackContext";
-import type { SpotifyCurrentlyPlaying, SpotifyArtistSimple, SpotifyEpisode, SpotifyTrackSimple } from "@/shared/types/spotify";
+import type { SpotifyCurrentlyPlaying, SpotifyEpisode, SpotifyTrackSimple } from "@/shared/types/spotify";
 import { MaterialIcons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { useFocusEffect, router, useLocalSearchParams } from "expo-router";
 import { HapticPressable } from "@/shared/components/HapticPressable";
 import ContentContainer from "@/shared/components/ContentContainer";
-import { MarqueeText } from "@/shared/components/MarqueeText";
-import { useInvertColors } from "@/features/settings/contexts/InvertColorsContext";
-import { log, logError } from "@/shared/utils/logger";
+import { useSettings } from "@/features/settings";
+import { log, logError, getArtistNames } from "@/shared/utils";
 import { usePreventDoubleTap } from "@/shared/hooks/usePreventDoubleTap";
+
+function MarqueeText({
+    children,
+    style,
+    msPerChar = 250,
+    delay = 1250,
+    isActive = true,
+}: {
+    children: string;
+    style?: StyleProp<TextStyle>;
+    msPerChar?: number;
+    delay?: number;
+    isActive?: boolean;
+}) {
+    const [containerWidth, setContainerWidth] = useState(0);
+    const [textWidth, setTextWidth] = useState(0);
+
+    const handleContainerLayout = useCallback((event: LayoutChangeEvent) => {
+        setContainerWidth(event.nativeEvent.layout.width);
+    }, []);
+
+    const handleTextLayout = useCallback((event: LayoutChangeEvent) => {
+        setTextWidth(event.nativeEvent.layout.width);
+    }, []);
+
+    const shouldScroll = isActive && textWidth > containerWidth + 5 && containerWidth > 0;
+    const duration = children.length * msPerChar;
+
+    return (
+        <View style={styles.marqueeContainer} onLayout={handleContainerLayout}>
+            <View style={styles.marqueeMeasuringContainer} pointerEvents="none">
+                <StyledText style={style} onLayout={handleTextLayout}>
+                    {children}
+                </StyledText>
+            </View>
+
+            {shouldScroll ? (
+                <AutoScroll
+                    style={styles.marqueeScrollContainer}
+                    duration={duration}
+                    delay={delay}
+                    endPaddingWidth={25}
+                >
+                    <StyledText style={style}>{children}</StyledText>
+                </AutoScroll>
+            ) : (
+                <StyledText style={style} numberOfLines={1}>
+                    {children}
+                </StyledText>
+            )}
+        </View>
+    );
+}
 
 let cachedPlaybackState: SpotifyCurrentlyPlaying | null = null;
 
@@ -44,7 +100,7 @@ export default function PlayingScreen() {
         getLibraryState,
         getPlaybackState,
     } = usePlayback();
-    const { invertColors } = useInvertColors();
+    const { invertColors } = useSettings();
     const networkState = Network.useNetworkState();
     const params = useLocalSearchParams<{
         trackName?: string;
@@ -367,10 +423,6 @@ export default function PlayingScreen() {
             };
         }, [fetchAndUpdatePlaybackState])
     );
-
-    const getArtistNames = (artists: SpotifyArtistSimple[]) => {
-        return artists.map((artist) => artist.name).join(", ");
-    };
 
 
     const item = playbackState?.item ?? null;
@@ -778,5 +830,18 @@ const styles = StyleSheet.create({
     },
     disabledButton: {
         opacity: 0.3,
+    },
+    marqueeContainer: {
+        width: "100%",
+        overflow: "hidden",
+    },
+    marqueeMeasuringContainer: {
+        position: "absolute",
+        top: 0,
+        left: 0,
+        opacity: 0,
+    },
+    marqueeScrollContainer: {
+        width: "100%",
     },
 });

@@ -1,23 +1,18 @@
 import React, { useEffect, useState, useCallback } from "react";
 import {
     View,
-    StyleSheet,
     Image,
-    ActivityIndicator,
 } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { useAuth } from "@/features/auth/contexts/AuthContext";
 import { useSpotifyLibrary } from "@/features/library/contexts/LibraryContext";
 import { usePlayback } from "@/features/playback/contexts/PlaybackContext";
 import type { SpotifyPlaylist, SpotifyTrackSimple } from "@/shared/types/spotify";
-import { StyledText } from "@/shared/components/StyledText";
+import { StyledText, ContentContainer, CustomScrollView, TrackListItem, ListFooter } from "@/shared/components";
 import { MaterialIcons } from "@expo/vector-icons";
-import { HapticPressable } from "@/shared/components/HapticPressable";
-import ContentContainer from "@/shared/components/ContentContainer";
-import CustomScrollView from "@/shared/components/CustomScrollView";
-import { log, logError } from "@/shared/utils/logger";
+import { log, logError } from "@/shared/utils";
 import { getCachedPlaylistDetail } from "@/features/library/utils/cache";
 import { usePreventDoubleTap } from "@/shared/hooks/usePreventDoubleTap";
+import { detailScreenStyles } from "@/shared/styles/detailScreen";
 
 interface PlaylistTrack {
     added_at: string;
@@ -67,14 +62,6 @@ export default function PlaylistDetailScreen() {
     const [isLoading, setIsLoading] = useState(!initialPlaylist);
     const [error, setError] = useState<string | null>(null);
     const [isLoadingMoreTracks, setIsLoadingMoreTracks] = useState(false);
-
-    // Helper function to format milliseconds to MM:SS
-    const formatDuration = (ms: number) => {
-        const totalSeconds = Math.floor(ms / 1000);
-        const minutes = Math.floor(totalSeconds / 60);
-        const seconds = totalSeconds % 60;
-        return `${minutes}:${seconds < 10 ? "0" : ""}${seconds}`;
-    };
 
     useEffect(() => {
         if (!id) {
@@ -215,16 +202,16 @@ export default function PlaylistDetailScreen() {
 
     if (error) {
         return (
-            <View style={styles.centeredMessageContainer}>
-                <StyledText style={styles.errorText}>Error: {error}</StyledText>
+            <View style={detailScreenStyles.centeredMessageContainer}>
+                <StyledText style={detailScreenStyles.errorText}>Error: {error}</StyledText>
             </View>
         );
     }
 
     if (!playlist) {
         return (
-            <View style={styles.centeredMessageContainer}>
-                <StyledText style={styles.emptyText}>
+            <View style={detailScreenStyles.centeredMessageContainer}>
+                <StyledText style={detailScreenStyles.emptyText}>
                     Playlist data is unavailable.
                 </StyledText>
             </View>
@@ -244,36 +231,13 @@ export default function PlaylistDetailScreen() {
         if (!track) return null;
 
         return (
-            <HapticPressable
+            <TrackListItem
                 key={`${track.id || "unknown"}-${index}`}
-                style={styles.trackItemContainer}
+                trackNumber={(playlist.tracks?.offset || 0) + index + 1}
+                name={track.name}
+                artists={track.artists}
+                durationMs={track.duration_ms}
                 onPress={() => handleTrackPress(index)}
-            >
-                <StyledText style={styles.trackNumber}>
-                    {(playlist.tracks?.offset || 0) + index + 1}.
-                </StyledText>
-                <View style={styles.trackNameContainer}>
-                    <StyledText style={styles.trackName} numberOfLines={1}>
-                        {track.name}
-                    </StyledText>
-                    <StyledText style={styles.trackArtistDuration}>
-                        {track.artists.map((artist: SpotifyTrackSimple['artists'][0]) => artist.name).join(", ") +
-                            (track.duration_ms
-                                ? ` · ${formatDuration(track.duration_ms)}`
-                                : "")}
-                    </StyledText>
-                </View>
-            </HapticPressable>
-        );
-    };
-
-    const renderFooter = () => {
-        if (!isLoadingMoreTracks) return null;
-        return (
-            <ActivityIndicator
-                style={{ marginVertical: 20 }}
-                size="large"
-                color="white"
             />
         );
     };
@@ -287,14 +251,14 @@ export default function PlaylistDetailScreen() {
                 <CustomScrollView
                     ListHeaderComponent={
                         <>
-                            <View style={styles.playlistArtContainer}>
+                            <View style={detailScreenStyles.imageContainer}>
                                 {playlistImageUrl ? (
                                     <Image
                                         source={{ uri: playlistImageUrl }}
-                                        style={styles.playlistImage}
+                                        style={detailScreenStyles.image}
                                     />
                                 ) : (
-                                    <View style={styles.placeholderImageContainer}>
+                                    <View style={detailScreenStyles.placeholderImageContainer}>
                                         <MaterialIcons
                                             name="music-note"
                                             size={80}
@@ -310,14 +274,14 @@ export default function PlaylistDetailScreen() {
                     keyExtractor={(item, index) =>
                         `${item.track?.id || "unknown-track"}-${index}`
                     }
-                    contentContainerStyle={styles.listContentContainer} // Changed from scrollContentContainer
+                    contentContainerStyle={detailScreenStyles.listContentContainer}
                     overScrollMode="never"
                     onEndReached={loadMoreTracks}
                     onEndReachedThreshold={2}
-                    ListFooterComponent={renderFooter}
+                    ListFooterComponent={<ListFooter isLoading={isLoadingMoreTracks} />}
                     ListEmptyComponent={
                         isLoading ? null : playlist.tracks?.items?.length === 0 ? (
-                            <StyledText style={styles.emptyText}>
+                            <StyledText style={detailScreenStyles.emptyText}>
                                 No tracks found in this playlist.
                             </StyledText>
                         ) : null
@@ -327,74 +291,3 @@ export default function PlaylistDetailScreen() {
         </ContentContainer>
     );
 }
-
-const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-        backgroundColor: "black",
-    },
-    playlistArtContainer: {
-        alignItems: "center",
-        paddingBottom: 20,
-    },
-    playlistImage: {
-        width: 200,
-        height: 200,
-        marginBottom: 10,
-    },
-    placeholderImageContainer: {
-        width: 200,
-        height: 200,
-        marginBottom: 10,
-        backgroundColor: "#282828",
-        justifyContent: "center",
-        alignItems: "center",
-    },
-    scrollContentContainer: {
-        alignItems: "center",
-        paddingBottom: 20,
-    },
-    centeredMessageContainer: {
-        flex: 1,
-        backgroundColor: "black",
-        justifyContent: "center",
-        alignItems: "center",
-        padding: 20,
-    },
-    errorText: {
-        fontSize: 16,
-        textAlign: "center",
-    },
-    emptyText: {
-        fontSize: 16,
-        textAlign: "center",
-    },
-    trackItemContainer: {
-        flexDirection: "row",
-        justifyContent: "space-between",
-        alignItems: "flex-start",
-        width: "100%",
-    },
-    trackNumber: {
-        fontSize: 26,
-        paddingRight: 8,
-        width: 56,
-        textAlign: "center",
-    },
-    trackNameContainer: {
-        flex: 1,
-        alignItems: "flex-start",
-    },
-    trackName: {
-        flex: 1,
-        fontSize: 26,
-    },
-    trackArtistDuration: {
-        fontSize: 16,
-        lineHeight: 18,
-        paddingBottom: 6,
-    },
-    listContentContainer: {
-        paddingBottom: 0,
-    },
-});

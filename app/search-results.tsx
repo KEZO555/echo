@@ -7,7 +7,6 @@ import type {
     SpotifyTrack,
     SpotifyPlaylistSimple,
     SpotifyAlbumSimple,
-    SpotifyArtistSimple,
     SpotifyImage,
     SpotifyArtist,
     SpotifyShow,
@@ -17,7 +16,7 @@ import { HapticPressable } from "@/shared/components/HapticPressable";
 import { StyledText } from "@/shared/components/StyledText";
 import ContentContainer from "@/shared/components/ContentContainer";
 import CustomScrollView from "@/shared/components/CustomScrollView";
-import { logError } from "@/shared/utils/logger";
+import { logError, getArtistNames } from "@/shared/utils";
 import { useNetworkState } from "@/shared/hooks/useNetworkState";
 import { usePreventDoubleTap } from "@/shared/hooks/usePreventDoubleTap";
 
@@ -154,17 +153,11 @@ export default function SearchResultsScreen() {
         }
     }, [routeQuery, accessToken, ensureValidToken, isOnline]);
 
-    const getArtistNames = (artists: SpotifyArtistSimple[]) => {
-        return (
-            artists?.map((artist) => artist.name).join(", ") || "Unknown Artist"
-        );
-    };
-
     const handleResultPress = usePreventDoubleTap(
         async (item: SearchItem, itemUri: string) => {
             if (item.type === "track") {
                 const track = item.data;
-                const artistName = track.artists?.map((a: SpotifyArtistSimple) => a.name).join(", ") ?? "";
+                const artistName = getArtistNames(track.artists ?? []);
                 const albumArtUrl = track.album?.images?.[0]?.url ?? "";
 
                 try {

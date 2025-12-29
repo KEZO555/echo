@@ -4,7 +4,7 @@ import { useRouter, useFocusEffect } from "expo-router";
 import { useAuth } from "@/features/auth/contexts/AuthContext";
 import { useSpotifyLibrary } from "@/features/library/contexts/LibraryContext";
 import ContentContainer from "@/shared/components/ContentContainer";
-import { useInvertColors } from "@/features/settings/contexts/InvertColorsContext";
+import { useSettings } from "@/features/settings";
 import * as Haptics from "expo-haptics";
 import { MaterialIcons } from "@expo/vector-icons";
 import { HapticPressable } from "@/shared/components/HapticPressable";
@@ -76,7 +76,7 @@ export default function NamePlaylistScreen() {
 		}
 	};
 
-    const { invertColors } = useInvertColors();
+    const { invertColors } = useSettings();
 
     return (
         <ContentContainer

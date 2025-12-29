@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from "react";
+import React, { useEffect, useState } from "react";
 import {
     View,
     StyleSheet,
@@ -9,12 +9,10 @@ import { useAuth } from "@/features/auth/contexts/AuthContext";
 import { useSpotifyLibrary } from "@/features/library/contexts/LibraryContext";
 import { usePlayback } from "@/features/playback/contexts/PlaybackContext";
 import type { SpotifyArtist, SpotifyTrack, SpotifyAlbumSimple } from "@/shared/types/spotify";
-import { StyledText } from "@/shared/components/StyledText";
-import { HapticPressable } from "@/shared/components/HapticPressable";
-import ContentContainer from "@/shared/components/ContentContainer";
-import CustomScrollView from "@/shared/components/CustomScrollView";
-import { log, logError } from "@/shared/utils/logger";
-import { usePreventDoubleTap } from "@/shared/hooks/usePreventDoubleTap";
+import { StyledText, HapticPressable, ContentContainer, CustomScrollView, TrackListItem, ListFooter } from "@/shared/components";
+import { log, logError } from "@/shared/utils";
+import { usePreventDoubleTap, useSaveStatus } from "@/shared/hooks";
+import { detailScreenStyles } from "@/shared/styles/detailScreen";
 
 export default function ArtistDetailScreen() {
     const { id, artistString, artistName } = useLocalSearchParams<{
@@ -50,12 +48,18 @@ export default function ArtistDetailScreen() {
     const [artist, setArtist] = useState<SpotifyArtist | null>(initialArtist);
     const [isLoading, setIsLoading] = useState(!initialArtist);
     const [error, setError] = useState<string | null>(null);
-    const [isFollowingArtist, setIsFollowingArtist] = useState(false);
-    const [isCheckingFollowingArtist, setIsCheckingFollowingArtist] = useState(false);
     const [topTracks, setTopTracks] = useState<SpotifyTrack[]>([]);
     const [albums, setAlbums] = useState<SpotifyAlbumSimple[] | null>(null);
     const [albumsNextUrl, setAlbumsNextUrl] = useState<string | null>(null);
     const [isLoadingMore, setIsLoadingMore] = useState(false);
+
+    const { isSaved: isFollowingArtist, isChecking: isCheckingFollowingArtist, toggle: handleToggleFollowArtist } = useSaveStatus({
+        id,
+        checkFn: checkIfFollowingArtist,
+        saveFn: followArtist,
+        removeFn: unfollowArtist,
+        accessToken,
+    });
 
     const handleLoadMore = async () => {
         if (!albumsNextUrl || isLoadingMore) return;
@@ -76,48 +80,6 @@ export default function ArtistDetailScreen() {
             setIsLoadingMore(false);
         }
     };
-
-    const formatDuration = (ms: number) => {
-        const totalSeconds = Math.floor(ms / 1000);
-        const minutes = Math.floor(totalSeconds / 60);
-        const seconds = totalSeconds % 60;
-        return `${minutes}:${seconds < 10 ? "0" : ""}${seconds}`;
-    };
-
-    const checkArtistFollowingStatus = useCallback(async () => {
-        if (!id) return;
-
-        setIsCheckingFollowingArtist(true);
-        try {
-            const isFollowing = await checkIfFollowingArtist(id);
-            setIsFollowingArtist(isFollowing);
-        } catch (error) {
-            logError("Error checking if artist is saved:", error);
-            setIsFollowingArtist(false);
-        } finally {
-            setIsCheckingFollowingArtist(false);
-        }
-    }, [id, checkIfFollowingArtist]);
-
-    const handleToggleFollowArtist = useCallback(async () => {
-        if (!id) return;
-
-        try {
-            if (isFollowingArtist) {
-                const success = await unfollowArtist(id);
-                if (success) {
-                    setIsFollowingArtist(false);
-                }
-            } else {
-                const success = await followArtist(id);
-                if (success) {
-                    setIsFollowingArtist(true);
-                }
-            }
-        } catch (error) {
-            logError("Error toggling artist save status:", error);
-        }
-    }, [id, isFollowingArtist, followArtist, unfollowArtist]);
 
     useEffect(() => {
         if (!id) {
@@ -190,12 +152,6 @@ export default function ArtistDetailScreen() {
         fetchTopTracks();
         fetchAlbums();
     }, [id, makeApiRequest]);
-
-    useEffect(() => {
-        if (id && accessToken) {
-            checkArtistFollowingStatus();
-        }
-    }, [id, accessToken, checkArtistFollowingStatus]);
 
     const artistAlbums = (albums || []).filter(
         (album) => album.album_type === "album"
@@ -279,24 +235,13 @@ export default function ArtistDetailScreen() {
         const track = item.data;
         const index = item.index;
         return (
-            <HapticPressable
-                style={styles.trackItemContainer}
+            <TrackListItem
+                trackNumber={index + 1}
+                name={track.name}
+                artists={track.artists}
+                durationMs={track.duration_ms}
                 onPress={() => handleTrackPress(index)}
-            >
-                <StyledText style={styles.trackNumber}>
-                    {index + 1}.
-                </StyledText>
-                <View style={styles.trackNameContainer}>
-                    <StyledText style={styles.trackName} numberOfLines={1}>
-                        {track.name}
-                    </StyledText>
-                    <StyledText style={styles.trackArtistDuration}>
-                        {track.artists.map((artist: SpotifyTrack['artists'][0]) => artist.name).join(", ") +
-                            " · " +
-                            formatDuration(track.duration_ms)}
-                    </StyledText>
-                </View>
-            </HapticPressable>
+            />
         );
     };
 
@@ -319,16 +264,16 @@ export default function ArtistDetailScreen() {
 
     if (error) {
         return (
-            <View style={styles.centeredMessageContainer}>
-                <StyledText style={styles.errorText}>Error: {error}</StyledText>
+            <View style={detailScreenStyles.centeredMessageContainer}>
+                <StyledText style={detailScreenStyles.errorText}>Error: {error}</StyledText>
             </View>
         );
     }
 
     if (!artist) {
         return (
-            <View style={styles.centeredMessageContainer}>
-                <StyledText style={styles.emptyText}>
+            <View style={detailScreenStyles.centeredMessageContainer}>
+                <StyledText style={detailScreenStyles.emptyText}>
                     Artist data is unavailable.
                 </StyledText>
             </View>
@@ -404,10 +349,10 @@ export default function ArtistDetailScreen() {
                 <CustomScrollView
                     ListHeaderComponent={
                         <>
-                            <View style={styles.albumArtContainer}>
+                            <View style={detailScreenStyles.imageContainer}>
                                 <Image
                                     source={{ uri: artistImageUrl }}
-                                    style={styles.artistImage}
+                                    style={detailScreenStyles.image}
                                 />
                             </View>
                         </>
@@ -423,20 +368,14 @@ export default function ArtistDetailScreen() {
                         }
                         return null;
                     }}
-                    contentContainerStyle={styles.listContentContainer}
+                    contentContainerStyle={detailScreenStyles.listContentContainer}
                     overScrollMode="never"
                     onEndReached={handleLoadMore}
                     onEndReachedThreshold={2}
-                    ListFooterComponent={
-                        isLoadingMore ? (
-                            <View style={{ padding: 20 }}>
-                                <StyledText>Loading...</StyledText>
-                            </View>
-                        ) : null
-                    }
+                    ListFooterComponent={<ListFooter isLoading={isLoadingMore} />}
                     ListEmptyComponent={
                         isLoading ? null : (
-                            <StyledText style={styles.emptyText}>
+                            <StyledText style={detailScreenStyles.emptyText}>
                                 No tracks or albums found for this artist.
                             </StyledText>
                         )
@@ -482,80 +421,10 @@ const styles = StyleSheet.create({
         fontSize: 16,
         lineHeight: 18,
     },
-    container: {
-        flex: 1,
-        backgroundColor: "black",
-    },
-    albumArtContainer: {
-        alignItems: "center",
-        paddingBottom: 20,
-    },
-    artistImage: {
-        width: 200,
-        height: 200,
-    },
-    scrollContentContainer: {
-        alignItems: "center",
-        paddingBottom: 20,
-    },
-    centeredMessageContainer: {
-        flex: 1,
-        backgroundColor: "black",
-        justifyContent: "center",
-        alignItems: "center",
-        padding: 20,
-    },
-    errorText: {
-        fontSize: 16,
-        textAlign: "center",
-    },
-    emptyText: {
-        fontSize: 16,
-        textAlign: "center",
-        marginTop: 20,
-    },
-    artistName: {
-        fontSize: 18,
-        textAlign: "center",
-        marginBottom: 12,
-    },
-    albumInfo: {
-        fontSize: 14,
-        textAlign: "center",
-        marginBottom: 20,
-    },
     sectionTitle: {
         fontSize: 20,
         marginTop: 10,
         marginBottom: 10,
         alignSelf: "flex-start",
-    },
-    trackItemContainer: {
-        flexDirection: "row",
-        justifyContent: "space-between",
-        alignItems: "flex-start",
-        width: "100%",
-    },
-    trackNumber: {
-        fontSize: 26,
-        paddingRight: 8,
-        textAlign: "center",
-        width: 56,
-    },
-    trackNameContainer: {
-        flex: 1,
-        alignItems: "flex-start",
-    },
-    trackName: {
-        flex: 1,
-        fontSize: 26,
-    },
-    trackArtistDuration: {
-        fontSize: 16,
-        lineHeight: 18,
-        paddingBottom: 6,
-    },
-    listContentContainer: {
-        paddingBottom: 0,
     },
 });

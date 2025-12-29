@@ -1,10 +1,10 @@
 import React from "react";
 import { ToggleSwitch } from "@/shared/components/ToggleSwitch";
-import { useTabPreferences } from "@/features/settings/contexts/TabPreferencesContext";
+import { useSettings } from "@/features/settings";
 import ContentContainer from "@/shared/components/ContentContainer";
 
 export default function CustomiseTabsScreen() {
-    const { preferences, updatePreference, isLoading } = useTabPreferences();
+    const { tabPreferences, updateTabPreference, isLoading } = useSettings();
 
     if (isLoading) {
         return (
@@ -18,52 +18,52 @@ export default function CustomiseTabsScreen() {
             headerTitle="Customise Tabs"
         >
             <ToggleSwitch
-                value={preferences.showPlayingInNavbar}
+                value={tabPreferences.showPlayingInNavbar}
                 label="Now Playing"
                 onValueChange={(value) =>
-                    updatePreference("showPlayingInNavbar", value)
+                    updateTabPreference("showPlayingInNavbar", value)
                 }
             />
             <ToggleSwitch
                 label="Liked Songs"
-                value={preferences.showLikedSongs}
+                value={tabPreferences.showLikedSongs}
                 onValueChange={(value) =>
-                    updatePreference("showLikedSongs", value)
+                    updateTabPreference("showLikedSongs", value)
                 }
             />
             <ToggleSwitch
                 label="Artists"
-                value={preferences.showArtists}
+                value={tabPreferences.showArtists}
                 onValueChange={(value) =>
-                    updatePreference("showArtists", value)
+                    updateTabPreference("showArtists", value)
                 }
             />
             <ToggleSwitch
                 label="Albums"
-                value={preferences.showAlbums}
+                value={tabPreferences.showAlbums}
                 onValueChange={(value) =>
-                    updatePreference("showAlbums", value)
+                    updateTabPreference("showAlbums", value)
                 }
             />
             <ToggleSwitch
                 label="Podcasts"
-                value={preferences.showPodcasts}
+                value={tabPreferences.showPodcasts}
                 onValueChange={(value) =>
-                    updatePreference("showPodcasts", value)
+                    updateTabPreference("showPodcasts", value)
                 }
             />
             <ToggleSwitch
                 label="Playlists"
-                value={preferences.showPlaylists}
+                value={tabPreferences.showPlaylists}
                 onValueChange={(value) =>
-                    updatePreference("showPlaylists", value)
+                    updateTabPreference("showPlaylists", value)
                 }
             />
             <ToggleSwitch
                 label="Search"
-                value={preferences.showSearch}
+                value={tabPreferences.showSearch}
                 onValueChange={(value) =>
-                    updatePreference("showSearch", value)
+                    updateTabPreference("showSearch", value)
                 }
             />
         </ContentContainer>

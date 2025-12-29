@@ -1,7 +1,7 @@
 import React, { ReactNode } from "react";
 import { View, StyleSheet, StyleProp, ViewStyle } from "react-native";
 import { Header } from "@/shared/components/Header";
-import { useInvertColors } from "@/features/settings/contexts/InvertColorsContext";
+import { useSettings } from "@/features/settings";
 import { MaterialIcons } from "@expo/vector-icons";
 
 interface ContentContainerProps {
@@ -23,7 +23,7 @@ export default function ContentContainer({
 	headerIconShowLength = 1,
 	style,
 }: ContentContainerProps) {
-	const { invertColors } = useInvertColors();
+	const { invertColors } = useSettings();
 	return (
 		<View
 			style={[

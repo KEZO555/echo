@@ -12,7 +12,7 @@ import { useSpotifyLibrary } from "@/features/library/contexts/LibraryContext";
 import type { SpotifyPlaylist } from "@/shared/types/spotify";
 import { MaterialIcons } from "@expo/vector-icons";
 import ContentContainer from "@/shared/components/ContentContainer";
-import { useInvertColors } from "@/features/settings/contexts/InvertColorsContext";
+import { useSettings } from "@/features/settings";
 import CustomScrollView from "@/shared/components/CustomScrollView";
 import { log, logError } from "@/shared/utils/logger";
 import { usePreventDoubleTap } from "@/shared/hooks/usePreventDoubleTap";
@@ -68,7 +68,7 @@ export default function AddToPlaylistScreen() {
         );
     };
 
-    const { invertColors } = useInvertColors();
+    const { invertColors } = useSettings();
 
     const handleDone = async () => {
         const trackUri = params.trackUri;

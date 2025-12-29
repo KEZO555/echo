@@ -8,7 +8,7 @@ import {
     NativeSyntheticEvent,
     NativeScrollEvent,
 } from "react-native";
-import { useInvertColors } from "@/features/settings/contexts/InvertColorsContext";
+import { useSettings } from "@/features/settings";
 
 interface CustomScrollViewProps<T = any> extends FlatListProps<T> {
     // We can add any custom props here if needed in the future
@@ -19,7 +19,7 @@ const CustomScrollView = <T,>({
     contentContainerStyle,
     ...rest
 }: CustomScrollViewProps<T>) => {
-    const { invertColors } = useInvertColors();
+    const { invertColors } = useSettings();
     const [contentHeight, setContentHeight] = useState<number>(0);
     const [scrollViewHeight, setScrollViewHeight] = useState<number>(0);
     const scrollY = useRef(new Animated.Value(0)).current;

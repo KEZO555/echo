@@ -2,12 +2,11 @@ import React from "react";
 import { View, StyleSheet } from "react-native";
 import { StyledText } from "./StyledText";
 import { HapticPressable } from "./HapticPressable";
-import { useInvertColors } from "@/features/settings/contexts/InvertColorsContext";
+import { useSettings } from "@/features/settings";
 
 interface ToggleSwitchGraphicProps {
 	value: boolean;
 	disabled?: boolean;
-	color?: string;
 }
 
 const CIRCLE_DIAMETER = 9.8;
@@ -15,8 +14,8 @@ const CIRCLE_BORDER = 2.5;
 const LINE_WIDTH = 14.5;
 const LINE_HEIGHT = 2.22;
 
-const ToggleSwitchGraphic = ({ value, color }: ToggleSwitchGraphicProps) => {
-	const { invertColors } = useInvertColors();
+const ToggleSwitchGraphic = ({ value }: ToggleSwitchGraphicProps) => {
+	const { invertColors } = useSettings();
 	const switchColor = invertColors ? "black" : "white";
 
 	const graphicStyles = StyleSheet.create({
@@ -65,14 +64,12 @@ interface ToggleSwitchProps {
 	label: string;
 	value: boolean;
 	onValueChange: (value: boolean) => void;
-	color?: string;
 }
 
 export function ToggleSwitch({
 	label,
 	value,
 	onValueChange,
-	color = "white",
 }: ToggleSwitchProps) {
 	return (
 		<HapticPressable
@@ -82,7 +79,7 @@ export function ToggleSwitch({
 			style={[styles.container]}
 		>
 			<View style={styles.switchTouchable}>
-				<ToggleSwitchGraphic value={value} color={color} />
+				<ToggleSwitchGraphic value={value} />
 			</View>
 			<View style={styles.textTouchable}>
 				<StyledText style={[styles.label]}>{label}</StyledText>

@@ -3,11 +3,11 @@ import ContentContainer from "@/shared/components/ContentContainer";
 import { useRouter } from "expo-router";
 import { StyledButton } from "@/shared/components/StyledButton";
 import { ToggleSwitch } from "@/shared/components/ToggleSwitch";
-import { useInvertColors } from "@/features/settings/contexts/InvertColorsContext";
+import { useSettings } from "@/features/settings";
 
 export default function CustomiseTabsScreen() {
     const router = useRouter();
-    const { invertColors, setInvertColors } = useInvertColors();
+    const { invertColors, setInvertColors } = useSettings();
     const handleCustomiseTabs = () => {
         router.push("/customise-tabs" as any);
     };

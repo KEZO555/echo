@@ -5,10 +5,9 @@ import { HapticPressable } from "./HapticPressable";
 import { StyledText } from "./StyledText";
 import { useRouter } from "expo-router";
 import type { BottomTabBarProps } from "@react-navigation/bottom-tabs";
-import { useInvertColors } from "@/features/settings/contexts/InvertColorsContext";
+import { useSettings } from "@/features/settings";
 import { useNetworkState } from "@/shared/hooks/useNetworkState";
 import { usePlayback } from "@/features/playback/contexts/PlaybackContext";
-import { useTabPreferences } from "@/features/settings/contexts/TabPreferencesContext";
 
 export interface TabConfigItem {
     name: string;
@@ -30,10 +29,9 @@ export function Navbar({
     showPlayingButton = false,
 }: NavbarProps) {
     const router = useRouter();
-    const { invertColors } = useInvertColors();
+    const { invertColors, tabPreferences } = useSettings();
     const { isOnline } = useNetworkState();
     const { isConnectedToAppRemote } = usePlayback();
-    const { preferences } = useTabPreferences();
 
     const handlePlayingPress = () => {
         router.push("/playing");
@@ -47,7 +45,7 @@ export function Navbar({
         }
         
         // Show remote connection status based on preference
-        if (!isOnline || preferences.showRemoteStatusWhenOnline) {
+        if (!isOnline || tabPreferences.showRemoteStatusWhenOnline) {
             parts.push(`Remote ${isConnectedToAppRemote ? "connected" : "not connected"}`);
         }
         

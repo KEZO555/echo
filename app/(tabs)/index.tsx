@@ -1,22 +1,15 @@
 import React, { useEffect, useCallback } from "react";
-import {
-    View,
-    StyleSheet,
-    RefreshControl,
-} from "react-native";
+import { View, RefreshControl } from "react-native";
 import { useAuth } from "@/features/auth/contexts/AuthContext";
 import { useSpotifyLibrary } from "@/features/library/contexts/LibraryContext";
 import { usePlayback } from "@/features/playback/contexts/PlaybackContext";
-import type { SavedTrackObject, SpotifyArtistSimple } from "@/shared/types/spotify";
-import { StyledText } from "@/shared/components/StyledText";
+import type { SavedTrackObject } from "@/shared/types/spotify";
+import { StyledText, ContentContainer, CustomScrollView, MediaListItem } from "@/shared/components";
 import { useRouter } from "expo-router";
-import { log, logWarn, logError } from "@/shared/utils/logger";
-import ContentContainer from "@/shared/components/ContentContainer";
-import { MediaListItem } from "@/shared/components/MediaListItem";
-import { useTabPreferences } from "@/features/settings/contexts/TabPreferencesContext";
-import CustomScrollView from "@/shared/components/CustomScrollView";
-import { useNetworkState } from "@/shared/hooks/useNetworkState";
-import { usePreventDoubleTap } from "@/shared/hooks/usePreventDoubleTap";
+import { log, logWarn, logError, getArtistNames } from "@/shared/utils";
+import { useSettings } from "@/features/settings";
+import { useNetworkState, usePreventDoubleTap } from "@/shared/hooks";
+import { tabScreenStyles as styles } from "@/shared/styles/detailScreen";
 
 export default function LikedSongsScreen() {
     const { isLoading, accessToken, user } = useAuth();
@@ -55,11 +48,7 @@ export default function LikedSongsScreen() {
         }
     }, [fetchSavedTracks, isRefreshingSavedTracks]);
 
-    const getArtistNames = (artists: SpotifyArtistSimple[]) => {
-        return artists.map((artist) => artist.name).join(", ");
-    };
-
-    const { preferences } = useTabPreferences();
+    const { tabPreferences } = useSettings();
 
     const handleTrackPress = usePreventDoubleTap(
         async (item: SavedTrackObject, index: number, isDisabled: boolean) => {
@@ -74,7 +63,7 @@ export default function LikedSongsScreen() {
 
             try {
                 const track = item.track;
-                const artistName = track.artists?.map((a: SpotifyArtistSimple) => a.name).join(", ") ?? "";
+                const artistName = getArtistNames(track.artists ?? []);
                 const albumArtUrl = track.album?.images?.[0]?.url ?? "";
 
                 let wasShuffling = false;
@@ -171,7 +160,7 @@ export default function LikedSongsScreen() {
                 style={{ paddingHorizontal: 20 }}
                 headerIcon="multitrack-audio"
                 headerIconPress={handlePlayingPress}
-                headerIconShowLength={preferences.showPlayingInNavbar ? 0 : 1}
+                headerIconShowLength={tabPreferences.showPlayingInNavbar ? 0 : 1}
             >
                 <CustomScrollView
                     data={[]}
@@ -204,7 +193,7 @@ export default function LikedSongsScreen() {
             style={{ paddingHorizontal: 20 }}
             headerIcon="multitrack-audio"
             headerIconPress={handlePlayingPress}
-            headerIconShowLength={preferences.showPlayingInNavbar ? 0 : 1}
+            headerIconShowLength={tabPreferences.showPlayingInNavbar ? 0 : 1}
         >
             <CustomScrollView
                 data={savedTracks?.filter((item: SavedTrackObject) => item.track !== null) || []}
@@ -233,28 +222,3 @@ export default function LikedSongsScreen() {
         </ContentContainer>
     );
 }
-
-const styles = StyleSheet.create({
-    list: {
-        flex: 1,
-        width: "100%",
-    },
-    listContentContainer: {
-        paddingTop: 0,
-        paddingBottom: 0,
-    },
-    centeredMessageContainer: {
-        flex: 1,
-        backgroundColor: "black",
-        justifyContent: "center",
-        alignItems: "center",
-    },
-    emptyText: {
-        marginTop: 20,
-        textAlign: "center",
-    },
-    emptySubText: {
-        fontSize: 14,
-        textAlign: "center",
-    },
-});

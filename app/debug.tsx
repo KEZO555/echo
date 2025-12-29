@@ -3,11 +3,11 @@ import { Alert } from "react-native";
 import { StyledButton } from "@/shared/components/StyledButton";
 import ContentContainer from "@/shared/components/ContentContainer";
 import { clearCachedData } from "@/features/library/utils/cache";
-import { useTabPreferences } from "@/features/settings/contexts/TabPreferencesContext";
+import { useSettings } from "@/features/settings";
 import { ToggleSwitch } from "@/shared/components/ToggleSwitch";
 
 export default function DebugScreen() {
-    const { preferences, updatePreference } = useTabPreferences();
+    const { tabPreferences, updateTabPreference } = useSettings();
 
     const handleClearCache = () => {
         Alert.alert(
@@ -28,14 +28,14 @@ export default function DebugScreen() {
     };
 
     const handleToggleRemoteStatus = async () => {
-        const newValue = !preferences.showRemoteStatusWhenOnline;
-        await updatePreference("showRemoteStatusWhenOnline", newValue);
+        const newValue = !tabPreferences.showRemoteStatusWhenOnline;
+        await updateTabPreference("showRemoteStatusWhenOnline", newValue);
     };
 
     return (
         <ContentContainer headerTitle="Debug">
             <ToggleSwitch
-                value={preferences.showRemoteStatusWhenOnline}
+                value={tabPreferences.showRemoteStatusWhenOnline}
                 label="Status bar when online"
                 onValueChange={handleToggleRemoteStatus}
             />

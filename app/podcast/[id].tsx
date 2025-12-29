@@ -3,24 +3,21 @@ import {
     View,
     StyleSheet,
     Image,
-    ActivityIndicator,
 } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useAuth } from "@/features/auth/contexts/AuthContext";
 import { useSpotifyLibrary } from "@/features/library/contexts/LibraryContext";
 import { usePlayback } from "@/features/playback/contexts/PlaybackContext";
 import type { SpotifyShow, SpotifyEpisode } from "@/shared/types/spotify";
-import { StyledText } from "@/shared/components/StyledText";
-import { HapticPressable } from "@/shared/components/HapticPressable";
-import ContentContainer from "@/shared/components/ContentContainer";
-import CustomScrollView from "@/shared/components/CustomScrollView";
-import { log, logError } from "@/shared/utils/logger";
+import { StyledText, HapticPressable, ContentContainer, CustomScrollView, ListFooter } from "@/shared/components";
+import { log, logError, formatDuration } from "@/shared/utils";
 import {
     getCachedShowDetail,
     saveCachedShowDetail,
 } from "@/features/library/utils/cache";
-import { usePreventDoubleTap } from "@/shared/hooks/usePreventDoubleTap";
+import { usePreventDoubleTap, useSaveStatus } from "@/shared/hooks";
 import { MaterialIcons } from "@expo/vector-icons";
+import { detailScreenStyles } from "@/shared/styles/detailScreen";
 
 export default function PodcastDetailScreen() {
     const { id, showString, showName } = useLocalSearchParams<{
@@ -47,63 +44,14 @@ export default function PodcastDetailScreen() {
     const [isLoading, setIsLoading] = useState(!initialShow);
     const [error, setError] = useState<string | null>(null);
     const [isLoadingMoreEpisodes, setIsLoadingMoreEpisodes] = useState(false);
-    const [isShowFollowed, setIsShowFollowed] = useState(false);
-    const [isCheckingFollowed, setIsCheckingFollowed] = useState(false);
 
-    const formatDuration = (ms: number) => {
-        const totalSeconds = Math.floor(ms / 1000);
-        const hours = Math.floor(totalSeconds / 3600);
-        const minutes = Math.floor((totalSeconds % 3600) / 60);
-        const seconds = totalSeconds % 60;
-
-        const parts: string[] = [];
-        if (hours > 0) {
-            parts.push(`${hours}h`);
-        }
-        if (minutes > 0) {
-            parts.push(`${minutes}m`);
-        }
-        if (seconds > 0 || totalSeconds === 0) {
-            parts.push(`${seconds}s`);
-        }
-
-        return parts.join(" ");
-    };
-
-    const checkShowFollowedStatus = useCallback(async () => {
-        if (!id) return;
-
-        setIsCheckingFollowed(true);
-        try {
-            const isFollowed = await checkIfFollowingPodcast(id);
-            setIsShowFollowed(isFollowed);
-        } catch (error) {
-            logError("Error checking if podcast is followed:", error);
-            setIsShowFollowed(false);
-        } finally {
-            setIsCheckingFollowed(false);
-        }
-    }, [id, checkIfFollowingPodcast]);
-
-    const handleToggleFollowShow = useCallback(async () => {
-        if (!id) return;
-
-        try {
-            if (isShowFollowed) {
-                const success = await unfollowPodcast(id);
-                if (success) {
-                    setIsShowFollowed(false);
-                }
-            } else {
-                const success = await followPodcast(id);
-                if (success) {
-                    setIsShowFollowed(true);
-                }
-            }
-        } catch (error) {
-            logError("Error toggling podcast follow status:", error);
-        }
-    }, [id, isShowFollowed, followPodcast, unfollowPodcast]);
+    const { isSaved: isShowFollowed, isChecking: isCheckingFollowed, toggle: handleToggleFollowShow } = useSaveStatus({
+        id,
+        checkFn: checkIfFollowingPodcast,
+        saveFn: followPodcast,
+        removeFn: unfollowPodcast,
+        accessToken,
+    });
 
     useEffect(() => {
         if (!id) {
@@ -159,12 +107,6 @@ export default function PodcastDetailScreen() {
 
         fetchShowDetails();
     }, [id, makeApiRequest]);
-
-    useEffect(() => {
-        if (id && accessToken) {
-            checkShowFollowedStatus();
-        }
-    }, [id, accessToken, checkShowFollowedStatus]);
 
     const loadMoreEpisodes = useCallback(async () => {
         if (!show?.episodes?.next || isLoadingMoreEpisodes) {
@@ -259,16 +201,16 @@ export default function PodcastDetailScreen() {
 
     if (error) {
         return (
-            <View style={styles.centeredMessageContainer}>
-                <StyledText style={styles.errorText}>Error: {error}</StyledText>
+            <View style={detailScreenStyles.centeredMessageContainer}>
+                <StyledText style={detailScreenStyles.errorText}>Error: {error}</StyledText>
             </View>
         );
     }
 
     if (!show) {
         return (
-            <View style={styles.centeredMessageContainer}>
-                <StyledText style={styles.emptyText}>
+            <View style={detailScreenStyles.centeredMessageContainer}>
+                <StyledText style={detailScreenStyles.emptyText}>
                     Podcast data is unavailable.
                 </StyledText>
             </View>
@@ -316,13 +258,13 @@ export default function PodcastDetailScreen() {
                         ? resumePoint.fully_played
                             ? "Played"
                             : resumePoint.resume_position_ms > 0
-                              ? `${formatDuration(remainingMs)} left`
+                              ? `${formatDuration(remainingMs, true)} left`
                               : null
                         : null;
                     return (
                         <StyledText style={styles.episodeMeta} numberOfLines={1}>
                             {new Date(episode.release_date).toLocaleDateString()} ·{" "}
-                            {formatDuration(episode.duration_ms)}
+                            {formatDuration(episode.duration_ms, true)}
                             {progressLabel ? ` · ${progressLabel}` : ""}
                         </StyledText>
                     );
@@ -330,17 +272,6 @@ export default function PodcastDetailScreen() {
             </View>
         </HapticPressable>
     );
-
-    const renderFooter = () => {
-        if (!isLoadingMoreEpisodes) return null;
-        return (
-            <ActivityIndicator
-                style={{ marginVertical: 20 }}
-                size="large"
-                color="white"
-            />
-        );
-    };
 
     return (
         <ContentContainer
@@ -354,14 +285,14 @@ export default function PodcastDetailScreen() {
                 <CustomScrollView
                     ListHeaderComponent={
                         <>
-                            <View style={styles.showArtContainer}>
+                            <View style={detailScreenStyles.imageContainer}>
                                 {showImageUrl ? (
                                     <Image
                                         source={{ uri: showImageUrl }}
-                                        style={styles.showImage}
+                                        style={detailScreenStyles.image}
                                     />
                                 ) : (
-                                    <View style={styles.placeholderImageContainer}>
+                                    <View style={detailScreenStyles.placeholderImageContainer}>
                                         <StyledText style={styles.placeholderText}>
                                             {show.name.charAt(0)}
                                         </StyledText>
@@ -373,16 +304,16 @@ export default function PodcastDetailScreen() {
                     data={episodeItems}
                     renderItem={renderEpisodeItem}
                     keyExtractor={(item, index) => item?.id || index.toString()}
-                    contentContainerStyle={styles.listContentContainer}
+                    contentContainerStyle={detailScreenStyles.listContentContainer}
                     overScrollMode="never"
                     onEndReached={loadMoreEpisodes}
                     onEndReachedThreshold={2}
-                    ListFooterComponent={renderFooter}
+                    ListFooterComponent={<ListFooter isLoading={isLoadingMoreEpisodes} />}
                     ListEmptyComponent={
                         isLoading
                             ? null
                             : episodeItems.length === 0 ? (
-                            <StyledText style={styles.emptyText}>
+                            <StyledText style={detailScreenStyles.emptyText}>
                                 No episodes found for this podcast.
                             </StyledText>
                         )
@@ -395,41 +326,8 @@ export default function PodcastDetailScreen() {
 }
 
 const styles = StyleSheet.create({
-    showArtContainer: {
-        alignItems: "center",
-        paddingBottom: 20,
-    },
-    showImage: {
-        width: 200,
-        height: 200,
-        marginBottom: 10,
-    },
-    placeholderImageContainer: {
-        width: 200,
-        height: 200,
-        marginBottom: 10,
-        backgroundColor: "#282828",
-        justifyContent: "center",
-        alignItems: "center",
-    },
     placeholderText: {
         fontSize: 64,
-    },
-    centeredMessageContainer: {
-        flex: 1,
-        backgroundColor: "black",
-        justifyContent: "center",
-        alignItems: "center",
-        padding: 20,
-    },
-    errorText: {
-        fontSize: 16,
-        textAlign: "center",
-    },
-    emptyText: {
-        fontSize: 16,
-        textAlign: "center",
-        marginTop: 20,
     },
     episodeItemContainer: {
         flexDirection: "row",
@@ -445,9 +343,6 @@ const styles = StyleSheet.create({
         fontSize: 16,
         lineHeight: 18,
         paddingBottom: 6,
-    },
-    listContentContainer: {
-        paddingBottom: 0,
     },
     episodeInfoContainer: {
         flex: 1,

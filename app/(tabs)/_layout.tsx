@@ -1,6 +1,6 @@
 import React, { useMemo } from "react";
 import { Tabs } from "expo-router";
-import { useTabPreferences } from "@/features/settings/contexts/TabPreferencesContext";
+import { useSettings } from "@/features/settings";
 import { Navbar, TabConfigItem } from "@/shared/components/Navbar";
 
 export const TABS_CONFIG: ReadonlyArray<TabConfigItem> = [
@@ -42,23 +42,23 @@ export const TABS_CONFIG: ReadonlyArray<TabConfigItem> = [
 ] as const;
 
 export default function TabLayout() {
-    const { preferences } = useTabPreferences();
+    const { tabPreferences } = useSettings();
 
     const visibleTabs = useMemo(() => {
         const filtered = TABS_CONFIG.filter((tab) => {
             switch (tab.screenName) {
                 case "index":
-                    return preferences.showLikedSongs;
+                    return tabPreferences.showLikedSongs;
                 case "artists":
-                    return preferences.showArtists;
+                    return tabPreferences.showArtists;
                 case "albums":
-                    return preferences.showAlbums;
+                    return tabPreferences.showAlbums;
                 case "podcasts":
-                    return preferences.showPodcasts;
+                    return tabPreferences.showPodcasts;
                 case "playlists":
-                    return preferences.showPlaylists;
+                    return tabPreferences.showPlaylists;
                 case "search":
-                    return preferences.showSearch;
+                    return tabPreferences.showSearch;
                 case "settings":
                     return true;
                 default:
@@ -67,7 +67,7 @@ export default function TabLayout() {
         });
 
         return filtered;
-    }, [preferences]);
+    }, [tabPreferences]);
 
     return (
         <Tabs
@@ -79,7 +79,7 @@ export default function TabLayout() {
                         tabsConfig={visibleTabs}
                         currentScreenName={activeScreenName}
                         navigation={props.navigation}
-                        showPlayingButton={preferences.showPlayingInNavbar}
+                        showPlayingButton={tabPreferences.showPlayingInNavbar}
                     />
                 );
             }}

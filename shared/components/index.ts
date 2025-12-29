@@ -7,4 +7,5 @@ export { Navbar } from "./Navbar";
 export { StyledText } from "./StyledText";
 export { StyledButton } from "./StyledButton";
 export { ToggleSwitch } from "./ToggleSwitch";
-export { MarqueeText } from "./MarqueeText";
+export { TrackListItem } from "./TrackListItem";
+export { ListFooter } from "./ListFooter";

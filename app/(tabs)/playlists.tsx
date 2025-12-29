@@ -1,22 +1,18 @@
 import React, { useEffect, useState, useCallback } from "react";
 import {
     View,
-    StyleSheet,
     RefreshControl,
 } from "react-native";
 import { useAuth } from "@/features/auth/contexts/AuthContext";
 import { useSpotifyLibrary } from "@/features/library/contexts/LibraryContext";
 import type { SpotifyPlaylist } from "@/shared/types/spotify";
-import { StyledText } from "@/shared/components/StyledText";
+import { StyledText, ContentContainer, CustomScrollView, MediaListItem } from "@/shared/components";
 import { useRouter } from "expo-router";
-import ContentContainer from "@/shared/components/ContentContainer";
-import { MediaListItem } from "@/shared/components/MediaListItem";
-import { useTabPreferences } from "@/features/settings/contexts/TabPreferencesContext";
-import CustomScrollView from "@/shared/components/CustomScrollView";
+import { useSettings } from "@/features/settings";
 import { logError, log } from "@/shared/utils/logger";
 import { saveCachedPlaylistDetail, refreshPlaylistsFromCache, isPlaylistCached } from "@/features/library/utils/cache";
-import { useNetworkState } from "@/shared/hooks/useNetworkState";
-import { usePreventDoubleTap } from "@/shared/hooks/usePreventDoubleTap";
+import { useNetworkState, usePreventDoubleTap } from "@/shared/hooks";
+import { tabScreenStyles as styles } from "@/shared/styles/detailScreen";
 
 const CREATE_NEW_PLAYLIST_ID = "CREATE_NEW_PLAYLIST_ID";
 
@@ -32,7 +28,7 @@ export default function PlaylistsScreen() {
         makeApiRequest,
     } = useSpotifyLibrary();
     const router = useRouter();
-    const { preferences } = useTabPreferences();
+    const { tabPreferences } = useSettings();
     const { isOnline } = useNetworkState();
     const [sortedPlaylists, setSortedPlaylists] = useState<
         SpotifyPlaylist[] | null
@@ -275,7 +271,7 @@ export default function PlaylistsScreen() {
                 style={{ paddingHorizontal: 20 }}
                 headerIcon="multitrack-audio"
                 headerIconPress={handlePlayingPress}
-                headerIconShowLength={preferences.showPlayingInNavbar ? 0 : 1}
+                headerIconShowLength={tabPreferences.showPlayingInNavbar ? 0 : 1}
             >
                 <CustomScrollView
                     data={[createNewPlaylistItem]}
@@ -306,7 +302,7 @@ export default function PlaylistsScreen() {
             style={{ paddingHorizontal: 20 }}
             headerIcon="multitrack-audio"
             headerIconPress={handlePlayingPress}
-            headerIconShowLength={preferences.showPlayingInNavbar ? 0 : 1}
+            headerIconShowLength={tabPreferences.showPlayingInNavbar ? 0 : 1}
         >
             <CustomScrollView
                 data={displayPlaylists}
@@ -332,29 +328,3 @@ export default function PlaylistsScreen() {
         </ContentContainer>
     );
 }
-
-const styles = StyleSheet.create({
-    list: {
-        flex: 1,
-        width: "100%",
-    },
-    listContentContainer: {
-        paddingTop: 0,
-        paddingBottom: 0,
-    },
-    centeredMessageContainer: {
-        flex: 1,
-        backgroundColor: "black",
-        justifyContent: "center",
-        alignItems: "center",
-    },
-    emptyText: {
-        fontSize: 22,
-        textAlign: "center",
-        marginBottom: 10,
-    },
-    emptySubText: {
-        fontSize: 14,
-        textAlign: "center",
-    },
-});

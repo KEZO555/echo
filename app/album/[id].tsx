@@ -1,22 +1,18 @@
 import React, { useEffect, useState, useCallback } from "react";
 import {
     View,
-    StyleSheet,
     Image,
-    ActivityIndicator,
 } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useAuth } from "@/features/auth/contexts/AuthContext";
 import { useSpotifyLibrary } from "@/features/library/contexts/LibraryContext";
 import { usePlayback } from "@/features/playback/contexts/PlaybackContext";
 import type { SpotifyAlbum, SpotifyTrackSimple } from "@/shared/types/spotify";
-import { StyledText } from "@/shared/components/StyledText";
-import { HapticPressable } from "@/shared/components/HapticPressable";
-import ContentContainer from "@/shared/components/ContentContainer";
-import CustomScrollView from "@/shared/components/CustomScrollView";
-import { log, logError } from "@/shared/utils/logger";
+import { StyledText, ContentContainer, CustomScrollView, TrackListItem, ListFooter } from "@/shared/components";
+import { log, logError } from "@/shared/utils";
 import { getCachedAlbumDetail } from "@/features/library/utils/cache";
-import { usePreventDoubleTap } from "@/shared/hooks/usePreventDoubleTap";
+import { usePreventDoubleTap, useSaveStatus } from "@/shared/hooks";
+import { detailScreenStyles } from "@/shared/styles/detailScreen";
 
 export default function AlbumDetailScreen() {
     const { id, albumString, albumName } = useLocalSearchParams<{
@@ -43,50 +39,14 @@ export default function AlbumDetailScreen() {
     const [isLoading, setIsLoading] = useState(!initialAlbum);
     const [error, setError] = useState<string | null>(null);
     const [isLoadingMoreTracks, setIsLoadingMoreTracks] = useState(false);
-    const [isAlbumSaved, setIsAlbumSaved] = useState(false);
-    const [isCheckingAlbumSaved, setIsCheckingAlbumSaved] = useState(false);
 
-    const formatDuration = (ms: number) => {
-        const totalSeconds = Math.floor(ms / 1000);
-        const minutes = Math.floor(totalSeconds / 60);
-        const seconds = totalSeconds % 60;
-        return `${minutes}:${seconds < 10 ? "0" : ""}${seconds}`;
-    };
-
-    const checkAlbumSavedStatus = useCallback(async () => {
-        if (!id) return;
-
-        setIsCheckingAlbumSaved(true);
-        try {
-            const isSaved = await checkIfAlbumIsSaved(id);
-            setIsAlbumSaved(isSaved);
-        } catch (error) {
-            logError("Error checking if album is saved:", error);
-            setIsAlbumSaved(false);
-        } finally {
-            setIsCheckingAlbumSaved(false);
-        }
-    }, [id, checkIfAlbumIsSaved]);
-
-    const handleToggleAlbumSave = useCallback(async () => {
-        if (!id) return;
-
-        try {
-            if (isAlbumSaved) {
-                const success = await removeAlbum(id);
-                if (success) {
-                    setIsAlbumSaved(false);
-                }
-            } else {
-                const success = await saveAlbum(id);
-                if (success) {
-                    setIsAlbumSaved(true);
-                }
-            }
-        } catch (error) {
-            logError("Error toggling album save status:", error);
-        }
-    }, [id, isAlbumSaved, saveAlbum, removeAlbum]);
+    const { isSaved: isAlbumSaved, isChecking: isCheckingAlbumSaved, toggle: handleToggleAlbumSave } = useSaveStatus({
+        id,
+        checkFn: checkIfAlbumIsSaved,
+        saveFn: saveAlbum,
+        removeFn: removeAlbum,
+        accessToken,
+    });
 
     useEffect(() => {
         if (!id) {
@@ -143,12 +103,6 @@ export default function AlbumDetailScreen() {
 
         fetchAlbumDetails();
     }, [id, makeApiRequest]);
-
-    useEffect(() => {
-        if (id && accessToken) {
-            checkAlbumSavedStatus();
-        }
-    }, [id, accessToken, checkAlbumSavedStatus]);
 
     const loadMoreTracks = useCallback(async () => {
         if (!album?.tracks?.next || isLoadingMoreTracks) {
@@ -231,16 +185,16 @@ export default function AlbumDetailScreen() {
 
     if (error) {
         return (
-            <View style={styles.centeredMessageContainer}>
-                <StyledText style={styles.errorText}>Error: {error}</StyledText>
+            <View style={detailScreenStyles.centeredMessageContainer}>
+                <StyledText style={detailScreenStyles.errorText}>Error: {error}</StyledText>
             </View>
         );
     }
 
     if (!album) {
         return (
-            <View style={styles.centeredMessageContainer}>
-                <StyledText style={styles.emptyText}>
+            <View style={detailScreenStyles.centeredMessageContainer}>
+                <StyledText style={detailScreenStyles.emptyText}>
                     Album data is unavailable.
                 </StyledText>
             </View>
@@ -256,38 +210,15 @@ export default function AlbumDetailScreen() {
         item: SpotifyTrackSimple;
         index: number;
     }) => (
-        <HapticPressable
+        <TrackListItem
             key={track.id || index.toString()}
-            style={styles.trackItemContainer}
+            trackNumber={track.track_number}
+            name={track.name}
+            artists={track.artists}
+            durationMs={track.duration_ms}
             onPress={() => handleTrackPress(index)}
-        >
-            <StyledText style={styles.trackNumber}>
-                {track.track_number}.
-            </StyledText>
-
-            <View style={styles.trackNameContainer}>
-                <StyledText style={styles.trackName} numberOfLines={1}>
-                    {track.name}
-                </StyledText>
-                <StyledText style={styles.trackArtistDuration}>
-                    {track.artists.map((artist: SpotifyTrackSimple['artists'][0]) => artist.name).join(", ") +
-                        " · " +
-                        formatDuration(track.duration_ms)}
-                </StyledText>
-            </View>
-        </HapticPressable>
+        />
     );
-
-    const renderFooter = () => {
-        if (!isLoadingMoreTracks) return null;
-        return (
-            <ActivityIndicator
-                style={{ marginVertical: 20 }}
-                size="large"
-                color="white"
-            />
-        );
-    };
 
     return (
         <ContentContainer
@@ -301,10 +232,10 @@ export default function AlbumDetailScreen() {
                 <CustomScrollView
                     ListHeaderComponent={
                         <>
-                            <View style={styles.albumArtContainer}>
+                            <View style={detailScreenStyles.imageContainer}>
                                 <Image
                                     source={{ uri: albumImageUrl }}
-                                    style={styles.albumImage}
+                                    style={detailScreenStyles.image}
                                 />
                             </View>
                         </>
@@ -312,14 +243,14 @@ export default function AlbumDetailScreen() {
                     data={album.tracks?.items || []}
                     renderItem={renderTrackItem}
                     keyExtractor={(item, index) => item.id || index.toString()}
-                    contentContainerStyle={styles.listContentContainer}
+                    contentContainerStyle={detailScreenStyles.listContentContainer}
                     overScrollMode="never"
                     onEndReached={loadMoreTracks}
                     onEndReachedThreshold={2}
-                    ListFooterComponent={renderFooter}
+                    ListFooterComponent={<ListFooter isLoading={isLoadingMoreTracks} />}
                     ListEmptyComponent={
                         isLoading ? null : album.tracks?.items?.length === 0 ? (
-                            <StyledText style={styles.emptyText}>
+                            <StyledText style={detailScreenStyles.emptyText}>
                                 No tracks found in this album.
                             </StyledText>
                         ) : null
@@ -329,98 +260,3 @@ export default function AlbumDetailScreen() {
         </ContentContainer>
     );
 }
-
-const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-        backgroundColor: "black",
-    },
-    albumArtContainer: {
-        alignItems: "center",
-        paddingBottom: 20,
-    },
-    albumImage: {
-        width: 200,
-        height: 200,
-        marginBottom: 10,
-    },
-    scrollContentContainer: {
-        alignItems: "center",
-        paddingBottom: 20,
-    },
-    centeredMessageContainer: {
-        flex: 1,
-        backgroundColor: "black",
-        justifyContent: "center",
-        alignItems: "center",
-        padding: 20,
-    },
-    errorText: {
-        fontSize: 16,
-        textAlign: "center",
-    },
-    emptyText: {
-        fontSize: 16,
-        textAlign: "center",
-        marginTop: 20,
-    },
-    placeholderImageContainer: {
-        width: 250,
-        height: 250,
-        marginBottom: 20,
-        backgroundColor: "#282828",
-        justifyContent: "center",
-        alignItems: "center",
-    },
-    albumName: {
-        fontSize: 24,
-        fontWeight: "bold",
-        textAlign: "center",
-        marginBottom: 8,
-    },
-    artistName: {
-        fontSize: 18,
-        textAlign: "center",
-        marginBottom: 12,
-    },
-    albumInfo: {
-        fontSize: 14,
-        textAlign: "center",
-        marginBottom: 20,
-    },
-    sectionTitle: {
-        fontSize: 20,
-        fontWeight: "bold",
-        marginTop: 20,
-        marginBottom: 10,
-        alignSelf: "flex-start",
-    },
-    trackItemContainer: {
-        flexDirection: "row",
-        justifyContent: "space-between",
-        alignItems: "flex-start",
-        width: "100%",
-    },
-    trackNumber: {
-        fontSize: 26,
-        paddingRight: 8,
-        textAlign: "center",
-        width: 56,
-    },
-    trackNameContainer: {
-        flex: 1,
-        alignItems: "flex-start",
-    },
-    trackName: {
-        flex: 1,
-        fontSize: 26,
-    },
-    trackArtistDuration: {
-        fontSize: 16,
-        lineHeight: 18,
-        paddingBottom: 6,
-    },
-    listContentContainer: {
-        paddingBottom: 0,
-    },
-});

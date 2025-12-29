@@ -1,21 +1,17 @@
 import React, { useEffect, useState, useCallback } from "react";
 import {
     View,
-    StyleSheet,
     RefreshControl,
 } from "react-native";
 import { useAuth } from "@/features/auth/contexts/AuthContext";
 import { useSpotifyLibrary } from "@/features/library/contexts/LibraryContext";
 import type { SpotifyArtist } from "@/shared/types/spotify";
-import { StyledText } from "@/shared/components/StyledText";
+import { StyledText, ContentContainer, CustomScrollView, MediaListItem } from "@/shared/components";
 import { useRouter } from "expo-router";
-import ContentContainer from "@/shared/components/ContentContainer";
-import { MediaListItem } from "@/shared/components/MediaListItem";
-import { useTabPreferences } from "@/features/settings/contexts/TabPreferencesContext";
-import CustomScrollView from "@/shared/components/CustomScrollView";
-import { log, logError } from "@/shared/utils/logger";
-import { useNetworkState } from "@/shared/hooks/useNetworkState";
-import { usePreventDoubleTap } from "@/shared/hooks/usePreventDoubleTap";
+import { useSettings } from "@/features/settings";
+import { logError } from "@/shared/utils/logger";
+import { useNetworkState, usePreventDoubleTap } from "@/shared/hooks";
+import { tabScreenStyles as styles } from "@/shared/styles/detailScreen";
 
 export default function ArtistsScreen() {
     const { isLoading } = useAuth();
@@ -29,7 +25,7 @@ export default function ArtistsScreen() {
         makeApiRequest,
     } = useSpotifyLibrary();
     const router = useRouter();
-    const { preferences } = useTabPreferences();
+    const { tabPreferences } = useSettings();
     const { isOnline } = useNetworkState();
     const [sortedArtists, setSortedArtists] = useState<
         SpotifyArtist[] | null
@@ -122,7 +118,7 @@ export default function ArtistsScreen() {
                 style={{ paddingHorizontal: 20 }}
                 headerIcon="multitrack-audio"
                 headerIconPress={handlePlayingPress}
-                headerIconShowLength={preferences.showPlayingInNavbar ? 0 : 1}
+                headerIconShowLength={tabPreferences.showPlayingInNavbar ? 0 : 1}
             >
                 <CustomScrollView
                     data={[]}
@@ -154,7 +150,7 @@ export default function ArtistsScreen() {
             style={{ paddingHorizontal: 20 }}
             headerIcon="multitrack-audio"
             headerIconPress={handlePlayingPress}
-            headerIconShowLength={preferences.showPlayingInNavbar ? 0 : 1}
+            headerIconShowLength={tabPreferences.showPlayingInNavbar ? 0 : 1}
         >
             <CustomScrollView
                 data={sortedArtists}
@@ -181,28 +177,3 @@ export default function ArtistsScreen() {
         </ContentContainer>
     );
 }
-
-const styles = StyleSheet.create({
-    list: {
-        flex: 1,
-        width: "100%",
-    },
-    listContentContainer: {
-        paddingTop: 0,
-        paddingBottom: 0,
-    },
-    centeredMessageContainer: {
-        flex: 1,
-        backgroundColor: "black",
-        justifyContent: "center",
-        alignItems: "center",
-    },
-    emptyText: {
-        marginTop: 20,
-        textAlign: "center",
-    },
-    emptySubText: {
-        fontSize: 14,
-        textAlign: "center",
-    },
-});
