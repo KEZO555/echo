@@ -16,6 +16,7 @@ declare class SpotifySdkModule extends NativeModule<SpotifySdkEvents> {
 
     connect(clientId: string, redirectUri: string): Promise<{ connected: boolean }>;
     disconnect(): Promise<{ disconnected: boolean }>;
+    isConnected(): Promise<boolean>;
     play(uri?: string): Promise<{ playing: boolean }>;
     pause(): Promise<{ paused: boolean }>;
     resume(): Promise<{ resumed: boolean }>;
@@ -27,6 +28,7 @@ declare class SpotifySdkModule extends NativeModule<SpotifySdkEvents> {
     setRepeat(repeatMode: number): Promise<{ repeatSet: boolean }>;
     getPlayerState(): Promise<SpotifyPlayerState>;
     getImage(uri: string, size?: string): Promise<string>;
+    getCurrentTrackImage(size?: string): Promise<string>;
     addToLibrary(uri: string): Promise<{ added: boolean }>;
     removeFromLibrary(uri: string): Promise<{ removed: boolean }>;
     getLibraryState(uri: string): Promise<{ isAdded: boolean; canAdd: boolean }>;
