@@ -41,16 +41,16 @@ jobs:
         run: bun install --frozen-lockfile
 
       - name: Build Android app
-        run: eas build --platform android --profile production --local --output ${{ github.workspace }}/spotify_light_${{ env.VERSION }}.apk
+        run: eas build --platform android --profile production --local --output ${{ github.workspace }}/echo_${{ env.VERSION }}.apk
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
           name: app-release
-          path: ${{ github.workspace }}/spotify_light_${{ env.VERSION }}.apk
+          path: ${{ github.workspace }}/echo_${{ env.VERSION }}.apk
 
       - name: Release
         uses: softprops/action-gh-release@v2
         with:
-          files: ${{ github.workspace }}/spotify_light_${{ env.VERSION }}.apk
+          files: ${{ github.workspace }}/echo_${{ env.VERSION }}.apk
           tag_name: v${{ env.VERSION }}
