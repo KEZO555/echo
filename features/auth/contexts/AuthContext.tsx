@@ -9,6 +9,7 @@ import React, {
 import * as SecureStore from "expo-secure-store";
 import { AppState, AppStateStatus } from "react-native";
 import { AUTH_TOKEN_KEY, TOKEN_EXPIRY_KEY, REFRESH_TOKEN_KEY } from "@/constants/spotify";
+import { useCredentials } from "@/features/credentials";
 import { logWarn, logError, logInfo } from "@/shared/utils/logger";
 
 import { loginWithSpotify, logoutFromSpotify, loadStoredAuth } from "../services/spotifyAuth";
@@ -125,9 +126,16 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 		return latestAccessToken;
 	}, [handleTokenUpdate, clearState]);
 
+	const { credentials, redirectUri } = useCredentials();
+
 	const login = useCallback(async () => {
 		if (isAuthenticating) {
 			logInfo("AuthContext: Authentication already in progress");
+			return;
+		}
+
+		if (!credentials) {
+			logError("AuthContext: No credentials configured");
 			return;
 		}
 
@@ -135,14 +143,14 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 		setIsLoading(true);
 
 		try {
-			await loginWithSpotify(handleTokenUpdate, handleUserUpdate, async () => {});
+			await loginWithSpotify(credentials, redirectUri, handleTokenUpdate, handleUserUpdate, async () => {});
 		} catch (error) {
 			logError("AuthContext: Error during authentication:", error);
-			setIsLoading(false);
 		} finally {
 			setIsAuthenticating(false);
+			setIsLoading(false);
 		}
-	}, [isAuthenticating, handleTokenUpdate, handleUserUpdate]);
+	}, [isAuthenticating, credentials, redirectUri, handleTokenUpdate, handleUserUpdate]);
 
 	const logout = useCallback(async () => {
 		if (isAuthenticating) {

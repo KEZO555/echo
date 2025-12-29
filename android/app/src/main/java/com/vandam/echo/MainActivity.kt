@@ -1,4 +1,4 @@
-package com.vandamd.spotifylight
+package com.vandam.echo
 import expo.modules.splashscreen.SplashScreenManager
 
 import android.os.Build
@@ -94,7 +94,7 @@ class MainActivity : ReactActivity() {
               Settings.Secure.putInt(contentResolver, "accessibility_display_daltonizer_enabled", 0)
               Log.d("Grayscale", "Disabled (was mode: $daltonizerMode)")
           } catch (e: SecurityException) {
-              Log.e("Grayscale", "No permission - run: adb shell pm grant com.vandamd.spotifylight android.permission.WRITE_SECURE_SETTINGS")
+              Log.e("Grayscale", "No permission - run: adb shell pm grant com.vandam.echo android.permission.WRITE_SECURE_SETTINGS")
           }
       }
   }

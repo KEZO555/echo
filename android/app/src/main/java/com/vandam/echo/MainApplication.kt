@@ -1,4 +1,4 @@
-package com.vandamd.spotifylight
+package com.vandam.echo
 
 import android.app.Application
 import android.content.res.Configuration

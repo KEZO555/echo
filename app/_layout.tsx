@@ -1,6 +1,7 @@
 import React, { useEffect, useRef } from "react";
 import { Stack, useRouter } from "expo-router";
 import { View } from "react-native";
+import { CredentialsProvider, useCredentials } from "@/features/credentials";
 import { SettingsProvider, useSettings } from "@/features/settings";
 import { AuthProvider, useAuth } from "@/features/auth";
 import { LibraryProvider } from "@/features/library";
@@ -16,12 +17,14 @@ function RootNavigation() {
     const router = useRouter();
     const { accessToken, isLoading: authLoading } = useAuth();
     const { tabPreferences, isLoading: preferencesLoading, invertColors } = useSettings();
+    const { isLoading: credentialsLoading } = useCredentials();
     const [fontsLoaded, fontError] = useFonts({
         "PublicSans-Regular": require("../assets/fonts/PublicSans-Regular.ttf"),
     });
     const isLoading =
-        authLoading || preferencesLoading || (!fontsLoaded && !fontError);
+        authLoading || preferencesLoading || credentialsLoading || (!fontsLoaded && !fontError);
     const hasDoneInitialRouting = useRef(false);
+    const previousAccessToken = useRef<string | null>(null);
 
     const getFirstAvailableTab = () => {
         if (tabPreferences.showLikedSongs) return "/(tabs)";
@@ -41,7 +44,12 @@ function RootNavigation() {
     }, [invertColors]);
 
     useEffect(() => {
-        if (!isLoading && !hasDoneInitialRouting.current) {
+        if (isLoading) return;
+
+        const justLoggedIn = !previousAccessToken.current && accessToken;
+        const shouldRoute = !hasDoneInitialRouting.current || justLoggedIn;
+
+        if (shouldRoute) {
             if (accessToken) {
                 const firstAvailableTab = getFirstAvailableTab();
                 router.replace(firstAvailableTab as any);
@@ -50,12 +58,14 @@ function RootNavigation() {
             }
             hasDoneInitialRouting.current = true;
         }
+
+        previousAccessToken.current = accessToken;
     }, [accessToken, isLoading, router]);
 
     if (isLoading) {
         return (
-            <View style={{ flex: 1, backgroundColor: 'black', justifyContent: 'center', alignItems: 'center' }}>
-                <StyledText>Loading data...</StyledText>
+            <View style={{ flex: 1, backgroundColor: invertColors ? 'white' : 'black', justifyContent: 'center', alignItems: 'center' }}>
+                {fontsLoaded && <StyledText>Loading data...</StyledText>}
             </View>
         );
     }
@@ -89,14 +99,16 @@ function RootNavigation() {
 
 export default function RootLayout() {
     return (
-        <SettingsProvider>
-            <AuthProvider>
-                <LibraryProvider>
-                    <PlaybackProvider>
-                        <RootNavigation />
-                    </PlaybackProvider>
-                </LibraryProvider>
-            </AuthProvider>
-        </SettingsProvider>
+        <CredentialsProvider>
+            <SettingsProvider>
+                <AuthProvider>
+                    <LibraryProvider>
+                        <PlaybackProvider>
+                            <RootNavigation />
+                        </PlaybackProvider>
+                    </LibraryProvider>
+                </AuthProvider>
+            </SettingsProvider>
+        </CredentialsProvider>
     );
 }

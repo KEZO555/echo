@@ -1,4 +1,3 @@
-import { TOKEN_SWAP_URL, TOKEN_REFRESH_URL } from "@/constants/spotify";
 import { log, logError } from "@/shared/utils/logger";
 
 interface TokenExchangeResponse {
@@ -14,24 +13,16 @@ interface TokenExchangeError {
 	error_description?: string;
 }
 
-/**
- * Exchanges an authorization code for access and refresh tokens using the secure server
- * @param authorizationCode The authorization code received from Spotify
- * @param codeVerifier The code verifier used in the PKCE flow (not needed for server-side exchange)
- * @param redirectUri The redirect URI used in the authorization request (not needed for server-side exchange)
- * @returns Promise resolving to token response or throwing error
- */
 export async function exchangeCodeForTokens(
 	authorizationCode: string,
-	codeVerifier: string,
-	redirectUri: string
+	tokenSwapUrl: string
 ): Promise<TokenExchangeResponse> {
 	try {
 		log(
 			"TokenExchange: Exchanging authorization code for tokens via server..."
 		);
 
-		const response = await fetch(TOKEN_SWAP_URL, {
+		const response = await fetch(tokenSwapUrl, {
 			method: "POST",
 			headers: {
 				"Content-Type": "application/json",
@@ -93,18 +84,14 @@ export async function exchangeCodeForTokens(
 	}
 }
 
-/**
- * Refreshes an access token using a refresh token via the secure server
- * @param refreshToken The encrypted refresh token from the server
- * @returns Promise resolving to new token response
- */
 export async function refreshAccessToken(
-	refreshToken: string
+	refreshToken: string,
+	tokenRefreshUrl: string
 ): Promise<TokenExchangeResponse> {
 	try {
 		log("TokenExchange: Refreshing access token via server...");
 
-		const response = await fetch(TOKEN_REFRESH_URL, {
+		const response = await fetch(tokenRefreshUrl, {
 			method: "POST",
 			headers: {
 				"Content-Type": "application/json",

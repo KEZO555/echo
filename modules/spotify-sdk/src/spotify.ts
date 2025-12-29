@@ -1,18 +1,19 @@
 import SpotifySdkNative from './SpotifySdkModule';
-import { SPOTIFY_CLIENT_ID, REDIRECT_URI } from '@/constants/spotify';
+import { getStoredCredentials, REDIRECT_URI } from '@/features/credentials';
 import type { SpotifyPlayerState } from './SpotifySdk.types';
 
 class SpotifySDK {
     private connectionPromise: Promise<boolean> | null = null;
     
-    // Connection management with deduplication
     async connect(): Promise<boolean> {
         if (this.connectionPromise) return this.connectionPromise;
         
         this.connectionPromise = (async () => {
             try {
                 if (await this.isConnected()) return true;
-                const result = await SpotifySdkNative.connect(SPOTIFY_CLIENT_ID, REDIRECT_URI);
+                const credentials = await getStoredCredentials();
+                if (!credentials) return false;
+                const result = await SpotifySdkNative.connect(credentials.clientId, REDIRECT_URI);
                 return result.connected;
             } finally {
                 this.connectionPromise = null;

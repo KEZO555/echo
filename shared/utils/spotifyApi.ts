@@ -6,7 +6,8 @@ import {
     TOKEN_EXPIRY_KEY,
 } from "@/constants/spotify";
 import { refreshAccessToken as refreshTokenService } from "@/features/auth/services/tokenExchange";
-import { log, logWarn, logError, logInfo } from "./logger";
+import { getStoredCredentials } from "@/features/credentials";
+import { log, logWarn, logError } from "./logger";
 
 // Global refresh lock to prevent concurrent token refreshes
 let isRefreshInProgress = false;
@@ -277,8 +278,13 @@ const performTokenRefresh = async (
 
         log("API: Using new token exchange service for refresh...");
 
-        // Use the new token exchange service
-        const tokenResponse = await refreshTokenService(currentRefreshToken);
+        const credentials = await getStoredCredentials();
+        if (!credentials) {
+            logError("API: No credentials configured");
+            throw new Error("No credentials configured");
+        }
+
+        const tokenResponse = await refreshTokenService(currentRefreshToken, credentials.tokenRefreshUrl);
 
         log("API: Access token refreshed successfully");
 

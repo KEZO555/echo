@@ -5,13 +5,13 @@ import {
     REFRESH_TOKEN_KEY,
     USER_INFO_KEY,
     TOKEN_EXPIRY_KEY,
-    SPOTIFY_CLIENT_ID,
-    REDIRECT_URI,
     SPOTIFY_SCOPES,
 } from "@/constants/spotify";
 import { clearCachedData } from "@/features/library/utils/cache";
 import { exchangeCodeForTokens } from "@/features/auth/services/tokenExchange";
 import { log, logError } from "@/shared/utils/logger";
+import { getStoredCredentials, REDIRECT_URI } from "@/features/credentials";
+import type { Credentials } from "@/features/credentials";
 import type {
     SpotifyPlaylistsResponse,
     SpotifySavedAlbumsResponse,
@@ -21,6 +21,8 @@ import type {
 } from "@/shared/types/spotify";
 
 export const loginWithSpotify = async (
+    credentials: Credentials,
+    redirectUri: string,
     onTokenUpdate: (
         accessToken: string,
         refreshToken?: string,
@@ -34,14 +36,12 @@ export const loginWithSpotify = async (
             "Auth: Starting authentication with CODE flow via server..."
         );
 
-        // Use CODE flow (server handles PKCE and token exchange)
         const authResult = await SpotifySdk.authorize(
-            SPOTIFY_CLIENT_ID,
-            REDIRECT_URI,
+            credentials.clientId,
+            redirectUri,
             SPOTIFY_SCOPES,
-            undefined, // state
-            false // showDialog
-            // No codeChallenge needed - server handles PKCE
+            undefined,
+            false
         );
 
         if (authResult.success && authResult.data?.authorizationCode) {
@@ -49,22 +49,18 @@ export const loginWithSpotify = async (
                 "Auth: Authorization code received, exchanging for tokens via server..."
             );
 
-            // Exchange authorization code for access and refresh tokens via server
             const tokenResponse = await exchangeCodeForTokens(
                 authResult.data.authorizationCode,
-                "", // codeVerifier not needed for server exchange
-                REDIRECT_URI // redirectUri not needed for server exchange but kept for compatibility
+                credentials.tokenSwapUrl
             );
 
             if (!tokenResponse.refresh_token) {
                 throw new Error("No refresh token received from server");
             }
 
-            // Calculate token expiry (be conservative - use 50 minutes instead of full hour)
             const expiryTime =
-                Date.now() + (tokenResponse.expires_in - 600) * 1000; // 10 minutes buffer
+                Date.now() + (tokenResponse.expires_in - 600) * 1000;
 
-            // Store tokens securely in parallel for faster writes
             await Promise.all([
                 SecureStore.setItemAsync(AUTH_TOKEN_KEY, tokenResponse.access_token),
                 SecureStore.setItemAsync(REFRESH_TOKEN_KEY, tokenResponse.refresh_token),
@@ -77,14 +73,11 @@ export const loginWithSpotify = async (
                 expiryTime
             );
 
-            // Enable auto-connect for proper lifecycle management
-
-            // Immediately establish App Remote connection after authentication
             try {
                 log("Auth: Establishing App Remote connection...");
                 const connectionResult = await SpotifySdk.connect(
-                    SPOTIFY_CLIENT_ID,
-                    REDIRECT_URI
+                    credentials.clientId,
+                    redirectUri
                 );
                 if (connectionResult.connected) {
                     log("Auth: App Remote connected successfully");
@@ -101,12 +94,11 @@ export const loginWithSpotify = async (
             }
 
             log("Auth: Authentication successful with refresh token");
-            // Fetch user info after successful authentication (without triggering data fetch)
             await fetchUserInfo(
                 tokenResponse.access_token,
                 onUserUpdate,
-                () => Promise.resolve(), // Empty function - don't fetch data here
-                undefined // ensureValidToken not needed here since we have a fresh token
+                () => Promise.resolve(),
+                undefined
             );
         } else {
             logError(
@@ -149,7 +141,6 @@ export const logoutFromSpotify = async (
 
 export const loadStoredAuth = async () => {
     try {
-        // Load tokens from secure storage (CODE flow tokens)
         const storedToken = await SecureStore.getItemAsync(AUTH_TOKEN_KEY);
         const storedRefreshToken = await SecureStore.getItemAsync(
             REFRESH_TOKEN_KEY
@@ -157,29 +148,30 @@ export const loadStoredAuth = async () => {
         const storedUser = await SecureStore.getItemAsync(USER_INFO_KEY);
         const storedExpiry = await SecureStore.getItemAsync(TOKEN_EXPIRY_KEY);
 
-        // If we have stored tokens, enable auto-connect for App Remote
         if (storedToken && storedRefreshToken) {
             log("Auth: Found stored tokens, enabling auto-connect");
 
-            // Immediately establish App Remote connection
-            try {
-                log(
-                    "Auth: Establishing App Remote connection for stored tokens..."
-                );
-                const connectionResult = await SpotifySdk.connect(
-                    SPOTIFY_CLIENT_ID,
-                    REDIRECT_URI
-                );
-                if (connectionResult.connected) {
+            const credentials = await getStoredCredentials();
+            if (credentials) {
+                try {
                     log(
-                        "Auth: App Remote connected successfully for stored tokens"
+                        "Auth: Establishing App Remote connection for stored tokens..."
+                    );
+                    const connectionResult = await SpotifySdk.connect(
+                        credentials.clientId,
+                        REDIRECT_URI
+                    );
+                    if (connectionResult.connected) {
+                        log(
+                            "Auth: App Remote connected successfully for stored tokens"
+                        );
+                    }
+                } catch (connectionError) {
+                    console.warn(
+                        "Auth: App Remote connection error for stored tokens:",
+                        connectionError
                     );
                 }
-            } catch (connectionError) {
-                console.warn(
-                    "Auth: App Remote connection error for stored tokens:",
-                    connectionError
-                );
             }
         }
 

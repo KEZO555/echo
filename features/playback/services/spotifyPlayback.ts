@@ -1,5 +1,4 @@
 import { spotify } from "@/modules/spotify-sdk";
-import { SPOTIFY_CLIENT_ID, REDIRECT_URI } from "@/constants/spotify";
 import type {
     SpotifyCurrentlyPlaying,
     SpotifySearchResults,

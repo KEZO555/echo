@@ -1,5 +1,5 @@
 {
-	"name": "spotify",
+	"name": "echo",
 	"main": "expo-router/entry",
 	"version": "2.6.5",
 	"scripts": {

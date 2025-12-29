@@ -1,14 +1,14 @@
 {
   "expo": {
-    "name": "Spotify (Light)",
-    "slug": "spotify-light",
+    "name": "Echo",
+    "slug": "echo",
     "version": "2.6.5",
     "orientation": "portrait",
-    "scheme": "spotify-light",
+    "scheme": "echo",
     "newArchEnabled": true,
     "android": {
       "backgroundColor": "#000000",
-      "package": "com.vandamd.spotifylight"
+      "package": "com.vandam.echo"
     },
     "plugins": [
       "expo-router",

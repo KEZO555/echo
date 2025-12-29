@@ -1,4 +1,4 @@
-# Spotify Light - Architecture Guide
+# Echo - Architecture Guide
 
 ## What This App Is
 

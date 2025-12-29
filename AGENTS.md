@@ -1,6 +1,6 @@
-# Light Phone III Spotify
+# Echo
 
-This is a Spotify client built with Expo.
+A minimal Spotify client for Light Phone III built with Expo.
 
 ## Tech Stack
 - Expo

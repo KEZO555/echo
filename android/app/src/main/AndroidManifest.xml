@@ -25,13 +25,13 @@
         <action android:name="android.intent.action.VIEW"/>
         <category android:name="android.intent.category.DEFAULT"/>
         <category android:name="android.intent.category.BROWSABLE"/>
-        <data android:scheme="spotify-light"/>
+        <data android:scheme="echo"/>
       </intent-filter>
       <intent-filter>
         <action android:name="android.intent.action.VIEW"/>
         <category android:name="android.intent.category.DEFAULT"/>
         <category android:name="android.intent.category.BROWSABLE"/>
-        <data android:scheme="spotify-light" android:host="callback"/>
+        <data android:scheme="echo" android:host="callback"/>
       </intent-filter>
     </activity>
   </application>

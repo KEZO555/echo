@@ -1,5 +1,3 @@
-export const SPOTIFY_CLIENT_ID = "2f20bc972e764706956ba7b59648b707";
-
 export const SPOTIFY_SCOPES = [
     "user-read-email",
     "user-library-read",
@@ -17,12 +15,6 @@ export const SPOTIFY_SCOPES = [
     "user-read-playback-position",
     "streaming",
 ];
-
-export const REDIRECT_URI = "spotify-light://callback";
-
-export const TOKEN_SWAP_URL = "https://spotifylightrefresh.netlify.app/swap";
-export const TOKEN_REFRESH_URL =
-    "https://spotifylightrefresh.netlify.app/refresh";
 
 // Storage Keys
 export const AUTH_TOKEN_KEY = "spotifyAuthToken";
