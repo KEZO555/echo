@@ -20,7 +20,9 @@ A minimal Spotify client for Light Phone III.
 
 ### 2. Deploy a Token Exchange Server
 
-See [spotify-token-swap](https://github.com/bih/spotify-token-swap) for an example implementation.
+[![Deploy to Netlify](https://www.netlify.com/img/deploy/button.svg)](https://app.netlify.com/start/deploy?repository=https://github.com/vandamd/echo-token-server)
+
+See [echo-token-server](https://github.com/vandamd/echo-token-server) for setup instructions.
 
 ### 3. Configure Echo
 
