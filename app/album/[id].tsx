@@ -201,16 +201,27 @@ export default function AlbumDetailScreen() {
     }: {
         item: SpotifyTrackSimple;
         index: number;
-    }) => (
-        <TrackListItem
-            key={track.id || index.toString()}
-            trackNumber={track.track_number}
-            name={track.name}
-            artists={track.artists}
-            durationMs={track.duration_ms}
-            onPress={() => handleTrackPress(index)}
-        />
-    );
+    }) => {
+        const tracks = album?.tracks?.items || [];
+        const previousTrack = index > 0 ? tracks[index - 1] : null;
+        const showDiscGap = previousTrack && track.disc_number !== previousTrack.disc_number;
+
+        return (
+            <>
+                {showDiscGap && (
+                    <View style={{ height: 40 }} />
+                )}
+                <TrackListItem
+                    key={track.id || index.toString()}
+                    trackNumber={track.track_number}
+                    name={track.name}
+                    artists={track.artists}
+                    durationMs={track.duration_ms}
+                    onPress={() => handleTrackPress(index)}
+                />
+            </>
+        );
+    };
 
     return (
         <ContentContainer
