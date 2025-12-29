@@ -225,6 +225,7 @@ export default function PlaylistDetailScreen() {
                                 <Image
                                     source={{ uri: displayImageUrl }}
                                     style={detailScreenStyles.image}
+                                    fadeDuration={0}
                                 />
                             </View>
                         ) : (

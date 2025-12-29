@@ -259,6 +259,7 @@ export default function PodcastDetailScreen() {
                                 <Image
                                     source={{ uri: displayImageUrl }}
                                     style={detailScreenStyles.image}
+                                    fadeDuration={0}
                                 />
                             </View>
                         ) : (

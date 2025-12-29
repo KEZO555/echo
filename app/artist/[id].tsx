@@ -256,6 +256,7 @@ export default function ArtistDetailScreen() {
                         <Image
                             source={{ uri: album.images[0].url }}
                             style={styles.albumImage}
+                            fadeDuration={0}
                         />
                     </View>
                 ) : (
@@ -308,6 +309,7 @@ export default function ArtistDetailScreen() {
                                 <Image
                                     source={{ uri: displayImageUrl }}
                                     style={detailScreenStyles.image}
+                                    fadeDuration={0}
                                 />
                             </View>
                         ) : null

@@ -222,6 +222,7 @@ export default function AlbumDetailScreen() {
                                 <Image
                                     source={{ uri: albumImageUrl }}
                                     style={detailScreenStyles.image}
+                                    fadeDuration={0}
                                 />
                             </View>
                         </>
