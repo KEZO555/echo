@@ -1,7 +1,7 @@
 import React, { useMemo } from "react";
 import { Tabs } from "expo-router";
-import { useTabPreferences } from "@/contexts/TabPreferencesContext";
-import { Navbar, TabConfigItem } from "@/components/Navbar";
+import { useTabPreferences } from "@/features/settings/contexts/TabPreferencesContext";
+import { Navbar, TabConfigItem } from "@/shared/components/Navbar";
 
 export const TABS_CONFIG: ReadonlyArray<TabConfigItem> = [
     {

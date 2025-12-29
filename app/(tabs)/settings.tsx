@@ -1,10 +1,10 @@
 import React from "react";
 import { View, StyleSheet, Text } from "react-native";
-import { useAuth } from "@/contexts/AuthContext";
-import { StyledButton } from "@/components/StyledButton";
+import { useAuth } from "@/features/auth/contexts/AuthContext";
+import { StyledButton } from "@/shared/components/StyledButton";
 import { useRouter } from "expo-router";
 import * as Application from "expo-application";
-import ContentContainer from "@/components/ContentContainer";
+import ContentContainer from "@/shared/components/ContentContainer";
 
 export default function SettingsScreen() {
     const { logout } = useAuth();

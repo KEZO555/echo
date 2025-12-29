@@ -8,7 +8,7 @@ import {
     NativeSyntheticEvent,
     NativeScrollEvent,
 } from "react-native";
-import { useInvertColors } from "@/contexts/InvertColorsContext";
+import { useInvertColors } from "@/features/settings/contexts/InvertColorsContext";
 
 interface CustomScrollViewProps<T = any> extends FlatListProps<T> {
     // We can add any custom props here if needed in the future

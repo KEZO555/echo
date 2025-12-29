@@ -1,7 +1,7 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { ALBUMS_KEY, ARTISTS_KEY, PODCASTS_KEY, SAVED_TRACKS_KEY } from "../constants/spotify";
-import { log, logError } from "../utils/logger";
-import { saveCachedShowDetail } from "../utils/cache";
+import { ALBUMS_KEY, ARTISTS_KEY, PODCASTS_KEY, SAVED_TRACKS_KEY } from "@/constants/spotify";
+import { log, logError } from "@/shared/utils/logger";
+import { saveCachedShowDetail } from "@/features/library/utils/cache";
 import type {
     SpotifyPlaylist,
     SpotifySavedAlbum,
@@ -15,7 +15,7 @@ import type {
     SpotifySavedShowsResponse,
     SavedTracksResponse,
     SpotifyShow,
-} from "../types/spotify";
+} from "@/shared/types/spotify";
 
 export const fetchPlaylists = async (
     accessToken: string | null,
@@ -996,7 +996,7 @@ export const fetchMoreArtistAlbums = async (
     isLoadingMore: boolean,
     accessToken: string | null,
     makeApiRequest: (url: string, errorMessage: string) => Promise<any | null>
-): Promise<{ albums: import("../types/spotify").SpotifyAlbumSimple[] | null; nextUrl: string | null }> => {
+): Promise<{ albums: SpotifyAlbumSimple[] | null; nextUrl: string | null }> => {
     if (!nextUrl || isLoadingMore || !accessToken) {
         return { albums: null, nextUrl: null };
     }

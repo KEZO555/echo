@@ -1,7 +1,7 @@
 import React from "react";
-import { ToggleSwitch } from "@/components/ToggleSwitch";
-import { useTabPreferences } from "@/contexts/TabPreferencesContext";
-import ContentContainer from "@/components/ContentContainer";
+import { ToggleSwitch } from "@/shared/components/ToggleSwitch";
+import { useTabPreferences } from "@/features/settings/contexts/TabPreferencesContext";
+import ContentContainer from "@/shared/components/ContentContainer";
 
 export default function CustomiseTabsScreen() {
     const { preferences, updatePreference, isLoading } = useTabPreferences();

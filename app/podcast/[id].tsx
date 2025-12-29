@@ -6,21 +6,20 @@ import {
     ActivityIndicator,
 } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import {
-    useAuth,
-    SpotifyShow,
-    SpotifyEpisode,
-} from "@/contexts/AuthContext";
-import { StyledText } from "@/components/StyledText";
-import { HapticPressable } from "@/components/HapticPressable";
-import ContentContainer from "@/components/ContentContainer";
-import CustomScrollView from "@/components/CustomScrollView";
-import { log, logError } from "@/utils/logger";
+import { useAuth } from "@/features/auth/contexts/AuthContext";
+import { useSpotifyLibrary } from "@/features/library/contexts/LibraryContext";
+import { usePlayback } from "@/features/playback/contexts/PlaybackContext";
+import type { SpotifyShow, SpotifyEpisode } from "@/shared/types/spotify";
+import { StyledText } from "@/shared/components/StyledText";
+import { HapticPressable } from "@/shared/components/HapticPressable";
+import ContentContainer from "@/shared/components/ContentContainer";
+import CustomScrollView from "@/shared/components/CustomScrollView";
+import { log, logError } from "@/shared/utils/logger";
 import {
     getCachedShowDetail,
     saveCachedShowDetail,
-} from "@/utils/cache";
-import { usePreventDoubleTap } from "@/hooks/usePreventDoubleTap";
+} from "@/features/library/utils/cache";
+import { usePreventDoubleTap } from "@/shared/hooks/usePreventDoubleTap";
 import { MaterialIcons } from "@expo/vector-icons";
 
 export default function PodcastDetailScreen() {
@@ -30,14 +29,14 @@ export default function PodcastDetailScreen() {
         showName?: string;
     }>();
 
+    const { accessToken } = useAuth();
+    const { playTrackWithContext } = usePlayback();
     const {
-        accessToken,
-        playTrackWithContext,
         followPodcast,
         unfollowPodcast,
         checkIfFollowingPodcast,
         makeApiRequest,
-    } = useAuth();
+    } = useSpotifyLibrary();
     const router = useRouter();
 
     const initialShow = showString
@@ -178,7 +177,7 @@ export default function PodcastDetailScreen() {
                 "More podcast episodes"
             );
             if (data) {
-                setShow((prevShow) => {
+                setShow((prevShow: SpotifyShow | null) => {
                     if (!prevShow || !prevShow.episodes) return prevShow;
                     const updatedShow = {
                         ...prevShow,
@@ -202,8 +201,8 @@ export default function PodcastDetailScreen() {
     const episodeItems = useMemo(
         () =>
             (show?.episodes?.items || []).filter(
-                (episode): episode is SpotifyEpisode =>
-                    !!episode && typeof episode === "object" && !!episode.id
+                (episode: unknown): episode is SpotifyEpisode =>
+                    !!episode && typeof episode === "object" && !!(episode as SpotifyEpisode).id
             ),
         [show?.episodes?.items]
     );

@@ -4,36 +4,31 @@ import {
     StyleSheet,
     RefreshControl,
 } from "react-native";
-import {
-    useAuth,
-    SavedTrackObject,
-    SpotifyArtistSimple,
-} from "@/contexts/AuthContext";
-import { StyledText } from "@/components/StyledText";
+import { useAuth } from "@/features/auth/contexts/AuthContext";
+import { useSpotifyLibrary } from "@/features/library/contexts/LibraryContext";
+import { usePlayback } from "@/features/playback/contexts/PlaybackContext";
+import type { SavedTrackObject, SpotifyArtistSimple } from "@/shared/types/spotify";
+import { StyledText } from "@/shared/components/StyledText";
 import { useRouter } from "expo-router";
-import { log, logWarn, logError } from "@/utils/logger";
-import ContentContainer from "@/components/ContentContainer";
-import { MediaListItem } from "@/components/MediaListItem";
-import { useTabPreferences } from "@/contexts/TabPreferencesContext";
-import CustomScrollView from "@/components/CustomScrollView";
-import { useNetworkState } from "@/hooks/useNetworkState";
-import { usePreventDoubleTap } from "@/hooks/usePreventDoubleTap";
+import { log, logWarn, logError } from "@/shared/utils/logger";
+import ContentContainer from "@/shared/components/ContentContainer";
+import { MediaListItem } from "@/shared/components/MediaListItem";
+import { useTabPreferences } from "@/features/settings/contexts/TabPreferencesContext";
+import CustomScrollView from "@/shared/components/CustomScrollView";
+import { useNetworkState } from "@/shared/hooks/useNetworkState";
+import { usePreventDoubleTap } from "@/shared/hooks/usePreventDoubleTap";
 
 export default function LikedSongsScreen() {
+    const { isLoading, accessToken, user } = useAuth();
     const {
         savedTracks,
-        isLoading,
-        accessToken,
         fetchSavedTracks,
-        user,
         isRefreshingSavedTracks,
         fetchMoreSavedTracks,
         isLoadingMoreSavedTracks,
         savedTracksNextUrl,
-        playTrackWithContext,
-        getPlaybackState,
-        toggleShuffle,
-    } = useAuth();
+    } = useSpotifyLibrary();
+    const { playTrackWithContext, getPlaybackState, toggleShuffle } = usePlayback();
     const router = useRouter();
     const { isLoading: isNetworkLoading, isOnline } = useNetworkState();
 
@@ -79,7 +74,7 @@ export default function LikedSongsScreen() {
 
             try {
                 const track = item.track;
-                const artistName = track.artists?.map(a => a.name).join(", ") ?? "";
+                const artistName = track.artists?.map((a: SpotifyArtistSimple) => a.name).join(", ") ?? "";
                 const albumArtUrl = track.album?.images?.[0]?.url ?? "";
 
                 let wasShuffling = false;
@@ -212,9 +207,9 @@ export default function LikedSongsScreen() {
             headerIconShowLength={preferences.showPlayingInNavbar ? 0 : 1}
         >
             <CustomScrollView
-                data={savedTracks?.filter((item) => item.track !== null) || []}
+                data={savedTracks?.filter((item: SavedTrackObject) => item.track !== null) || []}
                 renderItem={renderTrackItem}
-                keyExtractor={(item) =>
+                keyExtractor={(item: SavedTrackObject) =>
                     `${item.added_at}-${item.track?.id || "unknown"}`
                 }
                 style={styles.list}

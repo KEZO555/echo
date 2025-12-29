@@ -1,8 +1,9 @@
 import React, { useEffect, useState } from "react";
 import { View, StyleSheet, Image } from "react-native";
 import { useGlobalSearchParams, useRouter } from "expo-router";
-import {
-    useAuth,
+import { useAuth } from "@/features/auth/contexts/AuthContext";
+import { usePlayback } from "@/features/playback/contexts/PlaybackContext";
+import type {
     SpotifyTrack,
     SpotifyPlaylistSimple,
     SpotifyAlbumSimple,
@@ -10,14 +11,15 @@ import {
     SpotifyImage,
     SpotifyArtist,
     SpotifyShow,
-} from "@/contexts/AuthContext";
-import { HapticPressable } from "@/components/HapticPressable";
-import { StyledText } from "@/components/StyledText";
-import ContentContainer from "@/components/ContentContainer";
-import CustomScrollView from "@/components/CustomScrollView";
-import { logError } from "@/utils/logger";
-import { useNetworkState } from "@/hooks/useNetworkState";
-import { usePreventDoubleTap } from "@/hooks/usePreventDoubleTap";
+} from "@/shared/types/spotify";
+import { searchItems } from "@/features/search/services/spotifySearch";
+import { HapticPressable } from "@/shared/components/HapticPressable";
+import { StyledText } from "@/shared/components/StyledText";
+import ContentContainer from "@/shared/components/ContentContainer";
+import CustomScrollView from "@/shared/components/CustomScrollView";
+import { logError } from "@/shared/utils/logger";
+import { useNetworkState } from "@/shared/hooks/useNetworkState";
+import { usePreventDoubleTap } from "@/shared/hooks/usePreventDoubleTap";
 
 type SearchItem =
     | { type: "track"; data: SpotifyTrack }
@@ -29,7 +31,8 @@ type SearchItem =
 export default function SearchResultsScreen() {
     const params = useGlobalSearchParams();
     const routeQuery = params.query as string | undefined;
-    const { searchItems, playTrackWithContext } = useAuth();
+    const { accessToken, ensureValidToken } = useAuth();
+    const { playTrackWithContext } = usePlayback();
     const { isOnline } = useNetworkState();
     const router = useRouter();
     const [results, setResults] = useState<SearchItem[]>([]);
@@ -44,11 +47,11 @@ export default function SearchResultsScreen() {
                 return;
             }
             
-            searchItems(routeQuery, ["track", "album", "playlist", "artist", "show"])
-                .then((apiResponse) => {
+            searchItems(routeQuery, ["track", "album", "playlist", "artist", "show"], accessToken, ensureValidToken)
+                .then((apiResponse: any) => {
                     const newResults: SearchItem[] = [];
                     if (apiResponse?.tracks?.items) {
-                        apiResponse.tracks.items.forEach((track) => {
+                        apiResponse.tracks.items.forEach((track: SpotifyTrack) => {
                             if (track && track.id) {
                                 newResults.push({ type: "track", data: track });
                             } else if (track) {
@@ -60,7 +63,7 @@ export default function SearchResultsScreen() {
                         });
                     }
                     if (apiResponse?.albums?.items) {
-                        apiResponse.albums.items.forEach((album) => {
+                        apiResponse.albums.items.forEach((album: SpotifyAlbumSimple) => {
                             if (album && album.id) {
                                 newResults.push({ type: "album", data: album });
                             } else if (album) {
@@ -72,7 +75,7 @@ export default function SearchResultsScreen() {
                         });
                     }
                     if (apiResponse?.artists?.items) {
-                        apiResponse.artists.items.forEach((artist) => {
+                        apiResponse.artists.items.forEach((artist: SpotifyArtist) => {
                             if (artist && artist.id) {
                                 newResults.push({ type: "artist", data: artist });
                             } else if (artist) {
@@ -84,7 +87,7 @@ export default function SearchResultsScreen() {
                         });
                     }
                     if (apiResponse?.playlists?.items) {
-                        apiResponse.playlists.items.forEach((playlist) => {
+                        apiResponse.playlists.items.forEach((playlist: SpotifyPlaylistSimple) => {
                             if (playlist && playlist.id) {
                                 newResults.push({
                                     type: "playlist",
@@ -99,7 +102,7 @@ export default function SearchResultsScreen() {
                         });
                     }
                     if (apiResponse?.shows?.items) {
-                        apiResponse.shows.items.forEach((show) => {
+                        apiResponse.shows.items.forEach((show: SpotifyShow) => {
                             if (show && show.id) {
                                 newResults.push({
                                     type: "podcast",
@@ -143,13 +146,13 @@ export default function SearchResultsScreen() {
 
                     setResults(newResults);
                 })
-                .catch((error) => logError("Search error:", error))
+                .catch((error: unknown) => logError("Search error:", error))
                 .finally(() => setLoading(false));
         } else {
             setResults([]);
             setLoading(false);
         }
-    }, [routeQuery, searchItems, isOnline]);
+    }, [routeQuery, accessToken, ensureValidToken, isOnline]);
 
     const getArtistNames = (artists: SpotifyArtistSimple[]) => {
         return (
@@ -161,7 +164,7 @@ export default function SearchResultsScreen() {
         async (item: SearchItem, itemUri: string) => {
             if (item.type === "track") {
                 const track = item.data;
-                const artistName = track.artists?.map(a => a.name).join(", ") ?? "";
+                const artistName = track.artists?.map((a: SpotifyArtistSimple) => a.name).join(", ") ?? "";
                 const albumArtUrl = track.album?.images?.[0]?.url ?? "";
 
                 try {

@@ -1,5 +1,5 @@
 import * as SecureStore from "expo-secure-store";
-import SpotifySdk from "../modules/spotify-sdk";
+import SpotifySdk from "@/modules/spotify-sdk";
 import {
     AUTH_TOKEN_KEY,
     REFRESH_TOKEN_KEY,
@@ -8,17 +8,17 @@ import {
     SPOTIFY_CLIENT_ID,
     REDIRECT_URI,
     SPOTIFY_SCOPES,
-} from "../constants/spotify";
-import { clearCachedData } from "../utils/cache";
-import { exchangeCodeForTokens } from "../services/tokenExchange";
-import { log, logError } from "../utils/logger";
+} from "@/constants/spotify";
+import { clearCachedData } from "@/features/library/utils/cache";
+import { exchangeCodeForTokens } from "@/features/auth/services/tokenExchange";
+import { log, logError } from "@/shared/utils/logger";
 import type {
     SpotifyPlaylistsResponse,
     SpotifySavedAlbumsResponse,
     SpotifySavedShowsResponse,
     SpotifyFollowedArtistsResponse,
     SavedTracksResponse,
-} from "../types/spotify";
+} from "@/shared/types/spotify";
 
 export const loginWithSpotify = async (
     onTokenUpdate: (

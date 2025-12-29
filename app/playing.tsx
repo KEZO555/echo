@@ -6,22 +6,18 @@ import {
     Animated,
 } from "react-native";
 import * as Network from "expo-network";
-import { StyledText } from "@/components/StyledText";
-import {
-    useAuth,
-    SpotifyCurrentlyPlaying,
-    SpotifyArtistSimple,
-    SpotifyEpisode,
-    SpotifyTrackSimple,
-} from "@/contexts/AuthContext";
+import { StyledText } from "@/shared/components/StyledText";
+import { useAuth } from "@/features/auth/contexts/AuthContext";
+import { usePlayback } from "@/features/playback/contexts/PlaybackContext";
+import type { SpotifyCurrentlyPlaying, SpotifyArtistSimple, SpotifyEpisode, SpotifyTrackSimple } from "@/shared/types/spotify";
 import { MaterialIcons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { useFocusEffect, router, useLocalSearchParams } from "expo-router";
-import { HapticPressable } from "@/components/HapticPressable";
-import ContentContainer from "@/components/ContentContainer";
-import { MarqueeText } from "@/components/MarqueeText";
-import { useInvertColors } from "@/contexts/InvertColorsContext";
-import { log, logError } from "@/utils/logger";
-import { usePreventDoubleTap } from "@/hooks/usePreventDoubleTap";
+import { HapticPressable } from "@/shared/components/HapticPressable";
+import ContentContainer from "@/shared/components/ContentContainer";
+import { MarqueeText } from "@/shared/components/MarqueeText";
+import { useInvertColors } from "@/features/settings/contexts/InvertColorsContext";
+import { log, logError } from "@/shared/utils/logger";
+import { usePreventDoubleTap } from "@/shared/hooks/usePreventDoubleTap";
 
 let cachedPlaybackState: SpotifyCurrentlyPlaying | null = null;
 
@@ -34,6 +30,7 @@ const formatTime = (ms: number | null | undefined): string => {
 };
 
 export default function PlayingScreen() {
+    const { appState } = useAuth();
     const {
         startPlayback,
         pausePlayback,
@@ -46,8 +43,7 @@ export default function PlayingScreen() {
         removeFromLibrary,
         getLibraryState,
         getPlaybackState,
-        appState,
-    } = useAuth();
+    } = usePlayback();
     const { invertColors } = useInvertColors();
     const networkState = Network.useNetworkState();
     const params = useLocalSearchParams<{

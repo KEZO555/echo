@@ -4,8 +4,8 @@ import {
     REFRESH_TOKEN_KEY,
     USER_INFO_KEY,
     TOKEN_EXPIRY_KEY,
-} from "../constants/spotify";
-import { refreshAccessToken as refreshTokenService } from "../services/tokenExchange";
+} from "@/constants/spotify";
+import { refreshAccessToken as refreshTokenService } from "@/features/auth/services/tokenExchange";
 import { log, logWarn, logError, logInfo } from "./logger";
 
 // Global refresh lock to prevent concurrent token refreshes

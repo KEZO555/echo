@@ -6,21 +6,19 @@ import {
     ActivityIndicator,
 } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import {
-    useAuth,
-    SpotifyPlaylist,
-    SpotifyTrackSimple, // Assuming this can be reused or adapted
-} from "@/contexts/AuthContext";
-import { StyledText } from "@/components/StyledText";
+import { useAuth } from "@/features/auth/contexts/AuthContext";
+import { useSpotifyLibrary } from "@/features/library/contexts/LibraryContext";
+import { usePlayback } from "@/features/playback/contexts/PlaybackContext";
+import type { SpotifyPlaylist, SpotifyTrackSimple } from "@/shared/types/spotify";
+import { StyledText } from "@/shared/components/StyledText";
 import { MaterialIcons } from "@expo/vector-icons";
-import { HapticPressable } from "@/components/HapticPressable";
-import ContentContainer from "@/components/ContentContainer";
-import CustomScrollView from "@/components/CustomScrollView";
-import { log, logError } from "@/utils/logger";
-import { getCachedPlaylistDetail } from "@/utils/cache";
-import { usePreventDoubleTap } from "@/hooks/usePreventDoubleTap";
+import { HapticPressable } from "@/shared/components/HapticPressable";
+import ContentContainer from "@/shared/components/ContentContainer";
+import CustomScrollView from "@/shared/components/CustomScrollView";
+import { log, logError } from "@/shared/utils/logger";
+import { getCachedPlaylistDetail } from "@/features/library/utils/cache";
+import { usePreventDoubleTap } from "@/shared/hooks/usePreventDoubleTap";
 
-// Interface for the structure of a track item within a playlist from Spotify API
 interface PlaylistTrack {
     added_at: string;
     added_by: {
@@ -31,11 +29,13 @@ interface PlaylistTrack {
         uri: string;
     } | null;
     is_local: boolean;
-    track: SpotifyTrackSimple | null; // Track can be null if unavailable
+    track: SpotifyTrackSimple | null;
 }
 
-// Interface for the full playlist object with tracks
 interface SpotifyPlaylistFull extends SpotifyPlaylist {
+    id: string;
+    name: string;
+    images: { url: string }[];
     tracks: {
         href: string;
         items: PlaylistTrack[];
@@ -53,7 +53,8 @@ export default function PlaylistDetailScreen() {
         playlistString?: string;
         playlistName?: string;
     }>();
-    const { skipToIndex, makeApiRequest } = useAuth();
+    const { skipToIndex } = usePlayback();
+    const { makeApiRequest } = useSpotifyLibrary();
     const router = useRouter();
 
     const initialPlaylist = playlistString
@@ -169,7 +170,7 @@ export default function PlaylistDetailScreen() {
         async (trackIndex: number) => {
             const playlistTrack = playlist?.tracks?.items[trackIndex];
             const track = playlistTrack?.track;
-            const artistName = track?.artists?.map(a => a.name).join(", ") ?? "";
+            const artistName = track?.artists?.map((a: SpotifyTrackSimple['artists'][0]) => a.name).join(", ") ?? "";
             const albumArtUrl = track?.album?.images?.[0]?.url ?? playlist?.images?.[0]?.url ?? "";
 
             try {
@@ -256,7 +257,7 @@ export default function PlaylistDetailScreen() {
                         {track.name}
                     </StyledText>
                     <StyledText style={styles.trackArtistDuration}>
-                        {track.artists.map((artist) => artist.name).join(", ") +
+                        {track.artists.map((artist: SpotifyTrackSimple['artists'][0]) => artist.name).join(", ") +
                             (track.duration_ms
                                 ? ` · ${formatDuration(track.duration_ms)}`
                                 : "")}

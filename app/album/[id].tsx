@@ -6,18 +6,17 @@ import {
     ActivityIndicator,
 } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import {
-    useAuth,
-    SpotifyAlbum,
-    SpotifyTrackSimple,
-} from "@/contexts/AuthContext";
-import { StyledText } from "@/components/StyledText";
-import { HapticPressable } from "@/components/HapticPressable";
-import ContentContainer from "@/components/ContentContainer";
-import CustomScrollView from "@/components/CustomScrollView";
-import { log, logError } from "@/utils/logger";
-import { getCachedAlbumDetail } from "@/utils/cache";
-import { usePreventDoubleTap } from "@/hooks/usePreventDoubleTap";
+import { useAuth } from "@/features/auth/contexts/AuthContext";
+import { useSpotifyLibrary } from "@/features/library/contexts/LibraryContext";
+import { usePlayback } from "@/features/playback/contexts/PlaybackContext";
+import type { SpotifyAlbum, SpotifyTrackSimple } from "@/shared/types/spotify";
+import { StyledText } from "@/shared/components/StyledText";
+import { HapticPressable } from "@/shared/components/HapticPressable";
+import ContentContainer from "@/shared/components/ContentContainer";
+import CustomScrollView from "@/shared/components/CustomScrollView";
+import { log, logError } from "@/shared/utils/logger";
+import { getCachedAlbumDetail } from "@/features/library/utils/cache";
+import { usePreventDoubleTap } from "@/shared/hooks/usePreventDoubleTap";
 
 export default function AlbumDetailScreen() {
     const { id, albumString, albumName } = useLocalSearchParams<{
@@ -26,14 +25,14 @@ export default function AlbumDetailScreen() {
         albumName?: string;
     }>();
 
+    const { accessToken } = useAuth();
+    const { skipToIndex } = usePlayback();
     const {
-        accessToken,
-        skipToIndex,
         saveAlbum,
         removeAlbum,
         checkIfAlbumIsSaved,
         makeApiRequest,
-    } = useAuth();
+    } = useSpotifyLibrary();
     const router = useRouter();
 
     const initialAlbum = albumString
@@ -162,7 +161,7 @@ export default function AlbumDetailScreen() {
                 "More album tracks"
             );
             if (data) {
-                setAlbum((prevAlbum) => {
+                setAlbum((prevAlbum: SpotifyAlbum | null) => {
                     if (!prevAlbum || !prevAlbum.tracks) return prevAlbum;
                     return {
                         ...prevAlbum,
@@ -184,7 +183,7 @@ export default function AlbumDetailScreen() {
     const handleTrackPress = usePreventDoubleTap(
         async (trackIndex: number) => {
             const track = album?.tracks?.items[trackIndex];
-            const artistName = track?.artists?.map(a => a.name).join(", ") ?? "";
+            const artistName = track?.artists?.map((a: SpotifyTrackSimple['artists'][0]) => a.name).join(", ") ?? "";
             const albumArtUrl = album?.images?.[0]?.url ?? "";
 
             try {
@@ -271,7 +270,7 @@ export default function AlbumDetailScreen() {
                     {track.name}
                 </StyledText>
                 <StyledText style={styles.trackArtistDuration}>
-                    {track.artists.map((artist) => artist.name).join(", ") +
+                    {track.artists.map((artist: SpotifyTrackSimple['artists'][0]) => artist.name).join(", ") +
                         " · " +
                         formatDuration(track.duration_ms)}
                 </StyledText>

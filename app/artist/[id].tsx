@@ -5,18 +5,16 @@ import {
     Image,
 } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import {
-    useAuth,
-    SpotifyArtist,
-    SpotifyTrack,
-    SpotifyAlbumSimple,
-} from "@/contexts/AuthContext";
-import { StyledText } from "@/components/StyledText";
-import { HapticPressable } from "@/components/HapticPressable";
-import ContentContainer from "@/components/ContentContainer";
-import CustomScrollView from "@/components/CustomScrollView";
-import { log, logError } from "@/utils/logger";
-import { usePreventDoubleTap } from "@/hooks/usePreventDoubleTap";
+import { useAuth } from "@/features/auth/contexts/AuthContext";
+import { useSpotifyLibrary } from "@/features/library/contexts/LibraryContext";
+import { usePlayback } from "@/features/playback/contexts/PlaybackContext";
+import type { SpotifyArtist, SpotifyTrack, SpotifyAlbumSimple } from "@/shared/types/spotify";
+import { StyledText } from "@/shared/components/StyledText";
+import { HapticPressable } from "@/shared/components/HapticPressable";
+import ContentContainer from "@/shared/components/ContentContainer";
+import CustomScrollView from "@/shared/components/CustomScrollView";
+import { log, logError } from "@/shared/utils/logger";
+import { usePreventDoubleTap } from "@/shared/hooks/usePreventDoubleTap";
 
 export default function ArtistDetailScreen() {
     const { id, artistString, artistName } = useLocalSearchParams<{
@@ -25,9 +23,9 @@ export default function ArtistDetailScreen() {
         artistName?: string;
     }>();
 
+    const { accessToken } = useAuth();
+    const { playTracksWithWebApi } = usePlayback();
     const {
-        accessToken,
-        playTracksWithWebApi,
         followArtist,
         unfollowArtist,
         fetchArtistTopTracks,
@@ -35,7 +33,7 @@ export default function ArtistDetailScreen() {
         fetchMoreArtistAlbums,
         checkIfFollowingArtist,
         makeApiRequest,
-    } = useAuth();
+    } = useSpotifyLibrary();
 
     const router = useRouter();
     let initialArtist = null
@@ -243,7 +241,7 @@ export default function ArtistDetailScreen() {
 
     const handleTrackPress = usePreventDoubleTap(async (trackIndex: number) => {
         const track = topTracks[trackIndex];
-        const artistName = track?.artists?.map(a => a.name).join(", ") ?? "";
+        const artistName = track?.artists?.map((a: SpotifyTrack['artists'][0]) => a.name).join(", ") ?? "";
         const albumArtUrl = track?.album?.images?.[0]?.url ?? "";
 
         try {
@@ -293,7 +291,7 @@ export default function ArtistDetailScreen() {
                         {track.name}
                     </StyledText>
                     <StyledText style={styles.trackArtistDuration}>
-                        {track.artists.map((artist) => artist.name).join(", ") +
+                        {track.artists.map((artist: SpotifyTrack['artists'][0]) => artist.name).join(", ") +
                             " · " +
                             formatDuration(track.duration_ms)}
                     </StyledText>

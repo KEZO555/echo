@@ -7,7 +7,7 @@ import React, {
 	useCallback,
 } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { logError } from "../utils/logger";
+import { logError } from "@/shared/utils/logger";
 
 const TAB_PREFERENCES_KEY = "tab_preferences";
 

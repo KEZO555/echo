@@ -1,7 +1,7 @@
 import React, { ReactNode } from "react";
 import { View, StyleSheet, StyleProp, ViewStyle } from "react-native";
-import { Header } from "@/components/Header";
-import { useInvertColors } from "@/contexts/InvertColorsContext";
+import { Header } from "@/shared/components/Header";
+import { useInvertColors } from "@/features/settings/contexts/InvertColorsContext";
 import { MaterialIcons } from "@expo/vector-icons";
 
 interface ContentContainerProps {

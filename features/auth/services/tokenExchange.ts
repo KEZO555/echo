@@ -1,5 +1,5 @@
-import { TOKEN_SWAP_URL, TOKEN_REFRESH_URL } from "../constants/spotify";
-import { log, logError } from "../utils/logger";
+import { TOKEN_SWAP_URL, TOKEN_REFRESH_URL } from "@/constants/spotify";
+import { log, logError } from "@/shared/utils/logger";
 
 interface TokenExchangeResponse {
 	access_token: string;

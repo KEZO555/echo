@@ -1,7 +1,7 @@
 import React from "react";
 import { View, StyleSheet, Image, StyleProp, ViewStyle, ImageStyle } from "react-native";
-import { HapticPressable } from "@/components/HapticPressable";
-import { StyledText } from "@/components/StyledText";
+import { HapticPressable } from "@/shared/components/HapticPressable";
+import { StyledText } from "@/shared/components/StyledText";
 import { MaterialIcons } from "@expo/vector-icons";
 
 interface MediaListItemProps {

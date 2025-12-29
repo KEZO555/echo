@@ -1,5 +1,5 @@
 import { Pressable, PressableProps } from "react-native";
-import { useHaptic } from "../contexts/HapticContext";
+import { useHaptic } from "@/features/settings/contexts/HapticContext";
 
 export const HapticPressable = (props: PressableProps) => {
     const { triggerHaptic } = useHaptic();

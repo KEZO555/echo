@@ -5,10 +5,10 @@ import { HapticPressable } from "./HapticPressable";
 import { StyledText } from "./StyledText";
 import { useRouter } from "expo-router";
 import type { BottomTabBarProps } from "@react-navigation/bottom-tabs";
-import { useInvertColors } from "@/contexts/InvertColorsContext";
-import { useNetworkState } from "@/hooks/useNetworkState";
-import { useAuth } from "@/contexts/AuthContext";
-import { useTabPreferences } from "@/contexts/TabPreferencesContext";
+import { useInvertColors } from "@/features/settings/contexts/InvertColorsContext";
+import { useNetworkState } from "@/shared/hooks/useNetworkState";
+import { usePlayback } from "@/features/playback/contexts/PlaybackContext";
+import { useTabPreferences } from "@/features/settings/contexts/TabPreferencesContext";
 
 export interface TabConfigItem {
     name: string;
@@ -32,7 +32,7 @@ export function Navbar({
     const router = useRouter();
     const { invertColors } = useInvertColors();
     const { isOnline } = useNetworkState();
-    const { isConnectedToAppRemote } = useAuth();
+    const { isConnectedToAppRemote } = usePlayback();
     const { preferences } = useTabPreferences();
 
     const handlePlayingPress = () => {

@@ -1,22 +1,22 @@
 import React, { useEffect, useRef } from "react";
 import { Stack, useRouter } from "expo-router";
 import { View } from "react-native";
-import { HapticProvider } from "../contexts/HapticContext";
-import { AuthProvider, useAuth } from "@/contexts/AuthContext";
+import { HapticProvider } from "@/features/settings/contexts/HapticContext";
+import { AuthProvider, useAuth } from "@/features/auth/contexts/AuthContext";
 import {
     TabPreferencesProvider,
     useTabPreferences,
-} from "@/contexts/TabPreferencesContext";
+} from "@/features/settings/contexts/TabPreferencesContext";
 import {
     InvertColorsProvider,
     useInvertColors,
-} from "@/contexts/InvertColorsContext";
+} from "@/features/settings/contexts/InvertColorsContext";
 import { useFonts } from "expo-font";
 import { setStatusBarHidden } from "expo-status-bar";
 import * as NavigationBar from 'expo-navigation-bar';
 import * as SystemUI from "expo-system-ui";
-import { StyledText } from "@/components/StyledText";
-import "../utils/logger";
+import { StyledText } from "@/shared/components/StyledText";
+import "@/shared/utils/logger";
 
 function RootNavigation() {
     const router = useRouter();

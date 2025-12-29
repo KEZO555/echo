@@ -1,10 +1,10 @@
 import React from "react";
 import { Alert } from "react-native";
-import { StyledButton } from "@/components/StyledButton";
-import ContentContainer from "@/components/ContentContainer";
-import { clearCachedData } from "@/utils/cache";
-import { useTabPreferences } from "@/contexts/TabPreferencesContext";
-import { ToggleSwitch } from "@/components/ToggleSwitch";
+import { StyledButton } from "@/shared/components/StyledButton";
+import ContentContainer from "@/shared/components/ContentContainer";
+import { clearCachedData } from "@/features/library/utils/cache";
+import { useTabPreferences } from "@/features/settings/contexts/TabPreferencesContext";
+import { ToggleSwitch } from "@/shared/components/ToggleSwitch";
 
 export default function DebugScreen() {
     const { preferences, updatePreference } = useTabPreferences();

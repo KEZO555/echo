@@ -1,6 +1,6 @@
 import React from "react";
 import { Text as DefaultText, TextProps, StyleSheet } from "react-native";
-import { useInvertColors } from "@/contexts/InvertColorsContext";
+import { useInvertColors } from "@/features/settings/contexts/InvertColorsContext";
 
 interface StyledTextProps extends TextProps {
     children: React.ReactNode;

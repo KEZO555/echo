@@ -4,38 +4,35 @@ import {
     StyleSheet,
     RefreshControl,
 } from "react-native";
-import {
-    useAuth,
-    SpotifySavedShow,
-} from "@/contexts/AuthContext";
-import { StyledText } from "@/components/StyledText";
+import { useAuth } from "@/features/auth/contexts/AuthContext";
+import { useSpotifyLibrary } from "@/features/library/contexts/LibraryContext";
+import type { SpotifySavedShow } from "@/shared/types/spotify";
+import { StyledText } from "@/shared/components/StyledText";
 import { useRouter } from "expo-router";
-import ContentContainer from "@/components/ContentContainer";
-import { MediaListItem } from "@/components/MediaListItem";
-import { useTabPreferences } from "@/contexts/TabPreferencesContext";
-import CustomScrollView from "@/components/CustomScrollView";
-import { log, logError } from "@/utils/logger";
+import ContentContainer from "@/shared/components/ContentContainer";
+import { MediaListItem } from "@/shared/components/MediaListItem";
+import { useTabPreferences } from "@/features/settings/contexts/TabPreferencesContext";
+import CustomScrollView from "@/shared/components/CustomScrollView";
+import { log, logError } from "@/shared/utils/logger";
 import {
     saveCachedShowDetail,
     refreshFollowedPodcastsFromCache,
     isShowCached,
-} from "@/utils/cache";
-import { useNetworkState } from "@/hooks/useNetworkState";
-import { usePreventDoubleTap } from "@/hooks/usePreventDoubleTap";
+} from "@/features/library/utils/cache";
+import { useNetworkState } from "@/shared/hooks/useNetworkState";
+import { usePreventDoubleTap } from "@/shared/hooks/usePreventDoubleTap";
 
 export default function PodcastsScreen() {
+    const { isLoading, accessToken, user } = useAuth();
     const {
         podcasts,
-        isLoading,
-        accessToken,
         fetchPodcasts,
-        user,
         isRefreshingPodcasts,
         fetchMorePodcasts,
         isLoadingMorePodcasts,
         podcastsNextUrl,
         makeApiRequest,
-    } = useAuth();
+    } = useSpotifyLibrary();
     const router = useRouter();
     const { preferences } = useTabPreferences();
     const { isOnline } = useNetworkState();

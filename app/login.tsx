@@ -1,9 +1,9 @@
 import React from "react";
 import { View, StyleSheet } from "react-native";
-import { useAuth } from "@/contexts/AuthContext";
-import { StyledText } from "@/components/StyledText";
-import { HapticPressable } from "@/components/HapticPressable";
-import ContentContainer from "@/components/ContentContainer";
+import { useAuth } from "@/features/auth/contexts/AuthContext";
+import { StyledText } from "@/shared/components/StyledText";
+import { HapticPressable } from "@/shared/components/HapticPressable";
+import ContentContainer from "@/shared/components/ContentContainer";
 
 export default function LoginScreen() {
 	const { login, isLoading } = useAuth();

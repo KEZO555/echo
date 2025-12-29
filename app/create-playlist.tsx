@@ -1,22 +1,20 @@
 import React, { useState, useCallback } from "react";
 import { View, TextInput, StyleSheet } from "react-native";
 import { useRouter, useFocusEffect } from "expo-router";
-import { useAuth } from "@/contexts/AuthContext";
-import ContentContainer from "@/components/ContentContainer";
-import { useInvertColors } from "@/contexts/InvertColorsContext";
+import { useAuth } from "@/features/auth/contexts/AuthContext";
+import { useSpotifyLibrary } from "@/features/library/contexts/LibraryContext";
+import ContentContainer from "@/shared/components/ContentContainer";
+import { useInvertColors } from "@/features/settings/contexts/InvertColorsContext";
 import * as Haptics from "expo-haptics";
 import { MaterialIcons } from "@expo/vector-icons";
-import { HapticPressable } from "@/components/HapticPressable";
-import { log, logError } from "@/utils/logger";
+import { HapticPressable } from "@/shared/components/HapticPressable";
+import { log, logError } from "@/shared/utils/logger";
 
 export default function NamePlaylistScreen() {
 	const [playlistName, setPlaylistName] = useState("");
 	const router = useRouter();
-	const {
-		user,
-		fetchPlaylists,
-		ensureValidToken,
-	} = useAuth();
+	const { user, ensureValidToken } = useAuth();
+	const { fetchPlaylists } = useSpotifyLibrary();
 
 	useFocusEffect(
 		useCallback(() => {

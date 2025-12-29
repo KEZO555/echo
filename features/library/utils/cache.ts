@@ -8,8 +8,8 @@ import {
     ALBUM_DETAIL_KEY_PREFIX,
     PLAYLIST_DETAIL_KEY_PREFIX,
     SHOW_DETAIL_KEY_PREFIX,
-} from "../constants/spotify";
-import { log, logError } from "../utils/logger";
+} from "@/constants/spotify";
+import { log, logError } from "@/shared/utils/logger";
 import type {
     SpotifyPlaylist,
     SpotifySavedAlbum,
@@ -18,9 +18,11 @@ import type {
     SavedTrackObject,
     SpotifyAlbum,
     SpotifyShow,
-} from "../types/spotify";
+} from "@/shared/types/spotify";
 
 interface SpotifyPlaylistFull extends SpotifyPlaylist {
+    id: string;
+    name: string;
     tracks: {
         href: string;
         items: any[];

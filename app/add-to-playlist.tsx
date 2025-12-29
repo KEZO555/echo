@@ -5,25 +5,21 @@ import {
     Image,
 } from "react-native";
 import { router, useLocalSearchParams } from "expo-router";
-import { StyledText } from "@/components/StyledText";
-import { HapticPressable } from "@/components/HapticPressable";
-import { useAuth, SpotifyPlaylist } from "@/contexts/AuthContext";
+import { StyledText } from "@/shared/components/StyledText";
+import { HapticPressable } from "@/shared/components/HapticPressable";
+import { useAuth } from "@/features/auth/contexts/AuthContext";
+import { useSpotifyLibrary } from "@/features/library/contexts/LibraryContext";
+import type { SpotifyPlaylist } from "@/shared/types/spotify";
 import { MaterialIcons } from "@expo/vector-icons";
-import ContentContainer from "@/components/ContentContainer";
-import { useInvertColors } from "@/contexts/InvertColorsContext";
-import CustomScrollView from "@/components/CustomScrollView";
-import { log, logError } from "@/utils/logger";
-import { usePreventDoubleTap } from "@/hooks/usePreventDoubleTap";
+import ContentContainer from "@/shared/components/ContentContainer";
+import { useInvertColors } from "@/features/settings/contexts/InvertColorsContext";
+import CustomScrollView from "@/shared/components/CustomScrollView";
+import { log, logError } from "@/shared/utils/logger";
+import { usePreventDoubleTap } from "@/shared/hooks/usePreventDoubleTap";
 
 export default function AddToPlaylistScreen() {
-    const {
-        playlists,
-        isLoading,
-        fetchPlaylists,
-        accessToken,
-        user,
-        addTrackToPlaylist,
-    } = useAuth();
+    const { isLoading, accessToken, user } = useAuth();
+    const { playlists, fetchPlaylists, addTrackToPlaylist } = useSpotifyLibrary();
     const params = useLocalSearchParams<{
         trackUri?: string;
     }>();

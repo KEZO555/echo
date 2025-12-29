@@ -4,7 +4,7 @@ import { StyleSheet, View } from "react-native";
 import { router } from "expo-router";
 import { StyledText } from "./StyledText";
 import { HapticPressable } from "./HapticPressable";
-import { useInvertColors } from "@/contexts/InvertColorsContext";
+import { useInvertColors } from "@/features/settings/contexts/InvertColorsContext";
 
 interface HeaderProps {
     iconName?: keyof typeof MaterialIcons.glyphMap;

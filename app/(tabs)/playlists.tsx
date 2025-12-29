@@ -4,33 +4,33 @@ import {
     StyleSheet,
     RefreshControl,
 } from "react-native";
-import { useAuth, SpotifyPlaylist } from "@/contexts/AuthContext";
-import { StyledText } from "@/components/StyledText";
+import { useAuth } from "@/features/auth/contexts/AuthContext";
+import { useSpotifyLibrary } from "@/features/library/contexts/LibraryContext";
+import type { SpotifyPlaylist } from "@/shared/types/spotify";
+import { StyledText } from "@/shared/components/StyledText";
 import { useRouter } from "expo-router";
-import ContentContainer from "@/components/ContentContainer";
-import { MediaListItem } from "@/components/MediaListItem";
-import { useTabPreferences } from "@/contexts/TabPreferencesContext";
-import CustomScrollView from "@/components/CustomScrollView";
-import { logError, log } from "@/utils/logger";
-import { saveCachedPlaylistDetail, refreshPlaylistsFromCache, isPlaylistCached } from "@/utils/cache";
-import { useNetworkState } from "@/hooks/useNetworkState";
-import { usePreventDoubleTap } from "@/hooks/usePreventDoubleTap";
+import ContentContainer from "@/shared/components/ContentContainer";
+import { MediaListItem } from "@/shared/components/MediaListItem";
+import { useTabPreferences } from "@/features/settings/contexts/TabPreferencesContext";
+import CustomScrollView from "@/shared/components/CustomScrollView";
+import { logError, log } from "@/shared/utils/logger";
+import { saveCachedPlaylistDetail, refreshPlaylistsFromCache, isPlaylistCached } from "@/features/library/utils/cache";
+import { useNetworkState } from "@/shared/hooks/useNetworkState";
+import { usePreventDoubleTap } from "@/shared/hooks/usePreventDoubleTap";
 
 const CREATE_NEW_PLAYLIST_ID = "CREATE_NEW_PLAYLIST_ID";
 
 export default function PlaylistsScreen() {
+    const { isLoading, accessToken, user } = useAuth();
     const {
         playlists,
-        isLoading,
-        accessToken,
         fetchPlaylists,
-        user,
         isRefreshingPlaylists,
         fetchMorePlaylists,
         isLoadingMorePlaylists,
         playlistsNextUrl,
         makeApiRequest,
-    } = useAuth();
+    } = useSpotifyLibrary();
     const router = useRouter();
     const { preferences } = useTabPreferences();
     const { isOnline } = useNetworkState();

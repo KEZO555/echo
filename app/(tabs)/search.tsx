@@ -1,12 +1,12 @@
 import React, { useState } from "react";
 import { View, StyleSheet, TextInput } from "react-native";
 import { router } from "expo-router";
-import ContentContainer from "@/components/ContentContainer";
-import { HapticPressable } from "@/components/HapticPressable";
-import { useInvertColors } from "@/contexts/InvertColorsContext";
+import ContentContainer from "@/shared/components/ContentContainer";
+import { HapticPressable } from "@/shared/components/HapticPressable";
+import { useInvertColors } from "@/features/settings/contexts/InvertColorsContext";
 import * as Haptics from "expo-haptics";
 import { MaterialIcons } from "@expo/vector-icons";
-import { usePreventDoubleTap } from "@/hooks/usePreventDoubleTap";
+import { usePreventDoubleTap } from "@/shared/hooks/usePreventDoubleTap";
 
 export default function SearchScreen() {
 	const [searchQuery, setSearchQuery] = useState("");

@@ -2,7 +2,7 @@ import React from "react";
 import { View, StyleSheet } from "react-native";
 import { StyledText } from "./StyledText";
 import { HapticPressable } from "./HapticPressable";
-import { useInvertColors } from "@/contexts/InvertColorsContext";
+import { useInvertColors } from "@/features/settings/contexts/InvertColorsContext";
 
 interface ToggleSwitchGraphicProps {
 	value: boolean;

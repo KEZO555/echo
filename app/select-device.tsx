@@ -1,16 +1,18 @@
 import React, { useState, useEffect } from "react";
 import { View, StyleSheet, FlatList, ActivityIndicator } from "react-native";
-import { HapticPressable } from "@/components/HapticPressable";
-import { StyledText } from "@/components/StyledText";
-import { useAuth } from "@/contexts/AuthContext";
-import { SpotifyDevice } from "@/types/spotify";
+import { HapticPressable } from "@/shared/components/HapticPressable";
+import { StyledText } from "@/shared/components/StyledText";
+import { useAuth } from "@/features/auth/contexts/AuthContext";
+import { useSpotifyLibrary } from "@/features/library/contexts/LibraryContext";
+import { SpotifyDevice } from "@/shared/types/spotify";
 import { router } from "expo-router";
-import ContentContainer from "@/components/ContentContainer";
-import CustomScrollView from "@/components/CustomScrollView";
-import { logError } from "@/utils/logger";
+import ContentContainer from "@/shared/components/ContentContainer";
+import CustomScrollView from "@/shared/components/CustomScrollView";
+import { logError } from "@/shared/utils/logger";
 
 export default function SelectDeviceScreen() {
-	const { makeApiRequest, ensureValidToken } = useAuth();
+	const { ensureValidToken } = useAuth();
+	const { makeApiRequest } = useSpotifyLibrary();
 	const [devices, setDevices] = useState<SpotifyDevice[]>([]);
 	const [isLoading, setIsLoading] = useState(true);
 

@@ -1,5 +1,5 @@
-import SpotifySdk from "../modules/spotify-sdk";
-import { SPOTIFY_CLIENT_ID, REDIRECT_URI } from "../constants/spotify";
+import SpotifySdk from "@/modules/spotify-sdk";
+import { SPOTIFY_CLIENT_ID, REDIRECT_URI } from "@/constants/spotify";
 import type {
     SpotifyCurrentlyPlaying,
     SpotifySearchResults,
@@ -7,13 +7,13 @@ import type {
     SpotifyEpisode,
     SpotifyShow,
     SpotifyTrackSimple,
-} from "../types/spotify";
-import { log, logError } from "../utils/logger";
+} from "@/shared/types/spotify";
+import { log, logError } from "@/shared/utils/logger";
 import {
     isTrackInSavedCache,
     addTrackToSavedCache,
     removeTrackFromSavedCache,
-} from "../utils/cache";
+} from "@/features/library/utils/cache";
 
 const inFlightLibraryChecks = new Map<string, Promise<{ isAdded: boolean; canAdd: boolean } | null>>();
 

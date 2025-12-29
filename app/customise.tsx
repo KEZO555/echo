@@ -1,9 +1,9 @@
 import React from "react";
-import ContentContainer from "@/components/ContentContainer";
+import ContentContainer from "@/shared/components/ContentContainer";
 import { useRouter } from "expo-router";
-import { StyledButton } from "@/components/StyledButton";
-import { ToggleSwitch } from "@/components/ToggleSwitch";
-import { useInvertColors } from "@/contexts/InvertColorsContext";
+import { StyledButton } from "@/shared/components/StyledButton";
+import { ToggleSwitch } from "@/shared/components/ToggleSwitch";
+import { useInvertColors } from "@/features/settings/contexts/InvertColorsContext";
 
 export default function CustomiseTabsScreen() {
     const router = useRouter();

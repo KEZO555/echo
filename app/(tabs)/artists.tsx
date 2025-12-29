@@ -4,31 +4,30 @@ import {
     StyleSheet,
     RefreshControl,
 } from "react-native";
-import {
-    useAuth,
-    SpotifyArtist,
-} from "@/contexts/AuthContext";
-import { StyledText } from "@/components/StyledText";
+import { useAuth } from "@/features/auth/contexts/AuthContext";
+import { useSpotifyLibrary } from "@/features/library/contexts/LibraryContext";
+import type { SpotifyArtist } from "@/shared/types/spotify";
+import { StyledText } from "@/shared/components/StyledText";
 import { useRouter } from "expo-router";
-import ContentContainer from "@/components/ContentContainer";
-import { MediaListItem } from "@/components/MediaListItem";
-import { useTabPreferences } from "@/contexts/TabPreferencesContext";
-import CustomScrollView from "@/components/CustomScrollView";
-import { log, logError } from "@/utils/logger";
-import { useNetworkState } from "@/hooks/useNetworkState";
-import { usePreventDoubleTap } from "@/hooks/usePreventDoubleTap";
+import ContentContainer from "@/shared/components/ContentContainer";
+import { MediaListItem } from "@/shared/components/MediaListItem";
+import { useTabPreferences } from "@/features/settings/contexts/TabPreferencesContext";
+import CustomScrollView from "@/shared/components/CustomScrollView";
+import { log, logError } from "@/shared/utils/logger";
+import { useNetworkState } from "@/shared/hooks/useNetworkState";
+import { usePreventDoubleTap } from "@/shared/hooks/usePreventDoubleTap";
 
 export default function ArtistsScreen() {
+    const { isLoading } = useAuth();
     const {
         artists,
-        isLoading,
         fetchArtists,
         isRefreshingArtists,
         fetchMoreArtists,
         isLoadingMoreArtists,
         artistsNextUrl,
         makeApiRequest,
-    } = useAuth();
+    } = useSpotifyLibrary();
     const router = useRouter();
     const { preferences } = useTabPreferences();
     const { isOnline } = useNetworkState();
