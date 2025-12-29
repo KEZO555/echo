@@ -19,6 +19,7 @@ import com.spotify.android.appremote.api.Connector
 import com.spotify.android.appremote.api.SpotifyAppRemote
 import com.spotify.protocol.client.Subscription
 import com.spotify.protocol.types.*
+import com.spotify.android.appremote.api.error.*
 import android.os.Handler
 import android.os.Looper
 
@@ -667,9 +668,43 @@ class SpotifySdkModule : Module() {
         }
 
         override fun onFailure(error: Throwable) {
-          Log.e(TAG, "Failed to connect to Spotify App Remote: ${error.message}", error)
-          sendEvent("onConnectionError", mapOf("error" to error.message))
-          currentAuthPromise?.reject("CONNECTION_ERROR", error.message, error)
+          val errorInfo = when (error) {
+            is CouldNotFindSpotifyApp -> mapOf(
+              "code" to "SPOTIFY_NOT_INSTALLED",
+              "message" to "Spotify app not found"
+            )
+            is NotLoggedInException -> mapOf(
+              "code" to "NOT_LOGGED_IN",
+              "message" to "Please log in to Spotify"
+            )
+            is UserNotAuthorizedException -> mapOf(
+              "code" to "NOT_AUTHORIZED",
+              "message" to "Please authorize this app"
+            )
+            is AuthenticationFailedException -> mapOf(
+              "code" to "AUTH_FAILED",
+              "message" to "Authentication failed"
+            )
+            is UnsupportedFeatureVersionException -> mapOf(
+              "code" to "UPDATE_REQUIRED",
+              "message" to "Please update Spotify"
+            )
+            is OfflineModeException -> mapOf(
+              "code" to "OFFLINE",
+              "message" to "Spotify is in offline mode"
+            )
+            else -> mapOf(
+              "code" to "UNKNOWN",
+              "message" to (error.message ?: "Unknown error")
+            )
+          }
+
+          Log.e(TAG, "Connection failed: ${errorInfo["code"]} - ${errorInfo["message"]}", error)
+          sendEvent("onConnectionError", mapOf("error" to errorInfo["message"]))
+
+          currentAuthPromise?.reject(errorInfo["code"] as String, errorInfo["message"] as String, error)
+          currentAuthPromise = null
+          isAuthenticating = false
         }
       })
     } catch (e: Exception) {

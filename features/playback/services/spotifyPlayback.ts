@@ -1,4 +1,4 @@
-import SpotifySdk from "@/modules/spotify-sdk";
+import { spotify } from "@/modules/spotify-sdk";
 import { SPOTIFY_CLIENT_ID, REDIRECT_URI } from "@/constants/spotify";
 import type {
     SpotifyCurrentlyPlaying,
@@ -17,55 +17,9 @@ import {
 
 const inFlightLibraryChecks = new Map<string, Promise<{ isAdded: boolean; canAdd: boolean } | null>>();
 
-let lastConnectionCheck = 0;
-let cachedConnectionState = false;
-const CONNECTION_CACHE_TTL = 2000;
-
 let cachedDeviceId: string | undefined;
 let lastDeviceFetch = 0;
 const DEVICE_CACHE_TTL = 30000;
-
-export const ensureAppRemoteConnection = async (): Promise<boolean> => {
-    try {
-        const now = Date.now();
-        if (now - lastConnectionCheck < CONNECTION_CACHE_TTL && cachedConnectionState) {
-            return true;
-        }
-
-        const connected = await SpotifySdk.isConnected();
-        lastConnectionCheck = now;
-        cachedConnectionState = connected;
-
-        if (connected) {
-            return true;
-        }
-
-        const connectionResult = await SpotifySdk.connect(
-            SPOTIFY_CLIENT_ID,
-            REDIRECT_URI
-        );
-
-        if (connectionResult.connected) {
-            log("Playback: Connected to App Remote");
-            cachedConnectionState = true;
-            lastConnectionCheck = Date.now();
-            return true;
-        } else {
-            log("Playback: Failed to connect to App Remote");
-            cachedConnectionState = false;
-            return false;
-        }
-    } catch (error) {
-        log("Playback: Error connecting to App Remote:", error);
-        cachedConnectionState = false;
-        return false;
-    }
-};
-
-const invalidateConnectionCache = () => {
-    lastConnectionCheck = 0;
-    cachedConnectionState = false;
-};
 
 const getCachedDeviceId = async (token: string): Promise<string | undefined> => {
     const now = Date.now();
@@ -107,19 +61,16 @@ export const forceAppRemoteConnection = async (): Promise<boolean> => {
     log("Playback: Attempting force connection...");
 
     try {
-        await SpotifySdk.disconnect();
+        await spotify.disconnect();
     } catch (error) {
         // Ignore disconnect errors
     }
 
     for (let i = 0; i < 3; i++) {
         try {
-            const connectionResult = await SpotifySdk.connect(
-                SPOTIFY_CLIENT_ID,
-                REDIRECT_URI
-            );
+            const connected = await spotify.connect();
 
-            if (connectionResult.connected) {
+            if (connected) {
                 return true;
             }
         } catch (error) {
@@ -204,13 +155,7 @@ export const playTracksWithWebApi = async (
 
 export const getPlaybackState = async (): Promise<SpotifyCurrentlyPlaying | null> => {
     try {
-        const connected = await ensureAppRemoteConnection();
-        if (!connected) {
-            log("Playback: Cannot get playback state - App Remote not connected");
-            return null;
-        }
-
-        const playerState = await SpotifySdk.getPlayerState();
+        const playerState = await spotify.getPlayerState();
         if (!playerState || !playerState.track) {
             log("Playback: No player state or track available");
             return null;
@@ -224,7 +169,7 @@ export const getPlaybackState = async (): Promise<SpotifyCurrentlyPlaying | null
         const isEpisode = playerState.track.isEpisode;
 
         if (albumUri) {
-            const nativeImageUrl = await SpotifySdk.getCurrentTrackImage("LARGE");
+            const nativeImageUrl = await spotify.getCurrentTrackImage("LARGE");
             if (nativeImageUrl && nativeImageUrl.startsWith("data:image/")) {
                 albumImages = [
                     {
@@ -372,10 +317,8 @@ export const getPlaybackState = async (): Promise<SpotifyCurrentlyPlaying | null
 
 export const startPlayback = async (): Promise<void> => {
     try {
-        const connected = await ensureAppRemoteConnection();
-        if (!connected) return;
-        const result = await SpotifySdk.resume();
-        if (result.resumed) log("Playback: Playback resumed");
+        await spotify.resume();
+        log("Playback: Playback resumed");
     } catch (error) {
         logError("Playback: Error starting playback:", error);
     }
@@ -383,10 +326,8 @@ export const startPlayback = async (): Promise<void> => {
 
 export const pausePlayback = async (): Promise<void> => {
     try {
-        const connected = await ensureAppRemoteConnection();
-        if (!connected) return;
-        const result = await SpotifySdk.pause();
-        if (result.paused) log("Playback: Playback paused");
+        await spotify.pause();
+        log("Playback: Playback paused");
     } catch (error) {
         logError("Playback: Error pausing playback:", error);
     }
@@ -394,10 +335,8 @@ export const pausePlayback = async (): Promise<void> => {
 
 export const skipToNext = async (): Promise<void> => {
     try {
-        const connected = await ensureAppRemoteConnection();
-        if (!connected) return;
-        const result = await SpotifySdk.skipNext();
-        if (result.skipped) log("Playback: Skipped to next track");
+        await spotify.skipNext();
+        log("Playback: Skipped to next track");
     } catch (error) {
         logError("Playback: Error skipping to next track:", error);
     }
@@ -405,10 +344,8 @@ export const skipToNext = async (): Promise<void> => {
 
 export const skipToPrevious = async (): Promise<void> => {
     try {
-        const connected = await ensureAppRemoteConnection();
-        if (!connected) return;
-        const result = await SpotifySdk.skipPrevious();
-        if (result.skipped) log("Playback: Skipped to previous track");
+        await spotify.skipPrevious();
+        log("Playback: Skipped to previous track");
     } catch (error) {
         logError("Playback: Error skipping to previous track:", error);
     }
@@ -416,10 +353,8 @@ export const skipToPrevious = async (): Promise<void> => {
 
 export const toggleShuffle = async (state: boolean): Promise<void> => {
     try {
-        const connected = await ensureAppRemoteConnection();
-        if (!connected) return;
-        const result = await SpotifySdk.setShuffle(state);
-        if (result.shuffleSet) log(`Playback: Shuffle set to ${state}`);
+        await spotify.setShuffle(state);
+        log(`Playback: Shuffle set to ${state}`);
     } catch (error) {
         logError("Playback: Error toggling shuffle:", error);
     }
@@ -429,12 +364,9 @@ export const toggleRepeat = async (
     state: "off" | "context" | "track"
 ): Promise<void> => {
     try {
-        const connected = await ensureAppRemoteConnection();
-        if (!connected) return;
-
         const repeatMode = state === "off" ? 0 : state === "track" ? 1 : 2;
-        const result = await SpotifySdk.setRepeat(repeatMode);
-        if (result.repeatSet) log(`Playback: Repeat set to ${state}`);
+        await spotify.setRepeat(repeatMode);
+        log(`Playback: Repeat set to ${state}`);
     } catch (error) {
         logError("Playback: Error toggling repeat:", error);
     }
@@ -442,10 +374,8 @@ export const toggleRepeat = async (
 
 export const seekToPosition = async (positionMs: number): Promise<void> => {
     try {
-        const connected = await ensureAppRemoteConnection();
-        if (!connected) return;
-        const result = await SpotifySdk.seekTo(positionMs);
-        if (result.seeked) log("Playback: Seek completed");
+        await spotify.seekTo(positionMs);
+        log("Playback: Seek completed");
     } catch (error) {
         logError("Playback: Error seeking:", error);
     }
@@ -453,9 +383,7 @@ export const seekToPosition = async (positionMs: number): Promise<void> => {
 
 export const getCurrentTrack = async (): Promise<any | null> => {
     try {
-        const connected = await ensureAppRemoteConnection();
-        if (!connected) return null;
-        const playerState = await SpotifySdk.getPlayerState();
+        const playerState = await spotify.getPlayerState();
         if (!playerState || !playerState.track) return null;
         return {
             ...playerState.track,
@@ -476,16 +404,13 @@ export const getAlbumArt = async (
     size: string = "LARGE"
 ): Promise<string | null> => {
     try {
-        const connected = await ensureAppRemoteConnection();
-        if (!connected) return null;
-
         // If no URI provided, get current track image directly
         if (!uri) {
             try {
                 log(
                     "Playback: Getting current track image from Native SDK"
                 );
-                const imageUrl = await SpotifySdk.getCurrentTrackImage(size);
+                const imageUrl = await spotify.getCurrentTrackImage(size);
                 if (imageUrl && imageUrl.startsWith("data:image/")) {
                     log(
                         "Playback: Successfully got current track image from Native SDK"
@@ -501,7 +426,7 @@ export const getAlbumArt = async (
 
             // Fallback: get player state and use album URI
             try {
-                const playerState = await SpotifySdk.getPlayerState();
+                const playerState = await spotify.getPlayerState();
                 if (!playerState || !playerState.track) return null;
                 uri = playerState.track.album.uri;
             } catch (error) {
@@ -516,7 +441,7 @@ export const getAlbumArt = async (
         // Try to get image with provided or derived URI
         if (uri) {
             log("Playback: Getting image for URI:", uri);
-            const imageUrl = await SpotifySdk.getImage(uri, size);
+            const imageUrl = await spotify.getImage(uri, size);
             if (imageUrl && imageUrl.startsWith("data:image/")) {
                 log("Playback: Successfully got image from Native SDK");
                 return imageUrl;
@@ -629,13 +554,6 @@ export const playTrackWithContext = async (
     );
 
     try {
-        // Ensure we have App Remote connection
-        const connected = await ensureAppRemoteConnection();
-        if (!connected) {
-            log("Playback: Cannot play - App Remote not connected");
-            return;
-        }
-
         // UNIFIED HYBRID APPROACH: Web API for context + Native SDK for control
         if (
             sourceContext?.uri &&
@@ -746,7 +664,7 @@ export const playTrackWithContext = async (
 
                 if (response.ok) {
                     log("Playback: Context set successfully, starting playback");
-                    await SpotifySdk.play();
+                    await spotify.play();
                     log("Playback: Started with context");
                     return;
                 } else if (response.status === 401) {
@@ -777,7 +695,7 @@ export const playTrackWithContext = async (
 
         // Fallback: Direct track play (no context)
         log("Playback: Direct track play (no context)");
-        await SpotifySdk.play(trackUri);
+        await spotify.play(trackUri);
         log("Playback: Direct playback started");
     } catch (error) {
         logError("Playback: Error in playTrackWithContext:", error);
@@ -797,45 +715,34 @@ export const skipToIndex = async (
         "Playback: Playing track with context via SkipToIndex:",
         sourceContext?.type || "none"
     );
-    {
-        const connected = await ensureAppRemoteConnection(); if (!connected) {
-            log("Playback: Cannot play - App Remote not connected");
-            return;
-        }
-
-        if (
-            sourceContext?.uri &&
-            sourceContext.currentIndex !== undefined &&
-            sourceContext.currentIndex !== null
-        ) {
-            log("Index:", {
-                currentIndex: sourceContext.currentIndex,
-            });
-            log("URI:", {
-                uri: sourceContext.uri,
-            });
-            await SpotifySdk.skipToIndex(sourceContext.uri, sourceContext.currentIndex);
-        }
-        log("Playback: Skipped to index");
-        return;
+    
+    if (
+        sourceContext?.uri &&
+        sourceContext.currentIndex !== undefined &&
+        sourceContext.currentIndex !== null
+    ) {
+        log("Index:", {
+            currentIndex: sourceContext.currentIndex,
+        });
+        log("URI:", {
+            uri: sourceContext.uri,
+        });
+        await spotify.skipToIndex(sourceContext.uri, sourceContext.currentIndex);
     }
+    log("Playback: Skipped to index");
+    return;
 };
 
 export const addToLibrary = async (uri: string, accessToken?: string | null): Promise<boolean> => {
     try {
-        const connected = await ensureAppRemoteConnection();
-        if (!connected) {
-            log("Playback: Cannot add to library - App Remote not connected");
-            return false;
-        }
-        const result = await SpotifySdk.addToLibrary(uri);
-        log(`Playback: Added to library: ${uri}`, result);
+        const added = await spotify.addToLibrary(uri);
+        log(`Playback: Added to library: ${uri}`, { added });
 
-        if (result.added && accessToken) {
+        if (added && accessToken) {
             await addTrackToSavedCache(uri, accessToken);
         }
 
-        return result.added;
+        return added;
     } catch (error) {
         logError("Playback: Error adding to library:", error);
         return false;
@@ -844,20 +751,15 @@ export const addToLibrary = async (uri: string, accessToken?: string | null): Pr
 
 export const removeFromLibrary = async (uri: string, accessToken?: string | null): Promise<boolean> => {
     try {
-        const connected = await ensureAppRemoteConnection();
-        if (!connected) {
-            log("Playback: Cannot remove from library - App Remote not connected");
-            return false;
-        }
-        const result = await SpotifySdk.removeFromLibrary(uri);
-        log(`Playback: Removed from library: ${uri}`, result);
+        const removed = await spotify.removeFromLibrary(uri);
+        log(`Playback: Removed from library: ${uri}`, { removed });
 
-        if (result.removed) {
+        if (removed) {
             const trackId = uri.replace("spotify:track:", "");
             await removeTrackFromSavedCache(trackId);
         }
 
-        return result.removed;
+        return removed;
     } catch (error) {
         logError("Playback: Error removing from library:", error);
         return false;
@@ -879,13 +781,7 @@ export const getLibraryState = async (uri: string): Promise<{ isAdded: boolean; 
             return { isAdded: true, canAdd: true };
         }
 
-        const connected = await ensureAppRemoteConnection();
-        if (!connected) {
-            log("Playback: Cannot get library state - App Remote not connected");
-            return null;
-        }
-
-        const result = await SpotifySdk.getLibraryState(uri);
+        const result = await spotify.getLibraryState(uri);
         inFlightLibraryChecks.delete(uri);
         return result;
     })();

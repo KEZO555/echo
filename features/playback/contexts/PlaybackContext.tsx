@@ -1,17 +1,11 @@
 import React, {
 	createContext,
 	useContext,
-	useState,
-	useEffect,
 	ReactNode,
 	useCallback,
-	useRef,
 } from "react";
-import { AppState, AppStateStatus } from "react-native";
-import SpotifySdk from "@/modules/spotify-sdk";
+import { useSpotifyConnection, spotify } from "@/modules/spotify-sdk";
 import { useAuth } from "@/features/auth/contexts/AuthContext";
-import { logInfo } from "@/shared/utils/logger";
-import { useNetworkState } from "@/shared/hooks/useNetworkState";
 
 import type { SpotifyCurrentlyPlaying } from "@/shared/types/spotify";
 
@@ -38,7 +32,6 @@ import {
 
 export interface PlaybackContextType {
 	isConnectedToAppRemote: boolean;
-	appState: AppStateStatus;
 
 	startPlayback: () => Promise<void>;
 	pausePlayback: () => Promise<void>;
@@ -82,11 +75,7 @@ const PlaybackContext = createContext<PlaybackContextType | undefined>(undefined
 
 export const PlaybackProvider = ({ children }: { children: ReactNode }) => {
 	const { accessToken, ensureValidToken } = useAuth();
-	const { isOnline } = useNetworkState();
-
-	const [isConnectedToAppRemote, setIsConnectedToAppRemote] = useState(false);
-	const [appState, setAppState] = useState(AppState.currentState);
-	const disconnectTimeoutRef = useRef<number | null>(null);
+	const { isConnected: isConnectedToAppRemote } = useSpotifyConnection();
 
 	const playTracksWithWebApi = useCallback(
 		async (uris: string[]) => {
@@ -134,47 +123,19 @@ export const PlaybackProvider = ({ children }: { children: ReactNode }) => {
 	const getAlbumArt = useCallback((uri?: string, size?: string) => getAlbumArtService(uri, size), []);
 
 	const startPlayback = useCallback(async () => {
-		const result = await startPlaybackService();
-		try {
-			const connected = await SpotifySdk.isConnected();
-			setIsConnectedToAppRemote(connected);
-		} catch (error) {
-			// Ignore
-		}
-		return result;
+		return await startPlaybackService();
 	}, []);
 
 	const pausePlayback = useCallback(async () => {
-		const result = await pausePlaybackService();
-		try {
-			const connected = await SpotifySdk.isConnected();
-			setIsConnectedToAppRemote(connected);
-		} catch (error) {
-			// Ignore
-		}
-		return result;
+		return await pausePlaybackService();
 	}, []);
 
 	const skipToNext = useCallback(async () => {
-		const result = await skipToNextService();
-		try {
-			const connected = await SpotifySdk.isConnected();
-			setIsConnectedToAppRemote(connected);
-		} catch (error) {
-			// Ignore
-		}
-		return result;
+		return await skipToNextService();
 	}, []);
 
 	const skipToPrevious = useCallback(async () => {
-		const result = await skipToPreviousService();
-		try {
-			const connected = await SpotifySdk.isConnected();
-			setIsConnectedToAppRemote(connected);
-		} catch (error) {
-			// Ignore
-		}
-		return result;
+		return await skipToPreviousService();
 	}, []);
 
 	const toggleShuffle = useCallback((state: boolean) => toggleShuffleService(state), []);
@@ -205,67 +166,11 @@ export const PlaybackProvider = ({ children }: { children: ReactNode }) => {
 	const getLibraryState = useCallback((uri: string) => getLibraryStateService(uri), []);
 
 	const forceAppRemoteConnectionMethod = useCallback(async (): Promise<boolean> => {
-		const result = await forceAppRemoteConnectionService();
-		setIsConnectedToAppRemote(result);
-		return result;
+		return await forceAppRemoteConnectionService();
 	}, []);
-
-	useEffect(() => {
-		const handleAppStateChange = (nextAppState: AppStateStatus) => {
-			if (appState.match(/inactive|background/) && nextAppState === "active") {
-				logInfo("PlaybackContext: App resumed");
-				if (disconnectTimeoutRef.current) {
-					clearTimeout(disconnectTimeoutRef.current);
-					disconnectTimeoutRef.current = null;
-					logInfo("PlaybackContext: Cancelled pending disconnect timeout");
-				}
-			} else if (appState === "active" && nextAppState.match(/inactive|background/)) {
-				if (isOnline) {
-					logInfo("PlaybackContext: App suspended (online) - scheduling disconnect in 5 minutes");
-					disconnectTimeoutRef.current = setTimeout(() => {
-						try {
-							SpotifySdk.disconnect();
-							logInfo("PlaybackContext: Remote disconnected after 5 minute delay");
-						} catch (e) {}
-						setIsConnectedToAppRemote(false);
-						disconnectTimeoutRef.current = null;
-					}, 5 * 60 * 1000);
-				} else {
-					logInfo("PlaybackContext: App suspended (offline) - keeping remote connection");
-				}
-			}
-			setAppState(nextAppState);
-		};
-
-		const appStateSubscription = AppState.addEventListener("change", handleAppStateChange);
-
-		return () => {
-			appStateSubscription?.remove();
-		};
-	}, [appState, isOnline]);
-
-	useEffect(() => {
-		if (!accessToken) return;
-
-		const checkRemoteConnection = async () => {
-			try {
-				const connected = await SpotifySdk.isConnected();
-				setIsConnectedToAppRemote(connected);
-			} catch (error) {
-				setIsConnectedToAppRemote(false);
-			}
-		};
-
-		checkRemoteConnection();
-
-		const interval = setInterval(checkRemoteConnection, 30000);
-
-		return () => clearInterval(interval);
-	}, [accessToken]);
 
 	const value: PlaybackContextType = {
 		isConnectedToAppRemote,
-		appState,
 		playTracksWithWebApi,
 		playTrackWithContext,
 		skipToIndex,

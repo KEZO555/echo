@@ -1,4 +1,15 @@
-// Reexport the native module. On web, it will be resolved to SpotifySdkModule.web.ts
-// and on native platforms to SpotifySdkModule.ts
-export { default } from "./src/SpotifySdkModule";
-export * from "./src/SpotifySdk.types";
+// Native module (low-level)
+export { default as SpotifySdkNative } from './src/SpotifySdkModule';
+
+// Wrapper (recommended)
+export { spotify } from './src/spotify';
+
+// Hooks
+export { useSpotifyConnection, usePlayerState } from './src/hooks';
+
+// Types
+export * from './src/SpotifySdk.types';
+
+// Default export for backward compatibility
+import SpotifySdkNative from './src/SpotifySdkModule';
+export default SpotifySdkNative;
