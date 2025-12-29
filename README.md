@@ -2,6 +2,8 @@
 
 A minimal Spotify client for Light Phone III.
 
+<img src="example.png">
+
 ## Setup
 
 ### 1. Create a Spotify App
