@@ -8,7 +8,6 @@ import {
     StyleProp,
     LayoutChangeEvent,
 } from "react-native";
-import * as Network from "expo-network";
 import AutoScroll from "@homielab/react-native-auto-scroll";
 import { StyledText } from "@/shared/components/StyledText";
 import { useAuth } from "@/features/auth/contexts/AuthContext";
@@ -20,7 +19,7 @@ import { HapticPressable } from "@/shared/components/HapticPressable";
 import ContentContainer from "@/shared/components/ContentContainer";
 import { useSettings } from "@/features/settings";
 import { log, logError, getArtistNames } from "@/shared/utils";
-import { usePreventDoubleTap } from "@/shared/hooks/usePreventDoubleTap";
+import { usePreventDoubleTap, useNetworkState } from "@/shared/hooks";
 
 function MarqueeText({
     children,
@@ -101,7 +100,7 @@ export default function PlayingScreen() {
         getPlaybackState,
     } = usePlayback();
     const { invertColors } = useSettings();
-    const networkState = Network.useNetworkState();
+    const { isOnline } = useNetworkState();
     const params = useLocalSearchParams<{
         trackName?: string;
         artistName?: string;
@@ -138,9 +137,6 @@ export default function PlayingScreen() {
     const isFocusedRef = useRef(true);
     const lastCheckedTrackUriRef = useRef<string | null>(null);
     const pausePollingUntilRef = useRef<number | null>(null);
-
-    // Check if device is online
-    const isOnline = networkState.isConnected && networkState.isInternetReachable;
 
     useEffect(() => {
         appStateRef.current = appState;

@@ -30,7 +30,7 @@ export function Navbar({
 }: NavbarProps) {
     const router = useRouter();
     const { invertColors, tabPreferences } = useSettings();
-    const { isOnline } = useNetworkState();
+    const { isOnline, isLoading: networkLoading } = useNetworkState();
     const { isConnectedToAppRemote } = usePlayback();
 
     const handlePlayingPress = () => {
@@ -39,13 +39,12 @@ export function Navbar({
 
     const getStatusText = () => {
         const parts = [];
-        
-        if (!isOnline) {
+
+        if (!networkLoading && !isOnline) {
             parts.push("Device offline");
         }
         
-        // Show remote connection status based on preference
-        if (!isOnline || tabPreferences.showRemoteStatusWhenOnline) {
+        if (!networkLoading && (!isOnline || tabPreferences.showRemoteStatusWhenOnline)) {
             parts.push(`Remote ${isConnectedToAppRemote ? "connected" : "not connected"}`);
         }
         

@@ -7,23 +7,23 @@ export function useNetworkState() {
 
     useEffect(() => {
         const updateNetworkState = (networkState: Network.NetworkState) => {
-            setIsOnline(networkState.isConnected === true && networkState.isInternetReachable !== false);
-            setIsLoading(false);
-        };
-
-        const checkNetworkState = async () => {
-            try {
-                const networkState = await Network.getNetworkStateAsync();
-                updateNetworkState(networkState);
-            } catch (error) {
-                setIsOnline(false);
+            setIsOnline(
+                networkState.isConnected === true &&
+                networkState.isInternetReachable === true
+            );
+            if (networkState.isInternetReachable !== null) {
                 setIsLoading(false);
             }
         };
 
-        checkNetworkState();
-
         const subscription = Network.addNetworkStateListener(updateNetworkState);
+
+        Network.getNetworkStateAsync()
+            .then(updateNetworkState)
+            .catch(() => {
+                setIsOnline(false);
+                setIsLoading(false);
+            });
 
         return () => subscription?.remove();
     }, []);
