@@ -59,32 +59,17 @@ export default function PlaylistDetailScreen() {
     const [playlist, setPlaylist] = useState<SpotifyPlaylistFull | null>(
         initialPlaylist as SpotifyPlaylistFull | null
     );
-    const [isLoading, setIsLoading] = useState(!initialPlaylist);
     const [error, setError] = useState<string | null>(null);
     const [isLoadingMoreTracks, setIsLoadingMoreTracks] = useState(false);
 
     useEffect(() => {
         if (!id) {
-            setIsLoading(false);
             setError("Playlist ID is missing.");
             return;
         }
 
         const fetchPlaylistDetails = async () => {
-            if (!id) {
-                setError("Playlist ID is missing.");
-                return;
-            }
-
-            let hasDisplayedData = false;
-
-            if (initialPlaylist) {
-                setPlaylist(initialPlaylist as SpotifyPlaylistFull);
-                hasDisplayedData = !!(initialPlaylist as SpotifyPlaylistFull).tracks?.items;
-                if (hasDisplayedData) {
-                    log("Playlist details: Displaying pre-loaded data");
-                }
-            }
+            let hasDisplayedData = !!(initialPlaylist as SpotifyPlaylistFull)?.tracks?.items;
 
             if (!hasDisplayedData) {
                 try {
@@ -108,10 +93,8 @@ export default function PlaylistDetailScreen() {
                     log("Playlist details: Fetched fresh data from API");
                     setPlaylist(data);
                     await saveCachedPlaylistDetail(data);
-                } else {
-                    if (!hasDisplayedData) {
-                        throw new Error("Failed to fetch playlist details");
-                    }
+                } else if (!hasDisplayedData) {
+                    throw new Error("Failed to fetch playlist details");
                 }
             } catch (e: any) {
                 logError("Error fetching playlist details:", e);

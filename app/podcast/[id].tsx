@@ -41,7 +41,6 @@ export default function PodcastDetailScreen() {
         : null;
 
     const [show, setShow] = useState<SpotifyShow | null>(initialShow);
-    const [isLoading, setIsLoading] = useState(!initialShow);
     const [error, setError] = useState<string | null>(null);
     const [isLoadingMoreEpisodes, setIsLoadingMoreEpisodes] = useState(false);
 
@@ -55,26 +54,12 @@ export default function PodcastDetailScreen() {
 
     useEffect(() => {
         if (!id) {
-            setIsLoading(false);
             setError("Podcast ID is missing.");
             return;
         }
 
         const fetchShowDetails = async () => {
-            if (!id) {
-                setError("Podcast ID is missing.");
-                return;
-            }
-
-            let hasDisplayedData = false;
-
-            if (initialShow) {
-                setShow(initialShow);
-                hasDisplayedData = !!initialShow.episodes?.items;
-                if (hasDisplayedData) {
-                    log("Podcast details: Displaying pre-loaded data");
-                }
-            }
+            let hasDisplayedData = !!initialShow?.episodes?.items;
 
             if (!hasDisplayedData) {
                 try {
@@ -98,10 +83,8 @@ export default function PodcastDetailScreen() {
                     log("Podcast details: Fetched fresh data from API");
                     setShow(data);
                     await saveCachedShowDetail(data);
-                } else {
-                    if (!hasDisplayedData) {
-                        throw new Error("Failed to fetch podcast details");
-                    }
+                } else if (!hasDisplayedData) {
+                    throw new Error("Failed to fetch podcast details");
                 }
             } catch (e: any) {
                 logError("Error fetching podcast details:", e);

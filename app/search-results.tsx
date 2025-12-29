@@ -188,17 +188,31 @@ export default function SearchResultsScreen() {
                     pathname: `album/${item.data.id}`,
                     params: {
                         albumName: item.data.name as string,
+                        albumString: JSON.stringify(item.data),
                     },
                 } as any);
             } else if (item.type === "artist") {
-                router.push(`/artist/${item.data.id}`);
+                router.push({
+                    pathname: `/artist/${item.data.id}`,
+                    params: {
+                        artistName: item.data.name as string,
+                        artistString: JSON.stringify(item.data),
+                    },
+                } as any);
             } else if (item.type === "playlist") {
-                router.push(`/playlist/${item.data.id}`);
+                router.push({
+                    pathname: `/playlist/${item.data.id}`,
+                    params: {
+                        playlistName: item.data.name as string,
+                        playlistString: JSON.stringify(item.data),
+                    },
+                } as any);
             } else if (item.type === "podcast") {
                 router.push({
                     pathname: `podcast/${item.data.id}`,
                     params: {
                         showName: item.data.name as string,
+                        showString: JSON.stringify(item.data),
                     },
                 } as any);
             }

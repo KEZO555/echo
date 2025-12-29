@@ -9,7 +9,7 @@ import type { SpotifyArtist } from "@/shared/types/spotify";
 import { StyledText, ContentContainer, CustomScrollView, MediaListItem } from "@/shared/components";
 import { useRouter } from "expo-router";
 import { useSettings } from "@/features/settings";
-import { logError } from "@/shared/utils/logger";
+
 import { useNetworkState, usePreventDoubleTap } from "@/shared/hooks";
 import { tabScreenStyles as styles } from "@/shared/styles/detailScreen";
 
@@ -22,7 +22,6 @@ export default function ArtistsScreen() {
         fetchMoreArtists,
         isLoadingMoreArtists,
         artistsNextUrl,
-        makeApiRequest,
     } = useSpotifyLibrary();
     const router = useRouter();
     const { tabPreferences } = useSettings();
@@ -30,7 +29,6 @@ export default function ArtistsScreen() {
     const [sortedArtists, setSortedArtists] = useState<
         SpotifyArtist[] | null
     >(null);
-    const [loadingArtistId, setLoadingArtistId] = useState<string | null>(null);
 
     useEffect(() => {
         if (artists) {
@@ -55,19 +53,15 @@ export default function ArtistsScreen() {
 
     const handleArtistPress = usePreventDoubleTap(
         (item: SpotifyArtist, isDisabled: boolean) => {
-            if (isDisabled || loadingArtistId) return;
+            if (isDisabled) return;
 
-            setLoadingArtistId(item.id);
-            try {
-                router.push({
-                    pathname: `/artist/${item.id}`,
-                    params: { artistName: item.name as string },
-                } as any);
-            } catch (error) {
-                logError("Error navigating to artist:", error);
-            } finally {
-                setLoadingArtistId(null);
-            }
+            router.push({
+                pathname: `/artist/${item.id}`,
+                params: {
+                    artistName: item.name as string,
+                    artistString: JSON.stringify(item),
+                },
+            } as any);
         }
     );
 
@@ -79,7 +73,6 @@ export default function ArtistsScreen() {
                 primaryText={item.name}
                 imageUri={item.images && item.images.length > 0 ? item.images[0].url : undefined}
                 placeholderIcon="person"
-                isLoading={loadingArtistId === item.id}
                 disabled={isDisabled}
                 onPress={() => handleArtistPress(item, isDisabled)}
                 imageStyle={{ borderRadius: 100 }}

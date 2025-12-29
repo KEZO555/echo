@@ -34,19 +34,12 @@ export default function ArtistDetailScreen() {
     } = useSpotifyLibrary();
 
     const router = useRouter();
-    let initialArtist = null
 
-    if (artistString) {
-        const artistData = JSON.parse(artistString);
-        if (artistData.images && artistData.images.length > 0) {
-            initialArtist = artistData as SpotifyArtist;
-        } else {
-            initialArtist = null;
-        }
-    }
+    const initialArtist = artistString
+        ? (JSON.parse(artistString) as SpotifyArtist)
+        : null;
 
     const [artist, setArtist] = useState<SpotifyArtist | null>(initialArtist);
-    const [isLoading, setIsLoading] = useState(!initialArtist);
     const [error, setError] = useState<string | null>(null);
     const [topTracks, setTopTracks] = useState<SpotifyTrack[]>([]);
     const [albums, setAlbums] = useState<SpotifyAlbumSimple[] | null>(null);
@@ -83,68 +76,50 @@ export default function ArtistDetailScreen() {
 
     useEffect(() => {
         if (!id) {
-            setIsLoading(false);
             setError("Artist ID is missing.");
             return;
         }
 
         const fetchArtistDetails = async () => {
-            if (
-                initialArtist
-            ) {
-                log(
-                    "Artist details: Using pre-loaded complete artist data"
-                );
-                setIsLoading(false);
-                return;
+            if (initialArtist) {
+                log("Artist details: Using pre-loaded artist data");
             }
 
-            if (!initialArtist) {
-                setIsLoading(true);
-            }
-            setError(null);
             try {
                 const data = await makeApiRequest(
                     `https://api.spotify.com/v1/artists/${id}`,
                     "Artist details"
                 );
                 if (data) {
+                    log("Artist details: Fetched fresh data from API");
                     setArtist(data);
-                } else {
+                } else if (!initialArtist) {
                     throw new Error("Failed to fetch artist details");
                 }
             } catch (e: any) {
                 logError("Error fetching artist details:", e);
-                setError(e.message || "An unexpected error occurred.");
-            } finally {
-                setIsLoading(false);
+                if (!initialArtist) {
+                    setError(e.message || "An unexpected error occurred.");
+                }
             }
         };
 
         const fetchTopTracks = async () => {
-            if (!id) return;
-            setIsLoading(true);
             try {
                 const data = await fetchArtistTopTracks(id);
                 setTopTracks(data);
             } catch (e: any) {
                 logError("Error fetching artist top tracks:", e);
-            } finally {
-                setIsLoading(false);
             }
         };
 
         const fetchAlbums = async () => {
-            if (!id) return;
-            setIsLoading(true);
             try {
                 const data = await fetchArtistAlbums(id);
                 setAlbums(data.albums);
                 setAlbumsNextUrl(data.nextUrl);
             } catch (e: any) {
                 logError("Error fetching artist albums:", e);
-            } finally {
-                setIsLoading(false);
             }
         };
 
@@ -249,34 +224,21 @@ export default function ArtistDetailScreen() {
         router.push(`/album/${albumId}`);
     });
 
-    if (isLoading && !artist) {
+    if (!artist) {
         return (
             <ContentContainer
-                headerTitle={`${artistName}`}
+                headerTitle={artistName || "Artist"}
                 style={{ paddingHorizontal: 20 }}
                 headerIcon={isFollowingArtist ? "remove" : "add"}
                 headerIconPress={handleToggleFollowArtist}
                 headerIconShowLength={isCheckingFollowingArtist ? 0 : 1}
             >
+                {error && (
+                    <StyledText style={detailScreenStyles.errorText}>
+                        {error}
+                    </StyledText>
+                )}
             </ContentContainer>
-        );
-    }
-
-    if (error) {
-        return (
-            <View style={detailScreenStyles.centeredMessageContainer}>
-                <StyledText style={detailScreenStyles.errorText}>Error: {error}</StyledText>
-            </View>
-        );
-    }
-
-    if (!artist) {
-        return (
-            <View style={detailScreenStyles.centeredMessageContainer}>
-                <StyledText style={detailScreenStyles.emptyText}>
-                    Artist data is unavailable.
-                </StyledText>
-            </View>
         );
     }
 
@@ -374,11 +336,15 @@ export default function ArtistDetailScreen() {
                     onEndReachedThreshold={2}
                     ListFooterComponent={<ListFooter isLoading={isLoadingMore} />}
                     ListEmptyComponent={
-                        isLoading ? null : (
+                        error ? (
+                            <StyledText style={detailScreenStyles.errorText}>
+                                {error}
+                            </StyledText>
+                        ) : artistDetailList.length <= 1 ? (
                             <StyledText style={detailScreenStyles.emptyText}>
                                 No tracks or albums found for this artist.
                             </StyledText>
-                        )
+                        ) : null
                     }
                 />
             </View>

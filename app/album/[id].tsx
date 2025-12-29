@@ -36,7 +36,6 @@ export default function AlbumDetailScreen() {
         : null;
 
     const [album, setAlbum] = useState<SpotifyAlbum | null>(initialAlbum);
-    const [isLoading, setIsLoading] = useState(!initialAlbum);
     const [error, setError] = useState<string | null>(null);
     const [isLoadingMoreTracks, setIsLoadingMoreTracks] = useState(false);
 
@@ -50,26 +49,12 @@ export default function AlbumDetailScreen() {
 
     useEffect(() => {
         if (!id) {
-            setIsLoading(false);
             setError("Album ID is missing.");
             return;
         }
 
         const fetchAlbumDetails = async () => {
-            if (!id) {
-                setError("Album ID is missing.");
-                return;
-            }
-
-            let hasDisplayedData = false;
-
-            if (initialAlbum) {
-                setAlbum(initialAlbum);
-                hasDisplayedData = !!initialAlbum.tracks?.items;
-                if (hasDisplayedData) {
-                    log("Album details: Displaying pre-loaded data");
-                }
-            }
+            let hasDisplayedData = !!initialAlbum?.tracks?.items;
 
             if (!hasDisplayedData) {
                 try {
@@ -93,10 +78,8 @@ export default function AlbumDetailScreen() {
                     log("Album details: Fetched fresh data from API");
                     setAlbum(data);
                     await saveCachedAlbumDetail(data);
-                } else {
-                    if (!hasDisplayedData) {
-                        throw new Error("Failed to fetch album details");
-                    }
+                } else if (!hasDisplayedData) {
+                    throw new Error("Failed to fetch album details");
                 }
             } catch (e: any) {
                 logError("Error fetching album details:", e);
