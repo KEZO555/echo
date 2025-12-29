@@ -10,7 +10,7 @@ import type { SpotifyPlaylist, SpotifyTrackSimple } from "@/shared/types/spotify
 import { StyledText, ContentContainer, CustomScrollView, TrackListItem, ListFooter } from "@/shared/components";
 import { MaterialIcons } from "@expo/vector-icons";
 import { log, logError } from "@/shared/utils";
-import { getCachedPlaylistDetail } from "@/features/library/utils/cache";
+import { getCachedPlaylistDetail, saveCachedPlaylistDetail } from "@/features/library/utils/cache";
 import { usePreventDoubleTap } from "@/shared/hooks/usePreventDoubleTap";
 import { detailScreenStyles } from "@/shared/styles/detailScreen";
 
@@ -71,48 +71,53 @@ export default function PlaylistDetailScreen() {
         }
 
         const fetchPlaylistDetails = async () => {
-            if (
-                initialPlaylist &&
-                (initialPlaylist as SpotifyPlaylistFull).tracks &&
-                (initialPlaylist as SpotifyPlaylistFull).tracks.items
-            ) {
-                log(
-                    "Playlist details: Using pre-loaded complete playlist data"
-                );
-                setIsLoading(false);
+            if (!id) {
+                setError("Playlist ID is missing.");
                 return;
             }
 
-            setIsLoading(true);
+            let hasDisplayedData = false;
 
-            try {
-                const cachedPlaylist = await getCachedPlaylistDetail(id);
-                if (cachedPlaylist && cachedPlaylist.tracks && cachedPlaylist.tracks.items) {
-                    log("Playlist details: Using cached playlist data");
-                    setPlaylist(cachedPlaylist);
-                    setIsLoading(false);
-                    return;
+            if (initialPlaylist) {
+                setPlaylist(initialPlaylist as SpotifyPlaylistFull);
+                hasDisplayedData = !!(initialPlaylist as SpotifyPlaylistFull).tracks?.items;
+                if (hasDisplayedData) {
+                    log("Playlist details: Displaying pre-loaded data");
                 }
-            } catch (error) {
-                logError("Error retrieving cached playlist:", error);
             }
 
-            setError(null);
+            if (!hasDisplayedData) {
+                try {
+                    const cachedPlaylist = await getCachedPlaylistDetail(id);
+                    if (cachedPlaylist?.tracks?.items) {
+                        log("Playlist details: Displaying cached data");
+                        setPlaylist(cachedPlaylist);
+                        hasDisplayedData = true;
+                    }
+                } catch (error) {
+                    logError("Error retrieving cached playlist:", error);
+                }
+            }
+
             try {
                 const data = await makeApiRequest(
                     `https://api.spotify.com/v1/playlists/${id}`,
                     "Playlist details"
                 );
                 if (data) {
+                    log("Playlist details: Fetched fresh data from API");
                     setPlaylist(data);
+                    await saveCachedPlaylistDetail(data);
                 } else {
-                    throw new Error("Failed to fetch playlist details");
+                    if (!hasDisplayedData) {
+                        throw new Error("Failed to fetch playlist details");
+                    }
                 }
             } catch (e: any) {
                 logError("Error fetching playlist details:", e);
-                setError(e.message || "An unexpected error occurred.");
-            } finally {
-                setIsLoading(false);
+                if (!hasDisplayedData) {
+                    setError(e.message || "An unexpected error occurred.");
+                }
             }
         };
 
@@ -190,31 +195,18 @@ export default function PlaylistDetailScreen() {
         }
     );
 
-    if (isLoading && !playlist) {
-        return (
-            <ContentContainer
-                headerTitle={playlistName}
-                style={{ paddingHorizontal: 20 }}
-            >
-            </ContentContainer>
-        );
-    }
-
-    if (error) {
-        return (
-            <View style={detailScreenStyles.centeredMessageContainer}>
-                <StyledText style={detailScreenStyles.errorText}>Error: {error}</StyledText>
-            </View>
-        );
-    }
-
     if (!playlist) {
         return (
-            <View style={detailScreenStyles.centeredMessageContainer}>
-                <StyledText style={detailScreenStyles.emptyText}>
-                    Playlist data is unavailable.
-                </StyledText>
-            </View>
+            <ContentContainer
+                headerTitle={playlistName || "Playlist"}
+                style={{ paddingHorizontal: 20 }}
+            >
+                {error && (
+                    <StyledText style={detailScreenStyles.errorText}>
+                        {error}
+                    </StyledText>
+                )}
+            </ContentContainer>
         );
     }
 
@@ -280,7 +272,11 @@ export default function PlaylistDetailScreen() {
                     onEndReachedThreshold={2}
                     ListFooterComponent={<ListFooter isLoading={isLoadingMoreTracks} />}
                     ListEmptyComponent={
-                        isLoading ? null : playlist.tracks?.items?.length === 0 ? (
+                        error ? (
+                            <StyledText style={detailScreenStyles.errorText}>
+                                {error}
+                            </StyledText>
+                        ) : playlist.tracks?.items?.length === 0 ? (
                             <StyledText style={detailScreenStyles.emptyText}>
                                 No tracks found in this playlist.
                             </StyledText>

@@ -11,7 +11,6 @@ import { useRouter } from "expo-router";
 import { useSettings } from "@/features/settings";
 import { log, logError } from "@/shared/utils/logger";
 import {
-    saveCachedShowDetail,
     refreshFollowedPodcastsFromCache,
     isShowCached,
 } from "@/features/library/utils/cache";
@@ -27,7 +26,6 @@ export default function PodcastsScreen() {
         fetchMorePodcasts,
         isLoadingMorePodcasts,
         podcastsNextUrl,
-        makeApiRequest,
     } = useSpotifyLibrary();
     const router = useRouter();
     const { tabPreferences } = useSettings();
@@ -35,7 +33,6 @@ export default function PodcastsScreen() {
     const [sortedPodcasts, setSortedPodcasts] = useState<
         SpotifySavedShow[] | null
     >(null);
-    const [loadingShowId, setLoadingShowId] = useState<string | null>(null);
     const [cachedShowIds, setCachedShowIds] = useState<Set<string>>(new Set());
 
     useEffect(() => {
@@ -106,58 +103,16 @@ export default function PodcastsScreen() {
     }, [fetchPodcasts, isRefreshingPodcasts, isOnline]);
 
     const handleShowPress = usePreventDoubleTap(
-        async (item: SpotifySavedShow, isUncached: boolean) => {
-            if (loadingShowId || isUncached) return;
+        (item: SpotifySavedShow, isUncached: boolean) => {
+            if (isUncached) return;
 
-            setLoadingShowId(item.show.id);
-
-            try {
-                if (isOnline) {
-                    const showDetails = await makeApiRequest(
-                        `https://api.spotify.com/v1/shows/${item.show.id}?limit=10`,
-                        "Show details for caching"
-                    );
-
-                    if (showDetails) {
-                        await saveCachedShowDetail(showDetails);
-                        setCachedShowIds((prev) =>
-                            new Set(prev).add(item.show.id)
-                        );
-
-                        router.push({
-                            pathname: `podcast/${item.show.id}`,
-                            params: {
-                                showName: item.show.name as string,
-                                showString: JSON.stringify(showDetails),
-                            },
-                        } as any);
-                    } else {
-                        router.push({
-                            pathname: `podcast/${item.show.id}`,
-                            params: {
-                                showName: item.show.name as string,
-                            },
-                        } as any);
-                    }
-                } else {
-                    router.push({
-                        pathname: `podcast/${item.show.id}`,
-                        params: {
-                            showName: item.show.name as string,
-                        },
-                    } as any);
-                }
-            } catch (error) {
-                logError("Error navigating to podcast:", error);
-                router.push({
-                    pathname: `podcast/${item.show.id}`,
-                    params: {
-                        showName: item.show.name as string,
-                    },
-                } as any);
-            } finally {
-                setLoadingShowId(null);
-            }
+            router.push({
+                pathname: `podcast/${item.show.id}`,
+                params: {
+                    showName: item.show.name as string,
+                    showString: JSON.stringify(item.show),
+                },
+            } as any);
         }
     );
 
@@ -171,7 +126,6 @@ export default function PodcastsScreen() {
                 secondaryText={item.show.publisher}
                 imageUri={item.show.images && item.show.images.length > 0 ? item.show.images[0].url : undefined}
                 placeholderIcon="mic"
-                isLoading={loadingShowId === item.show.id}
                 disabled={isUncached}
                 onPress={() => handleShowPress(item, isUncached)}
             />

@@ -10,7 +10,7 @@ import { StyledText, ContentContainer, CustomScrollView, MediaListItem } from "@
 import { useRouter } from "expo-router";
 import { useSettings } from "@/features/settings";
 import { logError, log } from "@/shared/utils/logger";
-import { saveCachedPlaylistDetail, refreshPlaylistsFromCache, isPlaylistCached } from "@/features/library/utils/cache";
+import { refreshPlaylistsFromCache, isPlaylistCached } from "@/features/library/utils/cache";
 import { useNetworkState, usePreventDoubleTap } from "@/shared/hooks";
 import { tabScreenStyles as styles } from "@/shared/styles/detailScreen";
 
@@ -25,7 +25,6 @@ export default function PlaylistsScreen() {
         fetchMorePlaylists,
         isLoadingMorePlaylists,
         playlistsNextUrl,
-        makeApiRequest,
     } = useSpotifyLibrary();
     const router = useRouter();
     const { tabPreferences } = useSettings();
@@ -33,9 +32,6 @@ export default function PlaylistsScreen() {
     const [sortedPlaylists, setSortedPlaylists] = useState<
         SpotifyPlaylist[] | null
     >(null);
-    const [loadingPlaylistId, setLoadingPlaylistId] = useState<string | null>(
-        null
-    );
     const [cachedPlaylistIds, setCachedPlaylistIds] = useState<Set<string>>(new Set());
 
     useEffect(() => {
@@ -131,56 +127,16 @@ export default function PlaylistsScreen() {
     });
 
     const handlePlaylistPress = usePreventDoubleTap(
-        async (item: SpotifyPlaylist, isUncached: boolean) => {
-            if (loadingPlaylistId || isUncached) return;
+        (item: SpotifyPlaylist, isUncached: boolean) => {
+            if (isUncached) return;
 
-            setLoadingPlaylistId(item.id);
-
-            try {
-                if (isOnline) {
-                    const playlistDetails = await makeApiRequest(
-                        `https://api.spotify.com/v1/playlists/${item.id}`,
-                        "Playlist details for caching"
-                    );
-
-                    if (playlistDetails) {
-                        await saveCachedPlaylistDetail(playlistDetails);
-                        setCachedPlaylistIds((prev) => new Set(prev).add(item.id));
-
-                        router.push({
-                            pathname: `/playlist/${item.id}`,
-                            params: {
-                                playlistName: item.name as string,
-                                playlistString: JSON.stringify(playlistDetails),
-                            },
-                        } as any);
-                    } else {
-                        router.push({
-                            pathname: `/playlist/${item.id}`,
-                            params: {
-                                playlistName: item.name as string,
-                            },
-                        } as any);
-                    }
-                } else {
-                    router.push({
-                        pathname: `/playlist/${item.id}`,
-                        params: {
-                            playlistName: item.name as string,
-                        },
-                    } as any);
-                }
-            } catch (error) {
-                logError("Error navigating to playlist:", error);
-                router.push({
-                    pathname: `/playlist/${item.id}`,
-                    params: {
-                        playlistName: item.name as string,
-                    },
-                } as any);
-            } finally {
-                setLoadingPlaylistId(null);
-            }
+            router.push({
+                pathname: `/playlist/${item.id}`,
+                params: {
+                    playlistName: item.name as string,
+                    playlistString: JSON.stringify(item),
+                },
+            } as any);
         }
     );
 
@@ -210,7 +166,6 @@ export default function PlaylistsScreen() {
                 secondaryText={item.owner.display_name || item.owner.id}
                 imageUri={item.images && item.images.length > 0 ? item.images[0].url : undefined}
                 placeholderIcon="music-note"
-                isLoading={loadingPlaylistId === item.id}
                 disabled={isUncached}
                 onPress={() => handlePlaylistPress(item, isUncached)}
             />

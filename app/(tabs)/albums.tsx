@@ -10,7 +10,7 @@ import { StyledText, ContentContainer, CustomScrollView, MediaListItem } from "@
 import { useRouter } from "expo-router";
 import { useSettings } from "@/features/settings";
 import { log, logError, getArtistNames } from "@/shared/utils";
-import { saveCachedAlbumDetail, refreshSavedAlbumsFromCache, isAlbumCached } from "@/features/library/utils/cache";
+import { refreshSavedAlbumsFromCache, isAlbumCached } from "@/features/library/utils/cache";
 import { useNetworkState, usePreventDoubleTap } from "@/shared/hooks";
 import { tabScreenStyles as styles } from "@/shared/styles/detailScreen";
 
@@ -23,7 +23,6 @@ export default function AlbumsScreen() {
         fetchMoreAlbums,
         isLoadingMoreAlbums,
         albumsNextUrl,
-        makeApiRequest,
     } = useSpotifyLibrary();
     const router = useRouter();
     const { tabPreferences } = useSettings();
@@ -31,7 +30,6 @@ export default function AlbumsScreen() {
     const [sortedAlbums, setSortedAlbums] = useState<
         SpotifySavedAlbum[] | null
     >(null);
-    const [loadingAlbumId, setLoadingAlbumId] = useState<string | null>(null);
     const [cachedAlbumIds, setCachedAlbumIds] = useState<Set<string>>(new Set());
 
     useEffect(() => {
@@ -101,56 +99,16 @@ export default function AlbumsScreen() {
     }, [fetchAlbums, isRefreshingAlbums, isOnline]);
 
     const handleAlbumPress = usePreventDoubleTap(
-        async (item: SpotifySavedAlbum, isUncached: boolean) => {
-            if (loadingAlbumId || isUncached) return;
+        (item: SpotifySavedAlbum, isUncached: boolean) => {
+            if (isUncached) return;
 
-            setLoadingAlbumId(item.album.id);
-
-            try {
-                if (isOnline) {
-                    const albumDetails = await makeApiRequest(
-                        `https://api.spotify.com/v1/albums/${item.album.id}`,
-                        "Album details for caching"
-                    );
-
-                    if (albumDetails) {
-                        await saveCachedAlbumDetail(albumDetails);
-                        setCachedAlbumIds((prev) => new Set(prev).add(item.album.id));
-
-                        router.push({
-                            pathname: `album/${item.album.id}`,
-                            params: {
-                                albumName: item.album.name as string,
-                                albumString: JSON.stringify(albumDetails),
-                            },
-                        } as any);
-                    } else {
-                        router.push({
-                            pathname: `album/${item.album.id}`,
-                            params: {
-                                albumName: item.album.name as string,
-                            },
-                        } as any);
-                    }
-                } else {
-                    router.push({
-                        pathname: `album/${item.album.id}`,
-                        params: {
-                            albumName: item.album.name as string,
-                        },
-                    } as any);
-                }
-            } catch (error) {
-                logError("Error navigating to album:", error);
-                router.push({
-                    pathname: `album/${item.album.id}`,
-                    params: {
-                        albumName: item.album.name as string,
-                    },
-                } as any);
-            } finally {
-                setLoadingAlbumId(null);
-            }
+            router.push({
+                pathname: `album/${item.album.id}`,
+                params: {
+                    albumName: item.album.name as string,
+                    albumString: JSON.stringify(item.album),
+                },
+            } as any);
         }
     );
 
@@ -164,7 +122,6 @@ export default function AlbumsScreen() {
                 secondaryText={getArtistNames(item.album.artists)}
                 imageUri={item.album.images && item.album.images.length > 0 ? item.album.images[0].url : undefined}
                 placeholderIcon="album"
-                isLoading={loadingAlbumId === item.album.id}
                 disabled={isUncached}
                 onPress={() => handleAlbumPress(item, isUncached)}
             />

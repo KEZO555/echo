@@ -61,47 +61,53 @@ export default function PodcastDetailScreen() {
         }
 
         const fetchShowDetails = async () => {
-            if (
-                initialShow &&
-                initialShow.episodes &&
-                initialShow.episodes.items
-            ) {
-                setShow(initialShow);
-                setIsLoading(false);
+            if (!id) {
+                setError("Podcast ID is missing.");
                 return;
             }
 
-            setIsLoading(true);
+            let hasDisplayedData = false;
 
-            try {
-                const cachedShow = await getCachedShowDetail(id);
-                if (cachedShow && cachedShow.episodes && cachedShow.episodes.items) {
-                    log("Podcast details: Using cached show data");
-                    setShow(cachedShow);
-                    setIsLoading(false);
-                    return;
+            if (initialShow) {
+                setShow(initialShow);
+                hasDisplayedData = !!initialShow.episodes?.items;
+                if (hasDisplayedData) {
+                    log("Podcast details: Displaying pre-loaded data");
                 }
-            } catch (error) {
-                logError("Error retrieving cached show:", error);
             }
 
-            setError(null);
+            if (!hasDisplayedData) {
+                try {
+                    const cachedShow = await getCachedShowDetail(id);
+                    if (cachedShow?.episodes?.items) {
+                        log("Podcast details: Displaying cached data");
+                        setShow(cachedShow);
+                        hasDisplayedData = true;
+                    }
+                } catch (error) {
+                    logError("Error retrieving cached show:", error);
+                }
+            }
+
             try {
                 const data = await makeApiRequest(
                     `https://api.spotify.com/v1/shows/${id}?market=from_token&limit=10`,
                     "Podcast details"
                 );
                 if (data) {
-                    await saveCachedShowDetail(data);
+                    log("Podcast details: Fetched fresh data from API");
                     setShow(data);
+                    await saveCachedShowDetail(data);
                 } else {
-                    throw new Error("Failed to fetch podcast details");
+                    if (!hasDisplayedData) {
+                        throw new Error("Failed to fetch podcast details");
+                    }
                 }
             } catch (e: any) {
                 logError("Error fetching podcast details:", e);
-                setError(e.message || "An unexpected error occurred.");
-            } finally {
-                setIsLoading(false);
+                if (!hasDisplayedData) {
+                    setError(e.message || "An unexpected error occurred.");
+                }
             }
         };
 
@@ -186,34 +192,21 @@ export default function PodcastDetailScreen() {
         }
     );
 
-    if (isLoading && !show) {
+    if (!show) {
         return (
             <ContentContainer
-                headerTitle={`${showName}`}
+                headerTitle={showName || "Podcast"}
                 style={{ paddingHorizontal: 20 }}
                 headerIcon={isShowFollowed ? "remove" : "add"}
                 headerIconPress={handleToggleFollowShow}
                 headerIconShowLength={isCheckingFollowed ? 0 : 1}
             >
+                {error && (
+                    <StyledText style={detailScreenStyles.errorText}>
+                        {error}
+                    </StyledText>
+                )}
             </ContentContainer>
-        );
-    }
-
-    if (error) {
-        return (
-            <View style={detailScreenStyles.centeredMessageContainer}>
-                <StyledText style={detailScreenStyles.errorText}>Error: {error}</StyledText>
-            </View>
-        );
-    }
-
-    if (!show) {
-        return (
-            <View style={detailScreenStyles.centeredMessageContainer}>
-                <StyledText style={detailScreenStyles.emptyText}>
-                    Podcast data is unavailable.
-                </StyledText>
-            </View>
         );
     }
 
@@ -310,14 +303,15 @@ export default function PodcastDetailScreen() {
                     onEndReachedThreshold={2}
                     ListFooterComponent={<ListFooter isLoading={isLoadingMoreEpisodes} />}
                     ListEmptyComponent={
-                        isLoading
-                            ? null
-                            : episodeItems.length === 0 ? (
+                        error ? (
+                            <StyledText style={detailScreenStyles.errorText}>
+                                {error}
+                            </StyledText>
+                        ) : episodeItems.length === 0 ? (
                             <StyledText style={detailScreenStyles.emptyText}>
                                 No episodes found for this podcast.
                             </StyledText>
-                        )
-                            : null
+                        ) : null
                     }
                 />
             </View>

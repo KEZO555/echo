@@ -10,7 +10,7 @@ import { usePlayback } from "@/features/playback/contexts/PlaybackContext";
 import type { SpotifyAlbum, SpotifyTrackSimple } from "@/shared/types/spotify";
 import { StyledText, ContentContainer, CustomScrollView, TrackListItem, ListFooter } from "@/shared/components";
 import { log, logError } from "@/shared/utils";
-import { getCachedAlbumDetail } from "@/features/library/utils/cache";
+import { getCachedAlbumDetail, saveCachedAlbumDetail } from "@/features/library/utils/cache";
 import { usePreventDoubleTap, useSaveStatus } from "@/shared/hooks";
 import { detailScreenStyles } from "@/shared/styles/detailScreen";
 
@@ -56,48 +56,53 @@ export default function AlbumDetailScreen() {
         }
 
         const fetchAlbumDetails = async () => {
-            if (
-                initialAlbum &&
-                initialAlbum.tracks &&
-                initialAlbum.tracks.items
-            ) {
-                log(
-                    "Album details: Using pre-loaded complete album data"
-                );
-                setIsLoading(false);
+            if (!id) {
+                setError("Album ID is missing.");
                 return;
             }
 
-            setIsLoading(true);
+            let hasDisplayedData = false;
 
-            try {
-                const cachedAlbum = await getCachedAlbumDetail(id);
-                if (cachedAlbum && cachedAlbum.tracks && cachedAlbum.tracks.items) {
-                    log("Album details: Using cached album data");
-                    setAlbum(cachedAlbum);
-                    setIsLoading(false);
-                    return;
+            if (initialAlbum) {
+                setAlbum(initialAlbum);
+                hasDisplayedData = !!initialAlbum.tracks?.items;
+                if (hasDisplayedData) {
+                    log("Album details: Displaying pre-loaded data");
                 }
-            } catch (error) {
-                logError("Error retrieving cached album:", error);
             }
 
-            setError(null);
+            if (!hasDisplayedData) {
+                try {
+                    const cachedAlbum = await getCachedAlbumDetail(id);
+                    if (cachedAlbum?.tracks?.items) {
+                        log("Album details: Displaying cached data");
+                        setAlbum(cachedAlbum);
+                        hasDisplayedData = true;
+                    }
+                } catch (error) {
+                    logError("Error retrieving cached album:", error);
+                }
+            }
+
             try {
                 const data = await makeApiRequest(
                     `https://api.spotify.com/v1/albums/${id}`,
                     "Album details"
                 );
                 if (data) {
+                    log("Album details: Fetched fresh data from API");
                     setAlbum(data);
+                    await saveCachedAlbumDetail(data);
                 } else {
-                    throw new Error("Failed to fetch album details");
+                    if (!hasDisplayedData) {
+                        throw new Error("Failed to fetch album details");
+                    }
                 }
             } catch (e: any) {
                 logError("Error fetching album details:", e);
-                setError(e.message || "An unexpected error occurred.");
-            } finally {
-                setIsLoading(false);
+                if (!hasDisplayedData) {
+                    setError(e.message || "An unexpected error occurred.");
+                }
             }
         };
 
@@ -170,34 +175,21 @@ export default function AlbumDetailScreen() {
         }
     );
 
-    if (isLoading && !album) {
+    if (!album) {
         return (
             <ContentContainer
-                headerTitle={`${albumName}`}
+                headerTitle={albumName || "Album"}
                 style={{ paddingHorizontal: 20 }}
                 headerIcon={isAlbumSaved ? "remove" : "add"}
                 headerIconPress={handleToggleAlbumSave}
                 headerIconShowLength={isCheckingAlbumSaved ? 0 : 1}
             >
+                {error && (
+                    <StyledText style={detailScreenStyles.errorText}>
+                        {error}
+                    </StyledText>
+                )}
             </ContentContainer>
-        );
-    }
-
-    if (error) {
-        return (
-            <View style={detailScreenStyles.centeredMessageContainer}>
-                <StyledText style={detailScreenStyles.errorText}>Error: {error}</StyledText>
-            </View>
-        );
-    }
-
-    if (!album) {
-        return (
-            <View style={detailScreenStyles.centeredMessageContainer}>
-                <StyledText style={detailScreenStyles.emptyText}>
-                    Album data is unavailable.
-                </StyledText>
-            </View>
         );
     }
 
@@ -249,7 +241,11 @@ export default function AlbumDetailScreen() {
                     onEndReachedThreshold={2}
                     ListFooterComponent={<ListFooter isLoading={isLoadingMoreTracks} />}
                     ListEmptyComponent={
-                        isLoading ? null : album.tracks?.items?.length === 0 ? (
+                        error ? (
+                            <StyledText style={detailScreenStyles.errorText}>
+                                {error}
+                            </StyledText>
+                        ) : album.tracks?.items?.length === 0 ? (
                             <StyledText style={detailScreenStyles.emptyText}>
                                 No tracks found in this album.
                             </StyledText>
