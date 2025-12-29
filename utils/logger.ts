@@ -1,104 +1,11 @@
-interface LogEntry {
-	timestamp: string;
-	level: "LOG" | "WARN" | "ERROR" | "INFO";
-	message: string;
-	data?: any;
-}
+export const log = (message: string, data?: unknown) =>
+	data !== undefined ? console.log(message, data) : console.log(message);
 
-class Logger {
-	private logs: LogEntry[] = [];
-	private maxLogs = 1000; // Keep last 1000 logs
+export const logWarn = (message: string, data?: unknown) =>
+	data !== undefined ? console.warn(message, data) : console.warn(message);
 
-	private addLog(level: LogEntry["level"], message: string, data?: any) {
-		const logEntry: LogEntry = {
-			timestamp: new Date().toISOString(),
-			level,
-			message,
-			data,
-		};
+export const logError = (message: string, data?: unknown) =>
+	data !== undefined ? console.error(message, data) : console.error(message);
 
-		this.logs.push(logEntry);
-
-		// Keep only the last maxLogs entries
-		if (this.logs.length > this.maxLogs) {
-			this.logs = this.logs.slice(-this.maxLogs);
-		}
-
-		// Also log to console
-		const consoleFunc = {
-			LOG: console.log,
-			WARN: console.warn,
-			ERROR: console.error,
-			INFO: console.info,
-		}[level];
-
-		if (data !== undefined) {
-			consoleFunc(message, data);
-		} else {
-			consoleFunc(message);
-		}
-	}
-
-	log(message: string, data?: any) {
-		this.addLog("LOG", message, data);
-	}
-
-	warn(message: string, data?: any) {
-		this.addLog("WARN", message, data);
-	}
-
-	error(message: string, data?: any) {
-		this.addLog("ERROR", message, data);
-	}
-
-	info(message: string, data?: any) {
-		this.addLog("INFO", message, data);
-	}
-
-	getLogs(): LogEntry[] {
-		return [...this.logs];
-	}
-
-	getLogsByLevel(level: LogEntry["level"]): LogEntry[] {
-		return this.logs.filter((log) => log.level === level);
-	}
-
-	getLogsAsText(): string {
-		return this.logs
-			.map((log) => {
-				const dataStr = log.data
-					? `\n${JSON.stringify(log.data, null, 2)}`
-					: "";
-				return `[${log.timestamp}] ${log.level.padEnd(5)} ${
-					log.message
-				}${dataStr}`;
-			})
-			.join("\n\n");
-	}
-
-	clearLogs() {
-		this.logs = [];
-	}
-}
-
-// Create singleton instance
-const logger = new Logger();
-
-// Export individual functions for convenience
-export const log = (message: string, data?: any) => logger.log(message, data);
-export const logWarn = (message: string, data?: any) =>
-	logger.warn(message, data);
-export const logError = (message: string, data?: any) =>
-	logger.error(message, data);
-export const logInfo = (message: string, data?: any) =>
-	logger.info(message, data);
-
-// Export utility functions
-export const getLogs = () => logger.getLogs();
-export const getLogsByLevel = (level: "LOG" | "WARN" | "ERROR" | "INFO") =>
-	logger.getLogsByLevel(level);
-export const getLogsAsText = () => logger.getLogsAsText();
-export const clearLogs = () => logger.clearLogs();
-
-// Export the logger instance
-export default logger;
+export const logInfo = (message: string, data?: unknown) =>
+	data !== undefined ? console.info(message, data) : console.info(message);

@@ -342,18 +342,6 @@ export const isShowCached = async (showId: string): Promise<boolean> => {
     }
 };
 
-export const refreshSavedTracksFromCache = async (): Promise<SavedTrackObject[] | null> => {
-    const cachedSavedTracks = await AsyncStorage.getItem(SAVED_TRACKS_KEY);
-    if (cachedSavedTracks) {
-        const parsedTracks = JSON.parse(cachedSavedTracks);
-        log(
-            `Cache: Refreshed saved tracks state from cache - ${parsedTracks.length} tracks`
-        );
-        return parsedTracks;
-    }
-    return null;
-};
-
 export const isTrackInSavedCache = async (trackId: string): Promise<boolean> => {
     const cachedSavedTracks = await AsyncStorage.getItem(SAVED_TRACKS_KEY);
     if (cachedSavedTracks) {

@@ -369,6 +369,15 @@ export interface SpotifySearchResults {
         previous: string | null;
         total: number;
     };
+    shows?: {
+        href: string;
+        items: SpotifyShow[];
+        limit: number;
+        next: string | null;
+        offset: number;
+        previous: string | null;
+        total: number;
+    };
 }
 
 // Context Types

@@ -62,7 +62,7 @@ export const ensureAppRemoteConnection = async (): Promise<boolean> => {
     }
 };
 
-export const invalidateConnectionCache = () => {
+const invalidateConnectionCache = () => {
     lastConnectionCheck = 0;
     cachedConnectionState = false;
 };
@@ -98,7 +98,7 @@ const getCachedDeviceId = async (token: string): Promise<string | undefined> => 
     return undefined;
 };
 
-export const invalidateDeviceCache = () => {
+const invalidateDeviceCache = () => {
     cachedDeviceId = undefined;
     lastDeviceFetch = 0;
 };

@@ -1,15 +1,15 @@
 import { TOKEN_SWAP_URL, TOKEN_REFRESH_URL } from "../constants/spotify";
 import { log, logError } from "../utils/logger";
 
-export interface TokenExchangeResponse {
+interface TokenExchangeResponse {
 	access_token: string;
 	token_type: string;
 	scope: string;
 	expires_in: number;
-	refresh_token?: string; // Optional for refresh responses
+	refresh_token?: string;
 }
 
-export interface TokenExchangeError {
+interface TokenExchangeError {
 	error: string;
 	error_description?: string;
 }
