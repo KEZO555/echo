@@ -160,12 +160,32 @@ export default function SearchResultsScreen() {
     const handleResultPress = usePreventDoubleTap(
         async (item: SearchItem, itemUri: string) => {
             if (item.type === "track") {
+                const track = item.data;
+                const artistName = track.artists?.map(a => a.name).join(", ") ?? "";
+                const albumArtUrl = track.album?.images?.[0]?.url ?? "";
+
                 try {
                     await playTrackWithContext(itemUri);
-                    router.push("/playing");
+                    router.push({
+                        pathname: "/playing",
+                        params: {
+                            trackName: track.name ?? "",
+                            artistName,
+                            albumArtUrl,
+                            durationMs: track.duration_ms?.toString() ?? "0",
+                        },
+                    });
                 } catch (error) {
                     logError("Error playing track:", error);
-                    router.push("/playing");
+                    router.push({
+                        pathname: "/playing",
+                        params: {
+                            trackName: track.name ?? "",
+                            artistName,
+                            albumArtUrl,
+                            durationMs: track.duration_ms?.toString() ?? "0",
+                        },
+                    });
                 }
             } else if (item.type === "album") {
                 router.push({

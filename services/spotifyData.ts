@@ -809,10 +809,10 @@ export const unfollowArtist = async (
                 if (cachedArtists) {
                     let parsedArtists = JSON.parse(cachedArtists);
                     parsedArtists = parsedArtists.filter(
-                        (followedArtist: any) => followedArtist.artist?.id !== artistId
+                        (followedArtist: { artist?: { id?: string } }) => followedArtist.artist?.id !== artistId
                     );
                     await AsyncStorage.setItem(
-                        ALBUMS_KEY,
+                        ARTISTS_KEY,
                         JSON.stringify(parsedArtists)
                     );
                     log(

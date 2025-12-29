@@ -183,16 +183,36 @@ export default function AlbumDetailScreen() {
 
     const handleTrackPress = usePreventDoubleTap(
         async (trackIndex: number) => {
+            const track = album?.tracks?.items[trackIndex];
+            const artistName = track?.artists?.map(a => a.name).join(", ") ?? "";
+            const albumArtUrl = album?.images?.[0]?.url ?? "";
+
             try {
                 await skipToIndex({
                     type: "album",
                     uri: `spotify:album:${id}`,
                     currentIndex: trackIndex,
                 });
-                router.push("/playing");
+                router.push({
+                    pathname: "/playing",
+                    params: {
+                        trackName: track?.name ?? "",
+                        artistName,
+                        albumArtUrl,
+                        durationMs: track?.duration_ms?.toString() ?? "0",
+                    },
+                });
             } catch (error) {
                 logError("Error playing track:", error);
-                router.push("/playing");
+                router.push({
+                    pathname: "/playing",
+                    params: {
+                        trackName: track?.name ?? "",
+                        artistName,
+                        albumArtUrl,
+                        durationMs: track?.duration_ms?.toString() ?? "0",
+                    },
+                });
             }
         }
     );

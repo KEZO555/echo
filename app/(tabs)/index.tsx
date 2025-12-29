@@ -78,6 +78,10 @@ export default function LikedSongsScreen() {
             const collectionUri = "spotify:collection:tracks";
 
             try {
+                const track = item.track;
+                const artistName = track.artists?.map(a => a.name).join(", ") ?? "";
+                const albumArtUrl = track.album?.images?.[0]?.url ?? "";
+
                 let wasShuffling = false;
                 try {
                     const playbackState = await getPlaybackState();
@@ -97,7 +101,15 @@ export default function LikedSongsScreen() {
                 if (wasShuffling) {
                     await toggleShuffle(true);
                 }
-                router.push("/playing");
+                router.push({
+                    pathname: "/playing",
+                    params: {
+                        trackName: track.name ?? "",
+                        artistName,
+                        albumArtUrl,
+                        durationMs: track.duration_ms?.toString() ?? "0",
+                    },
+                });
             } catch (error) {
                 logError("Error playing track:", error);
                 router.push("/playing");

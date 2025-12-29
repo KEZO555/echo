@@ -34,44 +34,18 @@ interface SpotifyPlaylistFull extends SpotifyPlaylist {
 
 export const loadCachedData = async () => {
     try {
-        let hasAnyCache = false;
+        const keys = [PLAYLISTS_KEY, ALBUMS_KEY, PODCASTS_KEY, ARTISTS_KEY, SAVED_TRACKS_KEY];
+        const results = await AsyncStorage.multiGet(keys);
+
         const cachedData = {
-            playlists: null as SpotifyPlaylist[] | null,
-            albums: null as SpotifySavedAlbum[] | null,
-            podcasts: null as SpotifySavedShow[] | null,
-            artists: null as SpotifyArtist[] | null,
-            savedTracks: null as SavedTrackObject[] | null,
+            playlists: results[0][1] ? JSON.parse(results[0][1]) as SpotifyPlaylist[] : null,
+            albums: results[1][1] ? JSON.parse(results[1][1]) as SpotifySavedAlbum[] : null,
+            podcasts: results[2][1] ? JSON.parse(results[2][1]) as SpotifySavedShow[] : null,
+            artists: results[3][1] ? JSON.parse(results[3][1]) as SpotifyArtist[] : null,
+            savedTracks: results[4][1] ? JSON.parse(results[4][1]) as SavedTrackObject[] : null,
         };
 
-        const cachedPlaylists = await AsyncStorage.getItem(PLAYLISTS_KEY);
-        if (cachedPlaylists) {
-            cachedData.playlists = JSON.parse(cachedPlaylists);
-            hasAnyCache = true;
-        }
-
-        const cachedAlbums = await AsyncStorage.getItem(ALBUMS_KEY);
-        if (cachedAlbums) {
-            cachedData.albums = JSON.parse(cachedAlbums);
-            hasAnyCache = true;
-        }
-
-        const cachedPodcasts = await AsyncStorage.getItem(PODCASTS_KEY);
-        if (cachedPodcasts) {
-            cachedData.podcasts = JSON.parse(cachedPodcasts);
-            hasAnyCache = true;
-        }
-
-        const cachedArtists = await AsyncStorage.getItem(ARTISTS_KEY);
-        if (cachedArtists) {
-            cachedData.artists = JSON.parse(cachedArtists);
-            hasAnyCache = true;
-        }
-
-        const cachedSavedTracks = await AsyncStorage.getItem(SAVED_TRACKS_KEY);
-        if (cachedSavedTracks) {
-            cachedData.savedTracks = JSON.parse(cachedSavedTracks);
-            hasAnyCache = true;
-        }
+        const hasAnyCache = Object.values(cachedData).some(v => v !== null);
 
         if (hasAnyCache) {
             log("Cache: Loaded cached data");

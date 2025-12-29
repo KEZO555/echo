@@ -12,15 +12,18 @@ import {
     SpotifyCurrentlyPlaying,
     SpotifyArtistSimple,
     SpotifyEpisode,
+    SpotifyTrackSimple,
 } from "@/contexts/AuthContext";
 import { MaterialIcons, MaterialCommunityIcons } from "@expo/vector-icons";
-import { useFocusEffect, router } from "expo-router";
+import { useFocusEffect, router, useLocalSearchParams } from "expo-router";
 import { HapticPressable } from "@/components/HapticPressable";
 import ContentContainer from "@/components/ContentContainer";
 import { MarqueeText } from "@/components/MarqueeText";
 import { useInvertColors } from "@/contexts/InvertColorsContext";
 import { log, logError } from "@/utils/logger";
 import { usePreventDoubleTap } from "@/hooks/usePreventDoubleTap";
+
+let cachedPlaybackState: SpotifyCurrentlyPlaying | null = null;
 
 const formatTime = (ms: number | null | undefined): string => {
     if (ms === null || ms === undefined) return "0:00";
@@ -47,8 +50,32 @@ export default function PlayingScreen() {
     } = useAuth();
     const { invertColors } = useInvertColors();
     const networkState = Network.useNetworkState();
+    const params = useLocalSearchParams<{
+        trackName?: string;
+        artistName?: string;
+        albumArtUrl?: string;
+        durationMs?: string;
+    }>();
+
+    const paramsState = params.trackName ? {
+        is_playing: true,
+        progress_ms: 0,
+        item: {
+            name: params.trackName,
+            artists: params.artistName ? [{ name: params.artistName, id: "", uri: "", href: "", type: "artist", external_urls: { spotify: "" } }] : [],
+            album: params.albumArtUrl ? { images: [{ url: params.albumArtUrl }] } : undefined,
+            duration_ms: params.durationMs ? parseInt(params.durationMs, 10) : 0,
+            id: "",
+            uri: "",
+            type: "track",
+        },
+    } as SpotifyCurrentlyPlaying : null;
+
+    const initialState = paramsState ?? cachedPlaybackState;
+
     const [playbackState, setPlaybackState] =
-        useState<SpotifyCurrentlyPlaying | null>(null);
+        useState<SpotifyCurrentlyPlaying | null>(initialState);
+    const [isInitialLoading, setIsInitialLoading] = useState(true);
     const [isCurrentTrackSaved, setIsCurrentTrackSaved] = useState(false);
     const [pendingSaveOperation, setPendingSaveOperation] = useState(false);
     const [optimisticSaveState, setOptimisticSaveState] = useState<boolean | null>(null);
@@ -102,6 +129,10 @@ export default function PlayingScreen() {
 
     const fetchAndUpdatePlaybackState = useCallback(async () => {
         const state = (await getPlaybackState()) as SpotifyCurrentlyPlaying | null;
+
+        if (state) {
+            cachedPlaybackState = state;
+        }
         setPlaybackState(state);
 
         if (state && state.item && "duration_ms" in state.item) {
@@ -351,14 +382,19 @@ export default function PlayingScreen() {
     const isEpisode =
         playbackState?.currently_playing_type === "episode" ||
         item?.type === "episode" ||
-        (item && "isEpisode" in item && (item as any).isEpisode);
+        (item && "isEpisode" in item && (item as SpotifyEpisode).isEpisode);
     const currentEpisode = isEpisode
-        ? (item as unknown as SpotifyEpisode)
+        ? (item as SpotifyEpisode)
         : null;
-    const artworkUrl = isEpisode
-        ? currentEpisode?.images?.[0]?.url || currentEpisode?.show?.images?.[0]?.url
-        : item?.album?.images?.[0]?.url;
-    const displayTitle = isEpisode ? currentEpisode?.name ?? "" : item?.name ?? "";
+    const currentTrack = !isEpisode && item
+        ? (item as SpotifyTrackSimple)
+        : null;
+    const paramsMatchCurrentTrack = params.trackName && item?.name === params.trackName;
+    const artworkUrl = (paramsMatchCurrentTrack && params.albumArtUrl)
+        || (isEpisode
+            ? currentEpisode?.images?.[0]?.url || currentEpisode?.show?.images?.[0]?.url
+            : currentTrack?.album?.images?.[0]?.url);
+    const displayTitle = isEpisode ? currentEpisode?.name ?? "" : currentTrack?.name ?? "";
     const subtitleParts = isEpisode
         ? [currentEpisode?.show?.name, currentEpisode?.show?.publisher].filter(
               (value): value is string => !!value
@@ -368,15 +404,15 @@ export default function PlayingScreen() {
         ? subtitleParts.length > 0
             ? subtitleParts.join(" • ")
             : "Podcast"
-        : item
-            ? getArtistNames(item.artists)
+        : currentTrack
+            ? getArtistNames(currentTrack.artists)
             : "";
     const canNavigateToShow =
         isEpisode && isOnline && !!currentEpisode?.show?.id;
     const canNavigateToAlbum =
-        !isEpisode && isOnline && !!item?.album?.id;
+        !isEpisode && isOnline && !!currentTrack?.album?.id;
     const canNavigateToArtist =
-        !isEpisode && isOnline && !!item && item.artists.length > 0;
+        !isEpisode && isOnline && !!currentTrack && currentTrack.artists.length > 0;
 
     const animatedWidth = progress.interpolate({
         inputRange: [0, 1],
@@ -384,7 +420,7 @@ export default function PlayingScreen() {
     });
 
     const handleTitlePress = usePreventDoubleTap(async () => {
-        if (!isOnline || !item) return;
+        if (!isOnline) return;
         if (isEpisode && currentEpisode?.show?.id) {
             router.push({
                 pathname: "/podcast/[id]",
@@ -393,19 +429,19 @@ export default function PlayingScreen() {
                     showName: currentEpisode.show.name as string,
                 },
             } as any);
-        } else if (item.album?.id) {
+        } else if (currentTrack?.album?.id) {
             router.push({
                 pathname: "/album/[id]",
                 params: {
-                    id: item.album.id as any,
-                    albumName: item.album.name as string,
+                    id: currentTrack.album.id,
+                    albumName: currentTrack.album.name as string,
                 },
             });
         }
     });
 
     const handleSubtitlePress = usePreventDoubleTap(async () => {
-        if (!isOnline || !item) return;
+        if (!isOnline) return;
         if (isEpisode && currentEpisode?.show?.id) {
             router.push({
                 pathname: "/podcast/[id]",
@@ -414,8 +450,8 @@ export default function PlayingScreen() {
                     showName: currentEpisode.show.name as string,
                 },
             } as any);
-        } else if (item.artists.length > 0) {
-            const artist = item.artists[0];
+        } else if (currentTrack && currentTrack.artists.length > 0) {
+            const artist = currentTrack.artists[0];
             router.push({
                 pathname: "/artist/[id]",
                 params: {
@@ -454,7 +490,7 @@ export default function PlayingScreen() {
         <ContentContainer headerTitle=" " style={{ paddingHorizontal: 20 }}>
             <View style={styles.content}>
                 {artworkUrl ? (
-                    <Image source={{ uri: artworkUrl }} style={styles.albumArt} />
+                    <Image source={{ uri: artworkUrl }} style={styles.albumArt} fadeDuration={0} />
                 ) : (
                     <View style={styles.placeholderImageContainer}>
                         <MaterialIcons

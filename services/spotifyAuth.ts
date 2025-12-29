@@ -56,37 +56,26 @@ export const loginWithSpotify = async (
                 REDIRECT_URI // redirectUri not needed for server exchange but kept for compatibility
             );
 
-            // Store tokens securely (refresh token is encrypted by server)
-            await SecureStore.setItemAsync(
-                AUTH_TOKEN_KEY,
-                tokenResponse.access_token
-            );
-
             if (!tokenResponse.refresh_token) {
                 throw new Error("No refresh token received from server");
             }
 
-            await SecureStore.setItemAsync(
-                REFRESH_TOKEN_KEY,
-                tokenResponse.refresh_token
-            );
-
-            // Calculate and store token expiry (be conservative - use 50 minutes instead of full hour)
+            // Calculate token expiry (be conservative - use 50 minutes instead of full hour)
             const expiryTime =
                 Date.now() + (tokenResponse.expires_in - 600) * 1000; // 10 minutes buffer
-            await SecureStore.setItemAsync(
-                TOKEN_EXPIRY_KEY,
-                expiryTime.toString()
-            );
+
+            // Store tokens securely in parallel for faster writes
+            await Promise.all([
+                SecureStore.setItemAsync(AUTH_TOKEN_KEY, tokenResponse.access_token),
+                SecureStore.setItemAsync(REFRESH_TOKEN_KEY, tokenResponse.refresh_token),
+                SecureStore.setItemAsync(TOKEN_EXPIRY_KEY, expiryTime.toString()),
+            ]);
 
             onTokenUpdate(
                 tokenResponse.access_token,
                 tokenResponse.refresh_token,
                 expiryTime
             );
-
-            // Small delay to allow authentication state to settle
-            await new Promise((resolve) => setTimeout(resolve, 500));
 
             // Enable auto-connect for proper lifecycle management
 

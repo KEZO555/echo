@@ -12,6 +12,26 @@ import { log, logWarn, logError, logInfo } from "./logger";
 let isRefreshInProgress = false;
 let refreshPromise: Promise<boolean> | null = null;
 
+// Request deduplication for frequently called endpoints
+const inFlightRequests = new Map<string, Promise<unknown>>();
+
+export const deduplicatedRequest = async <T>(
+    key: string,
+    request: () => Promise<T>
+): Promise<T> => {
+    if (inFlightRequests.has(key)) {
+        log(`API: Reusing in-flight request for ${key}`);
+        return inFlightRequests.get(key) as Promise<T>;
+    }
+
+    const promise = request().finally(() => {
+        inFlightRequests.delete(key);
+    });
+
+    inFlightRequests.set(key, promise);
+    return promise;
+};
+
 export const makeApiRequest = async (
     url: string,
     errorMessage: string,
@@ -262,21 +282,20 @@ const performTokenRefresh = async (
 
         log("API: Access token refreshed successfully");
 
-        // Update tokens in secure storage
-        await SecureStore.setItemAsync(
-            AUTH_TOKEN_KEY,
-            tokenResponse.access_token
-        );
-        if (tokenResponse.refresh_token) {
-            await SecureStore.setItemAsync(
-                REFRESH_TOKEN_KEY,
-                tokenResponse.refresh_token
-            );
-        }
-
         // Set token expiry with 10-minute buffer for safety
         const expiryTime = Date.now() + (tokenResponse.expires_in - 600) * 1000;
-        await SecureStore.setItemAsync(TOKEN_EXPIRY_KEY, expiryTime.toString());
+
+        // Update tokens in secure storage in parallel for faster writes
+        const storagePromises: Promise<void>[] = [
+            SecureStore.setItemAsync(AUTH_TOKEN_KEY, tokenResponse.access_token),
+            SecureStore.setItemAsync(TOKEN_EXPIRY_KEY, expiryTime.toString()),
+        ];
+        if (tokenResponse.refresh_token) {
+            storagePromises.push(
+                SecureStore.setItemAsync(REFRESH_TOKEN_KEY, tokenResponse.refresh_token)
+            );
+        }
+        await Promise.all(storagePromises);
 
         onTokenUpdate(
             tokenResponse.access_token,

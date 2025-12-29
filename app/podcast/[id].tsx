@@ -210,6 +210,8 @@ export default function PodcastDetailScreen() {
 
     const handleEpisodePress = usePreventDoubleTap(
         async (episode: SpotifyEpisode, index: number) => {
+            const albumArtUrl = episode.images?.[0]?.url ?? show?.images?.[0]?.url ?? "";
+
             try {
                 await playTrackWithContext(
                     episode.uri,
@@ -219,10 +221,26 @@ export default function PodcastDetailScreen() {
                         currentIndex: index,
                     }
                 );
-                router.push("/playing");
+                router.push({
+                    pathname: "/playing",
+                    params: {
+                        trackName: episode.name ?? "",
+                        artistName: show?.name ?? "",
+                        albumArtUrl,
+                        durationMs: episode.duration_ms?.toString() ?? "0",
+                    },
+                });
             } catch (error) {
                 logError("Error playing episode:", error);
-                router.push("/playing");
+                router.push({
+                    pathname: "/playing",
+                    params: {
+                        trackName: episode.name ?? "",
+                        artistName: show?.name ?? "",
+                        albumArtUrl,
+                        durationMs: episode.duration_ms?.toString() ?? "0",
+                    },
+                });
             }
         }
     );

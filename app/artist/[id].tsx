@@ -242,14 +242,34 @@ export default function ArtistDetailScreen() {
     );
 
     const handleTrackPress = usePreventDoubleTap(async (trackIndex: number) => {
+        const track = topTracks[trackIndex];
+        const artistName = track?.artists?.map(a => a.name).join(", ") ?? "";
+        const albumArtUrl = track?.album?.images?.[0]?.url ?? "";
+
         try {
             const trackUris = topTracks.map((t) => t.uri);
             const urisToPlay = trackUris.slice(trackIndex);
             await playTracksWithWebApi(urisToPlay);
-            router.push("/playing");
+            router.push({
+                pathname: "/playing",
+                params: {
+                    trackName: track?.name ?? "",
+                    artistName,
+                    albumArtUrl,
+                    durationMs: track?.duration_ms?.toString() ?? "0",
+                },
+            });
         } catch (error) {
             logError("Error playing track:", error);
-            router.push("/playing");
+            router.push({
+                pathname: "/playing",
+                params: {
+                    trackName: track?.name ?? "",
+                    artistName,
+                    albumArtUrl,
+                    durationMs: track?.duration_ms?.toString() ?? "0",
+                },
+            });
         }
     });
 

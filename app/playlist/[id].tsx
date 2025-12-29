@@ -167,16 +167,37 @@ export default function PlaylistDetailScreen() {
 
     const handleTrackPress = usePreventDoubleTap(
         async (trackIndex: number) => {
+            const playlistTrack = playlist?.tracks?.items[trackIndex];
+            const track = playlistTrack?.track;
+            const artistName = track?.artists?.map(a => a.name).join(", ") ?? "";
+            const albumArtUrl = track?.album?.images?.[0]?.url ?? playlist?.images?.[0]?.url ?? "";
+
             try {
                 await skipToIndex({
                     type: "playlist",
                     uri: `spotify:playlist:${id}`,
                     currentIndex: trackIndex,
                 });
-                router.push("/playing");
+                router.push({
+                    pathname: "/playing",
+                    params: {
+                        trackName: track?.name ?? "",
+                        artistName,
+                        albumArtUrl,
+                        durationMs: track?.duration_ms?.toString() ?? "0",
+                    },
+                });
             } catch (error) {
                 logError("Error playing track:", error);
-                router.push("/playing");
+                router.push({
+                    pathname: "/playing",
+                    params: {
+                        trackName: track?.name ?? "",
+                        artistName,
+                        albumArtUrl,
+                        durationMs: track?.duration_ms?.toString() ?? "0",
+                    },
+                });
             }
         }
     );

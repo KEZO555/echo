@@ -17,9 +17,25 @@ import {
 
 const inFlightLibraryChecks = new Map<string, Promise<{ isAdded: boolean; canAdd: boolean } | null>>();
 
+let lastConnectionCheck = 0;
+let cachedConnectionState = false;
+const CONNECTION_CACHE_TTL = 2000;
+
+let cachedDeviceId: string | undefined;
+let lastDeviceFetch = 0;
+const DEVICE_CACHE_TTL = 30000;
+
 export const ensureAppRemoteConnection = async (): Promise<boolean> => {
     try {
+        const now = Date.now();
+        if (now - lastConnectionCheck < CONNECTION_CACHE_TTL && cachedConnectionState) {
+            return true;
+        }
+
         const connected = await SpotifySdk.isConnected();
+        lastConnectionCheck = now;
+        cachedConnectionState = connected;
+
         if (connected) {
             return true;
         }
@@ -31,15 +47,60 @@ export const ensureAppRemoteConnection = async (): Promise<boolean> => {
 
         if (connectionResult.connected) {
             log("Playback: Connected to App Remote");
+            cachedConnectionState = true;
+            lastConnectionCheck = Date.now();
             return true;
         } else {
             log("Playback: Failed to connect to App Remote");
+            cachedConnectionState = false;
             return false;
         }
     } catch (error) {
         log("Playback: Error connecting to App Remote:", error);
+        cachedConnectionState = false;
         return false;
     }
+};
+
+export const invalidateConnectionCache = () => {
+    lastConnectionCheck = 0;
+    cachedConnectionState = false;
+};
+
+const getCachedDeviceId = async (token: string): Promise<string | undefined> => {
+    const now = Date.now();
+    if (cachedDeviceId && now - lastDeviceFetch < DEVICE_CACHE_TTL) {
+        return cachedDeviceId;
+    }
+
+    try {
+        const devicesResponse = await fetch(
+            "https://api.spotify.com/v1/me/player/devices",
+            {
+                headers: {
+                    Authorization: `Bearer ${token}`,
+                },
+            }
+        );
+
+        if (devicesResponse.ok) {
+            const devicesData = await devicesResponse.json();
+            const activeDevice = devicesData.devices?.find((d: { is_active: boolean }) => d.is_active);
+            const availableDevice = devicesData.devices?.[0];
+            cachedDeviceId = activeDevice?.id || availableDevice?.id;
+            lastDeviceFetch = now;
+            return cachedDeviceId;
+        }
+    } catch (deviceError) {
+        log("Playback: Device detection failed:", deviceError);
+    }
+
+    return undefined;
+};
+
+export const invalidateDeviceCache = () => {
+    cachedDeviceId = undefined;
+    lastDeviceFetch = 0;
 };
 
 export const forceAppRemoteConnection = async (): Promise<boolean> => {
@@ -95,27 +156,7 @@ export const playTracksWithWebApi = async (
         throw new Error("No valid token");
     }
 
-    // Try to get available devices to target the call properly
-    let deviceId: string | undefined;
-    try {
-        const devicesResponse = await fetch(
-            "https://api.spotify.com/v1/me/player/devices",
-            {
-                headers: {
-                    Authorization: `Bearer ${validToken}`,
-                },
-            }
-        );
-
-        if (devicesResponse.ok) {
-            const devicesData = await devicesResponse.json();
-            const activeDevice = devicesData.devices?.find((d: any) => d.is_active);
-            const availableDevice = devicesData.devices?.[0];
-            deviceId = activeDevice?.id || availableDevice?.id;
-        }
-    } catch (deviceError) {
-        log("Playback: Device detection failed, proceeding without device_id:", deviceError);
-    }
+    const deviceId = await getCachedDeviceId(validToken);
 
     const playUrl = deviceId
         ? `https://api.spotify.com/v1/me/player/play?device_id=${deviceId}`
@@ -145,6 +186,11 @@ export const playTracksWithWebApi = async (
             "Playback: Token expired, falling back to direct play"
         );
         throw new Error("Token expired - using fallback");
+    } else if (response.status === 404) {
+        invalidateDeviceCache();
+        const errorText = await response.text();
+        log("Playback: Device not found, invalidating cache:", errorText);
+        throw new Error(`Device not found: ${errorText}`);
     } else {
         const errorText = await response.text();
         log("Playback: Web API context failed:", {
@@ -623,42 +669,7 @@ export const playTrackWithContext = async (
                     tokenLength: validToken.length
                 });
 
-                // First, try to get available devices to target the call properly
-                let deviceId: string | undefined;
-                try {
-                    const devicesResponse = await fetch(
-                        "https://api.spotify.com/v1/me/player/devices",
-                        {
-                            headers: {
-                                Authorization: `Bearer ${validToken}`,
-                            },
-                        }
-                    );
-
-                    if (devicesResponse.ok) {
-                        const devicesData = await devicesResponse.json();
-                        log("Playback: Available devices:", devicesData.devices?.length || 0);
-
-                        // Find an active device or use the first available one
-                        const activeDevice = devicesData.devices?.find((d: any) => d.is_active);
-                        const availableDevice = devicesData.devices?.[0];
-                        deviceId = activeDevice?.id || availableDevice?.id;
-
-                        if (deviceId) {
-                            log("Playback: Using device:", {
-                                id: deviceId,
-                                name: activeDevice?.name || availableDevice?.name,
-                                isActive: !!activeDevice
-                            });
-                        } else {
-                            log("Playback: No devices found, trying without device_id");
-                        }
-                    } else {
-                        log("Playback: Failed to get devices, proceeding without device_id");
-                    }
-                } catch (deviceError) {
-                    log("Playback: Device detection failed, proceeding without device_id:", deviceError);
-                }
+                const deviceId = await getCachedDeviceId(validToken);
 
                 // Prepare the playback request body
                 const playbackBody: Record<string, any> = {};
@@ -735,8 +746,7 @@ export const playTrackWithContext = async (
 
                 if (response.ok) {
                     log("Playback: Context set successfully, starting playback");
-                    await new Promise((resolve) => setTimeout(resolve, 500)); // Wait for context
-                    await SpotifySdk.play(); // Native SDK control
+                    await SpotifySdk.play();
                     log("Playback: Started with context");
                     return;
                 } else if (response.status === 401) {
@@ -744,6 +754,7 @@ export const playTrackWithContext = async (
                     log("Playback: Token expired during context call:", errorText);
                     throw new Error("Token expired - using fallback");
                 } else if (response.status === 404) {
+                    invalidateDeviceCache();
                     const errorText = await response.text();
                     log("Playback: Device not found (404):", errorText);
                     throw new Error("Device not found - using fallback");
