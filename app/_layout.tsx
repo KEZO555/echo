@@ -65,8 +65,25 @@ function RootNavigation() {
             screenOptions={{
                 headerShown: false,
                 animation: "none",
+                contentStyle: { backgroundColor: invertColors ? "white" : "black" },
+                freezeOnBlur: true,
             }}
-        ></Stack>
+        >
+            <Stack.Screen name="(tabs)" />
+            <Stack.Screen name="album/[id]" />
+            <Stack.Screen name="artist/[id]" />
+            <Stack.Screen name="playlist/[id]" />
+            <Stack.Screen name="podcast/[id]" />
+            <Stack.Screen name="search-results" />
+            <Stack.Screen name="playing" />
+            <Stack.Screen name="login" />
+            <Stack.Screen name="select-device" />
+            <Stack.Screen name="add-to-playlist" />
+            <Stack.Screen name="create-playlist" />
+            <Stack.Screen name="customise" />
+            <Stack.Screen name="customise-tabs" />
+            <Stack.Screen name="debug" />
+        </Stack>
     );
 }
 

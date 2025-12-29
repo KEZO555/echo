@@ -102,11 +102,21 @@ export default function AlbumsScreen() {
         (item: SpotifySavedAlbum, isUncached: boolean) => {
             if (isUncached) return;
 
+            const minimalAlbum = {
+                id: item.album.id,
+                name: item.album.name,
+                images: item.album.images,
+                artists: item.album.artists,
+                album_type: item.album.album_type,
+                release_date: item.album.release_date,
+                uri: item.album.uri,
+            };
+
             router.push({
-                pathname: `album/${item.album.id}`,
+                pathname: `/album/${item.album.id}`,
                 params: {
                     albumName: item.album.name as string,
-                    albumString: JSON.stringify(item.album),
+                    albumString: JSON.stringify(minimalAlbum),
                 },
             } as any);
         }

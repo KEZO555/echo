@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { View, StyleSheet, Image } from "react-native";
-import { useGlobalSearchParams, useRouter } from "expo-router";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import { useAuth } from "@/features/auth/contexts/AuthContext";
 import { usePlayback } from "@/features/playback/contexts/PlaybackContext";
 import type {
@@ -28,7 +28,7 @@ type SearchItem =
     | { type: "podcast"; data: SpotifyShow };
 
 export default function SearchResultsScreen() {
-    const params = useGlobalSearchParams();
+    const params = useLocalSearchParams();
     const routeQuery = params.query as string | undefined;
     const { accessToken, ensureValidToken } = useAuth();
     const { playTrackWithContext } = usePlayback();
@@ -184,11 +184,19 @@ export default function SearchResultsScreen() {
                     });
                 }
             } else if (item.type === "album") {
-                router.push({
-                    pathname: `album/${item.data.id}`,
+                router.navigate({
+                    pathname: `/album/${item.data.id}`,
                     params: {
-                        albumName: item.data.name as string,
-                        albumString: JSON.stringify(item.data),
+                        albumName: item.data.name,
+                        albumString: JSON.stringify({
+                            id: item.data.id,
+                            name: item.data.name,
+                            images: item.data.images,
+                            artists: item.data.artists,
+                            album_type: item.data.album_type,
+                            release_date: item.data.release_date,
+                            uri: item.data.uri,
+                        }),
                     },
                 } as any);
             } else if (item.type === "artist") {
@@ -209,7 +217,7 @@ export default function SearchResultsScreen() {
                 } as any);
             } else if (item.type === "podcast") {
                 router.push({
-                    pathname: `podcast/${item.data.id}`,
+                    pathname: `/podcast/${item.data.id}`,
                     params: {
                         showName: item.data.name as string,
                         showString: JSON.stringify(item.data),

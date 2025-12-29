@@ -107,7 +107,7 @@ export default function PodcastsScreen() {
             if (isUncached) return;
 
             router.push({
-                pathname: `podcast/${item.show.id}`,
+                pathname: `/podcast/${item.show.id}`,
                 params: {
                     showName: item.show.name as string,
                     showString: JSON.stringify(item.show),

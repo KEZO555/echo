@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useMemo } from "react";
 import {
     View,
     StyleSheet,
@@ -35,16 +35,30 @@ export default function ArtistDetailScreen() {
 
     const router = useRouter();
 
-    const initialArtist = artistString
-        ? (JSON.parse(artistString) as SpotifyArtist)
-        : null;
+    const initialArtist = useMemo(() => {
+        if (!artistString) return null;
+        try {
+            return JSON.parse(artistString) as SpotifyArtist;
+        } catch {
+            return null;
+        }
+    }, [artistString]);
 
-    const [artist, setArtist] = useState<SpotifyArtist | null>(initialArtist);
+    const [artist, setArtist] = useState<SpotifyArtist | null>(null);
     const [error, setError] = useState<string | null>(null);
     const [topTracks, setTopTracks] = useState<SpotifyTrack[]>([]);
     const [albums, setAlbums] = useState<SpotifyAlbumSimple[] | null>(null);
     const [albumsNextUrl, setAlbumsNextUrl] = useState<string | null>(null);
     const [isLoadingMore, setIsLoadingMore] = useState(false);
+
+    const displayName = artist?.name ?? initialArtist?.name ?? artistName ?? "Artist";
+    const displayImageUrl = artist?.images?.[0]?.url ?? initialArtist?.images?.[0]?.url;
+
+    useEffect(() => {
+        if (initialArtist && !artist) {
+            setArtist(initialArtist);
+        }
+    }, [initialArtist, artist]);
 
     const { isSaved: isFollowingArtist, isChecking: isCheckingFollowingArtist, toggle: handleToggleFollowArtist } = useSaveStatus({
         id,
@@ -224,26 +238,6 @@ export default function ArtistDetailScreen() {
         router.push(`/album/${albumId}`);
     });
 
-    if (!artist) {
-        return (
-            <ContentContainer
-                headerTitle={artistName || "Artist"}
-                style={{ paddingHorizontal: 20 }}
-                headerIcon={isFollowingArtist ? "remove" : "add"}
-                headerIconPress={handleToggleFollowArtist}
-                headerIconShowLength={isCheckingFollowingArtist ? 0 : 1}
-            >
-                {error && (
-                    <StyledText style={detailScreenStyles.errorText}>
-                        {error}
-                    </StyledText>
-                )}
-            </ContentContainer>
-        );
-    }
-
-    const artistImageUrl = artist.images?.[0]?.url;
-
     const renderAlbumItem = ({
         item,
     }: {
@@ -266,7 +260,6 @@ export default function ArtistDetailScreen() {
                     </View>
                 ) : (
                     <View style={styles.placeholderImageContainer}>
-                        {/* You can optionally add an icon here */}
                     </View>
                 )}
                 <View style={styles.textContainer}>
@@ -274,7 +267,7 @@ export default function ArtistDetailScreen() {
                         {album.name}
                     </StyledText>
                     <StyledText style={styles.albumArtist} numberOfLines={1}>
-                        {album.artists.map((artist: any) => artist.name).join(", ")}
+                        {album.artists.map((a: SpotifyAlbumSimple['artists'][0]) => a.name).join(", ")}
                     </StyledText>
                 </View>
             </HapticPressable>
@@ -301,7 +294,7 @@ export default function ArtistDetailScreen() {
 
     return (
         <ContentContainer
-            headerTitle={artist.name}
+            headerTitle={displayName}
             style={{ paddingHorizontal: 20 }}
             headerIcon={isFollowingArtist ? "remove" : "add"}
             headerIconPress={handleToggleFollowArtist}
@@ -310,14 +303,14 @@ export default function ArtistDetailScreen() {
             <View style={{ paddingBottom: 20 }}>
                 <CustomScrollView
                     ListHeaderComponent={
-                        <>
+                        displayImageUrl ? (
                             <View style={detailScreenStyles.imageContainer}>
                                 <Image
-                                    source={{ uri: artistImageUrl }}
+                                    source={{ uri: displayImageUrl }}
                                     style={detailScreenStyles.image}
                                 />
                             </View>
-                        </>
+                        ) : null
                     }
                     data={artistDetailList}
                     renderItem={renderItem}

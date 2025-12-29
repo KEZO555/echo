@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from "react";
+import React, { useEffect, useState, useCallback, useMemo } from "react";
 import {
     View,
     Image,
@@ -52,15 +52,27 @@ export default function PlaylistDetailScreen() {
     const { makeApiRequest } = useSpotifyLibrary();
     const router = useRouter();
 
-    const initialPlaylist = playlistString
-        ? (JSON.parse(playlistString) as SpotifyPlaylist)
-        : null;
+    const initialPlaylist = useMemo(() => {
+        if (!playlistString) return null;
+        try {
+            return JSON.parse(playlistString) as SpotifyPlaylistFull;
+        } catch {
+            return null;
+        }
+    }, [playlistString]);
 
-    const [playlist, setPlaylist] = useState<SpotifyPlaylistFull | null>(
-        initialPlaylist as SpotifyPlaylistFull | null
-    );
+    const [playlist, setPlaylist] = useState<SpotifyPlaylistFull | null>(null);
     const [error, setError] = useState<string | null>(null);
     const [isLoadingMoreTracks, setIsLoadingMoreTracks] = useState(false);
+
+    const displayName = playlist?.name ?? initialPlaylist?.name ?? playlistName ?? "Playlist";
+    const displayImageUrl = playlist?.images?.[0]?.url ?? initialPlaylist?.images?.[0]?.url;
+
+    useEffect(() => {
+        if (initialPlaylist && !playlist) {
+            setPlaylist(initialPlaylist);
+        }
+    }, [initialPlaylist, playlist]);
 
     useEffect(() => {
         if (!id) {
@@ -178,23 +190,6 @@ export default function PlaylistDetailScreen() {
         }
     );
 
-    if (!playlist) {
-        return (
-            <ContentContainer
-                headerTitle={playlistName || "Playlist"}
-                style={{ paddingHorizontal: 20 }}
-            >
-                {error && (
-                    <StyledText style={detailScreenStyles.errorText}>
-                        {error}
-                    </StyledText>
-                )}
-            </ContentContainer>
-        );
-    }
-
-    const playlistImageUrl = playlist.images?.[0]?.url;
-
     const renderTrackItem = ({
         item,
         index,
@@ -208,7 +203,7 @@ export default function PlaylistDetailScreen() {
         return (
             <TrackListItem
                 key={`${track.id || "unknown"}-${index}`}
-                trackNumber={(playlist.tracks?.offset || 0) + index + 1}
+                trackNumber={(playlist?.tracks?.offset || 0) + index + 1}
                 name={track.name}
                 artists={track.artists}
                 durationMs={track.duration_ms}
@@ -219,32 +214,32 @@ export default function PlaylistDetailScreen() {
 
     return (
         <ContentContainer
-            headerTitle={playlist.name}
+            headerTitle={displayName}
             style={{ paddingHorizontal: 20 }}
         >
             <View style={{ paddingBottom: 20 }}>
                 <CustomScrollView
                     ListHeaderComponent={
-                        <>
+                        displayImageUrl ? (
                             <View style={detailScreenStyles.imageContainer}>
-                                {playlistImageUrl ? (
-                                    <Image
-                                        source={{ uri: playlistImageUrl }}
-                                        style={detailScreenStyles.image}
-                                    />
-                                ) : (
-                                    <View style={detailScreenStyles.placeholderImageContainer}>
-                                        <MaterialIcons
-                                            name="music-note"
-                                            size={80}
-                                            color="white"
-                                        />
-                                    </View>
-                                )}
+                                <Image
+                                    source={{ uri: displayImageUrl }}
+                                    style={detailScreenStyles.image}
+                                />
                             </View>
-                        </>
+                        ) : (
+                            <View style={detailScreenStyles.imageContainer}>
+                                <View style={detailScreenStyles.placeholderImageContainer}>
+                                    <MaterialIcons
+                                        name="music-note"
+                                        size={80}
+                                        color="white"
+                                    />
+                                </View>
+                            </View>
+                        )
                     }
-                    data={playlist.tracks?.items || []}
+                    data={playlist?.tracks?.items || []}
                     renderItem={renderTrackItem}
                     keyExtractor={(item, index) =>
                         `${item.track?.id || "unknown-track"}-${index}`
@@ -259,7 +254,7 @@ export default function PlaylistDetailScreen() {
                             <StyledText style={detailScreenStyles.errorText}>
                                 {error}
                             </StyledText>
-                        ) : playlist.tracks?.items?.length === 0 ? (
+                        ) : playlist?.tracks?.items?.length === 0 ? (
                             <StyledText style={detailScreenStyles.emptyText}>
                                 No tracks found in this playlist.
                             </StyledText>

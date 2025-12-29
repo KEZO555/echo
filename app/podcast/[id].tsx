@@ -36,13 +36,27 @@ export default function PodcastDetailScreen() {
     } = useSpotifyLibrary();
     const router = useRouter();
 
-    const initialShow = showString
-        ? (JSON.parse(showString) as SpotifyShow)
-        : null;
+    const initialShow = useMemo(() => {
+        if (!showString) return null;
+        try {
+            return JSON.parse(showString) as SpotifyShow;
+        } catch {
+            return null;
+        }
+    }, [showString]);
 
-    const [show, setShow] = useState<SpotifyShow | null>(initialShow);
+    const [show, setShow] = useState<SpotifyShow | null>(null);
     const [error, setError] = useState<string | null>(null);
     const [isLoadingMoreEpisodes, setIsLoadingMoreEpisodes] = useState(false);
+
+    const displayName = show?.name ?? initialShow?.name ?? showName ?? "Podcast";
+    const displayImageUrl = show?.images?.[0]?.url ?? initialShow?.images?.[0]?.url;
+
+    useEffect(() => {
+        if (initialShow && !show) {
+            setShow(initialShow);
+        }
+    }, [initialShow, show]);
 
     const { isSaved: isShowFollowed, isChecking: isCheckingFollowed, toggle: handleToggleFollowShow } = useSaveStatus({
         id,
@@ -175,26 +189,6 @@ export default function PodcastDetailScreen() {
         }
     );
 
-    if (!show) {
-        return (
-            <ContentContainer
-                headerTitle={showName || "Podcast"}
-                style={{ paddingHorizontal: 20 }}
-                headerIcon={isShowFollowed ? "remove" : "add"}
-                headerIconPress={handleToggleFollowShow}
-                headerIconShowLength={isCheckingFollowed ? 0 : 1}
-            >
-                {error && (
-                    <StyledText style={detailScreenStyles.errorText}>
-                        {error}
-                    </StyledText>
-                )}
-            </ContentContainer>
-        );
-    }
-
-    const showImageUrl = show.images?.[0]?.url;
-
     const renderEpisodeItem = ({
         item: episode,
         index,
@@ -251,7 +245,7 @@ export default function PodcastDetailScreen() {
 
     return (
         <ContentContainer
-            headerTitle={show.name}
+            headerTitle={displayName}
             style={{ paddingHorizontal: 20 }}
             headerIcon={isShowFollowed ? "remove" : "add"}
             headerIconPress={handleToggleFollowShow}
@@ -260,22 +254,22 @@ export default function PodcastDetailScreen() {
             <View style={{ paddingBottom: 20 }}>
                 <CustomScrollView
                     ListHeaderComponent={
-                        <>
+                        displayImageUrl ? (
                             <View style={detailScreenStyles.imageContainer}>
-                                {showImageUrl ? (
-                                    <Image
-                                        source={{ uri: showImageUrl }}
-                                        style={detailScreenStyles.image}
-                                    />
-                                ) : (
-                                    <View style={detailScreenStyles.placeholderImageContainer}>
-                                        <StyledText style={styles.placeholderText}>
-                                            {show.name.charAt(0)}
-                                        </StyledText>
-                                    </View>
-                                )}
+                                <Image
+                                    source={{ uri: displayImageUrl }}
+                                    style={detailScreenStyles.image}
+                                />
                             </View>
-                        </>
+                        ) : (
+                            <View style={detailScreenStyles.imageContainer}>
+                                <View style={detailScreenStyles.placeholderImageContainer}>
+                                    <StyledText style={styles.placeholderText}>
+                                        {displayName.charAt(0)}
+                                    </StyledText>
+                                </View>
+                            </View>
+                        )
                     }
                     data={episodeItems}
                     renderItem={renderEpisodeItem}
