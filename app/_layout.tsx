@@ -1,16 +1,10 @@
 import React, { useEffect, useRef } from "react";
 import { Stack, useRouter } from "expo-router";
 import { View } from "react-native";
-import { HapticProvider } from "@/features/settings/contexts/HapticContext";
-import { AuthProvider, useAuth } from "@/features/auth/contexts/AuthContext";
-import {
-    TabPreferencesProvider,
-    useTabPreferences,
-} from "@/features/settings/contexts/TabPreferencesContext";
-import {
-    InvertColorsProvider,
-    useInvertColors,
-} from "@/features/settings/contexts/InvertColorsContext";
+import { HapticProvider, TabPreferencesProvider, useTabPreferences, InvertColorsProvider, useInvertColors } from "@/features/settings";
+import { AuthProvider, useAuth } from "@/features/auth";
+import { LibraryProvider } from "@/features/library";
+import { PlaybackProvider } from "@/features/playback";
 import { useFonts } from "expo-font";
 import { setStatusBarHidden } from "expo-status-bar";
 import * as NavigationBar from 'expo-navigation-bar';
@@ -84,7 +78,11 @@ export default function RootLayout() {
             <InvertColorsProvider>
                 <TabPreferencesProvider>
                     <AuthProvider>
-                        <RootNavigation />
+                        <LibraryProvider>
+                            <PlaybackProvider>
+                                <RootNavigation />
+                            </PlaybackProvider>
+                        </LibraryProvider>
                     </AuthProvider>
                 </TabPreferencesProvider>
             </InvertColorsProvider>
