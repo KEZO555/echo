@@ -318,8 +318,29 @@ Currently no tests. When adding tests:
 ## Native Modules
 
 Spotify SDK module: `modules/spotify-sdk/`
-- Leave as-is (may be extracted to separate package)
-- Only modify if updating SDK functionality
+
+### Structure
+- **Native (Kotlin)**: `android/src/main/java/expo/modules/spotifysdk/`
+  - Handles Android lifecycle (auto-reconnect, 30s disconnect delay)
+  - Emits events (`onConnected`, `onPlayerStateChanged`, etc.)
+- **Wrapper (TypeScript)**: `src/spotify.ts`
+  - `spotify` singleton instance
+  - Auto-connects before operations
+  - Promise-based API
+- **Hooks**: `src/hooks/`
+  - `useSpotifyConnection`: Reactive connection state
+  - `usePlayerState`: Reactive player state
+
+### Usage
+```typescript
+import { spotify, usePlayerState } from '@/modules/spotify-sdk';
+
+// 1. React Components (State)
+const { playerState } = usePlayerState();
+
+// 2. Actions (Auto-connects)
+await spotify.play(uri);
+```
 
 ## Common Mistakes to Avoid
 
