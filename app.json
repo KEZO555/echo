@@ -2,18 +2,14 @@
   "expo": {
     "name": "Echo",
     "slug": "echo",
-    "version": "2.7.2",
+    "version": "2.7.3",
     "orientation": "portrait",
     "scheme": "echo",
     "newArchEnabled": true,
     "icon": "./assets/images/icon.png",
     "android": {
       "backgroundColor": "#000000",
-      "package": "com.vandam.echo",
-       "adaptiveIcon": {
-           "foregroundImage": "./assets/images/icon.png",
-           "backgroundColor": "#000000"
-       }
+      "package": "com.vandam.echo"
     },
     "plugins": [
       "expo-router",
