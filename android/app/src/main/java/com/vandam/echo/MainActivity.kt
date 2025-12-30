@@ -3,6 +3,8 @@ import expo.modules.splashscreen.SplashScreenManager
 
 import android.os.Build
 import android.os.Bundle
+import android.provider.Settings
+import android.util.Log
 
 import com.facebook.react.ReactActivity
 import com.facebook.react.ReactActivityDelegate
@@ -12,6 +14,9 @@ import com.facebook.react.defaults.DefaultReactActivityDelegate
 import expo.modules.ReactActivityDelegateWrapper
 
 class MainActivity : ReactActivity() {
+  private var wasGrayscaleEnabled = false
+  private var previousDaltonizerMode = 0
+
   override fun onCreate(savedInstanceState: Bundle?) {
     // Set the theme to AppTheme BEFORE onCreate to support
     // coloring the background, status bar, and navigation bar.
@@ -61,5 +66,48 @@ class MainActivity : ReactActivity() {
       // Use the default back button implementation on Android S
       // because it's doing more than [Activity.moveTaskToBack] in fact.
       super.invokeDefaultOnBackPressed()
+  }
+
+  override fun onStart() {
+      super.onStart()
+      disableGrayscale()
+  }
+
+  override fun onStop() {
+      restoreGrayscale()
+      super.onStop()
+  }
+
+  private fun disableGrayscale() {
+      val daltonizerEnabled = Settings.Secure.getInt(
+          contentResolver, "accessibility_display_daltonizer_enabled", 0
+      )
+      val daltonizerMode = Settings.Secure.getInt(
+          contentResolver, "accessibility_display_daltonizer", 0
+      )
+
+      wasGrayscaleEnabled = daltonizerEnabled == 1
+      previousDaltonizerMode = daltonizerMode
+
+      if (wasGrayscaleEnabled) {
+          try {
+              Settings.Secure.putInt(contentResolver, "accessibility_display_daltonizer_enabled", 0)
+              Log.d("Grayscale", "Disabled (was mode: $daltonizerMode)")
+          } catch (e: SecurityException) {
+              Log.e("Grayscale", "No permission - run: adb shell pm grant com.vandam.echo android.permission.WRITE_SECURE_SETTINGS")
+          }
+      }
+  }
+
+  private fun restoreGrayscale() {
+      if (wasGrayscaleEnabled) {
+          try {
+              Settings.Secure.putInt(contentResolver, "accessibility_display_daltonizer", previousDaltonizerMode)
+              Settings.Secure.putInt(contentResolver, "accessibility_display_daltonizer_enabled", 1)
+              Log.d("Grayscale", "Restored (mode: $previousDaltonizerMode)")
+          } catch (e: SecurityException) {
+              Log.e("Grayscale", "No permission to restore")
+          }
+      }
   }
 }
