@@ -21,7 +21,6 @@ export interface TabPreferences {
 	showPlaylists: boolean;
 	showSearch: boolean;
 	showPlayingInNavbar: boolean;
-	showRemoteStatusWhenOnline: boolean;
 }
 
 const defaultTabPreferences: TabPreferences = {
@@ -32,7 +31,6 @@ const defaultTabPreferences: TabPreferences = {
 	showPlaylists: true,
 	showSearch: true,
 	showPlayingInNavbar: false,
-	showRemoteStatusWhenOnline: false,
 };
 
 interface SettingsContextType {

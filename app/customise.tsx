@@ -23,7 +23,7 @@ export default function CustomiseTabsScreen() {
             />
 
             <StyledButton
-                text="Tabs"
+                text="Navigation Bar"
                 onPress={handleCustomiseTabs}
             />
         </ContentContainer>

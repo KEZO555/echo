@@ -29,7 +29,7 @@ export function Navbar({
     showPlayingButton = false,
 }: NavbarProps) {
     const router = useRouter();
-    const { invertColors, tabPreferences } = useSettings();
+    const { invertColors } = useSettings();
     const { isOnline, isLoading: networkLoading } = useNetworkState();
     const { isConnectedToAppRemote } = usePlayback();
 
@@ -38,17 +38,14 @@ export function Navbar({
     };
 
     const getStatusText = () => {
-        const parts = [];
+        if (networkLoading || isOnline) {
+            return null;
+        }
 
-        if (!networkLoading && !isOnline) {
-            parts.push("Device offline");
-        }
+        const parts = ["Device offline"];
+        parts.push(`Remote ${isConnectedToAppRemote ? "connected" : "not connected"}`);
         
-        if (!networkLoading && (!isOnline || tabPreferences.showRemoteStatusWhenOnline)) {
-            parts.push(`Remote ${isConnectedToAppRemote ? "connected" : "not connected"}`);
-        }
-        
-        return parts.length > 0 ? parts.join(" • ") : null;
+        return parts.join(" • ");
     };
 
     const statusText = getStatusText();
