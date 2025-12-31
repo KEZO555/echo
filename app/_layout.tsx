@@ -92,7 +92,6 @@ function RootNavigation() {
             <Stack.Screen name="create-playlist" />
             <Stack.Screen name="customise" />
             <Stack.Screen name="customise-tabs" />
-            <Stack.Screen name="debug" />
         </Stack>
     );
 }
