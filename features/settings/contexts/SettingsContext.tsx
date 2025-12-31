@@ -13,6 +13,10 @@ import { logError } from "@/shared/utils/logger";
 const TAB_PREFERENCES_KEY = "tab_preferences";
 const INVERT_COLORS_KEY = "invertColors";
 
+export type TabId = "index" | "artists" | "albums" | "podcasts" | "playlists" | "search";
+
+export const DEFAULT_TAB_ORDER: TabId[] = ["index", "artists", "albums", "podcasts", "playlists", "search"];
+
 export interface TabPreferences {
 	showLikedSongs: boolean;
 	showArtists: boolean;
@@ -20,7 +24,7 @@ export interface TabPreferences {
 	showPodcasts: boolean;
 	showPlaylists: boolean;
 	showSearch: boolean;
-	showPlayingInNavbar: boolean;
+	tabOrder: TabId[];
 }
 
 const defaultTabPreferences: TabPreferences = {
@@ -30,7 +34,7 @@ const defaultTabPreferences: TabPreferences = {
 	showPodcasts: true,
 	showPlaylists: true,
 	showSearch: true,
-	showPlayingInNavbar: false,
+	tabOrder: DEFAULT_TAB_ORDER,
 };
 
 interface SettingsContextType {
@@ -38,7 +42,8 @@ interface SettingsContextType {
 	invertColors: boolean;
 	setInvertColors: (value: boolean) => void;
 	tabPreferences: TabPreferences;
-	updateTabPreference: (key: keyof TabPreferences, value: boolean) => Promise<void>;
+	updateTabPreference: (key: keyof Omit<TabPreferences, "tabOrder">, value: boolean) => Promise<void>;
+	reorderTab: (tabId: TabId, direction: "up" | "down") => Promise<void>;
 	isLoading: boolean;
 }
 
@@ -88,7 +93,7 @@ export const SettingsProvider = ({ children }: { children: ReactNode }) => {
 	}, []);
 
 	const updateTabPreference = useCallback(
-		async (key: keyof TabPreferences, value: boolean) => {
+		async (key: keyof Omit<TabPreferences, "tabOrder">, value: boolean) => {
 			try {
 				const newPreferences = { ...tabPreferences, [key]: value };
 				setTabPreferences(newPreferences);
@@ -100,12 +105,37 @@ export const SettingsProvider = ({ children }: { children: ReactNode }) => {
 		[tabPreferences]
 	);
 
+	const reorderTab = useCallback(
+		async (tabId: TabId, direction: "up" | "down") => {
+			try {
+				const currentOrder = [...tabPreferences.tabOrder];
+				const currentIndex = currentOrder.indexOf(tabId);
+				
+				if (currentIndex === -1) return;
+				if (direction === "up" && currentIndex === 0) return;
+				if (direction === "down" && currentIndex === currentOrder.length - 1) return;
+
+				const newIndex = direction === "up" ? currentIndex - 1 : currentIndex + 1;
+				currentOrder.splice(currentIndex, 1);
+				currentOrder.splice(newIndex, 0, tabId);
+
+				const newPreferences = { ...tabPreferences, tabOrder: currentOrder };
+				setTabPreferences(newPreferences);
+				await AsyncStorage.setItem(TAB_PREFERENCES_KEY, JSON.stringify(newPreferences));
+			} catch (error) {
+				logError("Error reordering tabs:", error);
+			}
+		},
+		[tabPreferences]
+	);
+
 	const value: SettingsContextType = {
 		triggerHaptic,
 		invertColors,
 		setInvertColors,
 		tabPreferences,
 		updateTabPreference,
+		reorderTab,
 		isLoading,
 	};
 

@@ -66,7 +66,15 @@ export default function TabLayout() {
             }
         });
 
-        return filtered;
+        const sorted = [...filtered].sort((a, b) => {
+            if (a.screenName === "settings") return 1;
+            if (b.screenName === "settings") return -1;
+            const aIndex = tabPreferences.tabOrder.indexOf(a.screenName as typeof tabPreferences.tabOrder[number]);
+            const bIndex = tabPreferences.tabOrder.indexOf(b.screenName as typeof tabPreferences.tabOrder[number]);
+            return aIndex - bIndex;
+        });
+
+        return sorted;
     }, [tabPreferences]);
 
     return (
@@ -79,7 +87,6 @@ export default function TabLayout() {
                         tabsConfig={visibleTabs}
                         currentScreenName={activeScreenName}
                         navigation={props.navigation}
-                        showPlayingButton={tabPreferences.showPlayingInNavbar}
                     />
                 );
             }}

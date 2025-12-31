@@ -8,7 +8,6 @@ import { useSpotifyLibrary } from "@/features/library/contexts/LibraryContext";
 import type { SpotifySavedAlbum } from "@/shared/types/spotify";
 import { StyledText, ContentContainer, CustomScrollView, MediaListItem } from "@/shared/components";
 import { useRouter } from "expo-router";
-import { useSettings } from "@/features/settings";
 import { log, logError, getArtistNames } from "@/shared/utils";
 import { refreshSavedAlbumsFromCache, isAlbumCached } from "@/features/library/utils/cache";
 import { useNetworkState, usePreventDoubleTap } from "@/shared/hooks";
@@ -25,7 +24,7 @@ export default function AlbumsScreen() {
         albumsNextUrl,
     } = useSpotifyLibrary();
     const router = useRouter();
-    const { tabPreferences } = useSettings();
+
     const { isOnline, isLoading: networkLoading } = useNetworkState();
     const [sortedAlbums, setSortedAlbums] = useState<
         SpotifySavedAlbum[] | null
@@ -171,7 +170,7 @@ export default function AlbumsScreen() {
                 style={{ paddingHorizontal: 20 }}
                 headerIcon="multitrack-audio"
                 headerIconPress={handlePlayingPress}
-                headerIconShowLength={tabPreferences.showPlayingInNavbar ? 0 : 1}
+                headerIconShowLength={1}
             >
                 <CustomScrollView
                     data={[]}
@@ -203,7 +202,7 @@ export default function AlbumsScreen() {
             style={{ paddingHorizontal: 20 }}
             headerIcon="multitrack-audio"
             headerIconPress={handlePlayingPress}
-            headerIconShowLength={tabPreferences.showPlayingInNavbar ? 0 : 1}
+            headerIconShowLength={1}
         >
             <CustomScrollView
                 data={sortedAlbums}

@@ -8,7 +8,6 @@ import { useSpotifyLibrary } from "@/features/library/contexts/LibraryContext";
 import type { SpotifyPlaylist } from "@/shared/types/spotify";
 import { StyledText, ContentContainer, CustomScrollView, MediaListItem } from "@/shared/components";
 import { useRouter } from "expo-router";
-import { useSettings } from "@/features/settings";
 import { logError, log } from "@/shared/utils/logger";
 import { refreshPlaylistsFromCache, isPlaylistCached } from "@/features/library/utils/cache";
 import { useNetworkState, usePreventDoubleTap } from "@/shared/hooks";
@@ -27,7 +26,7 @@ export default function PlaylistsScreen() {
         playlistsNextUrl,
     } = useSpotifyLibrary();
     const router = useRouter();
-    const { tabPreferences } = useSettings();
+
     const { isOnline } = useNetworkState();
     const [sortedPlaylists, setSortedPlaylists] = useState<
         SpotifyPlaylist[] | null
@@ -226,7 +225,7 @@ export default function PlaylistsScreen() {
                 style={{ paddingHorizontal: 20 }}
                 headerIcon="multitrack-audio"
                 headerIconPress={handlePlayingPress}
-                headerIconShowLength={tabPreferences.showPlayingInNavbar ? 0 : 1}
+                headerIconShowLength={1}
             >
                 <CustomScrollView
                     data={[createNewPlaylistItem]}
@@ -257,7 +256,7 @@ export default function PlaylistsScreen() {
             style={{ paddingHorizontal: 20 }}
             headerIcon="multitrack-audio"
             headerIconPress={handlePlayingPress}
-            headerIconShowLength={tabPreferences.showPlayingInNavbar ? 0 : 1}
+            headerIconShowLength={1}
         >
             <CustomScrollView
                 data={displayPlaylists}

@@ -3,7 +3,7 @@ import {
     View,
     Image,
 } from "react-native";
-import { useLocalSearchParams, useRouter } from "expo-router";
+import { useLocalSearchParams, useRouter, useFocusEffect } from "expo-router";
 import { useSpotifyLibrary } from "@/features/library/contexts/LibraryContext";
 import { usePlayback } from "@/features/playback/contexts/PlaybackContext";
 import type { SpotifyPlaylist, SpotifyTrackSimple } from "@/shared/types/spotify";
@@ -68,56 +68,70 @@ export default function PlaylistDetailScreen() {
     const displayName = playlist?.name ?? initialPlaylist?.name ?? playlistName ?? "Playlist";
     const displayImageUrl = playlist?.images?.[0]?.url ?? initialPlaylist?.images?.[0]?.url;
 
+    const handleTitlePress = useCallback(() => {
+        if (id) {
+            router.push({
+                pathname: "/rename-playlist",
+                params: {
+                    playlistId: id,
+                    currentName: displayName,
+                },
+            });
+        }
+    }, [id, displayName, router]);
+
     useEffect(() => {
         if (initialPlaylist && !playlist) {
             setPlaylist(initialPlaylist);
         }
     }, [initialPlaylist, playlist]);
 
-    useEffect(() => {
+    const fetchPlaylistDetails = useCallback(async (isRefresh = false) => {
         if (!id) {
             setError("Playlist ID is missing.");
             return;
         }
 
-        const fetchPlaylistDetails = async () => {
-            let hasDisplayedData = !!(initialPlaylist as SpotifyPlaylistFull)?.tracks?.items;
+        const hasInitialData = !!(initialPlaylist as SpotifyPlaylistFull)?.tracks?.items;
 
-            if (!hasDisplayedData) {
-                try {
-                    const cachedPlaylist = await getCachedPlaylistDetail(id);
-                    if (cachedPlaylist?.tracks?.items) {
-                        log("Playlist details: Displaying cached data");
-                        setPlaylist(cachedPlaylist);
-                        hasDisplayedData = true;
-                    }
-                } catch (error) {
-                    logError("Error retrieving cached playlist:", error);
-                }
-            }
-
+        if (!hasInitialData && !isRefresh) {
             try {
-                const data = await makeApiRequest(
-                    `https://api.spotify.com/v1/playlists/${id}`,
-                    "Playlist details"
-                );
-                if (data) {
-                    log("Playlist details: Fetched fresh data from API");
-                    setPlaylist(data);
-                    await saveCachedPlaylistDetail(data);
-                } else if (!hasDisplayedData) {
-                    throw new Error("Failed to fetch playlist details");
+                const cachedPlaylist = await getCachedPlaylistDetail(id);
+                if (cachedPlaylist?.tracks?.items) {
+                    log("Playlist details: Displaying cached data");
+                    setPlaylist(cachedPlaylist);
                 }
-            } catch (e: any) {
-                logError("Error fetching playlist details:", e);
-                if (!hasDisplayedData) {
-                    setError(e.message || "An unexpected error occurred.");
-                }
+            } catch (error) {
+                logError("Error retrieving cached playlist:", error);
             }
-        };
+        }
 
-        fetchPlaylistDetails();
-    }, [id, makeApiRequest]);
+        try {
+            const data = await makeApiRequest(
+                `https://api.spotify.com/v1/playlists/${id}`,
+                "Playlist details"
+            );
+            if (data) {
+                log("Playlist details: Fetched fresh data from API");
+                setPlaylist(data);
+                await saveCachedPlaylistDetail(data);
+            } else if (!hasInitialData && !isRefresh) {
+                throw new Error("Failed to fetch playlist details");
+            }
+        } catch (e: unknown) {
+            const errorMessage = e instanceof Error ? e.message : "An unexpected error occurred.";
+            logError("Error fetching playlist details:", e);
+            if (!hasInitialData && !isRefresh) {
+                setError(errorMessage);
+            }
+        }
+    }, [id, makeApiRequest, initialPlaylist]);
+
+    useFocusEffect(
+        useCallback(() => {
+            fetchPlaylistDetails(true);
+        }, [fetchPlaylistDetails])
+    );
 
     const loadMoreTracks = useCallback(async () => {
         if (!playlist?.tracks?.next || isLoadingMoreTracks) {
@@ -216,6 +230,7 @@ export default function PlaylistDetailScreen() {
         <ContentContainer
             headerTitle={displayName}
             style={{ paddingHorizontal: 20 }}
+            onTitlePress={handleTitlePress}
         >
             <View style={{ paddingBottom: 20 }}>
                 <CustomScrollView

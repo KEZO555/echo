@@ -13,6 +13,7 @@ interface HeaderProps {
     headerTitle?: string;
     backEvent?: () => void;
     hideBackButton?: boolean;
+    onTitlePress?: () => void;
 }
 
 export function Header({
@@ -22,6 +23,7 @@ export function Header({
     headerTitle,
     backEvent,
     hideBackButton = false,
+    onTitlePress,
 }: HeaderProps) {
     const { invertColors } = useSettings();
     const handleBack = backEvent
@@ -69,9 +71,17 @@ export function Header({
                 ></View>
             )}
 
-            <StyledText style={[styles.title]} numberOfLines={1}>
-                {headerTitle}
-            </StyledText>
+            {onTitlePress ? (
+                <HapticPressable onPress={onTitlePress} style={{ maxWidth: "75%" }}>
+                    <StyledText style={[styles.title, { maxWidth: "100%" }]} numberOfLines={1}>
+                        {headerTitle}
+                    </StyledText>
+                </HapticPressable>
+            ) : (
+                <StyledText style={[styles.title]} numberOfLines={1}>
+                    {headerTitle}
+                </StyledText>
+            )}
             {iconShowLength > 0 && iconName ? (
                 <HapticPressable onPress={onIconPress}>
                     <View

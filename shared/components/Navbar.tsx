@@ -3,7 +3,6 @@ import { MaterialIcons } from "@expo/vector-icons";
 import { StyleSheet, View } from "react-native";
 import { HapticPressable } from "./HapticPressable";
 import { StyledText } from "./StyledText";
-import { useRouter } from "expo-router";
 import type { BottomTabBarProps } from "@react-navigation/bottom-tabs";
 import { useSettings } from "@/features/settings";
 import { useNetworkState } from "@/shared/hooks/useNetworkState";
@@ -19,23 +18,16 @@ interface NavbarProps {
     tabsConfig: ReadonlyArray<TabConfigItem>;
     currentScreenName: string;
     navigation: BottomTabBarProps["navigation"];
-    showPlayingButton?: boolean;
 }
 
 export function Navbar({
     tabsConfig,
     currentScreenName,
     navigation,
-    showPlayingButton = false,
 }: NavbarProps) {
-    const router = useRouter();
     const { invertColors } = useSettings();
     const { isOnline, isLoading: networkLoading } = useNetworkState();
     const { isConnectedToAppRemote } = usePlayback();
-
-    const handlePlayingPress = () => {
-        router.push("/playing");
-    };
 
     const getStatusText = () => {
         if (networkLoading || isOnline) {
@@ -53,15 +45,6 @@ export function Navbar({
     return (
         <>
             <View style={[styles.navbar, { backgroundColor: invertColors ? "white" : "black" }]}>
-                {showPlayingButton && (
-                    <HapticPressable onPress={handlePlayingPress}>
-                        <MaterialIcons
-                            name="multitrack-audio"
-                            size={48}
-                            color={invertColors ? "#C1C1C1" : "#6E6E6E"}
-                        />
-                    </HapticPressable>
-                )}
                 {tabsConfig.map((tab) => (
                     <HapticPressable
                         key={tab.screenName}

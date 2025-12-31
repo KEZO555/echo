@@ -3,6 +3,7 @@ import { View, StyleSheet } from "react-native";
 import { StyledText } from "./StyledText";
 import { HapticPressable } from "./HapticPressable";
 import { useSettings } from "@/features/settings";
+import { MaterialIcons } from "@expo/vector-icons";
 
 interface ToggleSwitchGraphicProps {
 	value: boolean;
@@ -64,27 +65,68 @@ interface ToggleSwitchProps {
 	label: string;
 	value: boolean;
 	onValueChange: (value: boolean) => void;
+	onMoveUp?: () => void;
+	onMoveDown?: () => void;
+	isFirst?: boolean;
+	isLast?: boolean;
 }
 
 export function ToggleSwitch({
 	label,
 	value,
 	onValueChange,
+	onMoveUp,
+	onMoveDown,
+	isFirst = false,
+	isLast = false,
 }: ToggleSwitchProps) {
+	const { invertColors } = useSettings();
+	const iconColor = invertColors ? "black" : "white";
+	const disabledColor = invertColors ? "#C1C1C1" : "#6E6E6E";
+	const showReorderButtons = onMoveUp !== undefined || onMoveDown !== undefined;
+
 	return (
-		<HapticPressable
-			onPress={() => {
-				onValueChange(!value);
-			}}
-			style={[styles.container]}
-		>
-			<View style={styles.switchTouchable}>
-				<ToggleSwitchGraphic value={value} />
-			</View>
-			<View style={styles.textTouchable}>
-				<StyledText style={[styles.label]}>{label}</StyledText>
-			</View>
-		</HapticPressable>
+		<View style={styles.container}>
+			<HapticPressable
+				onPress={() => {
+					onValueChange(!value);
+				}}
+				style={styles.toggleArea}
+			>
+				<View style={styles.switchTouchable}>
+					<ToggleSwitchGraphic value={value} />
+				</View>
+				<View style={styles.textTouchable}>
+					<StyledText style={[styles.label]}>{label}</StyledText>
+				</View>
+			</HapticPressable>
+			{showReorderButtons && (
+				<View style={styles.arrowContainer}>
+					<HapticPressable
+						onPress={onMoveDown}
+						disabled={isLast}
+						style={styles.arrowButton}
+					>
+						<MaterialIcons
+							name="keyboard-arrow-down"
+							size={32}
+							color={isLast ? disabledColor : iconColor}
+						/>
+					</HapticPressable>
+					<HapticPressable
+						onPress={onMoveUp}
+						disabled={isFirst}
+						style={styles.arrowButton}
+					>
+						<MaterialIcons
+							name="keyboard-arrow-up"
+							size={32}
+							color={isFirst ? disabledColor : iconColor}
+						/>
+					</HapticPressable>
+				</View>
+			)}
+		</View>
 	);
 }
 
@@ -93,6 +135,12 @@ const styles = StyleSheet.create({
 		flexDirection: "row",
 		alignItems: "center",
 		paddingTop: 9,
+		width: "100%",
+	},
+	toggleArea: {
+		flexDirection: "row",
+		alignItems: "center",
+		flex: 1,
 	},
 	switchTouchable: {
 		marginTop: 12,
@@ -104,6 +152,14 @@ const styles = StyleSheet.create({
 	},
 	label: {
 		fontSize: 30,
+	},
+	arrowContainer: {
+		flexDirection: "row",
+		alignItems: "center",
+		gap: 4,
+	},
+	arrowButton: {
+		padding: 4,
 	},
 });
 

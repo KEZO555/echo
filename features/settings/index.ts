@@ -1,2 +1,2 @@
-export { SettingsProvider, useSettings } from "./contexts/SettingsContext";
-export type { TabPreferences } from "./contexts/SettingsContext";
+export { SettingsProvider, useSettings, DEFAULT_TAB_ORDER } from "./contexts/SettingsContext";
+export type { TabPreferences, TabId } from "./contexts/SettingsContext";

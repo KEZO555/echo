@@ -8,8 +8,6 @@ import { useSpotifyLibrary } from "@/features/library/contexts/LibraryContext";
 import type { SpotifyArtist } from "@/shared/types/spotify";
 import { StyledText, ContentContainer, CustomScrollView, MediaListItem } from "@/shared/components";
 import { useRouter } from "expo-router";
-import { useSettings } from "@/features/settings";
-
 import { useNetworkState, usePreventDoubleTap } from "@/shared/hooks";
 import { tabScreenStyles as styles } from "@/shared/styles/detailScreen";
 
@@ -24,7 +22,7 @@ export default function ArtistsScreen() {
         artistsNextUrl,
     } = useSpotifyLibrary();
     const router = useRouter();
-    const { tabPreferences } = useSettings();
+
     const { isOnline } = useNetworkState();
     const [sortedArtists, setSortedArtists] = useState<
         SpotifyArtist[] | null
@@ -111,7 +109,7 @@ export default function ArtistsScreen() {
                 style={{ paddingHorizontal: 20 }}
                 headerIcon="multitrack-audio"
                 headerIconPress={handlePlayingPress}
-                headerIconShowLength={tabPreferences.showPlayingInNavbar ? 0 : 1}
+                headerIconShowLength={1}
             >
                 <CustomScrollView
                     data={[]}
@@ -143,7 +141,7 @@ export default function ArtistsScreen() {
             style={{ paddingHorizontal: 20 }}
             headerIcon="multitrack-audio"
             headerIconPress={handlePlayingPress}
-            headerIconShowLength={tabPreferences.showPlayingInNavbar ? 0 : 1}
+            headerIconShowLength={1}
         >
             <CustomScrollView
                 data={sortedArtists}

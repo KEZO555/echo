@@ -7,7 +7,6 @@ import type { SavedTrackObject } from "@/shared/types/spotify";
 import { StyledText, ContentContainer, CustomScrollView, MediaListItem } from "@/shared/components";
 import { useRouter } from "expo-router";
 import { log, logWarn, logError, getArtistNames } from "@/shared/utils";
-import { useSettings } from "@/features/settings";
 import { useNetworkState, usePreventDoubleTap } from "@/shared/hooks";
 import { tabScreenStyles as styles } from "@/shared/styles/detailScreen";
 
@@ -48,7 +47,7 @@ export default function LikedSongsScreen() {
         }
     }, [fetchSavedTracks, isRefreshingSavedTracks]);
 
-    const { tabPreferences } = useSettings();
+
 
     const handleTrackPress = usePreventDoubleTap(
         async (item: SavedTrackObject, index: number, isDisabled: boolean) => {
@@ -160,7 +159,7 @@ export default function LikedSongsScreen() {
                 style={{ paddingHorizontal: 20 }}
                 headerIcon="multitrack-audio"
                 headerIconPress={handlePlayingPress}
-                headerIconShowLength={tabPreferences.showPlayingInNavbar ? 0 : 1}
+                headerIconShowLength={1}
             >
                 <CustomScrollView
                     data={[]}
@@ -193,7 +192,7 @@ export default function LikedSongsScreen() {
             style={{ paddingHorizontal: 20 }}
             headerIcon="multitrack-audio"
             headerIconPress={handlePlayingPress}
-            headerIconShowLength={tabPreferences.showPlayingInNavbar ? 0 : 1}
+            headerIconShowLength={1}
         >
             <CustomScrollView
                 data={savedTracks?.filter((item: SavedTrackObject) => item.track !== null) || []}

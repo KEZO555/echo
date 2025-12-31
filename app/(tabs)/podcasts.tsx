@@ -8,7 +8,6 @@ import { useSpotifyLibrary } from "@/features/library/contexts/LibraryContext";
 import type { SpotifySavedShow } from "@/shared/types/spotify";
 import { StyledText, ContentContainer, CustomScrollView, MediaListItem } from "@/shared/components";
 import { useRouter } from "expo-router";
-import { useSettings } from "@/features/settings";
 import { log, logError } from "@/shared/utils/logger";
 import {
     refreshFollowedPodcastsFromCache,
@@ -28,7 +27,7 @@ export default function PodcastsScreen() {
         podcastsNextUrl,
     } = useSpotifyLibrary();
     const router = useRouter();
-    const { tabPreferences } = useSettings();
+
     const { isOnline } = useNetworkState();
     const [sortedPodcasts, setSortedPodcasts] = useState<
         SpotifySavedShow[] | null
@@ -149,7 +148,7 @@ export default function PodcastsScreen() {
                 style={{ paddingHorizontal: 20 }}
                 headerIcon="multitrack-audio"
                 headerIconPress={handlePlayingPress}
-                headerIconShowLength={tabPreferences.showPlayingInNavbar ? 0 : 1}
+                headerIconShowLength={1}
             >
                 <CustomScrollView
                     data={[]}
@@ -180,7 +179,7 @@ export default function PodcastsScreen() {
             hideBackButton={true}
             headerIcon="multitrack-audio"
             headerIconPress={handlePlayingPress}
-            headerIconShowLength={tabPreferences.showPlayingInNavbar ? 0 : 1}
+            headerIconShowLength={1}
             style={{ paddingHorizontal: 20 }}
         >
             <CustomScrollView

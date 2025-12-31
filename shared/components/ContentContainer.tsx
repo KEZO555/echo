@@ -13,6 +13,8 @@ interface ContentContainerProps {
     headerIconPress?: () => void;
     headerIconShowLength?: number;
     style?: StyleProp<ViewStyle>;
+    onTitlePress?: () => void;
+    gap?: number;
 }
 
 export default function ContentContainer({
@@ -24,6 +26,8 @@ export default function ContentContainer({
     headerIconPress,
     headerIconShowLength = 1,
     style,
+    onTitlePress,
+    gap = 47,
 }: ContentContainerProps) {
     const { invertColors } = useSettings();
     return (
@@ -41,9 +45,10 @@ export default function ContentContainer({
                     iconName={headerIcon}
                     onIconPress={headerIconPress}
                     iconShowLength={headerIconShowLength}
+                    onTitlePress={onTitlePress}
                 />
             )}
-            <View style={[styles.content, style]}>{children ?? null}</View>
+            <View style={[styles.content, { gap }, style]}>{children ?? null}</View>
         </View>
     );
 }
@@ -59,6 +64,5 @@ const styles = StyleSheet.create({
         alignItems: "flex-start",
         paddingHorizontal: 37,
         paddingTop: 14,
-        gap: 47,
     },
 });
