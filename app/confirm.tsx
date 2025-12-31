@@ -17,8 +17,10 @@ export default function ConfirmScreen() {
 	}>();
 
 	const handleConfirm = () => {
-		router.back();
-		router.setParams({ confirmed: "true", action: params.action });
+		router.navigate({
+			pathname: "/(tabs)/settings",
+			params: { confirmed: "true", action: params.action },
+		});
 	};
 
 	const handleCancel = () => {

@@ -1,5 +1,4 @@
 import React, { useEffect } from "react";
-import { Alert } from "react-native";
 import { useAuth } from "@/features/auth/contexts/AuthContext";
 import { useCredentials } from "@/features/credentials";
 import { StyledButton } from "@/shared/components/StyledButton";
@@ -46,7 +45,6 @@ export default function SettingsScreen() {
         if (params.confirmed === "true") {
             if (params.action === "clearCache") {
                 clearCachedData();
-                Alert.alert("Success", "Cache cleared successfully.");
             } else if (params.action === "resetCredentials") {
                 handleResetCredentialsConfirmed();
             } else if (params.action === "logout") {
