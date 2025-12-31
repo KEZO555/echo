@@ -1,5 +1,5 @@
 import React, { useEffect } from "react";
-import { View, StyleSheet, Text, Alert } from "react-native";
+import { Alert } from "react-native";
 import { useAuth } from "@/features/auth/contexts/AuthContext";
 import { useCredentials } from "@/features/credentials";
 import { StyledButton } from "@/shared/components/StyledButton";
@@ -81,7 +81,7 @@ export default function SettingsScreen() {
 
     return (
         <ContentContainer
-            headerTitle="Settings"
+            headerTitle={`Settings (v${Application.nativeApplicationVersion})`}
             hideBackButton={true}
         >
 
@@ -92,26 +92,6 @@ export default function SettingsScreen() {
             <StyledButton text="Reset Server Info" onPress={handleResetCredentials} />
 
             <StyledButton text="Logout" onPress={handleLogout} />
-
-            <View style={styles.versionContainer}>
-                <Text style={styles.versionText}>
-                    v{Application.nativeApplicationVersion}
-                </Text>
-            </View>
         </ContentContainer>
     );
 }
-
-const styles = StyleSheet.create({
-    versionContainer: {
-        width: "100%",
-        alignItems: "center",
-        justifyContent: "flex-end",
-        flex: 1,
-    },
-    versionText: {
-        color: "#666",
-        fontSize: 12,
-        fontWeight: "400",
-    },
-});
