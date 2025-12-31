@@ -30,8 +30,8 @@ export default function SettingsScreen() {
         router.push({
             pathname: "/confirm",
             params: {
-                title: "Reset Credentials",
-                message: "Are you sure you want to reset your credentials?\n\nThis will logout and clear all saved credentials.",
+                title: "Reset Server Info",
+                message: "Are you sure you want to reset your server info?\n\nThis will log you out and clear your Client ID and Server URL.",
                 confirmText: "Reset",
                 action: "resetCredentials",
             },
@@ -89,7 +89,7 @@ export default function SettingsScreen() {
 
             <StyledButton text="Clear Cache" onPress={handleClearCache} />
 
-            <StyledButton text="Reset Credentials" onPress={handleResetCredentials} />
+            <StyledButton text="Reset Server Info" onPress={handleResetCredentials} />
 
             <StyledButton text="Logout" onPress={handleLogout} />
 
