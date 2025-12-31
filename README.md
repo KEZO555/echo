@@ -52,6 +52,13 @@ See [echo-token-server](https://github.com/vandamd/echo-token-server) for setup 
 - Add tracks to playlists
 - Device selection for remote playback
 
+## Limitations
+
+- Requires the Spotify app to be installed
+- No Spotify owned content (e.g. Radio, Daylist, Playlists like "Discover Weekly")
+- No queue management
+- Limited offline functionality
+
 ## Greyscale Toggle
 
 Echo can automatically disable greyscale while the app is open and restore it when you leave.
