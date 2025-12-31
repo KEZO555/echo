@@ -59,6 +59,9 @@ See [echo-token-server](https://github.com/vandamd/echo-token-server) for setup 
 - No queue management
 - Limited offline functionality
 
+## Android Display and Text Size
+Please note that Echo currently works best with the Display size and Text size set to the lowest in Android Settings.
+
 ## Greyscale Toggle
 
 Echo can automatically disable greyscale while the app is open and restore it when you leave.
