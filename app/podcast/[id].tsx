@@ -48,6 +48,7 @@ export default function PodcastDetailScreen() {
     const [show, setShow] = useState<SpotifyShow | null>(null);
     const [error, setError] = useState<string | null>(null);
     const [isLoadingMoreEpisodes, setIsLoadingMoreEpisodes] = useState(false);
+    const [isInitialLoading, setIsInitialLoading] = useState(true);
 
     const displayName = show?.name ?? initialShow?.name ?? showName ?? "Podcast";
     const displayImageUrl = show?.images?.[0]?.url ?? initialShow?.images?.[0]?.url;
@@ -105,6 +106,8 @@ export default function PodcastDetailScreen() {
                 if (!hasDisplayedData) {
                     setError(e.message || "An unexpected error occurred.");
                 }
+            } finally {
+                setIsInitialLoading(false);
             }
         };
 
@@ -285,7 +288,7 @@ export default function PodcastDetailScreen() {
                             <StyledText style={detailScreenStyles.errorText}>
                                 {error}
                             </StyledText>
-                        ) : episodeItems.length === 0 ? (
+                        ) : !isInitialLoading && episodeItems.length === 0 ? (
                             <StyledText style={detailScreenStyles.emptyText}>
                                 No episodes found for this podcast.
                             </StyledText>
