@@ -86,15 +86,11 @@ export default function PlaylistDetailScreen() {
         }
     }, [initialPlaylist, playlist]);
 
-    const fetchPlaylistDetails = useCallback(async (isRefresh = false) => {
-        if (!id) {
-            setError("Playlist ID is missing.");
-            return;
-        }
+    useEffect(() => {
+        const hasInitialTrackItems = !!(initialPlaylist as SpotifyPlaylistFull)?.tracks?.items;
+        if (hasInitialTrackItems || !id) return;
 
-        const hasInitialData = !!(initialPlaylist as SpotifyPlaylistFull)?.tracks?.items;
-
-        if (!hasInitialData && !isRefresh) {
+        const loadCache = async () => {
             try {
                 const cachedPlaylist = await getCachedPlaylistDetail(id);
                 if (cachedPlaylist?.tracks?.items) {
@@ -104,7 +100,17 @@ export default function PlaylistDetailScreen() {
             } catch (error) {
                 logError("Error retrieving cached playlist:", error);
             }
+        };
+        loadCache();
+    }, [id, initialPlaylist]);
+
+    const fetchPlaylistDetails = useCallback(async () => {
+        if (!id) {
+            setError("Playlist ID is missing.");
+            return;
         }
+
+        const hasInitialData = !!(initialPlaylist as SpotifyPlaylistFull)?.tracks?.items;
 
         try {
             const data = await makeApiRequest(
@@ -115,13 +121,13 @@ export default function PlaylistDetailScreen() {
                 log("Playlist details: Fetched fresh data from API");
                 setPlaylist(data);
                 await saveCachedPlaylistDetail(data);
-            } else if (!hasInitialData && !isRefresh) {
+            } else if (!hasInitialData) {
                 throw new Error("Failed to fetch playlist details");
             }
         } catch (e: unknown) {
             const errorMessage = e instanceof Error ? e.message : "An unexpected error occurred.";
             logError("Error fetching playlist details:", e);
-            if (!hasInitialData && !isRefresh) {
+            if (!hasInitialData) {
                 setError(errorMessage);
             }
         }
@@ -129,7 +135,7 @@ export default function PlaylistDetailScreen() {
 
     useFocusEffect(
         useCallback(() => {
-            fetchPlaylistDetails(true);
+            fetchPlaylistDetails();
         }, [fetchPlaylistDetails])
     );
 
