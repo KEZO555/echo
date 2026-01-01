@@ -10,7 +10,7 @@ import { useSpotifyLibrary } from "@/features/library/contexts/LibraryContext";
 import { usePlayback } from "@/features/playback/contexts/PlaybackContext";
 import type { SpotifyShow, SpotifyEpisode } from "@/shared/types/spotify";
 import { StyledText, HapticPressable, ContentContainer, CustomScrollView, ListFooter } from "@/shared/components";
-import { log, logError, formatDuration } from "@/shared/utils";
+import { log, logError, formatDuration, getLargestImage } from "@/shared/utils";
 import {
     getCachedShowDetail,
     saveCachedShowDetail,
@@ -51,7 +51,7 @@ export default function PodcastDetailScreen() {
     const [isInitialLoading, setIsInitialLoading] = useState(true);
 
     const displayName = show?.name ?? initialShow?.name ?? showName ?? "Podcast";
-    const displayImageUrl = show?.images?.[0]?.url ?? initialShow?.images?.[0]?.url;
+    const displayImageUrl = getLargestImage(show?.images) ?? getLargestImage(initialShow?.images);
 
     useEffect(() => {
         if (initialShow && !show) {
@@ -157,7 +157,7 @@ export default function PodcastDetailScreen() {
 
     const handleEpisodePress = usePreventDoubleTap(
         async (episode: SpotifyEpisode, index: number) => {
-            const albumArtUrl = episode.images?.[0]?.url ?? show?.images?.[0]?.url ?? "";
+            const albumArtUrl = getLargestImage(episode.images) ?? getLargestImage(show?.images) ?? "";
 
             try {
                 await playTrackWithContext(

@@ -9,6 +9,7 @@ import type { SpotifySavedShow } from "@/shared/types/spotify";
 import { StyledText, ContentContainer, CustomScrollView, MediaListItem } from "@/shared/components";
 import { useRouter } from "expo-router";
 import { log, logError } from "@/shared/utils/logger";
+import { getLargestImage } from "@/shared/utils/formatters";
 import {
     refreshFollowedPodcastsFromCache,
     isShowCached,
@@ -123,7 +124,7 @@ export default function PodcastsScreen() {
             <MediaListItem
                 primaryText={item.show.name}
                 secondaryText={item.show.publisher}
-                imageUri={item.show.images && item.show.images.length > 0 ? item.show.images[0].url : undefined}
+                imageUri={getLargestImage(item.show.images)}
                 placeholderIcon="mic"
                 disabled={isUncached}
                 onPress={() => handleShowPress(item, isUncached)}
