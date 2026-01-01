@@ -13,6 +13,7 @@ import { log, logError } from "@/shared/utils";
 import { getCachedAlbumDetail, saveCachedAlbumDetail } from "@/features/library/utils/cache";
 import { usePreventDoubleTap, useSaveStatus } from "@/shared/hooks";
 import { detailScreenStyles } from "@/shared/styles/detailScreen";
+import { useSettings } from "@/features/settings";
 
 export default function AlbumDetailScreen() {
     const { id, albumString, albumName } = useLocalSearchParams<{
@@ -30,6 +31,7 @@ export default function AlbumDetailScreen() {
         makeApiRequest,
     } = useSpotifyLibrary();
     const router = useRouter();
+    const { hideDetailCovers } = useSettings();
 
     const initialAlbum = albumString
         ? (JSON.parse(albumString) as SpotifyAlbum)
@@ -217,7 +219,7 @@ export default function AlbumDetailScreen() {
             <View style={{ paddingBottom: 20 }}>
                 <CustomScrollView
                     ListHeaderComponent={
-                        <>
+                        !hideDetailCovers ? (
                             <View style={detailScreenStyles.imageContainer}>
                                 <Image
                                     source={{ uri: albumImageUrl }}
@@ -225,7 +227,7 @@ export default function AlbumDetailScreen() {
                                     fadeDuration={0}
                                 />
                             </View>
-                        </>
+                        ) : null
                     }
                     data={album.tracks?.items || []}
                     renderItem={renderTrackItem}

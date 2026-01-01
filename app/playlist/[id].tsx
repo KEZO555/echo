@@ -13,6 +13,7 @@ import { log, logError } from "@/shared/utils";
 import { getCachedPlaylistDetail, saveCachedPlaylistDetail } from "@/features/library/utils/cache";
 import { usePreventDoubleTap } from "@/shared/hooks/usePreventDoubleTap";
 import { detailScreenStyles } from "@/shared/styles/detailScreen";
+import { useSettings } from "@/features/settings";
 
 interface PlaylistTrack {
     added_at: string;
@@ -51,6 +52,7 @@ export default function PlaylistDetailScreen() {
     const { skipToIndex } = usePlayback();
     const { makeApiRequest } = useSpotifyLibrary();
     const router = useRouter();
+    const { hideDetailCovers } = useSettings();
 
     const initialPlaylist = useMemo(() => {
         if (!playlistString) return null;
@@ -241,7 +243,7 @@ export default function PlaylistDetailScreen() {
             <View style={{ paddingBottom: 20 }}>
                 <CustomScrollView
                     ListHeaderComponent={
-                        displayImageUrl ? (
+                        hideDetailCovers ? null : displayImageUrl ? (
                             <View style={detailScreenStyles.imageContainer}>
                                 <Image
                                     source={{ uri: displayImageUrl }}

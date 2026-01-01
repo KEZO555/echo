@@ -11,6 +11,7 @@ import { getCachedShowDetail, saveCachedShowDetail } from "@/features/library/ut
 import { usePreventDoubleTap, useSaveStatus } from "@/shared/hooks";
 import { MaterialIcons } from "@expo/vector-icons";
 import { detailScreenStyles } from "@/shared/styles/detailScreen";
+import { useSettings } from "@/features/settings";
 
 export default function PodcastDetailScreen() {
     const { id, showString, showName } = useLocalSearchParams<{
@@ -28,6 +29,7 @@ export default function PodcastDetailScreen() {
         makeApiRequest,
     } = useSpotifyLibrary();
     const router = useRouter();
+    const { hideDetailCovers } = useSettings();
 
     const initialShow = useMemo(() => {
         if (!showString) return null;
@@ -250,7 +252,7 @@ export default function PodcastDetailScreen() {
             <View style={{ paddingBottom: 20 }}>
                 <CustomScrollView
                     ListHeaderComponent={
-                        displayImageUrl ? (
+                        hideDetailCovers ? null : displayImageUrl ? (
                             <View style={detailScreenStyles.imageContainer}>
                                 <Image
                                     source={{ uri: displayImageUrl }}

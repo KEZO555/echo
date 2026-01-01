@@ -13,6 +13,7 @@ import { logError } from "@/shared/utils/logger";
 const TAB_PREFERENCES_KEY = "tab_preferences";
 const INVERT_COLORS_KEY = "invertColors";
 const HIDE_ALBUM_COVERS_KEY = "hideAlbumCovers";
+const HIDE_DETAIL_COVERS_KEY = "hideDetailCovers";
 
 export type TabId = "index" | "artists" | "albums" | "podcasts" | "playlists" | "search";
 
@@ -44,6 +45,8 @@ interface SettingsContextType {
 	setInvertColors: (value: boolean) => void;
 	hideAlbumCovers: boolean;
 	setHideAlbumCovers: (value: boolean) => void;
+	hideDetailCovers: boolean;
+	setHideDetailCovers: (value: boolean) => void;
 	tabPreferences: TabPreferences;
 	updateTabPreference: (key: keyof Omit<TabPreferences, "tabOrder">, value: boolean) => Promise<void>;
 	reorderTab: (tabId: TabId, direction: "up" | "down") => Promise<void>;
@@ -55,15 +58,17 @@ const SettingsContext = createContext<SettingsContextType | undefined>(undefined
 export const SettingsProvider = ({ children }: { children: ReactNode }) => {
 	const [invertColors, setInvertColorsState] = useState(false);
 	const [hideAlbumCovers, setHideAlbumCoversState] = useState(false);
+	const [hideDetailCovers, setHideDetailCoversState] = useState(false);
 	const [tabPreferences, setTabPreferences] = useState<TabPreferences>(defaultTabPreferences);
 	const [isLoading, setIsLoading] = useState(true);
 
 	useEffect(() => {
 		const loadSettings = async () => {
 			try {
-				const [invertColorsValue, hideAlbumCoversValue, tabPreferencesValue] = await Promise.all([
+				const [invertColorsValue, hideAlbumCoversValue, hideDetailCoversValue, tabPreferencesValue] = await Promise.all([
 					AsyncStorage.getItem(INVERT_COLORS_KEY),
 					AsyncStorage.getItem(HIDE_ALBUM_COVERS_KEY),
+					AsyncStorage.getItem(HIDE_DETAIL_COVERS_KEY),
 					AsyncStorage.getItem(TAB_PREFERENCES_KEY),
 				]);
 
@@ -73,6 +78,10 @@ export const SettingsProvider = ({ children }: { children: ReactNode }) => {
 
 				if (hideAlbumCoversValue !== null) {
 					setHideAlbumCoversState(hideAlbumCoversValue === "true");
+				}
+
+				if (hideDetailCoversValue !== null) {
+					setHideDetailCoversState(hideDetailCoversValue === "true");
 				}
 
 				if (tabPreferencesValue) {
@@ -104,6 +113,11 @@ export const SettingsProvider = ({ children }: { children: ReactNode }) => {
 	const setHideAlbumCovers = useCallback(async (value: boolean) => {
 		setHideAlbumCoversState(value);
 		await AsyncStorage.setItem(HIDE_ALBUM_COVERS_KEY, value.toString());
+	}, []);
+
+	const setHideDetailCovers = useCallback(async (value: boolean) => {
+		setHideDetailCoversState(value);
+		await AsyncStorage.setItem(HIDE_DETAIL_COVERS_KEY, value.toString());
 	}, []);
 
 	const updateTabPreference = useCallback(
@@ -149,6 +163,8 @@ export const SettingsProvider = ({ children }: { children: ReactNode }) => {
 		setInvertColors,
 		hideAlbumCovers,
 		setHideAlbumCovers,
+		hideDetailCovers,
+		setHideDetailCovers,
 		tabPreferences,
 		updateTabPreference,
 		reorderTab,

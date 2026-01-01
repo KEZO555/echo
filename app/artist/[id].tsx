@@ -13,6 +13,7 @@ import { StyledText, HapticPressable, ContentContainer, CustomScrollView, TrackL
 import { log, logError } from "@/shared/utils";
 import { usePreventDoubleTap, useSaveStatus } from "@/shared/hooks";
 import { detailScreenStyles } from "@/shared/styles/detailScreen";
+import { useSettings } from "@/features/settings";
 
 export default function ArtistDetailScreen() {
     const { id, artistString, artistName } = useLocalSearchParams<{
@@ -34,6 +35,7 @@ export default function ArtistDetailScreen() {
     } = useSpotifyLibrary();
 
     const router = useRouter();
+    const { hideDetailCovers, hideAlbumCovers } = useSettings();
 
     const initialArtist = useMemo(() => {
         if (!artistString) return null;
@@ -251,17 +253,19 @@ export default function ArtistDetailScreen() {
                 style={styles.itemContainer}
                 onPress={() => handleAlbumPress(album.id)}
             >
-                {hasImage ? (
-                    <View style={styles.albumImageContainer}>
-                        <Image
-                            source={{ uri: album.images[0].url }}
-                            style={styles.albumImage}
-                            fadeDuration={0}
-                        />
-                    </View>
-                ) : (
-                    <View style={styles.placeholderImageContainer}>
-                    </View>
+                {!hideAlbumCovers && (
+                    hasImage ? (
+                        <View style={styles.albumImageContainer}>
+                            <Image
+                                source={{ uri: album.images[0].url }}
+                                style={styles.albumImage}
+                                fadeDuration={0}
+                            />
+                        </View>
+                    ) : (
+                        <View style={styles.placeholderImageContainer}>
+                        </View>
+                    )
                 )}
                 <View style={styles.textContainer}>
                     <StyledText style={styles.albumName} numberOfLines={1}>
@@ -304,7 +308,7 @@ export default function ArtistDetailScreen() {
             <View style={{ paddingBottom: 20 }}>
                 <CustomScrollView
                     ListHeaderComponent={
-                        displayImageUrl ? (
+                        !hideDetailCovers && displayImageUrl ? (
                             <View style={detailScreenStyles.imageContainer}>
                                 <Image
                                     source={{ uri: displayImageUrl }}
@@ -350,6 +354,7 @@ export default function ArtistDetailScreen() {
 
 const styles = StyleSheet.create({
     itemContainer: {
+        minHeight: 50,
         flexDirection: "row",
         alignItems: "center",
     },
