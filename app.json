@@ -2,7 +2,7 @@
   "expo": {
     "name": "Echo",
     "slug": "echo",
-    "version": "2.7.8",
+    "version": "2.7.9",
     "orientation": "portrait",
     "scheme": "echo",
     "newArchEnabled": true,
