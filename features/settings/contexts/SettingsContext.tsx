@@ -14,6 +14,11 @@ const TAB_PREFERENCES_KEY = "tab_preferences";
 const INVERT_COLORS_KEY = "invertColors";
 const HIDE_ALBUM_COVERS_KEY = "hideAlbumCovers";
 const HIDE_DETAIL_COVERS_KEY = "hideDetailCovers";
+const HIDE_CREATE_PLAYLIST_KEY = "hideCreatePlaylist";
+const HIDE_LIKE_BUTTON_KEY = "hideLikeButton";
+const HIDE_DEVICES_BUTTON_KEY = "hideDevicesButton";
+const HIDE_ADD_TO_PLAYLIST_BUTTON_KEY = "hideAddToPlaylistButton";
+const HIDE_PLAYING_COVER_KEY = "hidePlayingCover";
 
 export type TabId = "index" | "artists" | "albums" | "podcasts" | "playlists" | "search";
 
@@ -47,6 +52,16 @@ interface SettingsContextType {
 	setHideAlbumCovers: (value: boolean) => void;
 	hideDetailCovers: boolean;
 	setHideDetailCovers: (value: boolean) => void;
+	hideCreatePlaylist: boolean;
+	setHideCreatePlaylist: (value: boolean) => void;
+	hideLikeButton: boolean;
+	setHideLikeButton: (value: boolean) => void;
+	hideDevicesButton: boolean;
+	setHideDevicesButton: (value: boolean) => void;
+	hideAddToPlaylistButton: boolean;
+	setHideAddToPlaylistButton: (value: boolean) => void;
+	hidePlayingCover: boolean;
+	setHidePlayingCover: (value: boolean) => void;
 	tabPreferences: TabPreferences;
 	updateTabPreference: (key: keyof Omit<TabPreferences, "tabOrder">, value: boolean) => Promise<void>;
 	reorderTab: (tabId: TabId, direction: "up" | "down") => Promise<void>;
@@ -59,16 +74,36 @@ export const SettingsProvider = ({ children }: { children: ReactNode }) => {
 	const [invertColors, setInvertColorsState] = useState(false);
 	const [hideAlbumCovers, setHideAlbumCoversState] = useState(false);
 	const [hideDetailCovers, setHideDetailCoversState] = useState(false);
+	const [hideCreatePlaylist, setHideCreatePlaylistState] = useState(false);
+	const [hideLikeButton, setHideLikeButtonState] = useState(false);
+	const [hideDevicesButton, setHideDevicesButtonState] = useState(false);
+	const [hideAddToPlaylistButton, setHideAddToPlaylistButtonState] = useState(false);
+	const [hidePlayingCover, setHidePlayingCoverState] = useState(false);
 	const [tabPreferences, setTabPreferences] = useState<TabPreferences>(defaultTabPreferences);
 	const [isLoading, setIsLoading] = useState(true);
 
 	useEffect(() => {
 		const loadSettings = async () => {
 			try {
-				const [invertColorsValue, hideAlbumCoversValue, hideDetailCoversValue, tabPreferencesValue] = await Promise.all([
+				const [
+					invertColorsValue,
+					hideAlbumCoversValue,
+					hideDetailCoversValue,
+					hideCreatePlaylistValue,
+					hideLikeButtonValue,
+					hideDevicesButtonValue,
+					hideAddToPlaylistButtonValue,
+					hidePlayingCoverValue,
+					tabPreferencesValue,
+				] = await Promise.all([
 					AsyncStorage.getItem(INVERT_COLORS_KEY),
 					AsyncStorage.getItem(HIDE_ALBUM_COVERS_KEY),
 					AsyncStorage.getItem(HIDE_DETAIL_COVERS_KEY),
+					AsyncStorage.getItem(HIDE_CREATE_PLAYLIST_KEY),
+					AsyncStorage.getItem(HIDE_LIKE_BUTTON_KEY),
+					AsyncStorage.getItem(HIDE_DEVICES_BUTTON_KEY),
+					AsyncStorage.getItem(HIDE_ADD_TO_PLAYLIST_BUTTON_KEY),
+					AsyncStorage.getItem(HIDE_PLAYING_COVER_KEY),
 					AsyncStorage.getItem(TAB_PREFERENCES_KEY),
 				]);
 
@@ -82,6 +117,26 @@ export const SettingsProvider = ({ children }: { children: ReactNode }) => {
 
 				if (hideDetailCoversValue !== null) {
 					setHideDetailCoversState(hideDetailCoversValue === "true");
+				}
+
+				if (hideCreatePlaylistValue !== null) {
+					setHideCreatePlaylistState(hideCreatePlaylistValue === "true");
+				}
+
+				if (hideLikeButtonValue !== null) {
+					setHideLikeButtonState(hideLikeButtonValue === "true");
+				}
+
+				if (hideDevicesButtonValue !== null) {
+					setHideDevicesButtonState(hideDevicesButtonValue === "true");
+				}
+
+				if (hideAddToPlaylistButtonValue !== null) {
+					setHideAddToPlaylistButtonState(hideAddToPlaylistButtonValue === "true");
+				}
+
+				if (hidePlayingCoverValue !== null) {
+					setHidePlayingCoverState(hidePlayingCoverValue === "true");
 				}
 
 				if (tabPreferencesValue) {
@@ -118,6 +173,31 @@ export const SettingsProvider = ({ children }: { children: ReactNode }) => {
 	const setHideDetailCovers = useCallback(async (value: boolean) => {
 		setHideDetailCoversState(value);
 		await AsyncStorage.setItem(HIDE_DETAIL_COVERS_KEY, value.toString());
+	}, []);
+
+	const setHideCreatePlaylist = useCallback(async (value: boolean) => {
+		setHideCreatePlaylistState(value);
+		await AsyncStorage.setItem(HIDE_CREATE_PLAYLIST_KEY, value.toString());
+	}, []);
+
+	const setHideLikeButton = useCallback(async (value: boolean) => {
+		setHideLikeButtonState(value);
+		await AsyncStorage.setItem(HIDE_LIKE_BUTTON_KEY, value.toString());
+	}, []);
+
+	const setHideDevicesButton = useCallback(async (value: boolean) => {
+		setHideDevicesButtonState(value);
+		await AsyncStorage.setItem(HIDE_DEVICES_BUTTON_KEY, value.toString());
+	}, []);
+
+	const setHideAddToPlaylistButton = useCallback(async (value: boolean) => {
+		setHideAddToPlaylistButtonState(value);
+		await AsyncStorage.setItem(HIDE_ADD_TO_PLAYLIST_BUTTON_KEY, value.toString());
+	}, []);
+
+	const setHidePlayingCover = useCallback(async (value: boolean) => {
+		setHidePlayingCoverState(value);
+		await AsyncStorage.setItem(HIDE_PLAYING_COVER_KEY, value.toString());
 	}, []);
 
 	const updateTabPreference = useCallback(
@@ -165,6 +245,16 @@ export const SettingsProvider = ({ children }: { children: ReactNode }) => {
 		setHideAlbumCovers,
 		hideDetailCovers,
 		setHideDetailCovers,
+		hideCreatePlaylist,
+		setHideCreatePlaylist,
+		hideLikeButton,
+		setHideLikeButton,
+		hideDevicesButton,
+		setHideDevicesButton,
+		hideAddToPlaylistButton,
+		setHideAddToPlaylistButton,
+		hidePlayingCover,
+		setHidePlayingCover,
 		tabPreferences,
 		updateTabPreference,
 		reorderTab,

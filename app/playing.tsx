@@ -99,7 +99,7 @@ export default function PlayingScreen() {
         getLibraryState,
         getPlaybackState,
     } = usePlayback();
-    const { invertColors } = useSettings();
+    const { invertColors, hideLikeButton, hideDevicesButton, hideAddToPlaylistButton, hidePlayingCover } = useSettings();
     const { isOnline } = useNetworkState();
     const params = useLocalSearchParams<{
         trackName?: string;
@@ -458,6 +458,8 @@ export default function PlayingScreen() {
     const canNavigateToArtist =
         !isEpisode && isOnline && !!currentTrack && currentTrack.artists.length > 0;
 
+    const visibleButtonCount = [!hideLikeButton, !hideDevicesButton, !hideAddToPlaylistButton].filter(Boolean).length;
+
     const animatedWidth = progress.interpolate({
         inputRange: [0, 1],
         outputRange: ["0%", "100%"],
@@ -514,17 +516,43 @@ export default function PlayingScreen() {
 
     if (!playbackState || !item) {
         return (
-            <ContentContainer headerTitle=" ">
+            <ContentContainer headerTitle=" " style={{ paddingHorizontal: 20 }}>
                 <View style={styles.content}>
-                    <View style={styles.placeholderImageContainer}></View>
-                    <View style={styles.trackInfoContainer}>
-                        <StyledText style={styles.trackName} numberOfLines={1}>
-                            No song playing
-                        </StyledText>
-                        <StyledText style={styles.artistName} numberOfLines={1}>
-                            Go back and play something!
-                        </StyledText>
+                    <View style={styles.mainContent}>
+                        {!hidePlayingCover && (
+                            <View style={styles.placeholderImageContainer}></View>
+                        )}
+                        <View style={styles.trackInfoContainer}>
+                            <StyledText style={styles.trackName} numberOfLines={1}>
+                                No song playing
+                            </StyledText>
+                            <StyledText style={styles.artistName} numberOfLines={1}>
+                                Go back and play something!
+                            </StyledText>
+                        </View>
+
+                        <View style={styles.timeIndicatorContainer}>
+                            <View style={styles.progressBarPressable}>
+                                <View style={[styles.progressBarBackground, { opacity: 0 }]} />
+                            </View>
+                            <View style={styles.progressBarInfo}>
+                                <StyledText style={[styles.timeText, { opacity: 0 }]}>0:00</StyledText>
+                                <StyledText style={[styles.timeText, { opacity: 0 }]}>0:00</StyledText>
+                            </View>
+                        </View>
+                        <View style={[styles.musicControls, { opacity: 0 }]}>
+                            <MaterialIcons name="shuffle" size={30} color="transparent" />
+                            <MaterialIcons name="skip-previous" size={52} color="transparent" />
+                            <MaterialIcons name="play-arrow" size={52} color="transparent" />
+                            <MaterialIcons name="skip-next" size={52} color="transparent" />
+                            <MaterialIcons name="repeat" size={30} color="transparent" />
+                        </View>
                     </View>
+                    {visibleButtonCount > 0 && (
+                        <View style={[styles.musicControlsExtra, { opacity: 0 }]}>
+                            <MaterialIcons name="favorite-outline" size={30} color="transparent" />
+                        </View>
+                    )}
                 </View>
             </ContentContainer>
         );
@@ -533,18 +561,21 @@ export default function PlayingScreen() {
     return (
         <ContentContainer headerTitle=" " style={{ paddingHorizontal: 20 }}>
             <View style={styles.content}>
-                {artworkUrl ? (
-                    <Image source={{ uri: artworkUrl }} style={styles.albumArt} fadeDuration={0} />
-                ) : (
-                    <View style={styles.placeholderImageContainer}>
-                        <MaterialIcons
-                            name={isEpisode ? "mic" : "music-note"}
-                            size={100}
-                            color={invertColors ? "black" : "white"}
-                        />
-                    </View>
-                )}
-                <View style={styles.trackInfoContainer}>
+                <View style={styles.mainContent}>
+                    {!hidePlayingCover && (
+                        artworkUrl ? (
+                            <Image source={{ uri: artworkUrl }} style={styles.albumArt} fadeDuration={0} />
+                        ) : (
+                            <View style={styles.placeholderImageContainer}>
+                                <MaterialIcons
+                                    name={isEpisode ? "mic" : "music-note"}
+                                    size={100}
+                                    color={invertColors ? "black" : "white"}
+                                />
+                            </View>
+                        )
+                    )}
+                    <View style={styles.trackInfoContainer}>
                     <HapticPressable
                         onPress={handleTitlePress}
                         disabled={!(isEpisode ? canNavigateToShow : canNavigateToAlbum)}
@@ -563,7 +594,7 @@ export default function PlayingScreen() {
                     </HapticPressable>
                 </View>
 
-                <View style={styles.timeIndicatorContainer}>
+                    <View style={styles.timeIndicatorContainer}>
                     <HapticPressable
                         onPress={handleProgressBarSeek}
                         style={styles.progressBarPressable}
@@ -592,8 +623,8 @@ export default function PlayingScreen() {
                             {formatTime(item.duration_ms)}
                         </StyledText>
                     </View>
-                </View>
-                <View style={styles.musicControls}>
+                    </View>
+                    <View style={styles.musicControls}>
                     <HapticPressable onPress={handleShuffleToggle}>
                         <MaterialIcons
                             name={"shuffle"}
@@ -684,45 +715,55 @@ export default function PlayingScreen() {
                             ]}
                         ></View>
                     </HapticPressable>
+                    </View>
                 </View>
-                <View style={styles.musicControlsExtra}>
-                    <HapticPressable
-                        onPress={handleToggleSaveTrack}
-                        disabled={pendingSaveOperation || isEpisode || !isOnline}
-                        style={(isEpisode || pendingSaveOperation || !isOnline) && styles.disabledButton}
-                    >
-                        <MaterialIcons
-                            name={
-                                (optimisticSaveState ?? isCurrentTrackSaved)
-                                    ? "favorite"
-                                    : "favorite-outline"
-                            }
-                            size={30}
-                            color={invertColors ? "black" : "white"}
-                        />
-                    </HapticPressable>
-                    <HapticPressable
-                        onPress={handleSelectDevicePress}
-                        disabled={!isOnline}
-                        style={!isOnline && styles.disabledButton}
-                    >
-                        <MaterialIcons
-                            name={"devices"}
-                            size={30}
-                            color={invertColors ? "black" : "white"}
-                        />
-                    </HapticPressable>
-                    <HapticPressable
-                        onPress={() => {
-                            if (isOnline && !isEpisode) {
-                                handleNavigateToAddToPlaylist();
-                            }
-                        }}
-                        disabled={!isOnline || isEpisode}
-                        style={(!isOnline || isEpisode) && styles.disabledButton}
-                    >
-                        <MaterialIcons name="add" size={30} color={invertColors ? "black" : "white"} />
-                    </HapticPressable>
+                <View style={[
+                    styles.musicControlsExtra,
+                    visibleButtonCount === 1 && styles.musicControlsExtraCentered
+                ]}>
+                    {!hideLikeButton && (
+                        <HapticPressable
+                            onPress={handleToggleSaveTrack}
+                            disabled={pendingSaveOperation || isEpisode || !isOnline}
+                            style={(isEpisode || pendingSaveOperation || !isOnline) && styles.disabledButton}
+                        >
+                            <MaterialIcons
+                                name={
+                                    (optimisticSaveState ?? isCurrentTrackSaved)
+                                        ? "favorite"
+                                        : "favorite-outline"
+                                }
+                                size={30}
+                                color={invertColors ? "black" : "white"}
+                            />
+                        </HapticPressable>
+                    )}
+                    {!hideDevicesButton && (
+                        <HapticPressable
+                            onPress={handleSelectDevicePress}
+                            disabled={!isOnline}
+                            style={!isOnline && styles.disabledButton}
+                        >
+                            <MaterialIcons
+                                name={"devices"}
+                                size={30}
+                                color={invertColors ? "black" : "white"}
+                            />
+                        </HapticPressable>
+                    )}
+                    {!hideAddToPlaylistButton && (
+                        <HapticPressable
+                            onPress={() => {
+                                if (isOnline && !isEpisode) {
+                                    handleNavigateToAddToPlaylist();
+                                }
+                            }}
+                            disabled={!isOnline || isEpisode}
+                            style={(!isOnline || isEpisode) && styles.disabledButton}
+                        >
+                            <MaterialIcons name="add" size={30} color={invertColors ? "black" : "white"} />
+                        </HapticPressable>
+                    )}
                 </View>
             </View>
         </ContentContainer >
@@ -737,8 +778,14 @@ const styles = StyleSheet.create({
     content: {
         flex: 1,
         width: "100%",
-        justifyContent: "flex-start",
+        justifyContent: "space-between",
         alignItems: "center",
+    },
+    mainContent: {
+        flex: 1,
+        width: "100%",
+        alignItems: "center",
+        justifyContent: "center",
     },
     albumArt: {
         width: 200,
@@ -752,6 +799,13 @@ const styles = StyleSheet.create({
         justifyContent: "center",
         alignItems: "center",
         marginBottom: 20,
+    },
+    placeholderImageContainerNoGap: {
+        width: 200,
+        height: 200,
+        backgroundColor: "#282828",
+        justifyContent: "center",
+        alignItems: "center",
     },
     trackInfoContainer: {
         alignItems: "center",
@@ -810,6 +864,10 @@ const styles = StyleSheet.create({
         width: "92%",
         alignItems: "center",
         justifyContent: "space-between",
+        paddingBottom: 20,
+    },
+    musicControlsExtraCentered: {
+        justifyContent: "center",
     },
     shuffleIndicator: {
         height: 1,

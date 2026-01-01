@@ -12,6 +12,7 @@ import { logError, log } from "@/shared/utils/logger";
 import { refreshPlaylistsFromCache, isPlaylistCached } from "@/features/library/utils/cache";
 import { useNetworkState, usePreventDoubleTap } from "@/shared/hooks";
 import { tabScreenStyles as styles } from "@/shared/styles/detailScreen";
+import { useSettings } from "@/features/settings";
 
 const CREATE_NEW_PLAYLIST_ID = "CREATE_NEW_PLAYLIST_ID";
 
@@ -28,6 +29,7 @@ export default function PlaylistsScreen() {
     const router = useRouter();
 
     const { isOnline } = useNetworkState();
+    const { hideCreatePlaylist } = useSettings();
     const [sortedPlaylists, setSortedPlaylists] = useState<
         SpotifyPlaylist[] | null
     >(null);
@@ -141,6 +143,7 @@ export default function PlaylistsScreen() {
 
     const renderPlaylistItem = ({ item }: { item: SpotifyPlaylist }) => {
         if (item.id === CREATE_NEW_PLAYLIST_ID) {
+            if (hideCreatePlaylist) return null;
             const isDisabled = !isOnline;
 
             return (
@@ -199,8 +202,8 @@ export default function PlaylistsScreen() {
     };
 
     const displayPlaylists = sortedPlaylists
-        ? [createNewPlaylistItem, ...sortedPlaylists]
-        : [createNewPlaylistItem];
+        ? (hideCreatePlaylist ? sortedPlaylists : [createNewPlaylistItem, ...sortedPlaylists])
+        : (hideCreatePlaylist ? [] : [createNewPlaylistItem]);
 
     const handlePlayingPress = usePreventDoubleTap(() => {
         router.push("/playing");
@@ -218,6 +221,7 @@ export default function PlaylistsScreen() {
     };
 
     if (!sortedPlaylists || sortedPlaylists.length === 0) {
+        const emptyData = hideCreatePlaylist ? [] : [createNewPlaylistItem];
         return (
             <ContentContainer
                 headerTitle="Playlists"
@@ -228,7 +232,7 @@ export default function PlaylistsScreen() {
                 headerIconShowLength={1}
             >
                 <CustomScrollView
-                    data={[createNewPlaylistItem]}
+                    data={emptyData}
                     renderItem={renderPlaylistItem}
                     keyExtractor={(item) => item.id}
                     style={styles.list}

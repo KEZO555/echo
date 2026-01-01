@@ -68,7 +68,7 @@ export default function AddToPlaylistScreen() {
         );
     };
 
-    const { invertColors, hideAlbumCovers } = useSettings();
+    const { invertColors, hideAlbumCovers, hideCreatePlaylist } = useSettings();
 
     const handleDone = async () => {
         const trackUri = params.trackUri;
@@ -206,7 +206,7 @@ export default function AddToPlaylistScreen() {
                 contentContainerStyle={styles.listContentContainer}
                 ItemSeparatorComponent={() => <View style={{ height: 8 }} />}
                 overScrollMode="never"
-                ListHeaderComponent={() => (
+                ListHeaderComponent={hideCreatePlaylist ? null : () => (
                     <HapticPressable
                         style={styles.newPlaylistItemContainer}
                         onPress={handleCreatePlaylistPress}
