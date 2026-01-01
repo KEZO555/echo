@@ -254,7 +254,7 @@ export default function PlaylistDetailScreen() {
                                 <View style={detailScreenStyles.placeholderImageContainer}>
                                     <MaterialIcons
                                         name="music-note"
-                                        size={80}
+                                        size={100}
                                         color="white"
                                     />
                                 </View>
