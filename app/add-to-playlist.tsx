@@ -68,7 +68,7 @@ export default function AddToPlaylistScreen() {
         );
     };
 
-    const { invertColors } = useSettings();
+    const { invertColors, hideAlbumCovers } = useSettings();
 
     const handleDone = async () => {
         const trackUri = params.trackUri;
@@ -137,19 +137,21 @@ export default function AddToPlaylistScreen() {
                 style={styles.itemContainer}
                 onPress={() => togglePlaylistSelection(item.id)}
             >
-                {item.images && item.images.length > 0 ? (
-                    <Image
-                        source={{ uri: item.images[0].url }}
-                        style={styles.playlistImage}
-                    />
-                ) : (
-                    <View style={styles.placeholderImageContainer}>
-                        <MaterialIcons
-                            name="music-note"
-                            size={24}
-                            color="white"
+                {!hideAlbumCovers && (
+                    item.images && item.images.length > 0 ? (
+                        <Image
+                            source={{ uri: item.images[0].url }}
+                            style={styles.playlistImage}
                         />
-                    </View>
+                    ) : (
+                        <View style={styles.placeholderImageContainer}>
+                            <MaterialIcons
+                                name="music-note"
+                                size={24}
+                                color="white"
+                            />
+                        </View>
+                    )
                 )}
                 <View style={styles.textContainer}>
                     <StyledText style={styles.playlistName} numberOfLines={1}>
@@ -209,9 +211,11 @@ export default function AddToPlaylistScreen() {
                         style={styles.newPlaylistItemContainer}
                         onPress={handleCreatePlaylistPress}
                     >
-                        <View style={styles.placeholderImageContainer}>
-                            <MaterialIcons name="add" size={24} color="white" />
-                        </View>
+                        {!hideAlbumCovers && (
+                            <View style={styles.placeholderImageContainer}>
+                                <MaterialIcons name="add" size={24} color="white" />
+                            </View>
+                        )}
                         <View style={styles.textContainer}>
                             <StyledText style={styles.playlistName}>
                                 Create new playlist
@@ -259,11 +263,13 @@ const styles = StyleSheet.create({
         textAlign: "center",
     },
     itemContainer: {
+        minHeight: 50,
         paddingVertical: 0,
         flexDirection: "row",
         alignItems: "center",
     },
     newPlaylistItemContainer: {
+        minHeight: 50,
         paddingBottom: 8,
         flexDirection: "row",
         alignItems: "center",

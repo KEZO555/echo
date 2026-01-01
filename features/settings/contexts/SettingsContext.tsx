@@ -12,6 +12,7 @@ import { logError } from "@/shared/utils/logger";
 
 const TAB_PREFERENCES_KEY = "tab_preferences";
 const INVERT_COLORS_KEY = "invertColors";
+const HIDE_ALBUM_COVERS_KEY = "hideAlbumCovers";
 
 export type TabId = "index" | "artists" | "albums" | "podcasts" | "playlists" | "search";
 
@@ -41,6 +42,8 @@ interface SettingsContextType {
 	triggerHaptic: () => void;
 	invertColors: boolean;
 	setInvertColors: (value: boolean) => void;
+	hideAlbumCovers: boolean;
+	setHideAlbumCovers: (value: boolean) => void;
 	tabPreferences: TabPreferences;
 	updateTabPreference: (key: keyof Omit<TabPreferences, "tabOrder">, value: boolean) => Promise<void>;
 	reorderTab: (tabId: TabId, direction: "up" | "down") => Promise<void>;
@@ -51,19 +54,25 @@ const SettingsContext = createContext<SettingsContextType | undefined>(undefined
 
 export const SettingsProvider = ({ children }: { children: ReactNode }) => {
 	const [invertColors, setInvertColorsState] = useState(false);
+	const [hideAlbumCovers, setHideAlbumCoversState] = useState(false);
 	const [tabPreferences, setTabPreferences] = useState<TabPreferences>(defaultTabPreferences);
 	const [isLoading, setIsLoading] = useState(true);
 
 	useEffect(() => {
 		const loadSettings = async () => {
 			try {
-				const [invertColorsValue, tabPreferencesValue] = await Promise.all([
+				const [invertColorsValue, hideAlbumCoversValue, tabPreferencesValue] = await Promise.all([
 					AsyncStorage.getItem(INVERT_COLORS_KEY),
+					AsyncStorage.getItem(HIDE_ALBUM_COVERS_KEY),
 					AsyncStorage.getItem(TAB_PREFERENCES_KEY),
 				]);
 
 				if (invertColorsValue !== null) {
 					setInvertColorsState(invertColorsValue === "true");
+				}
+
+				if (hideAlbumCoversValue !== null) {
+					setHideAlbumCoversState(hideAlbumCoversValue === "true");
 				}
 
 				if (tabPreferencesValue) {
@@ -90,6 +99,11 @@ export const SettingsProvider = ({ children }: { children: ReactNode }) => {
 	const setInvertColors = useCallback(async (value: boolean) => {
 		setInvertColorsState(value);
 		await AsyncStorage.setItem(INVERT_COLORS_KEY, value.toString());
+	}, []);
+
+	const setHideAlbumCovers = useCallback(async (value: boolean) => {
+		setHideAlbumCoversState(value);
+		await AsyncStorage.setItem(HIDE_ALBUM_COVERS_KEY, value.toString());
 	}, []);
 
 	const updateTabPreference = useCallback(
@@ -133,6 +147,8 @@ export const SettingsProvider = ({ children }: { children: ReactNode }) => {
 		triggerHaptic,
 		invertColors,
 		setInvertColors,
+		hideAlbumCovers,
+		setHideAlbumCovers,
 		tabPreferences,
 		updateTabPreference,
 		reorderTab,

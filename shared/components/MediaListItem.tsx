@@ -3,6 +3,7 @@ import { View, StyleSheet, Image, StyleProp, ViewStyle, ImageStyle } from "react
 import { HapticPressable } from "@/shared/components/HapticPressable";
 import { StyledText } from "@/shared/components/StyledText";
 import { MaterialIcons } from "@expo/vector-icons";
+import { useSettings } from "@/features/settings";
 
 interface MediaListItemProps {
     primaryText: string;
@@ -27,29 +28,33 @@ export function MediaListItem({
     imageStyle,
     style,
 }: MediaListItemProps) {
+    const { hideAlbumCovers } = useSettings();
+
     return (
         <HapticPressable
             style={[styles.itemContainer, disabled && styles.disabledContainer, style]}
             onPress={onPress}
             disabled={disabled}
         >
-            {imageUri ? (
-                <View style={styles.imageContainer}>
-                    <Image
-                        source={{ uri: imageUri }}
-                        style={[styles.image, imageStyle]}
-                    />
-                    {isLoading && <View style={styles.loadingOverlay} />}
-                </View>
-            ) : (
-                <View style={styles.placeholderImageContainer}>
-                    <MaterialIcons
-                        name={placeholderIcon}
-                        size={24}
-                        color={disabled ? "#666" : "white"}
-                    />
-                    {isLoading && <View style={styles.loadingOverlay} />}
-                </View>
+            {!hideAlbumCovers && (
+                imageUri ? (
+                    <View style={styles.imageContainer}>
+                        <Image
+                            source={{ uri: imageUri }}
+                            style={[styles.image, imageStyle]}
+                        />
+                        {isLoading && <View style={styles.loadingOverlay} />}
+                    </View>
+                ) : (
+                    <View style={styles.placeholderImageContainer}>
+                        <MaterialIcons
+                            name={placeholderIcon}
+                            size={24}
+                            color={disabled ? "#666" : "white"}
+                        />
+                        {isLoading && <View style={styles.loadingOverlay} />}
+                    </View>
+                )
             )}
             <View style={styles.textContainer}>
                 <StyledText style={styles.primaryText} numberOfLines={1}>
@@ -67,6 +72,7 @@ export function MediaListItem({
 
 const styles = StyleSheet.create({
     itemContainer: {
+        minHeight: 50,
         paddingVertical: 0,
         flexDirection: "row",
         alignItems: "center",

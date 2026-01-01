@@ -19,6 +19,7 @@ import CustomScrollView from "@/shared/components/CustomScrollView";
 import { logError, getArtistNames } from "@/shared/utils";
 import { useNetworkState } from "@/shared/hooks/useNetworkState";
 import { usePreventDoubleTap } from "@/shared/hooks/usePreventDoubleTap";
+import { useSettings } from "@/features/settings";
 
 type SearchItem =
     | { type: "track"; data: SpotifyTrack }
@@ -33,6 +34,7 @@ export default function SearchResultsScreen() {
     const { accessToken, ensureValidToken } = useAuth();
     const { playTrackWithContext } = usePlayback();
     const { isOnline } = useNetworkState();
+    const { hideAlbumCovers } = useSettings();
     const router = useRouter();
     const [results, setResults] = useState<SearchItem[]>([]);
     const [loading, setLoading] = useState(true);
@@ -272,20 +274,22 @@ export default function SearchResultsScreen() {
                 style={styles.itemContainer}
                 onPress={() => handleResultPress(item, itemUri)}
             >
-                {images && images.length > 0 ? (
-                    <Image
-                        source={{ uri: images[0].url }}
-                        style={[
-                            styles.itemImage,
-                            { borderRadius: item.type === "artist" ? 50 : 0 }
-                        ]}
-                    />
-                ) : (
-                    <View style={styles.placeholderImageContainer}>
-                        <StyledText style={{ fontSize: 24 }}>
-                            ?
-                        </StyledText>
-                    </View>
+                {!hideAlbumCovers && (
+                    images && images.length > 0 ? (
+                        <Image
+                            source={{ uri: images[0].url }}
+                            style={[
+                                styles.itemImage,
+                                { borderRadius: item.type === "artist" ? 50 : 0 }
+                            ]}
+                        />
+                    ) : (
+                        <View style={styles.placeholderImageContainer}>
+                            <StyledText style={{ fontSize: 24 }}>
+                                ?
+                            </StyledText>
+                        </View>
+                    )
                 )}
                 <View style={styles.textContainer}>
                     <StyledText style={styles.itemName} numberOfLines={1}>
@@ -364,6 +368,7 @@ const styles = StyleSheet.create({
         paddingTop: 0,
     },
     itemContainer: {
+        minHeight: 50,
         flexDirection: "row",
         alignItems: "center",
         paddingVertical: 0,

@@ -7,7 +7,7 @@ import { useSettings } from "@/features/settings";
 
 export default function CustomiseTabsScreen() {
     const router = useRouter();
-    const { invertColors, setInvertColors } = useSettings();
+    const { invertColors, setInvertColors, hideAlbumCovers, setHideAlbumCovers } = useSettings();
     const handleCustomiseTabs = () => {
         router.push("/customise-tabs" as any);
     };
@@ -20,6 +20,12 @@ export default function CustomiseTabsScreen() {
                 value={invertColors}
                 label="Invert Colours"
                 onValueChange={setInvertColors}
+            />
+
+            <ToggleSwitch
+                value={hideAlbumCovers}
+                label="Hide Covers in Lists"
+                onValueChange={setHideAlbumCovers}
             />
 
             <StyledButton
