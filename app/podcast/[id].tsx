@@ -202,7 +202,7 @@ export default function PodcastDetailScreen() {
                         <MaterialIcons
                             name="check-circle"
                             size={16}
-                            color="#1DB954"
+                            color="#ffffff"
                             style={{ marginTop: 6 }}
                         />
                     )}
