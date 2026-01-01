@@ -1,9 +1,5 @@
 import React, { useEffect, useState, useCallback, useMemo } from "react";
-import {
-    View,
-    StyleSheet,
-    Image,
-} from "react-native";
+import { View, StyleSheet, Image } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useAuth } from "@/features/auth/contexts/AuthContext";
 import { useSpotifyLibrary } from "@/features/library/contexts/LibraryContext";
@@ -11,10 +7,7 @@ import { usePlayback } from "@/features/playback/contexts/PlaybackContext";
 import type { SpotifyShow, SpotifyEpisode } from "@/shared/types/spotify";
 import { StyledText, HapticPressable, ContentContainer, CustomScrollView, ListFooter } from "@/shared/components";
 import { log, logError, formatDuration, getLargestImage } from "@/shared/utils";
-import {
-    getCachedShowDetail,
-    saveCachedShowDetail,
-} from "@/features/library/utils/cache";
+import { getCachedShowDetail, saveCachedShowDetail } from "@/features/library/utils/cache";
 import { usePreventDoubleTap, useSaveStatus } from "@/shared/hooks";
 import { MaterialIcons } from "@expo/vector-icons";
 import { detailScreenStyles } from "@/shared/styles/detailScreen";
@@ -313,6 +306,7 @@ const styles = StyleSheet.create({
     episodeName: {
         flex: 1,
         fontSize: 26,
+        paddingRight: 10,
     },
     episodeMeta: {
         fontSize: 16,

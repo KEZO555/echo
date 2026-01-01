@@ -56,6 +56,7 @@ const styles = StyleSheet.create({
     textContainer: {
         flex: 1,
         alignItems: "flex-start",
+        paddingRight: 10,
     },
     trackName: {
         flex: 1,
