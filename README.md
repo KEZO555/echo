@@ -5,8 +5,11 @@
 ![GitHub License](https://img.shields.io/github/license/vandamd/echo)
 ![GitHub Release](https://img.shields.io/github/v/release/vandamd/echo)
 
+> [!NOTE]
+> There are a few steps required to complete before you can use Echo. Please read the [Setup](#setup) section below.
+> Echo is primarily designed for the Light Phone III. It works best with the Display size and Text size set to the lowest in Android Settings.
+
 ## Installation
-NOTE: There are a few steps required to do before you can use Echo. Please read the [Setup](#setup) section below.
 
 The lastest .apk file is available in [releases](https://github.com/vandamd/echo/releases/latest).
 
@@ -41,7 +44,7 @@ See [echo-token-server](https://github.com/vandamd/echo-token-server) for setup 
 1. Open Echo on your device
 2. Enter your **Client ID** from the Spotify Dashboard
 3. Enter your **Server URL** (e.g. `https://your-server.com`)
-4. Tap the arrow to save, then log in with Spotify
+4. You will be able to login! It'll open the Spotify app to authenticate.
 
 ## Features
 
@@ -58,9 +61,6 @@ See [echo-token-server](https://github.com/vandamd/echo-token-server) for setup 
 - No Spotify owned content (e.g. Radio, Daylist, Playlists like "Discover Weekly")
 - No queue management
 - Limited offline functionality
-
-## Android Display and Text Size
-Please note that Echo currently works best with the Display size and Text size set to the lowest in Android Settings.
 
 ## Greyscale Toggle
 
