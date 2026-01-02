@@ -20,8 +20,6 @@ import com.spotify.android.appremote.api.SpotifyAppRemote
 import com.spotify.protocol.client.Subscription
 import com.spotify.protocol.types.*
 import com.spotify.android.appremote.api.error.*
-import android.os.Handler
-import android.os.Looper
 
 class SpotifySdkModule : Module() {
 
@@ -38,10 +36,6 @@ class SpotifySdkModule : Module() {
   // Connection parameters for lifecycle management
   private var lastConnectionParams: ConnectionParams? = null
   private var isAuthenticating: Boolean = false
-
-  private val mainHandler = Handler(Looper.getMainLooper())
-  private var disconnectRunnable: Runnable? = null
-  private val DISCONNECT_DELAY_MS = 30_000L // 30 seconds
 
   // Preferences for storing auth data
   private val prefsName = "spotify_sdk_prefs"
@@ -440,13 +434,6 @@ class SpotifySdkModule : Module() {
     OnActivityEntersForeground {
       Log.d(TAG, "Activity entered foreground")
       
-      // Cancel any pending disconnect
-      disconnectRunnable?.let { 
-        mainHandler.removeCallbacks(it)
-        disconnectRunnable = null
-        Log.d(TAG, "Cancelled pending disconnect")
-      }
-      
       // Auto-reconnect if we have stored connection params and not currently authenticating
       if (!isAuthenticating && lastConnectionParams != null && spotifyAppRemote?.isConnected != true) {
         Log.d(TAG, "Auto-reconnecting to Spotify App Remote")
@@ -458,33 +445,15 @@ class SpotifySdkModule : Module() {
 
     OnActivityEntersBackground {
       Log.d(TAG, "Activity entered background")
-      
-      // Schedule delayed disconnect (30 seconds)
-      if (!isAuthenticating && spotifyAppRemote?.isConnected == true) {
-        disconnectRunnable = Runnable {
-          Log.d(TAG, "Executing delayed disconnect")
-          disconnectInternal()
-          disconnectRunnable = null
-        }
-        mainHandler.postDelayed(disconnectRunnable!!, DISCONNECT_DELAY_MS)
-        Log.d(TAG, "Scheduled disconnect in ${DISCONNECT_DELAY_MS}ms")
-      }
-      
       sendEvent("onActivityStopped", mapOf("background" to true))
     }
 
     OnActivityDestroys {
       Log.d(TAG, "Activity destroying - cleaning up")
       
-      // Cancel any pending disconnect
-      disconnectRunnable?.let { mainHandler.removeCallbacks(it) }
-      disconnectRunnable = null
-      
-      // Clean up subscriptions
       playerStateSubscription?.cancel()
       playerStateSubscription = null
       
-      // Disconnect from Spotify
       spotifyAppRemote?.let { SpotifyAppRemote.disconnect(it) }
       spotifyAppRemote = null
     }
@@ -492,14 +461,9 @@ class SpotifySdkModule : Module() {
     OnDestroy {
       Log.d(TAG, "Module destroying - cleaning up")
       
-      // Cancel any pending disconnect
-      disconnectRunnable?.let { mainHandler.removeCallbacks(it) }
-      
-      // Clean up subscriptions
       playerStateSubscription?.cancel()
       playerStateSubscription = null
       
-      // Disconnect from Spotify
       spotifyAppRemote?.let { SpotifyAppRemote.disconnect(it) }
       spotifyAppRemote = null
     }

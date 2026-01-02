@@ -321,7 +321,7 @@ Spotify SDK module: `modules/spotify-sdk/`
 
 ### Structure
 - **Native (Kotlin)**: `android/src/main/java/expo/modules/spotifysdk/`
-  - Handles Android lifecycle (auto-reconnect, 30s disconnect delay)
+  - Handles Android lifecycle (auto-reconnect on foreground, disconnect on destroy)
   - Emits events (`onConnected`, `onPlayerStateChanged`, etc.)
 - **Wrapper (TypeScript)**: `src/spotify.ts`
   - `spotify` singleton instance
