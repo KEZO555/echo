@@ -7,7 +7,7 @@ import { useAuth } from "@/features/auth/contexts/AuthContext";
 import { useSpotifyLibrary } from "@/features/library/contexts/LibraryContext";
 import type { SpotifySavedAlbum } from "@/shared/types/spotify";
 import { StyledText, ContentContainer, CustomScrollView, MediaListItem } from "@/shared/components";
-import { useRouter } from "expo-router";
+import { useRouter, useFocusEffect } from "expo-router";
 import { log, logError, getArtistNames } from "@/shared/utils";
 import { refreshSavedAlbumsFromCache, isAlbumCached } from "@/features/library/utils/cache";
 import { useNetworkState, usePreventDoubleTap } from "@/shared/hooks";
@@ -53,21 +53,26 @@ export default function AlbumsScreen() {
                 return 0;
             });
             setSortedAlbums(newSortedAlbums);
-            
-            // Check which albums are cached
-            const checkCachedAlbums = async () => {
-                const cachedIds = new Set<string>();
-                for (const album of newSortedAlbums) {
-                    const isCached = await isAlbumCached(album.album.id);
-                    if (isCached) {
-                        cachedIds.add(album.album.id);
-                    }
-                }
-                setCachedAlbumIds(cachedIds);
-            };
-            checkCachedAlbums();
         }
     }, [albums]);
+
+    const checkCachedAlbums = useCallback(async () => {
+        if (!sortedAlbums) return;
+        const cachedIds = new Set<string>();
+        for (const album of sortedAlbums) {
+            const isCached = await isAlbumCached(album.album.id);
+            if (isCached) {
+                cachedIds.add(album.album.id);
+            }
+        }
+        setCachedAlbumIds(cachedIds);
+    }, [sortedAlbums]);
+
+    useFocusEffect(
+        useCallback(() => {
+            checkCachedAlbums();
+        }, [checkCachedAlbums])
+    );
 
     const handleRefresh = useCallback(async () => {
         if (isRefreshingAlbums) return;

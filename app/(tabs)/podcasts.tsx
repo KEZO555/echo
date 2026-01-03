@@ -7,7 +7,7 @@ import { useAuth } from "@/features/auth/contexts/AuthContext";
 import { useSpotifyLibrary } from "@/features/library/contexts/LibraryContext";
 import type { SpotifySavedShow } from "@/shared/types/spotify";
 import { StyledText, ContentContainer, CustomScrollView, MediaListItem } from "@/shared/components";
-import { useRouter } from "expo-router";
+import { useRouter, useFocusEffect } from "expo-router";
 import { log, logError } from "@/shared/utils/logger";
 import { getLargestImage } from "@/shared/utils/formatters";
 import {
@@ -57,20 +57,26 @@ export default function PodcastsScreen() {
                 return 0;
             });
             setSortedPodcasts(newSortedPodcasts);
-
-            const checkCachedShows = async () => {
-                const cachedIds = new Set<string>();
-                for (const show of newSortedPodcasts) {
-                    const cached = await isShowCached(show.show.id);
-                    if (cached) {
-                        cachedIds.add(show.show.id);
-                    }
-                }
-                setCachedShowIds(cachedIds);
-            };
-            checkCachedShows();
         }
     }, [podcasts]);
+
+    const checkCachedShows = useCallback(async () => {
+        if (!sortedPodcasts) return;
+        const cachedIds = new Set<string>();
+        for (const show of sortedPodcasts) {
+            const cached = await isShowCached(show.show.id);
+            if (cached) {
+                cachedIds.add(show.show.id);
+            }
+        }
+        setCachedShowIds(cachedIds);
+    }, [sortedPodcasts]);
+
+    useFocusEffect(
+        useCallback(() => {
+            checkCachedShows();
+        }, [checkCachedShows])
+    );
 
     const handleRefresh = useCallback(async () => {
         if (isRefreshingPodcasts) return;

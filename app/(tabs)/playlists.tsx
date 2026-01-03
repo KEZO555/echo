@@ -7,7 +7,7 @@ import { useAuth } from "@/features/auth/contexts/AuthContext";
 import { useSpotifyLibrary } from "@/features/library/contexts/LibraryContext";
 import type { SpotifyPlaylist } from "@/shared/types/spotify";
 import { StyledText, ContentContainer, CustomScrollView, MediaListItem } from "@/shared/components";
-import { useRouter } from "expo-router";
+import { useRouter, useFocusEffect } from "expo-router";
 import { logError, log } from "@/shared/utils/logger";
 import { refreshPlaylistsFromCache, isPlaylistCached } from "@/features/library/utils/cache";
 import { useNetworkState, usePreventDoubleTap } from "@/shared/hooks";
@@ -60,7 +60,6 @@ export default function PlaylistsScreen() {
                     "";
                 if (ownerA < ownerB) return -1;
                 if (ownerA > ownerB) return 1;
-                // If owners are the same, sort by playlist name
                 const nameA = a.name.toLowerCase();
                 const nameB = b.name.toLowerCase();
                 if (nameA < nameB) return -1;
@@ -68,21 +67,26 @@ export default function PlaylistsScreen() {
                 return 0;
             });
             setSortedPlaylists(newSortedPlaylists);
-            
-            // Check which playlists are cached
-            const checkCachedPlaylists = async () => {
-                const cachedIds = new Set<string>();
-                for (const playlist of newSortedPlaylists) {
-                    const isCached = await isPlaylistCached(playlist.id);
-                    if (isCached) {
-                        cachedIds.add(playlist.id);
-                    }
-                }
-                setCachedPlaylistIds(cachedIds);
-            };
-            checkCachedPlaylists();
         }
     }, [playlists]);
+
+    const checkCachedPlaylists = useCallback(async () => {
+        if (!sortedPlaylists) return;
+        const cachedIds = new Set<string>();
+        for (const playlist of sortedPlaylists) {
+            const isCached = await isPlaylistCached(playlist.id);
+            if (isCached) {
+                cachedIds.add(playlist.id);
+            }
+        }
+        setCachedPlaylistIds(cachedIds);
+    }, [sortedPlaylists]);
+
+    useFocusEffect(
+        useCallback(() => {
+            checkCachedPlaylists();
+        }, [checkCachedPlaylists])
+    );
 
     const handleRefresh = useCallback(async () => {
         if (isRefreshingPlaylists) return;

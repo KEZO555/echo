@@ -115,9 +115,12 @@ export default function PlaylistDetailScreen() {
         const hasInitialData = !!(initialPlaylist as SpotifyPlaylistFull)?.tracks?.items;
 
         if (!isOnline) {
-            if (!hasInitialData && !playlist) {
-                setError("No cached data available. Connect to the internet to load this playlist.");
-            }
+            setPlaylist((current) => {
+                if (!hasInitialData && !current) {
+                    setError("No cached data available. Connect to the internet to load this playlist.");
+                }
+                return current;
+            });
             return;
         }
 
@@ -140,7 +143,7 @@ export default function PlaylistDetailScreen() {
                 setError(errorMessage);
             }
         }
-    }, [id, makeApiRequest, initialPlaylist, isOnline, playlist]);
+    }, [id, makeApiRequest, initialPlaylist, isOnline]);
 
     useFocusEffect(
         useCallback(() => {
