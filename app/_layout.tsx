@@ -16,7 +16,7 @@ import "@/shared/utils/logger";
 
 function RootNavigation() {
     const router = useRouter();
-    const { accessToken, isLoading: authLoading } = useAuth();
+    const { accessToken, isLoading: authLoading, authError, clearAuthError } = useAuth();
     const { tabPreferences, isLoading: preferencesLoading, invertColors } = useSettings();
     const { isLoading: credentialsLoading } = useCredentials();
     const [fontsLoaded, fontError] = useFonts({
@@ -27,6 +27,19 @@ function RootNavigation() {
         authLoading || preferencesLoading || credentialsLoading || (!fontsLoaded && !fontError);
     const hasDoneInitialRouting = useRef(false);
     const previousAccessToken = useRef<string | null>(null);
+
+    useEffect(() => {
+        if (authError) {
+            router.push({
+                pathname: "/error",
+                params: {
+                    title: authError.title,
+                    message: authError.message,
+                },
+            });
+            clearAuthError();
+        }
+    }, [authError]);
 
     const getFirstAvailableTab = () => {
         if (tabPreferences.showLikedSongs) return "/(tabs)";

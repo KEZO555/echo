@@ -61,7 +61,6 @@ export async function exchangeCodeForTokens(
 
 		if (!response.ok) {
 			const error = data as TokenExchangeError;
-			logError("TokenExchange: Failed to exchange code for tokens:", error);
 			throw new Error(
 				`Token exchange failed: ${error.error || "Unknown error"} - ${
 					error.error_description || "Spotify error"
@@ -78,7 +77,6 @@ export async function exchangeCodeForTokens(
 		log("TokenExchange: Successfully exchanged code for tokens");
 		return tokenResponse;
 	} catch (error) {
-		logError("TokenExchange: Error during token exchange:", error);
 		throw error;
 	}
 }

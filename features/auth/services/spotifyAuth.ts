@@ -112,7 +112,6 @@ export const loginWithSpotify = async (
             );
         }
     } catch (error) {
-        logError("Auth: Error during authentication:", error);
         throw error;
     }
 };

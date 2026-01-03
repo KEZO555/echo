@@ -1,4 +1,4 @@
-import React, { useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import { useAuth } from "@/features/auth/contexts/AuthContext";
 import { useCredentials } from "@/features/credentials";
 import { StyledButton } from "@/shared/components/StyledButton";
@@ -12,6 +12,7 @@ export default function SettingsScreen() {
     const { clearCredentials } = useCredentials();
     const router = useRouter();
     const params = useLocalSearchParams<{ confirmed?: string; action?: string }>();
+    const [isLoggingOut, setIsLoggingOut] = useState(false);
 
     const handleLogout = () => {
         router.push({
@@ -29,8 +30,8 @@ export default function SettingsScreen() {
         router.push({
             pathname: "/confirm",
             params: {
-                title: "Reset Server Info",
-                message: "Are you sure you want to reset your server info?\n\nThis will log you out and clear your Client ID and Server URL.",
+                title: "Reset API Credentials",
+                message: "Are you sure you want to reset your API Credentials?\n\nThis will log you out and clear your Client ID and Secret.",
                 confirmText: "Reset",
                 action: "resetCredentials",
             },
@@ -43,6 +44,7 @@ export default function SettingsScreen() {
 
     useEffect(() => {
         if (params.confirmed === "true") {
+            router.setParams({ confirmed: undefined, action: undefined });
             if (params.action === "clearCache") {
                 clearCachedData();
             } else if (params.action === "resetCredentials") {
@@ -50,16 +52,17 @@ export default function SettingsScreen() {
             } else if (params.action === "logout") {
                 handleLogoutConfirmed();
             }
-            router.setParams({ confirmed: undefined, action: undefined });
         }
     }, [params.confirmed, params.action]);
 
     const handleLogoutConfirmed = async () => {
+        setIsLoggingOut(true);
         await logout();
         router.replace("/login");
     };
 
     const handleResetCredentialsConfirmed = async () => {
+        setIsLoggingOut(true);
         await logout();
         await clearCredentials();
         router.replace("/login");
@@ -77,6 +80,10 @@ export default function SettingsScreen() {
         });
     };
 
+    if (isLoggingOut) {
+        return null;
+    }
+
     return (
         <ContentContainer
             headerTitle={`Settings (v${Application.nativeApplicationVersion})`}
@@ -87,7 +94,7 @@ export default function SettingsScreen() {
 
             <StyledButton text="Clear Cache" onPress={handleClearCache} />
 
-            <StyledButton text="Reset Server Info" onPress={handleResetCredentials} />
+            <StyledButton text="Reset API Credentials" onPress={handleResetCredentials} />
 
             <StyledButton text="Logout" onPress={handleLogout} />
         </ContentContainer>

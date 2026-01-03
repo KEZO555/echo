@@ -107,7 +107,6 @@ export default function LoginScreen() {
                         placeholderTextColor="#888"
                         autoCapitalize="none"
                         autoCorrect={false}
-                        secureTextEntry
                         cursorColor={textColor}
                         selectionColor={textColor}
                         onSubmitEditing={handleSaveCredentials}
