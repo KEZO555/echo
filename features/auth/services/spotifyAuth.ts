@@ -44,15 +44,16 @@ export const loginWithSpotify = async (
             false
         );
 
-        if (authResult.success && authResult.data?.authorizationCode) {
-            log(
-                "Auth: Authorization code received, exchanging for tokens via server..."
-            );
+		if (authResult.success && authResult.data?.authorizationCode) {
+			log(
+				"Auth: Authorization code received, exchanging for tokens..."
+			);
 
-            const tokenResponse = await exchangeCodeForTokens(
-                authResult.data.authorizationCode,
-                credentials.tokenSwapUrl
-            );
+			const tokenResponse = await exchangeCodeForTokens(
+				authResult.data.authorizationCode,
+				credentials.clientId,
+				credentials.clientSecret
+			);
 
             if (!tokenResponse.refresh_token) {
                 throw new Error("No refresh token received from server");

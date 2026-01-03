@@ -13,8 +13,7 @@ export const CREDENTIALS_KEY = "echo_credentials";
 
 export interface Credentials {
 	clientId: string;
-	tokenSwapUrl: string;
-	tokenRefreshUrl: string;
+	clientSecret: string;
 }
 
 interface CredentialsContextType {

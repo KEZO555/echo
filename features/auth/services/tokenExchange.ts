@@ -1,4 +1,7 @@
 import { log, logError } from "@/shared/utils/logger";
+import { REDIRECT_URI } from "@/features/credentials";
+
+const SPOTIFY_TOKEN_URL = "https://accounts.spotify.com/api/token";
 
 interface TokenExchangeResponse {
 	access_token: string;
@@ -13,59 +16,55 @@ interface TokenExchangeError {
 	error_description?: string;
 }
 
+function encodeCredentials(clientId: string, clientSecret: string): string {
+	return btoa(`${clientId}:${clientSecret}`);
+}
+
 export async function exchangeCodeForTokens(
 	authorizationCode: string,
-	tokenSwapUrl: string
+	clientId: string,
+	clientSecret: string
 ): Promise<TokenExchangeResponse> {
 	try {
-		log(
-			"TokenExchange: Exchanging authorization code for tokens via server..."
-		);
+		log("TokenExchange: Exchanging authorization code for tokens...");
 
-		const response = await fetch(tokenSwapUrl, {
+		const response = await fetch(SPOTIFY_TOKEN_URL, {
 			method: "POST",
 			headers: {
-				"Content-Type": "application/json",
+				"Content-Type": "application/x-www-form-urlencoded",
+				Authorization: `Basic ${encodeCredentials(clientId, clientSecret)}`,
 			},
-			body: JSON.stringify({
+			body: new URLSearchParams({
+				grant_type: "authorization_code",
 				code: authorizationCode,
-			}),
+				redirect_uri: REDIRECT_URI,
+			}).toString(),
 		});
 
 		const responseText = await response.text();
 
 		let data;
 		if (!responseText || responseText.trim() === "") {
-			logError("TokenExchange: Empty response from server");
-			throw new Error(
-				`Empty response from server. Status: ${response.status}`
-			);
+			logError("TokenExchange: Empty response from Spotify");
+			throw new Error(`Empty response from Spotify. Status: ${response.status}`);
 		}
 
 		try {
 			data = JSON.parse(responseText);
 		} catch (parseError) {
-			logError(
-				"TokenExchange: Failed to parse response as JSON:",
-				parseError
-			);
+			logError("TokenExchange: Failed to parse response as JSON:", parseError);
 			logError("TokenExchange: Response was:", responseText);
-			throw new Error(
-				`Invalid JSON response from server: ${responseText}`
-			);
+			throw new Error(`Invalid JSON response from Spotify: ${responseText}`);
 		}
 
 		log("TokenExchange: Response status:", response.status);
 
 		if (!response.ok) {
 			const error = data as TokenExchangeError;
-			logError(
-				"TokenExchange: Failed to exchange code for tokens:",
-				error
-			);
+			logError("TokenExchange: Failed to exchange code for tokens:", error);
 			throw new Error(
 				`Token exchange failed: ${error.error || "Unknown error"} - ${
-					error.error_description || "Server error"
+					error.error_description || "Spotify error"
 				}`
 			);
 		}
@@ -86,19 +85,22 @@ export async function exchangeCodeForTokens(
 
 export async function refreshAccessToken(
 	refreshToken: string,
-	tokenRefreshUrl: string
+	clientId: string,
+	clientSecret: string
 ): Promise<TokenExchangeResponse> {
 	try {
-		log("TokenExchange: Refreshing access token via server...");
+		log("TokenExchange: Refreshing access token...");
 
-		const response = await fetch(tokenRefreshUrl, {
+		const response = await fetch(SPOTIFY_TOKEN_URL, {
 			method: "POST",
 			headers: {
-				"Content-Type": "application/json",
+				"Content-Type": "application/x-www-form-urlencoded",
+				Authorization: `Basic ${encodeCredentials(clientId, clientSecret)}`,
 			},
-			body: JSON.stringify({
+			body: new URLSearchParams({
+				grant_type: "refresh_token",
 				refresh_token: refreshToken,
-			}),
+			}).toString(),
 		});
 
 		log("TokenExchange: Refresh response status:", response.status);
@@ -106,23 +108,16 @@ export async function refreshAccessToken(
 
 		let data;
 		if (!responseText || responseText.trim() === "") {
-			logError("TokenExchange: Empty refresh response from server");
-			throw new Error(
-				`Empty refresh response from server. Status: ${response.status}`
-			);
+			logError("TokenExchange: Empty refresh response from Spotify");
+			throw new Error(`Empty refresh response from Spotify. Status: ${response.status}`);
 		}
 
 		try {
 			data = JSON.parse(responseText);
 		} catch (parseError) {
-			logError(
-				"TokenExchange: Failed to parse refresh response as JSON:",
-				parseError
-			);
+			logError("TokenExchange: Failed to parse refresh response as JSON:", parseError);
 			logError("TokenExchange: Refresh response was:", responseText);
-			throw new Error(
-				`Invalid JSON refresh response from server: ${responseText}`
-			);
+			throw new Error(`Invalid JSON refresh response from Spotify: ${responseText}`);
 		}
 
 		if (!response.ok) {
@@ -130,7 +125,7 @@ export async function refreshAccessToken(
 			logError("TokenExchange: Failed to refresh token:", error);
 			throw new Error(
 				`Token refresh failed: ${error.error || "Unknown error"} - ${
-					error.error_description || "Server error"
+					error.error_description || "Spotify error"
 				}`
 			);
 		}
@@ -140,9 +135,6 @@ export async function refreshAccessToken(
 		if (!tokenResponse.access_token) {
 			throw new Error("Token refresh response missing access token");
 		}
-
-		// Note: Refresh token may not be returned if Spotify doesn't rotate it
-		// The server will return the original encrypted refresh token in this case
 
 		log("TokenExchange: Successfully refreshed access token");
 		return tokenResponse;

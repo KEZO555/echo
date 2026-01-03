@@ -284,7 +284,11 @@ const performTokenRefresh = async (
             throw new Error("No credentials configured");
         }
 
-        const tokenResponse = await refreshTokenService(currentRefreshToken, credentials.tokenRefreshUrl);
+		const tokenResponse = await refreshTokenService(
+			currentRefreshToken,
+			credentials.clientId,
+			credentials.clientSecret
+		);
 
         log("API: Access token refreshed successfully");
 

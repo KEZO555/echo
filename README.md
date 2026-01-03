@@ -35,16 +35,12 @@ I recommend using [Obtainium](https://github.com/ImranR98/Obtainium) and adding 
    - **SHA1 Fingerprint**: `73:25:19:F7:40:25:9D:F2:B0:B2:CC:C1:5D:09:D6:7E:72:20:C2:64`
 9. Click **Save**
 
-### 2. Deploy a Token Exchange Server
-
-See [echo-token-server](https://github.com/vandamd/echo-token-server) for setup instructions.
-
-### 3. Configure Echo
+### 2. Configure Echo
 
 1. Open Echo on your device
 2. Enter your **Client ID** from the Spotify Dashboard
-3. Enter your **Server URL** (e.g. `https://your-server.com`)
-4. You will be able to login! It'll open the Spotify app to authenticate.
+3. Enter your **Client Secret** from the Spotify Dashboard
+4. Tap Login and authenticate via the Spotify app
 
 ## Features
 
