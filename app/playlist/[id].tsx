@@ -1,17 +1,16 @@
 import React, { useEffect, useState, useCallback, useMemo } from "react";
 import {
     View,
-    Image,
 } from "react-native";
 import { useLocalSearchParams, useRouter, useFocusEffect } from "expo-router";
 import { useSpotifyLibrary } from "@/features/library/contexts/LibraryContext";
 import { usePlayback } from "@/features/playback/contexts/PlaybackContext";
 import type { SpotifyPlaylist, SpotifyTrackSimple } from "@/shared/types/spotify";
-import { StyledText, ContentContainer, CustomScrollView, TrackListItem, ListFooter } from "@/shared/components";
+import { StyledText, ContentContainer, CustomScrollView, TrackListItem, ListFooter, FallbackImage } from "@/shared/components";
 import { MaterialIcons } from "@expo/vector-icons";
 import { log, logError } from "@/shared/utils";
 import { getCachedPlaylistDetail, saveCachedPlaylistDetail } from "@/features/library/utils/cache";
-import { usePreventDoubleTap } from "@/shared/hooks/usePreventDoubleTap";
+import { usePreventDoubleTap, useNetworkState } from "@/shared/hooks";
 import { detailScreenStyles } from "@/shared/styles/detailScreen";
 import { useSettings } from "@/features/settings";
 
@@ -53,6 +52,7 @@ export default function PlaylistDetailScreen() {
     const { makeApiRequest } = useSpotifyLibrary();
     const router = useRouter();
     const { hideDetailCovers } = useSettings();
+    const { isOnline } = useNetworkState();
 
     const initialPlaylist = useMemo(() => {
         if (!playlistString) return null;
@@ -114,6 +114,13 @@ export default function PlaylistDetailScreen() {
 
         const hasInitialData = !!(initialPlaylist as SpotifyPlaylistFull)?.tracks?.items;
 
+        if (!isOnline) {
+            if (!hasInitialData && !playlist) {
+                setError("No cached data available. Connect to the internet to load this playlist.");
+            }
+            return;
+        }
+
         try {
             const data = await makeApiRequest(
                 `https://api.spotify.com/v1/playlists/${id}`,
@@ -133,7 +140,7 @@ export default function PlaylistDetailScreen() {
                 setError(errorMessage);
             }
         }
-    }, [id, makeApiRequest, initialPlaylist]);
+    }, [id, makeApiRequest, initialPlaylist, isOnline, playlist]);
 
     useFocusEffect(
         useCallback(() => {
@@ -243,23 +250,13 @@ export default function PlaylistDetailScreen() {
             <View style={{ paddingBottom: 20 }}>
                 <CustomScrollView
                     ListHeaderComponent={
-                        hideDetailCovers ? null : displayImageUrl ? (
+                        hideDetailCovers ? null : (
                             <View style={detailScreenStyles.imageContainer}>
-                                <Image
-                                    source={{ uri: displayImageUrl }}
+                                <FallbackImage
+                                    uri={displayImageUrl}
                                     style={detailScreenStyles.image}
-                                    fadeDuration={0}
+                                    placeholderIcon="music-note"
                                 />
-                            </View>
-                        ) : (
-                            <View style={detailScreenStyles.imageContainer}>
-                                <View style={detailScreenStyles.placeholderImageContainer}>
-                                    <MaterialIcons
-                                        name="music-note"
-                                        size={100}
-                                        color="white"
-                                    />
-                                </View>
                             </View>
                         )
                     }

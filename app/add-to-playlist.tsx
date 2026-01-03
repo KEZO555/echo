@@ -2,11 +2,11 @@ import React, { useState, useEffect } from "react";
 import {
     View,
     StyleSheet,
-    Image,
 } from "react-native";
 import { router, useLocalSearchParams } from "expo-router";
 import { StyledText } from "@/shared/components/StyledText";
 import { HapticPressable } from "@/shared/components/HapticPressable";
+import { FallbackImage } from "@/shared/components/FallbackImage";
 import { useAuth } from "@/features/auth/contexts/AuthContext";
 import { useSpotifyLibrary } from "@/features/library/contexts/LibraryContext";
 import type { SpotifyPlaylist } from "@/shared/types/spotify";
@@ -138,20 +138,12 @@ export default function AddToPlaylistScreen() {
                 onPress={() => togglePlaylistSelection(item.id)}
             >
                 {!hideAlbumCovers && (
-                    item.images && item.images.length > 0 ? (
-                        <Image
-                            source={{ uri: item.images[0].url }}
-                            style={styles.playlistImage}
-                        />
-                    ) : (
-                        <View style={styles.placeholderImageContainer}>
-                            <MaterialIcons
-                                name="music-note"
-                                size={24}
-                                color="white"
-                            />
-                        </View>
-                    )
+                    <FallbackImage
+                        uri={item.images && item.images.length > 0 ? item.images[0].url : undefined}
+                        style={styles.playlistImage}
+                        placeholderIcon="music-note"
+                        placeholderIconSize={24}
+                    />
                 )}
                 <View style={styles.textContainer}>
                     <StyledText style={styles.playlistName} numberOfLines={1}>

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { View, StyleSheet, Image } from "react-native";
+import { View, StyleSheet } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useAuth } from "@/features/auth/contexts/AuthContext";
 import { usePlayback } from "@/features/playback/contexts/PlaybackContext";
@@ -14,6 +14,7 @@ import type {
 import { searchItems } from "@/features/search/services/spotifySearch";
 import { HapticPressable } from "@/shared/components/HapticPressable";
 import { StyledText } from "@/shared/components/StyledText";
+import { FallbackImage } from "@/shared/components/FallbackImage";
 import ContentContainer from "@/shared/components/ContentContainer";
 import CustomScrollView from "@/shared/components/CustomScrollView";
 import { logError, getArtistNames } from "@/shared/utils";
@@ -275,21 +276,15 @@ export default function SearchResultsScreen() {
                 onPress={() => handleResultPress(item, itemUri)}
             >
                 {!hideAlbumCovers && (
-                    images && images.length > 0 ? (
-                        <Image
-                            source={{ uri: images[0].url }}
-                            style={[
-                                styles.itemImage,
-                                { borderRadius: item.type === "artist" ? 50 : 0 }
-                            ]}
-                        />
-                    ) : (
-                        <View style={styles.placeholderImageContainer}>
-                            <StyledText style={{ fontSize: 24 }}>
-                                ?
-                            </StyledText>
-                        </View>
-                    )
+                    <FallbackImage
+                        uri={images && images.length > 0 ? images[0].url : undefined}
+                        style={[
+                            styles.itemImage,
+                            { borderRadius: item.type === "artist" ? 50 : 0 }
+                        ]}
+                        placeholderText="?"
+                        placeholderIconSize={24}
+                    />
                 )}
                 <View style={styles.textContainer}>
                     <StyledText style={styles.itemName} numberOfLines={1}>

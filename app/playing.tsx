@@ -2,7 +2,6 @@ import React, { useState, useRef, useEffect, useCallback } from "react";
 import {
     View,
     StyleSheet,
-    Image,
     Animated,
     TextStyle,
     StyleProp,
@@ -10,6 +9,7 @@ import {
 } from "react-native";
 import AutoScroll from "@homielab/react-native-auto-scroll";
 import { StyledText } from "@/shared/components/StyledText";
+import { FallbackImage } from "@/shared/components/FallbackImage";
 import { useAuth } from "@/features/auth/contexts/AuthContext";
 import { usePlayback } from "@/features/playback/contexts/PlaybackContext";
 import type { SpotifyCurrentlyPlaying, SpotifyEpisode, SpotifyTrackSimple } from "@/shared/types/spotify";
@@ -563,17 +563,12 @@ export default function PlayingScreen() {
             <View style={styles.content}>
                 <View style={styles.mainContent}>
                     {!hidePlayingCover && (
-                        artworkUrl ? (
-                            <Image source={{ uri: artworkUrl }} style={styles.albumArt} fadeDuration={0} />
-                        ) : (
-                            <View style={styles.placeholderImageContainer}>
-                                <MaterialIcons
-                                    name={isEpisode ? "mic" : "music-note"}
-                                    size={100}
-                                    color={invertColors ? "black" : "white"}
-                                />
-                            </View>
-                        )
+                        <FallbackImage
+                            uri={artworkUrl}
+                            style={styles.albumArt}
+                            placeholderIcon={isEpisode ? "mic" : "music-note"}
+                            placeholderIconColor={invertColors ? "black" : "white"}
+                        />
                     )}
                     <View style={styles.trackInfoContainer}>
                     <HapticPressable

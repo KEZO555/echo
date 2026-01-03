@@ -1,5 +1,6 @@
 export { default as ContentContainer } from "./ContentContainer";
 export { default as CustomScrollView } from "./CustomScrollView";
+export { FallbackImage } from "./FallbackImage";
 export { HapticPressable } from "./HapticPressable";
 export { Header } from "./Header";
 export { MediaListItem } from "./MediaListItem";

@@ -1,14 +1,14 @@
 import React, { useEffect, useState, useCallback, useMemo } from "react";
-import { View, StyleSheet, Image } from "react-native";
+import { View, StyleSheet } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useAuth } from "@/features/auth/contexts/AuthContext";
 import { useSpotifyLibrary } from "@/features/library/contexts/LibraryContext";
 import { usePlayback } from "@/features/playback/contexts/PlaybackContext";
 import type { SpotifyShow, SpotifyEpisode } from "@/shared/types/spotify";
-import { StyledText, HapticPressable, ContentContainer, CustomScrollView, ListFooter } from "@/shared/components";
+import { StyledText, HapticPressable, ContentContainer, CustomScrollView, ListFooter, FallbackImage } from "@/shared/components";
 import { log, logError, formatDuration, getLargestImage } from "@/shared/utils";
 import { getCachedShowDetail, saveCachedShowDetail } from "@/features/library/utils/cache";
-import { usePreventDoubleTap, useSaveStatus } from "@/shared/hooks";
+import { usePreventDoubleTap, useSaveStatus, useNetworkState } from "@/shared/hooks";
 import { MaterialIcons } from "@expo/vector-icons";
 import { detailScreenStyles } from "@/shared/styles/detailScreen";
 import { useSettings } from "@/features/settings";
@@ -30,6 +30,7 @@ export default function PodcastDetailScreen() {
     } = useSpotifyLibrary();
     const router = useRouter();
     const { hideDetailCovers } = useSettings();
+    const { isOnline } = useNetworkState();
 
     const initialShow = useMemo(() => {
         if (!showString) return null;
@@ -84,26 +85,30 @@ export default function PodcastDetailScreen() {
                 }
             }
 
-            try {
-                const data = await makeApiRequest(
-                    `https://api.spotify.com/v1/shows/${id}?market=from_token&limit=10`,
-                    "Podcast details"
-                );
-                if (data) {
-                    log("Podcast details: Fetched fresh data from API");
-                    setShow(data);
-                    await saveCachedShowDetail(data);
-                } else if (!hasDisplayedData) {
-                    throw new Error("Failed to fetch podcast details");
+            if (isOnline) {
+                try {
+                    const data = await makeApiRequest(
+                        `https://api.spotify.com/v1/shows/${id}?market=from_token&limit=10`,
+                        "Podcast details"
+                    );
+                    if (data) {
+                        log("Podcast details: Fetched fresh data from API");
+                        setShow(data);
+                        await saveCachedShowDetail(data);
+                    } else if (!hasDisplayedData) {
+                        throw new Error("Failed to fetch podcast details");
+                    }
+                } catch (e: any) {
+                    logError("Error fetching podcast details:", e);
+                    if (!hasDisplayedData) {
+                        setError(e.message || "An unexpected error occurred.");
+                    }
                 }
-            } catch (e: any) {
-                logError("Error fetching podcast details:", e);
-                if (!hasDisplayedData) {
-                    setError(e.message || "An unexpected error occurred.");
-                }
-            } finally {
-                setIsInitialLoading(false);
+            } else if (!hasDisplayedData) {
+                setError("No cached data available. Connect to the internet to load this podcast.");
             }
+            
+            setIsInitialLoading(false);
         };
 
         fetchShowDetails();
@@ -252,21 +257,14 @@ export default function PodcastDetailScreen() {
             <View style={{ paddingBottom: 20 }}>
                 <CustomScrollView
                     ListHeaderComponent={
-                        hideDetailCovers ? null : displayImageUrl ? (
+                        hideDetailCovers ? null : (
                             <View style={detailScreenStyles.imageContainer}>
-                                <Image
-                                    source={{ uri: displayImageUrl }}
+                                <FallbackImage
+                                    uri={displayImageUrl}
                                     style={detailScreenStyles.image}
-                                    fadeDuration={0}
+                                    placeholderText={displayName.charAt(0)}
+                                    placeholderIcon="mic"
                                 />
-                            </View>
-                        ) : (
-                            <View style={detailScreenStyles.imageContainer}>
-                                <View style={detailScreenStyles.placeholderImageContainer}>
-                                    <StyledText style={styles.placeholderText}>
-                                        {displayName.charAt(0)}
-                                    </StyledText>
-                                </View>
                             </View>
                         )
                     }

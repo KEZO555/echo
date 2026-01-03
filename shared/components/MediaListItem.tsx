@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import { View, StyleSheet, Image, StyleProp, ViewStyle, ImageStyle } from "react-native";
 import { HapticPressable } from "@/shared/components/HapticPressable";
 import { StyledText } from "@/shared/components/StyledText";
@@ -29,6 +29,9 @@ export function MediaListItem({
     style,
 }: MediaListItemProps) {
     const { hideAlbumCovers } = useSettings();
+    const [imageError, setImageError] = useState(false);
+
+    const showPlaceholder = !imageUri || imageError;
 
     return (
         <HapticPressable
@@ -37,20 +40,21 @@ export function MediaListItem({
             disabled={disabled}
         >
             {!hideAlbumCovers && (
-                imageUri ? (
-                    <View style={styles.imageContainer}>
-                        <Image
-                            source={{ uri: imageUri }}
-                            style={[styles.image, imageStyle]}
-                        />
-                        {isLoading && <View style={styles.loadingOverlay} />}
-                    </View>
-                ) : (
-                    <View style={styles.placeholderImageContainer}>
+                showPlaceholder ? (
+                    <View style={[styles.placeholderImageContainer, imageStyle]}>
                         <MaterialIcons
                             name={placeholderIcon}
                             size={24}
                             color={disabled ? "#666" : "white"}
+                        />
+                        {isLoading && <View style={styles.loadingOverlay} />}
+                    </View>
+                ) : (
+                    <View style={styles.imageContainer}>
+                        <Image
+                            source={{ uri: imageUri }}
+                            style={[styles.image, imageStyle]}
+                            onError={() => setImageError(true)}
                         />
                         {isLoading && <View style={styles.loadingOverlay} />}
                     </View>

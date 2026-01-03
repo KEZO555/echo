@@ -30,8 +30,12 @@ export function Navbar({
     const { isConnectedToAppRemote } = usePlayback();
 
     const getStatusText = () => {
-        if (networkLoading || isOnline) {
+        if (isOnline) {
             return null;
+        }
+
+        if (networkLoading) {
+            return "Checking connection...";
         }
 
         const parts = ["Device offline"];

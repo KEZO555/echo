@@ -2,16 +2,15 @@ import React, { useEffect, useState, useMemo } from "react";
 import {
     View,
     StyleSheet,
-    Image,
 } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useAuth } from "@/features/auth/contexts/AuthContext";
 import { useSpotifyLibrary } from "@/features/library/contexts/LibraryContext";
 import { usePlayback } from "@/features/playback/contexts/PlaybackContext";
 import type { SpotifyArtist, SpotifyTrack, SpotifyAlbumSimple } from "@/shared/types/spotify";
-import { StyledText, HapticPressable, ContentContainer, CustomScrollView, TrackListItem, ListFooter } from "@/shared/components";
+import { StyledText, HapticPressable, ContentContainer, CustomScrollView, TrackListItem, ListFooter, FallbackImage } from "@/shared/components";
 import { log, logError } from "@/shared/utils";
-import { usePreventDoubleTap, useSaveStatus } from "@/shared/hooks";
+import { usePreventDoubleTap, useSaveStatus, useNetworkState } from "@/shared/hooks";
 import { detailScreenStyles } from "@/shared/styles/detailScreen";
 import { useSettings } from "@/features/settings";
 
@@ -36,6 +35,7 @@ export default function ArtistDetailScreen() {
 
     const router = useRouter();
     const { hideDetailCovers, hideAlbumCovers } = useSettings();
+    const { isOnline } = useNetworkState();
 
     const initialArtist = useMemo(() => {
         if (!artistString) return null;
@@ -101,6 +101,13 @@ export default function ArtistDetailScreen() {
                 log("Artist details: Using pre-loaded artist data");
             }
 
+            if (!isOnline) {
+                if (!initialArtist) {
+                    setError("No cached data available. Connect to the internet to load this artist.");
+                }
+                return;
+            }
+
             try {
                 const data = await makeApiRequest(
                     `https://api.spotify.com/v1/artists/${id}`,
@@ -121,6 +128,7 @@ export default function ArtistDetailScreen() {
         };
 
         const fetchTopTracks = async () => {
+            if (!isOnline) return;
             try {
                 const data = await fetchArtistTopTracks(id);
                 setTopTracks(data);
@@ -130,6 +138,7 @@ export default function ArtistDetailScreen() {
         };
 
         const fetchAlbums = async () => {
+            if (!isOnline) return;
             try {
                 const data = await fetchArtistAlbums(id);
                 setAlbums(data.albums);
@@ -254,18 +263,13 @@ export default function ArtistDetailScreen() {
                 onPress={() => handleAlbumPress(album.id)}
             >
                 {!hideAlbumCovers && (
-                    hasImage ? (
-                        <View style={styles.albumImageContainer}>
-                            <Image
-                                source={{ uri: album.images[0].url }}
-                                style={styles.albumImage}
-                                fadeDuration={0}
-                            />
-                        </View>
-                    ) : (
-                        <View style={styles.placeholderImageContainer}>
-                        </View>
-                    )
+                    <FallbackImage
+                        uri={hasImage ? album.images[0].url : undefined}
+                        style={styles.albumImage}
+                        containerStyle={styles.albumImageContainer}
+                        placeholderIcon="album"
+                        placeholderIconSize={24}
+                    />
                 )}
                 <View style={styles.textContainer}>
                     <StyledText style={styles.albumName} numberOfLines={1}>
@@ -310,10 +314,10 @@ export default function ArtistDetailScreen() {
                     ListHeaderComponent={
                         !hideDetailCovers && displayImageUrl ? (
                             <View style={detailScreenStyles.imageContainer}>
-                                <Image
-                                    source={{ uri: displayImageUrl }}
+                                <FallbackImage
+                                    uri={displayImageUrl}
                                     style={detailScreenStyles.image}
-                                    fadeDuration={0}
+                                    placeholderIcon="person"
                                 />
                             </View>
                         ) : null

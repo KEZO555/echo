@@ -1,17 +1,16 @@
 import React, { useEffect, useState, useCallback } from "react";
 import {
     View,
-    Image,
 } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useAuth } from "@/features/auth/contexts/AuthContext";
 import { useSpotifyLibrary } from "@/features/library/contexts/LibraryContext";
 import { usePlayback } from "@/features/playback/contexts/PlaybackContext";
 import type { SpotifyAlbum, SpotifyTrackSimple } from "@/shared/types/spotify";
-import { StyledText, ContentContainer, CustomScrollView, TrackListItem, ListFooter } from "@/shared/components";
+import { StyledText, ContentContainer, CustomScrollView, TrackListItem, ListFooter, FallbackImage } from "@/shared/components";
 import { log, logError } from "@/shared/utils";
 import { getCachedAlbumDetail, saveCachedAlbumDetail } from "@/features/library/utils/cache";
-import { usePreventDoubleTap, useSaveStatus } from "@/shared/hooks";
+import { usePreventDoubleTap, useSaveStatus, useNetworkState } from "@/shared/hooks";
 import { detailScreenStyles } from "@/shared/styles/detailScreen";
 import { useSettings } from "@/features/settings";
 
@@ -32,6 +31,7 @@ export default function AlbumDetailScreen() {
     } = useSpotifyLibrary();
     const router = useRouter();
     const { hideDetailCovers } = useSettings();
+    const { isOnline } = useNetworkState();
 
     const initialAlbum = albumString
         ? (JSON.parse(albumString) as SpotifyAlbum)
@@ -71,23 +71,27 @@ export default function AlbumDetailScreen() {
                 }
             }
 
-            try {
-                const data = await makeApiRequest(
-                    `https://api.spotify.com/v1/albums/${id}`,
-                    "Album details"
-                );
-                if (data) {
-                    log("Album details: Fetched fresh data from API");
-                    setAlbum(data);
-                    await saveCachedAlbumDetail(data);
-                } else if (!hasDisplayedData) {
-                    throw new Error("Failed to fetch album details");
+            if (isOnline) {
+                try {
+                    const data = await makeApiRequest(
+                        `https://api.spotify.com/v1/albums/${id}`,
+                        "Album details"
+                    );
+                    if (data) {
+                        log("Album details: Fetched fresh data from API");
+                        setAlbum(data);
+                        await saveCachedAlbumDetail(data);
+                    } else if (!hasDisplayedData) {
+                        throw new Error("Failed to fetch album details");
+                    }
+                } catch (e: any) {
+                    logError("Error fetching album details:", e);
+                    if (!hasDisplayedData) {
+                        setError(e.message || "An unexpected error occurred.");
+                    }
                 }
-            } catch (e: any) {
-                logError("Error fetching album details:", e);
-                if (!hasDisplayedData) {
-                    setError(e.message || "An unexpected error occurred.");
-                }
+            } else if (!hasDisplayedData) {
+                setError("No cached data available. Connect to the internet to load this album.");
             }
         };
 
@@ -221,10 +225,10 @@ export default function AlbumDetailScreen() {
                     ListHeaderComponent={
                         !hideDetailCovers ? (
                             <View style={detailScreenStyles.imageContainer}>
-                                <Image
-                                    source={{ uri: albumImageUrl }}
+                                <FallbackImage
+                                    uri={albumImageUrl}
                                     style={detailScreenStyles.image}
-                                    fadeDuration={0}
+                                    placeholderIcon="album"
                                 />
                             </View>
                         ) : null
