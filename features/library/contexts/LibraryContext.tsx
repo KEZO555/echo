@@ -7,6 +7,7 @@ import React, {
 	useCallback,
 } from "react";
 import { useAuth } from "@/features/auth/contexts/AuthContext";
+import { useNetworkState } from "@/shared/hooks";
 import { logInfo } from "@/shared/utils/logger";
 
 import type {
@@ -115,6 +116,7 @@ const LibraryContext = createContext<LibraryContextType | undefined>(undefined);
 
 export const LibraryProvider = ({ children }: { children: ReactNode }) => {
 	const { accessToken, refreshToken, tokenExpiry, ensureValidToken, logout } = useAuth();
+	const { isOnline } = useNetworkState();
 
 	const [playlists, setPlaylists] = useState<SpotifyPlaylist[] | null>(null);
 	const [playlistsNextUrl, setPlaylistsNextUrl] = useState<string | null>(null);
@@ -483,20 +485,23 @@ export const LibraryProvider = ({ children }: { children: ReactNode }) => {
 
 	useEffect(() => {
 		const triggerInitialDataFetch = async () => {
-			if (accessToken && !initialDataFetchTriggered) {
+			if (accessToken && !initialDataFetchTriggered && isOnline) {
 				setInitialDataFetchTriggered(true);
-				logInfo("LibraryContext: Auth state loaded, proceeding with data fetch...");
+				logInfo("LibraryContext: Auth state loaded and online, proceeding with data fetch...");
 
 				const validToken = await ensureValidToken();
 
 				if (validToken) {
 					await fetchInitialData(validToken);
 				}
+			} else if (accessToken && !initialDataFetchTriggered && !isOnline) {
+				logInfo("LibraryContext: Offline - skipping initial data fetch, using cached data");
+				setInitialDataFetchTriggered(true);
 			}
 		};
 
 		triggerInitialDataFetch();
-	}, [accessToken, initialDataFetchTriggered, ensureValidToken, fetchInitialData]);
+	}, [accessToken, initialDataFetchTriggered, ensureValidToken, fetchInitialData, isOnline]);
 
 	const addTrackToPlaylist = useCallback(
 		async (playlistId: string, trackUri: string): Promise<boolean> => {

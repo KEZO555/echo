@@ -11,6 +11,7 @@ import { setStatusBarHidden } from "expo-status-bar";
 import * as NavigationBar from 'expo-navigation-bar';
 import * as SystemUI from "expo-system-ui";
 import { StyledText } from "@/shared/components/StyledText";
+import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import "@/shared/utils/logger";
 
 function RootNavigation() {
@@ -20,6 +21,7 @@ function RootNavigation() {
     const { isLoading: credentialsLoading } = useCredentials();
     const [fontsLoaded, fontError] = useFonts({
         "PublicSans-Regular": require("../assets/fonts/PublicSans-Regular.ttf"),
+        ...MaterialIcons.font,
     });
     const isLoading =
         authLoading || preferencesLoading || credentialsLoading || (!fontsLoaded && !fontError);
