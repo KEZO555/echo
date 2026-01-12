@@ -6,7 +6,7 @@ import { useSpotifyLibrary } from "@/features/library/contexts/LibraryContext";
 import { usePlayback } from "@/features/playback/contexts/PlaybackContext";
 import type { SpotifySavedEpisode } from "@/shared/types/spotify";
 import { StyledText, ContentContainer, CustomScrollView, ListFooter, MediaListItem } from "@/shared/components";
-import { logError, formatDuration, getLargestImage } from "@/shared/utils";
+import { formatDuration, getLargestImage } from "@/shared/utils";
 import { usePreventDoubleTap, useNetworkState } from "@/shared/hooks";
 import { tabScreenStyles as styles } from "@/shared/styles/detailScreen";
 
@@ -46,29 +46,16 @@ export default function YourEpisodesScreen() {
             const episode = savedEpisode.episode;
             const albumArtUrl = getLargestImage(episode.images) ?? getLargestImage(episode.show?.images) ?? "";
 
-            try {
-                await playTrackWithContext(episode.uri);
-                router.push({
-                    pathname: "/playing",
-                    params: {
-                        trackName: episode.name ?? "",
-                        artistName: episode.show?.name ?? "",
-                        albumArtUrl,
-                        durationMs: episode.duration_ms?.toString() ?? "0",
-                    },
-                });
-            } catch (error) {
-                logError("Error playing episode:", error);
-                router.push({
-                    pathname: "/playing",
-                    params: {
-                        trackName: episode.name ?? "",
-                        artistName: episode.show?.name ?? "",
-                        albumArtUrl,
-                        durationMs: episode.duration_ms?.toString() ?? "0",
-                    },
-                });
-            }
+            await playTrackWithContext(episode.uri);
+            router.push({
+                pathname: "/playing",
+                params: {
+                    trackName: episode.name ?? "",
+                    artistName: episode.show?.name ?? "",
+                    albumArtUrl,
+                    durationMs: episode.duration_ms?.toString() ?? "0",
+                },
+            });
         }
     );
 
@@ -108,10 +95,7 @@ export default function YourEpisodesScreen() {
                 imageUri={imageUri}
                 placeholderIcon="mic"
                 disabled={isDisabled}
-                onPress={() => {
-                    if (isDisabled) return;
-                    handleEpisodePress(item);
-                }}
+                onPress={() => handleEpisodePress(item)}
             />
         );
     };

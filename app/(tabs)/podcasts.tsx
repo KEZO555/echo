@@ -162,10 +162,7 @@ export default function PodcastsScreen() {
                     primaryText={item.show.name}
                     placeholderIcon="bookmark"
                     disabled={isDisabled}
-                    onPress={() => {
-                        if (isDisabled) return;
-                        handleYourEpisodesPress();
-                    }}
+                    onPress={handleYourEpisodesPress}
                 />
             );
         }
