@@ -5,6 +5,7 @@ import {
     PODCASTS_KEY,
     ARTISTS_KEY,
     SAVED_TRACKS_KEY,
+    SAVED_EPISODES_KEY,
     ALBUM_DETAIL_KEY_PREFIX,
     PLAYLIST_DETAIL_KEY_PREFIX,
     SHOW_DETAIL_KEY_PREFIX,
@@ -14,6 +15,7 @@ import type {
     SpotifyPlaylist,
     SpotifySavedAlbum,
     SpotifySavedShow,
+    SpotifySavedEpisode,
     SpotifyArtist,
     SavedTrackObject,
     SpotifyAlbum,
@@ -36,7 +38,7 @@ interface SpotifyPlaylistFull extends SpotifyPlaylist {
 
 export const loadCachedData = async () => {
     try {
-        const keys = [PLAYLISTS_KEY, ALBUMS_KEY, PODCASTS_KEY, ARTISTS_KEY, SAVED_TRACKS_KEY];
+        const keys = [PLAYLISTS_KEY, ALBUMS_KEY, PODCASTS_KEY, ARTISTS_KEY, SAVED_TRACKS_KEY, SAVED_EPISODES_KEY];
         const results = await AsyncStorage.multiGet(keys);
 
         const cachedData = {
@@ -45,6 +47,7 @@ export const loadCachedData = async () => {
             podcasts: results[2][1] ? JSON.parse(results[2][1]) as SpotifySavedShow[] : null,
             artists: results[3][1] ? JSON.parse(results[3][1]) as SpotifyArtist[] : null,
             savedTracks: results[4][1] ? JSON.parse(results[4][1]) as SavedTrackObject[] : null,
+            savedEpisodes: results[5][1] ? JSON.parse(results[5][1]) as SpotifySavedEpisode[] : null,
         };
 
         const hasAnyCache = Object.values(cachedData).some(v => v !== null);
@@ -64,6 +67,7 @@ export const loadCachedData = async () => {
             podcasts: null,
             artists: null,
             savedTracks: null,
+            savedEpisodes: null,
         };
     }
 };
@@ -73,7 +77,8 @@ export const saveCachedData = async (
     albumsData?: SpotifySavedAlbum[],
     artistsData?: SpotifyArtist[],
     tracksData?: SavedTrackObject[],
-    podcastsData?: SpotifySavedShow[]
+    podcastsData?: SpotifySavedShow[],
+    savedEpisodesData?: SpotifySavedEpisode[]
 ) => {
     try {
         if (playlistsData) {
@@ -100,6 +105,12 @@ export const saveCachedData = async (
                 JSON.stringify(tracksData)
             );
         }
+        if (savedEpisodesData) {
+            await AsyncStorage.setItem(
+                SAVED_EPISODES_KEY,
+                JSON.stringify(savedEpisodesData)
+            );
+        }
     } catch (error) {
         logError("Cache: Error saving cached data:", error);
     }
@@ -112,6 +123,7 @@ export const clearCachedData = async () => {
         await AsyncStorage.removeItem(PODCASTS_KEY);
         await AsyncStorage.removeItem(ARTISTS_KEY);
         await AsyncStorage.removeItem(SAVED_TRACKS_KEY);
+        await AsyncStorage.removeItem(SAVED_EPISODES_KEY);
         await clearCachedAlbumDetails();
         await clearCachedPlaylistDetails();
         await clearCachedShowDetails();
@@ -191,6 +203,25 @@ export const refreshFollowedPodcastsFromCache = async () => {
     } catch (error) {
         logError(
             "Cache: Error refreshing followed podcasts from cache:",
+            error
+        );
+    }
+    return null;
+};
+
+export const refreshSavedEpisodesFromCache = async (): Promise<SpotifySavedEpisode[] | null> => {
+    try {
+        const cachedEpisodes = await AsyncStorage.getItem(SAVED_EPISODES_KEY);
+        if (cachedEpisodes) {
+            const parsedEpisodes = JSON.parse(cachedEpisodes);
+            log(
+                `Cache: Refreshed saved episodes state from cache - ${parsedEpisodes.length} episodes`
+            );
+            return parsedEpisodes;
+        }
+    } catch (error) {
+        logError(
+            "Cache: Error refreshing saved episodes from cache:",
             error
         );
     }

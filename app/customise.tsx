@@ -13,7 +13,7 @@ type SettingsItem =
 
 export default function CustomiseTabsScreen() {
     const router = useRouter();
-    const { invertColors, setInvertColors, hideAlbumCovers, setHideAlbumCovers, hideDetailCovers, setHideDetailCovers, hideCreatePlaylist, setHideCreatePlaylist } = useSettings();
+    const { invertColors, setInvertColors, hideAlbumCovers, setHideAlbumCovers, hideDetailCovers, setHideDetailCovers, hideCreatePlaylist, setHideCreatePlaylist, hideYourEpisodes, setHideYourEpisodes } = useSettings();
     const handleCustomiseTabs = () => {
         router.push("/customise-tabs" as any);
     };
@@ -27,6 +27,7 @@ export default function CustomiseTabsScreen() {
         { type: "toggle", label: "Hide Item Images", value: hideAlbumCovers, onValueChange: setHideAlbumCovers },
         { type: "toggle", label: "Hide Detail Images", value: hideDetailCovers, onValueChange: setHideDetailCovers },
         { type: "toggle", label: "Hide Create Playlist", value: hideCreatePlaylist, onValueChange: setHideCreatePlaylist },
+        { type: "toggle", label: "Hide Your Episodes", value: hideYourEpisodes, onValueChange: setHideYourEpisodes },
         { type: "toggle", label: "Invert Colours", value: invertColors, onValueChange: setInvertColors },
     ];
 
