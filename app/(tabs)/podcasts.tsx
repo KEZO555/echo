@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from "react";
+import React, { useEffect, useState, useCallback, useMemo } from "react";
 import {
     View,
     RefreshControl,
@@ -130,7 +130,7 @@ export default function PodcastsScreen() {
         }
     );
 
-    const yourEpisodesItem: SpotifySavedShow = {
+    const yourEpisodesItem: SpotifySavedShow = useMemo(() => ({
         added_at: "",
         show: {
             id: YOUR_EPISODES_ID,
@@ -146,7 +146,7 @@ export default function PodcastsScreen() {
             type: "show",
             languages: [],
         },
-    };
+    }), []);
 
     const displayPodcasts = sortedPodcasts
         ? (hideYourEpisodes ? sortedPodcasts : [yourEpisodesItem, ...sortedPodcasts])

@@ -9,7 +9,6 @@ import { StyledText, ContentContainer, CustomScrollView, ListFooter, MediaListIt
 import { logError, formatDuration, getLargestImage } from "@/shared/utils";
 import { usePreventDoubleTap, useNetworkState } from "@/shared/hooks";
 import { tabScreenStyles as styles } from "@/shared/styles/detailScreen";
-import { refreshSavedEpisodesFromCache } from "@/features/library/utils/cache";
 
 export default function YourEpisodesScreen() {
     const { accessToken, user, isLoading: isAuthLoading } = useAuth();
@@ -21,6 +20,7 @@ export default function YourEpisodesScreen() {
         isLoadingMoreSavedEpisodes,
         fetchSavedEpisodes,
         fetchMoreSavedEpisodes,
+        refreshSavedEpisodesFromCache,
     } = useSpotifyLibrary();
     const router = useRouter();
     const { isOnline } = useNetworkState();
@@ -35,14 +35,11 @@ export default function YourEpisodesScreen() {
         if (isRefreshingSavedEpisodes) return;
 
         if (!isOnline) {
-            const cachedEpisodes = await refreshSavedEpisodesFromCache();
-            if (cachedEpisodes) {
-                return;
-            }
+            await refreshSavedEpisodesFromCache();
         } else {
             fetchSavedEpisodes();
         }
-    }, [fetchSavedEpisodes, isRefreshingSavedEpisodes, isOnline]);
+    }, [fetchSavedEpisodes, isRefreshingSavedEpisodes, isOnline, refreshSavedEpisodesFromCache]);
 
     const handleEpisodePress = usePreventDoubleTap(
         async (savedEpisode: SpotifySavedEpisode) => {
@@ -75,6 +72,12 @@ export default function YourEpisodesScreen() {
         }
     );
 
+    const formatReleaseDate = (dateString: string): string => {
+        const date = new Date(dateString);
+        if (isNaN(date.getTime())) return "";
+        return date.toLocaleDateString();
+    };
+
     const renderEpisodeItem = ({ item }: { item: SpotifySavedEpisode }) => {
         const episode = item.episode;
         const resumePoint = episode.resume_point;
@@ -83,8 +86,9 @@ export default function YourEpisodesScreen() {
                 ? Math.max(episode.duration_ms - (resumePoint.resume_position_ms ?? 0), 0)
                 : 0;
         
+        const releaseDate = formatReleaseDate(episode.release_date);
         const metaParts = [
-            new Date(episode.release_date).toLocaleDateString(),
+            ...(releaseDate ? [releaseDate] : []),
             formatDuration(episode.duration_ms, true),
         ];
         
@@ -95,6 +99,7 @@ export default function YourEpisodesScreen() {
         }
 
         const imageUri = getLargestImage(episode.images) ?? getLargestImage(episode.show?.images);
+        const isDisabled = !isOnline;
 
         return (
             <MediaListItem
@@ -102,7 +107,11 @@ export default function YourEpisodesScreen() {
                 secondaryText={metaParts.join(" · ")}
                 imageUri={imageUri}
                 placeholderIcon="mic"
-                onPress={() => handleEpisodePress(item)}
+                disabled={isDisabled}
+                onPress={() => {
+                    if (isDisabled) return;
+                    handleEpisodePress(item);
+                }}
             />
         );
     };
