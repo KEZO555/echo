@@ -237,6 +237,21 @@ export interface SpotifySavedShowsResponse {
     total: number;
 }
 
+export interface SpotifySavedEpisode {
+    added_at: string;
+    episode: SpotifyEpisode;
+}
+
+export interface SpotifySavedEpisodesResponse {
+    href: string;
+    items: SpotifySavedEpisode[];
+    limit: number;
+    next: string | null;
+    offset: number;
+    previous: string | null;
+    total: number;
+}
+
 // Spotify API Types - Player / Devices
 export interface SpotifyDevice {
     id: string | null;

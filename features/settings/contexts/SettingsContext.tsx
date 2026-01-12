@@ -19,6 +19,7 @@ const HIDE_LIKE_BUTTON_KEY = "hideLikeButton";
 const HIDE_DEVICES_BUTTON_KEY = "hideDevicesButton";
 const HIDE_ADD_TO_PLAYLIST_BUTTON_KEY = "hideAddToPlaylistButton";
 const HIDE_PLAYING_COVER_KEY = "hidePlayingCover";
+const HIDE_YOUR_EPISODES_KEY = "hideYourEpisodes";
 
 export type TabId = "index" | "artists" | "albums" | "podcasts" | "playlists" | "search";
 
@@ -62,6 +63,8 @@ interface SettingsContextType {
 	setHideAddToPlaylistButton: (value: boolean) => void;
 	hidePlayingCover: boolean;
 	setHidePlayingCover: (value: boolean) => void;
+	hideYourEpisodes: boolean;
+	setHideYourEpisodes: (value: boolean) => void;
 	tabPreferences: TabPreferences;
 	updateTabPreference: (key: keyof Omit<TabPreferences, "tabOrder">, value: boolean) => Promise<void>;
 	reorderTab: (tabId: TabId, direction: "up" | "down") => Promise<void>;
@@ -79,6 +82,7 @@ export const SettingsProvider = ({ children }: { children: ReactNode }) => {
 	const [hideDevicesButton, setHideDevicesButtonState] = useState(false);
 	const [hideAddToPlaylistButton, setHideAddToPlaylistButtonState] = useState(false);
 	const [hidePlayingCover, setHidePlayingCoverState] = useState(false);
+	const [hideYourEpisodes, setHideYourEpisodesState] = useState(false);
 	const [tabPreferences, setTabPreferences] = useState<TabPreferences>(defaultTabPreferences);
 	const [isLoading, setIsLoading] = useState(true);
 
@@ -94,6 +98,7 @@ export const SettingsProvider = ({ children }: { children: ReactNode }) => {
 					hideDevicesButtonValue,
 					hideAddToPlaylistButtonValue,
 					hidePlayingCoverValue,
+					hideYourEpisodesValue,
 					tabPreferencesValue,
 				] = await Promise.all([
 					AsyncStorage.getItem(INVERT_COLORS_KEY),
@@ -104,6 +109,7 @@ export const SettingsProvider = ({ children }: { children: ReactNode }) => {
 					AsyncStorage.getItem(HIDE_DEVICES_BUTTON_KEY),
 					AsyncStorage.getItem(HIDE_ADD_TO_PLAYLIST_BUTTON_KEY),
 					AsyncStorage.getItem(HIDE_PLAYING_COVER_KEY),
+					AsyncStorage.getItem(HIDE_YOUR_EPISODES_KEY),
 					AsyncStorage.getItem(TAB_PREFERENCES_KEY),
 				]);
 
@@ -137,6 +143,10 @@ export const SettingsProvider = ({ children }: { children: ReactNode }) => {
 
 				if (hidePlayingCoverValue !== null) {
 					setHidePlayingCoverState(hidePlayingCoverValue === "true");
+				}
+
+				if (hideYourEpisodesValue !== null) {
+					setHideYourEpisodesState(hideYourEpisodesValue === "true");
 				}
 
 				if (tabPreferencesValue) {
@@ -200,6 +210,11 @@ export const SettingsProvider = ({ children }: { children: ReactNode }) => {
 		await AsyncStorage.setItem(HIDE_PLAYING_COVER_KEY, value.toString());
 	}, []);
 
+	const setHideYourEpisodes = useCallback(async (value: boolean) => {
+		setHideYourEpisodesState(value);
+		await AsyncStorage.setItem(HIDE_YOUR_EPISODES_KEY, value.toString());
+	}, []);
+
 	const updateTabPreference = useCallback(
 		async (key: keyof Omit<TabPreferences, "tabOrder">, value: boolean) => {
 			try {
@@ -255,6 +270,8 @@ export const SettingsProvider = ({ children }: { children: ReactNode }) => {
 		setHideAddToPlaylistButton,
 		hidePlayingCover,
 		setHidePlayingCover,
+		hideYourEpisodes,
+		setHideYourEpisodes,
 		tabPreferences,
 		updateTabPreference,
 		reorderTab,

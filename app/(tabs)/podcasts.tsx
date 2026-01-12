@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from "react";
+import React, { useEffect, useState, useCallback, useMemo } from "react";
 import {
     View,
     RefreshControl,
@@ -16,6 +16,9 @@ import {
 } from "@/features/library/utils/cache";
 import { useNetworkState, usePreventDoubleTap } from "@/shared/hooks";
 import { tabScreenStyles as styles } from "@/shared/styles/detailScreen";
+import { useSettings } from "@/features/settings";
+
+const YOUR_EPISODES_ID = "YOUR_EPISODES_ID";
 
 export default function PodcastsScreen() {
     const { isLoading, accessToken, user } = useAuth();
@@ -30,6 +33,7 @@ export default function PodcastsScreen() {
     const router = useRouter();
 
     const { isOnline } = useNetworkState();
+    const { hideYourEpisodes } = useSettings();
     const [sortedPodcasts, setSortedPodcasts] = useState<
         SpotifySavedShow[] | null
     >(null);
@@ -108,6 +112,10 @@ export default function PodcastsScreen() {
         }
     }, [fetchPodcasts, isRefreshingPodcasts, isOnline]);
 
+    const handleYourEpisodesPress = usePreventDoubleTap(() => {
+        router.push("/your-episodes" as any);
+    });
+
     const handleShowPress = usePreventDoubleTap(
         (item: SpotifySavedShow, isUncached: boolean) => {
             if (isUncached) return;
@@ -122,7 +130,43 @@ export default function PodcastsScreen() {
         }
     );
 
+    const yourEpisodesItem: SpotifySavedShow = useMemo(() => ({
+        added_at: "",
+        show: {
+            id: YOUR_EPISODES_ID,
+            name: "Your Episodes",
+            description: "",
+            publisher: "",
+            images: [],
+            total_episodes: 0,
+            uri: "",
+            href: "",
+            media_type: "",
+            explicit: false,
+            type: "show",
+            languages: [],
+        },
+    }), []);
+
+    const displayPodcasts = sortedPodcasts
+        ? (hideYourEpisodes ? sortedPodcasts : [yourEpisodesItem, ...sortedPodcasts])
+        : (hideYourEpisodes ? [] : [yourEpisodesItem]);
+
     const renderShowItem = ({ item }: { item: SpotifySavedShow }) => {
+        if (item.show.id === YOUR_EPISODES_ID) {
+            if (hideYourEpisodes) return null;
+            const isDisabled = !isOnline;
+
+            return (
+                <MediaListItem
+                    primaryText={item.show.name}
+                    placeholderIcon="bookmark"
+                    disabled={isDisabled}
+                    onPress={handleYourEpisodesPress}
+                />
+            );
+        }
+
         const isOffline = !isOnline;
         const isUncached = isOffline && !cachedShowIds.has(item.show.id);
 
@@ -148,6 +192,7 @@ export default function PodcastsScreen() {
     });
 
     if (!sortedPodcasts || sortedPodcasts.length === 0) {
+        const emptyData = hideYourEpisodes ? [] : [yourEpisodesItem];
         return (
             <ContentContainer
                 headerTitle="Podcasts"
@@ -158,14 +203,13 @@ export default function PodcastsScreen() {
                 headerIconShowLength={1}
             >
                 <CustomScrollView
-                    data={[]}
-                    renderItem={null}
+                    data={emptyData}
+                    renderItem={renderShowItem}
+                    keyExtractor={(item) => item.show.id}
+                    style={styles.list}
+                    contentContainerStyle={styles.listContentContainer}
+                    ItemSeparatorComponent={() => <View style={{ height: 8 }} />}
                     overScrollMode="never"
-                    ListHeaderComponent={
-                        <StyledText style={styles.emptyText}>
-                            No followed podcasts yet.
-                        </StyledText>
-                    }
                     refreshControl={
                         <RefreshControl
                             refreshing={isRefreshingPodcasts}
@@ -201,7 +245,7 @@ export default function PodcastsScreen() {
                         size={"large" as any}
                     />
                 }
-                data={sortedPodcasts}
+                data={displayPodcasts}
                 renderItem={renderShowItem}
                 keyExtractor={(item) => item.show.id}
                 overScrollMode="never"

@@ -6,6 +6,8 @@ import type {
     SpotifyPlaylist,
     SpotifySavedAlbum,
     SpotifySavedShow,
+    SpotifySavedEpisode,
+    SpotifySavedEpisodesResponse,
     SavedTrackObject,
     SpotifyArtist,
     SpotifyTrack,
@@ -150,6 +152,59 @@ export const fetchMorePodcasts = async (
     }
 
     return { podcasts: null, nextUrl: null };
+};
+
+export const fetchSavedEpisodes = async (
+    accessToken: string | null,
+    makeApiRequest: (
+        url: string,
+        errorMessage: string,
+        isRefreshing?: boolean
+    ) => Promise<any | null>,
+    saveCachedData: (
+        playlists?: SpotifyPlaylist[],
+        albums?: SpotifySavedAlbum[],
+        artists?: SpotifyArtist[],
+        tracks?: SavedTrackObject[],
+        podcasts?: SpotifySavedShow[],
+        savedEpisodes?: SpotifySavedEpisode[]
+    ) => Promise<void>
+): Promise<{ savedEpisodes: SpotifySavedEpisode[] | null; nextUrl: string | null }> => {
+    if (!accessToken) {
+        return { savedEpisodes: [], nextUrl: null };
+    }
+
+    const data: SpotifySavedEpisodesResponse | null = await makeApiRequest(
+        "https://api.spotify.com/v1/me/episodes?limit=50&market=from_token",
+        "Saved Episodes",
+        true
+    );
+
+    if (data) {
+        await saveCachedData(undefined, undefined, undefined, undefined, undefined, data.items);
+        return { savedEpisodes: data.items, nextUrl: data.next };
+    } else {
+        return { savedEpisodes: [], nextUrl: null };
+    }
+};
+
+export const fetchMoreSavedEpisodes = async (
+    nextUrl: string | null,
+    isLoadingMore: boolean,
+    accessToken: string | null,
+    makeApiRequest: (url: string, errorMessage: string) => Promise<any | null>
+): Promise<{ savedEpisodes: SpotifySavedEpisode[] | null; nextUrl: string | null }> => {
+    if (!nextUrl || isLoadingMore || !accessToken) {
+        return { savedEpisodes: null, nextUrl: null };
+    }
+
+    const data = await makeApiRequest(nextUrl, "More Saved Episodes");
+
+    if (data) {
+        return { savedEpisodes: data.items, nextUrl: data.next };
+    }
+
+    return { savedEpisodes: null, nextUrl: null };
 };
 
 export const fetchMoreAlbums = async (

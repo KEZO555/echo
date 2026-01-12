@@ -14,6 +14,7 @@ import type {
 	SpotifyPlaylist,
 	SpotifySavedAlbum,
 	SpotifySavedShow,
+	SpotifySavedEpisode,
 	SpotifyArtist,
 	SavedTrackObject,
 	SpotifyTrack,
@@ -28,6 +29,8 @@ import {
 	fetchMoreAlbums as fetchMoreAlbumsService,
 	fetchPodcasts as fetchPodcastsService,
 	fetchMorePodcasts as fetchMorePodcastsService,
+	fetchSavedEpisodes as fetchSavedEpisodesService,
+	fetchMoreSavedEpisodes as fetchMoreSavedEpisodesService,
 	fetchArtists as fetchArtistsService,
 	fetchMoreArtists as fetchMoreArtistsService,
 	fetchSavedTracks as fetchSavedTracksService,
@@ -53,6 +56,7 @@ import {
 	refreshSavedAlbumsFromCache,
 	refreshFollowedPodcastsFromCache,
 	refreshFollowedArtistsFromCache,
+	refreshSavedEpisodesFromCache,
 } from "../utils/cache";
 import { makeApiRequest } from "@/shared/utils/spotifyApi";
 
@@ -97,6 +101,14 @@ export interface LibraryContextType {
 	unfollowPodcast: (showId: string) => Promise<boolean>;
 	checkIfFollowingPodcast: (showId: string) => Promise<boolean>;
 
+	savedEpisodes: SpotifySavedEpisode[] | null;
+	savedEpisodesNextUrl: string | null;
+	isLoadingMoreSavedEpisodes: boolean;
+	isRefreshingSavedEpisodes: boolean;
+	fetchSavedEpisodes: () => Promise<void>;
+	fetchMoreSavedEpisodes: () => Promise<void>;
+	refreshSavedEpisodesFromCache: () => Promise<void>;
+
 	savedTracks: SavedTrackObject[] | null;
 	savedTracksNextUrl: string | null;
 	isLoadingMoreSavedTracks: boolean;
@@ -128,17 +140,21 @@ export const LibraryProvider = ({ children }: { children: ReactNode }) => {
 	const [artistsNextUrl, setArtistsNextUrl] = useState<string | null>(null);
 	const [savedTracks, setSavedTracks] = useState<SavedTrackObject[] | null>(null);
 	const [savedTracksNextUrl, setSavedTracksNextUrl] = useState<string | null>(null);
+	const [savedEpisodes, setSavedEpisodes] = useState<SpotifySavedEpisode[] | null>(null);
+	const [savedEpisodesNextUrl, setSavedEpisodesNextUrl] = useState<string | null>(null);
 
 	const [isLoadingMorePlaylists, setIsLoadingMorePlaylists] = useState(false);
 	const [isLoadingMoreAlbums, setIsLoadingMoreAlbums] = useState(false);
 	const [isLoadingMorePodcasts, setIsLoadingMorePodcasts] = useState(false);
 	const [isLoadingMoreArtists, setIsLoadingMoreArtists] = useState(false);
 	const [isLoadingMoreSavedTracks, setIsLoadingMoreSavedTracks] = useState(false);
+	const [isLoadingMoreSavedEpisodes, setIsLoadingMoreSavedEpisodes] = useState(false);
 	const [isRefreshingPlaylists, setIsRefreshingPlaylists] = useState(false);
 	const [isRefreshingAlbums, setIsRefreshingAlbums] = useState(false);
 	const [isRefreshingPodcasts, setIsRefreshingPodcasts] = useState(false);
 	const [isRefreshingArtists, setIsRefreshingArtists] = useState(false);
 	const [isRefreshingSavedTracks, setIsRefreshingSavedTracks] = useState(false);
+	const [isRefreshingSavedEpisodes, setIsRefreshingSavedEpisodes] = useState(false);
 
 	const [isFetchingInitialData, setIsFetchingInitialData] = useState(false);
 	const [initialDataFetchTriggered, setInitialDataFetchTriggered] = useState(false);
@@ -353,6 +369,34 @@ export const LibraryProvider = ({ children }: { children: ReactNode }) => {
 		setIsLoadingMoreSavedTracks(false);
 	}, [savedTracksNextUrl, isLoadingMoreSavedTracks, accessToken, makeApiRequestWithContext]);
 
+	const fetchSavedEpisodes = useCallback(async () => {
+		if (!accessToken) return;
+		setIsRefreshingSavedEpisodes(true);
+
+		const result = await fetchSavedEpisodesService(accessToken, makeApiRequestWithContext, saveCachedData);
+
+		setSavedEpisodes(result.savedEpisodes || []);
+		setSavedEpisodesNextUrl(result.nextUrl);
+		setIsRefreshingSavedEpisodes(false);
+	}, [accessToken, makeApiRequestWithContext]);
+
+	const fetchMoreSavedEpisodes = useCallback(async () => {
+		setIsLoadingMoreSavedEpisodes(true);
+
+		const result = await fetchMoreSavedEpisodesService(
+			savedEpisodesNextUrl,
+			isLoadingMoreSavedEpisodes,
+			accessToken,
+			makeApiRequestWithContext
+		);
+
+		if (result.savedEpisodes) {
+			setSavedEpisodes((prev) => [...(prev || []), ...result.savedEpisodes!]);
+			setSavedEpisodesNextUrl(result.nextUrl);
+		}
+		setIsLoadingMoreSavedEpisodes(false);
+	}, [savedEpisodesNextUrl, isLoadingMoreSavedEpisodes, accessToken, makeApiRequestWithContext]);
+
 	const saveAlbum = useCallback(
 		async (albumId: string): Promise<boolean> => {
 			const result = await saveAlbumService(albumId, accessToken, ensureValidToken);
@@ -471,6 +515,11 @@ export const LibraryProvider = ({ children }: { children: ReactNode }) => {
 		if (cachedArtists) setArtists(cachedArtists);
 	}, []);
 
+	const refreshSavedEpisodesFromCacheMethod = useCallback(async () => {
+		const cachedEpisodes = await refreshSavedEpisodesFromCache();
+		if (cachedEpisodes) setSavedEpisodes(cachedEpisodes);
+	}, []);
+
 	useEffect(() => {
 		const loadCached = async () => {
 			const cachedData = await loadCachedData();
@@ -479,6 +528,7 @@ export const LibraryProvider = ({ children }: { children: ReactNode }) => {
 			setPodcasts(cachedData.podcasts);
 			setArtists(cachedData.artists);
 			setSavedTracks(cachedData.savedTracks);
+			setSavedEpisodes(cachedData.savedEpisodes);
 		};
 		loadCached();
 	}, []);
@@ -572,6 +622,13 @@ export const LibraryProvider = ({ children }: { children: ReactNode }) => {
 		refreshSavedAlbumsFromCache: refreshSavedAlbumsFromCacheMethod,
 		refreshFollowedPodcastsFromCache: refreshFollowedPodcastsFromCacheMethod,
 		refreshFollowedArtistsFromCache: refreshFollowedArtistsFromCacheMethod,
+		savedEpisodes,
+		savedEpisodesNextUrl,
+		isLoadingMoreSavedEpisodes,
+		isRefreshingSavedEpisodes,
+		fetchSavedEpisodes,
+		fetchMoreSavedEpisodes,
+		refreshSavedEpisodesFromCache: refreshSavedEpisodesFromCacheMethod,
 		clearCachedData,
 		makeApiRequest: makeApiRequestWithContext,
 		addTrackToPlaylist,
