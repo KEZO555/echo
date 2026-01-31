@@ -4,6 +4,7 @@ import ContentContainer from "@/shared/components/ContentContainer";
 import CustomScrollView from "@/shared/components/CustomScrollView";
 import { ToggleSwitch } from "@/shared/components/ToggleSwitch";
 import { useSettings } from "@/features/settings";
+import { n } from "@/shared/utils";
 
 type SettingsItem = {
     type: "toggle";
@@ -42,14 +43,13 @@ export default function CustomisePlayingScreen() {
     return (
         <ContentContainer
             headerTitle="Now Playing"
-            gap={0}
-            style={{ paddingRight: 20, paddingBottom: 20 }}
+            style={{ paddingRight: n(20), paddingBottom: n(20), gap: 0 }}
         >
             <CustomScrollView
                 data={settingsItems}
                 renderItem={renderItem}
                 keyExtractor={(_, index) => index.toString()}
-                ItemSeparatorComponent={() => <View style={{ height: 47 }} />}
+                ItemSeparatorComponent={() => <View style={{ height: n(47) }} />}
                 overScrollMode="never"
             />
         </ContentContainer>
