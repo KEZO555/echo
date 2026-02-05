@@ -17,6 +17,7 @@ A minimal Spotify client for Light Phone III built with Expo.
 - Use TypeScript with strict mode enabled
 - Use correct types, never use any
 - Always use context7 when I need code generation, setup or configuration steps, or library/API documentation. This means you should automatically use the Context7 MCP tools to resolve library id and get library docs without me having to explicitly ask.
+- After making code changes, run `bun x ultracite fix` to auto-format and lint
 
 #### React useEffect Guidelines
 Before using `useEffect` read: [You Might Not Need an Effect](https://react.dev/learn/you-might-not-need-an-effect)

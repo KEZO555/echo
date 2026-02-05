@@ -22,7 +22,6 @@ import {
 	seekToPosition as seekToPositionService,
 	getCurrentTrack as getCurrentTrackService,
 	getAlbumArt as getAlbumArtService,
-	addTrackToPlaylist as addTrackToPlaylistService,
 	playTrackWithContext as playTrackWithContextService,
 	skipToIndex as skipToIndexService,
 	addToLibrary as addToLibraryService,
@@ -65,8 +64,6 @@ export interface PlaybackContextType {
 	addToLibrary: (uri: string) => Promise<boolean>;
 	removeFromLibrary: (uri: string) => Promise<boolean>;
 	getLibraryState: (uri: string) => Promise<{ isAdded: boolean; canAdd: boolean } | null>;
-
-	addTrackToPlaylist: (playlistId: string, trackUri: string) => Promise<boolean>;
 
 	forceAppRemoteConnection: () => Promise<boolean>;
 }
@@ -147,12 +144,6 @@ export const PlaybackProvider = ({ children }: { children: ReactNode }) => {
 
 	const seekToPosition = useCallback((positionMs: number) => seekToPositionService(positionMs), []);
 
-	const addTrackToPlaylist = useCallback(
-		(playlistId: string, trackUri: string) =>
-			addTrackToPlaylistService(playlistId, trackUri, accessToken, ensureValidToken),
-		[accessToken, ensureValidToken]
-	);
-
 	const addToLibrary = useCallback(
 		(uri: string) => addToLibraryService(uri, accessToken),
 		[accessToken]
@@ -183,7 +174,6 @@ export const PlaybackProvider = ({ children }: { children: ReactNode }) => {
 		skipToPrevious,
 		toggleShuffle,
 		toggleRepeat,
-		addTrackToPlaylist,
 		seekToPosition,
 		addToLibrary,
 		removeFromLibrary,

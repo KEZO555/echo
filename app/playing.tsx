@@ -126,7 +126,6 @@ export default function PlayingScreen() {
 
     const [playbackState, setPlaybackState] =
         useState<SpotifyCurrentlyPlaying | null>(initialState);
-    const [isInitialLoading, setIsInitialLoading] = useState(true);
     const [isCurrentTrackSaved, setIsCurrentTrackSaved] = useState(false);
     const [pendingSaveOperation, setPendingSaveOperation] = useState(false);
     const [optimisticSaveState, setOptimisticSaveState] = useState<boolean | null>(null);

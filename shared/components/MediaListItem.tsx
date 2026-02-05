@@ -11,7 +11,6 @@ interface MediaListItemProps {
     secondaryText?: string;
     imageUri?: string;
     placeholderIcon?: keyof typeof MaterialIcons.glyphMap;
-    isLoading?: boolean;
     disabled?: boolean;
     onPress: () => void;
     imageStyle?: StyleProp<ImageStyle>;
@@ -23,7 +22,6 @@ export function MediaListItem({
     secondaryText,
     imageUri,
     placeholderIcon = "music-note",
-    isLoading = false,
     disabled = false,
     onPress,
     imageStyle,
@@ -48,7 +46,6 @@ export function MediaListItem({
                             size={n(24)}
                             color={disabled ? "#666" : "white"}
                         />
-                        {isLoading && <View style={styles.loadingOverlay} />}
                     </View>
                 ) : (
                     <View style={styles.imageContainer}>
@@ -57,7 +54,6 @@ export function MediaListItem({
                             style={[styles.image, imageStyle]}
                             onError={() => setImageError(true)}
                         />
-                        {isLoading && <View style={styles.loadingOverlay} />}
                     </View>
                 )
             )}
@@ -112,16 +108,6 @@ const styles = StyleSheet.create({
     secondaryText: {
         fontSize: n(16),
         lineHeight: n(18),
-    },
-    loadingOverlay: {
-        position: "absolute",
-        top: 0,
-        left: 0,
-        width: "100%",
-        height: "100%",
-        backgroundColor: "rgba(0, 0, 0, 0)",
-        justifyContent: "center",
-        alignItems: "center",
     },
     disabledContainer: {
         opacity: 0.3,

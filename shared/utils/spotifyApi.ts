@@ -13,26 +13,6 @@ import { log, logWarn, logError } from "./logger";
 let isRefreshInProgress = false;
 let refreshPromise: Promise<boolean> | null = null;
 
-// Request deduplication for frequently called endpoints
-const inFlightRequests = new Map<string, Promise<unknown>>();
-
-export const deduplicatedRequest = async <T>(
-    key: string,
-    request: () => Promise<T>
-): Promise<T> => {
-    if (inFlightRequests.has(key)) {
-        log(`API: Reusing in-flight request for ${key}`);
-        return inFlightRequests.get(key) as Promise<T>;
-    }
-
-    const promise = request().finally(() => {
-        inFlightRequests.delete(key);
-    });
-
-    inFlightRequests.set(key, promise);
-    return promise;
-};
-
 export const makeApiRequest = async (
     url: string,
     errorMessage: string,

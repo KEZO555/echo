@@ -1,7 +1,6 @@
 import { spotify } from "@/modules/spotify-sdk";
 import type {
     SpotifyCurrentlyPlaying,
-    SpotifySearchResults,
     SpotifyImage,
     SpotifyEpisode,
     SpotifyShow,
@@ -451,88 +450,6 @@ export const getAlbumArt = async (
     } catch (error) {
         log("Playback: Error getting album art:", error);
         return null;
-    }
-};
-
-export const searchItems = async (
-    query: string,
-    types: string[],
-    accessToken: string | null,
-    ensureValidToken?: () => Promise<string | null>
-): Promise<SpotifySearchResults | null> => {
-    if (!query.trim()) return null;
-
-    // Use token validation if available, otherwise use the provided token
-    let validToken = accessToken;
-    if (ensureValidToken) {
-        const refreshedToken = await ensureValidToken();
-        if (refreshedToken) {
-            validToken = refreshedToken;
-        }
-    }
-
-    if (!validToken) return null;
-
-    const typeString = types.join(",");
-    const url = `https://api.spotify.com/v1/search?q=${encodeURIComponent(
-        query
-    )}&type=${encodeURIComponent(typeString)}&limit=10`;
-
-    try {
-        const response = await fetch(url, {
-            headers: { Authorization: `Bearer ${validToken}` },
-        });
-        if (!response.ok) {
-            if (response.status === 401) {
-                log("Search: Token expired");
-            }
-            return null;
-        }
-        return await response.json();
-    } catch (error) {
-        logError("Playback: Search error:", error);
-        return null;
-    }
-};
-
-export const addTrackToPlaylist = async (
-    playlistId: string,
-    trackUri: string,
-    accessToken: string | null,
-    ensureValidToken?: () => Promise<string | null>
-): Promise<boolean> => {
-    if (!playlistId || !trackUri) return false;
-
-    // Use token validation if available, otherwise use the provided token
-    let validToken = accessToken;
-    if (ensureValidToken) {
-        const refreshedToken = await ensureValidToken();
-        if (refreshedToken) {
-            validToken = refreshedToken;
-        }
-    }
-
-    if (!validToken) return false;
-
-    try {
-        const response = await fetch(
-            `https://api.spotify.com/v1/playlists/${playlistId}/tracks`,
-            {
-                method: "POST",
-                headers: {
-                    Authorization: `Bearer ${validToken}`,
-                    "Content-Type": "application/json",
-                },
-                body: JSON.stringify({ uris: [trackUri] }),
-            }
-        );
-        if (!response.ok && response.status === 401) {
-            log("AddTrackToPlaylist: Token expired");
-        }
-        return response.ok;
-    } catch (error) {
-        logError("Playback: Error adding track to playlist:", error);
-        return false;
     }
 };
 

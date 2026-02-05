@@ -159,13 +159,6 @@ export const LibraryProvider = ({ children }: { children: ReactNode }) => {
 	const [isFetchingInitialData, setIsFetchingInitialData] = useState(false);
 	const [initialDataFetchTriggered, setInitialDataFetchTriggered] = useState(false);
 
-	const handleTokenUpdate = useCallback(
-		(newAccessToken: string, newRefreshToken?: string, expiry?: number) => {
-			// Token updates are handled by AuthContext
-		},
-		[]
-	);
-
 	const makeApiRequestWithContext = useCallback(
 		(
 			url: string,
@@ -180,13 +173,13 @@ export const LibraryProvider = ({ children }: { children: ReactNode }) => {
 				accessToken,
 				refreshToken,
 				tokenExpiry,
-				handleTokenUpdate,
+				() => {},
 				logout,
 				isRefreshing,
 				retryCount,
 				options
 			),
-		[accessToken, refreshToken, tokenExpiry, handleTokenUpdate, logout]
+		[accessToken, refreshToken, tokenExpiry, logout]
 	);
 
 	const fetchInitialData = useCallback(
