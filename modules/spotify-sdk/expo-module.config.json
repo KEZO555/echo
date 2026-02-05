@@ -1,11 +1,7 @@
 {
-  "platforms": [
-    "android"
-  ],
+  "platforms": ["android"],
   "android": {
-    "modules": [
-      "expo.modules.spotifysdk.SpotifySdkModule"
-    ],
+    "modules": ["expo.modules.spotifysdk.SpotifySdkModule"],
     "gradleAarProjects": [
       {
         "name": "spotify-auth",

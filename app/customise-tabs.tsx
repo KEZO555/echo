@@ -1,53 +1,63 @@
-import React from "react";
-import { ToggleSwitch } from "@/shared/components/ToggleSwitch";
-import { useSettings, TabId } from "@/features/settings";
+import { type TabId, useSettings } from "@/features/settings";
 import ContentContainer from "@/shared/components/ContentContainer";
+import { ToggleSwitch } from "@/shared/components/ToggleSwitch";
 import { n } from "@/shared/utils";
 
 interface TabConfig {
-    id: TabId;
-    label: string;
-    preferenceKey: "showLikedSongs" | "showArtists" | "showAlbums" | "showPodcasts" | "showPlaylists" | "showSearch";
+  id: TabId;
+  label: string;
+  preferenceKey:
+    | "showLikedSongs"
+    | "showArtists"
+    | "showAlbums"
+    | "showPodcasts"
+    | "showPlaylists"
+    | "showSearch";
 }
 
 const TAB_CONFIGS: Record<TabId, TabConfig> = {
-    index: { id: "index", label: "Liked Songs", preferenceKey: "showLikedSongs" },
-    artists: { id: "artists", label: "Artists", preferenceKey: "showArtists" },
-    albums: { id: "albums", label: "Albums", preferenceKey: "showAlbums" },
-    podcasts: { id: "podcasts", label: "Podcasts", preferenceKey: "showPodcasts" },
-    playlists: { id: "playlists", label: "Playlists", preferenceKey: "showPlaylists" },
-    search: { id: "search", label: "Search", preferenceKey: "showSearch" },
+  index: { id: "index", label: "Liked Songs", preferenceKey: "showLikedSongs" },
+  artists: { id: "artists", label: "Artists", preferenceKey: "showArtists" },
+  albums: { id: "albums", label: "Albums", preferenceKey: "showAlbums" },
+  podcasts: {
+    id: "podcasts",
+    label: "Podcasts",
+    preferenceKey: "showPodcasts",
+  },
+  playlists: {
+    id: "playlists",
+    label: "Playlists",
+    preferenceKey: "showPlaylists",
+  },
+  search: { id: "search", label: "Search", preferenceKey: "showSearch" },
 };
 
 export default function CustomiseTabsScreen() {
-    const { tabPreferences, updateTabPreference, reorderTab, isLoading } = useSettings();
+  const { tabPreferences, updateTabPreference, reorderTab, isLoading } =
+    useSettings();
 
-    if (isLoading) {
-        return (
-            <ContentContainer headerTitle="Customise Tabs">
-            </ContentContainer>
-        );
-    }
+  if (isLoading) {
+    return <ContentContainer headerTitle="Customise Tabs" />;
+  }
 
-    const orderedTabs = tabPreferences.tabOrder.map(id => TAB_CONFIGS[id]);
+  const orderedTabs = tabPreferences.tabOrder.map((id) => TAB_CONFIGS[id]);
 
-    return (
-        <ContentContainer
-            headerTitle="Customise Tabs"
-            style={{ gap: n(20) }}
-        >
-            {orderedTabs.map((tab, index) => (
-                <ToggleSwitch
-                    key={tab.id}
-                    label={tab.label}
-                    value={tabPreferences[tab.preferenceKey]}
-                    onValueChange={(value) => updateTabPreference(tab.preferenceKey, value)}
-                    onMoveUp={() => reorderTab(tab.id, "up")}
-                    onMoveDown={() => reorderTab(tab.id, "down")}
-                    isFirst={index === 0}
-                    isLast={index === orderedTabs.length - 1}
-                />
-            ))}
-        </ContentContainer>
-    );
+  return (
+    <ContentContainer headerTitle="Customise Tabs" style={{ gap: n(20) }}>
+      {orderedTabs.map((tab, index) => (
+        <ToggleSwitch
+          isFirst={index === 0}
+          isLast={index === orderedTabs.length - 1}
+          key={tab.id}
+          label={tab.label}
+          onMoveDown={() => reorderTab(tab.id, "down")}
+          onMoveUp={() => reorderTab(tab.id, "up")}
+          onValueChange={(value) =>
+            updateTabPreference(tab.preferenceKey, value)
+          }
+          value={tabPreferences[tab.preferenceKey]}
+        />
+      ))}
+    </ContentContainer>
+  );
 }

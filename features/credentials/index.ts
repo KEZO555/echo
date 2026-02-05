@@ -1,2 +1,7 @@
-export { CredentialsProvider, useCredentials, REDIRECT_URI, getStoredCredentials } from "./contexts/CredentialsContext";
 export type { Credentials } from "./contexts/CredentialsContext";
+export {
+  CredentialsProvider,
+  getStoredCredentials,
+  REDIRECT_URI,
+  useCredentials,
+} from "./contexts/CredentialsContext";
