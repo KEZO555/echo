@@ -4,6 +4,7 @@ import React, {
 	useState,
 	useEffect,
 	useCallback,
+	useMemo,
 	ReactNode,
 } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -252,7 +253,7 @@ export const SettingsProvider = ({ children }: { children: ReactNode }) => {
 		[tabPreferences]
 	);
 
-	const value: SettingsContextType = {
+	const value: SettingsContextType = useMemo(() => ({
 		triggerHaptic,
 		invertColors,
 		setInvertColors,
@@ -276,7 +277,7 @@ export const SettingsProvider = ({ children }: { children: ReactNode }) => {
 		updateTabPreference,
 		reorderTab,
 		isLoading,
-	};
+	}), [triggerHaptic, invertColors, setInvertColors, hideAlbumCovers, setHideAlbumCovers, hideDetailCovers, setHideDetailCovers, hideCreatePlaylist, setHideCreatePlaylist, hideLikeButton, setHideLikeButton, hideDevicesButton, setHideDevicesButton, hideAddToPlaylistButton, setHideAddToPlaylistButton, hidePlayingCover, setHidePlayingCover, hideYourEpisodes, setHideYourEpisodes, tabPreferences, updateTabPreference, reorderTab, isLoading]);
 
 	return (
 		<SettingsContext.Provider value={value}>

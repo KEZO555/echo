@@ -10,6 +10,8 @@ import { formatDuration, getLargestImage, n } from "@/shared/utils";
 import { usePreventDoubleTap, useNetworkState } from "@/shared/hooks";
 import { tabScreenStyles as styles } from "@/shared/styles/detailScreen";
 
+const ItemSeparator = () => <View style={{ height: n(8) }} />;
+
 export default function YourEpisodesScreen() {
     const { accessToken, user, isLoading: isAuthLoading } = useAuth();
     const { playTrackWithContext } = usePlayback();
@@ -116,7 +118,7 @@ export default function YourEpisodesScreen() {
                 renderItem={renderEpisodeItem}
                 keyExtractor={(item) => item.episode.id}
                 overScrollMode="never"
-                ItemSeparatorComponent={() => <View style={{ height: n(8) }} />}
+                ItemSeparatorComponent={ItemSeparator}
                 onEndReached={() => {
                     if (savedEpisodesNextUrl && !isLoadingMoreSavedEpisodes && isOnline) {
                         fetchMoreSavedEpisodes();

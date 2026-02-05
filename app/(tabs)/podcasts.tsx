@@ -13,8 +13,9 @@ import { getLargestImage } from "@/shared/utils/formatters";
 import { n } from "@/shared/utils";
 import {
     refreshFollowedPodcastsFromCache,
-    isShowCached,
 } from "@/features/library/utils/cache";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { SHOW_DETAIL_KEY_PREFIX } from "@/constants/spotify";
 import { useNetworkState, usePreventDoubleTap } from "@/shared/hooks";
 import { tabScreenStyles as styles } from "@/shared/styles/detailScreen";
 import { useSettings } from "@/features/settings";
@@ -35,9 +36,7 @@ export default function PodcastsScreen() {
 
     const { isOnline } = useNetworkState();
     const { hideYourEpisodes } = useSettings();
-    const [sortedPodcasts, setSortedPodcasts] = useState<
-        SpotifySavedShow[] | null
-    >(null);
+    const [offlinePodcasts, setOfflinePodcasts] = useState<SpotifySavedShow[] | null>(null);
     const [cachedShowIds, setCachedShowIds] = useState<Set<string>>(new Set());
 
     useEffect(() => {
@@ -52,28 +51,19 @@ export default function PodcastsScreen() {
         }
     }, [accessToken, user, podcasts, isLoading, isRefreshingPodcasts]);
 
-    useEffect(() => {
-        if (podcasts) {
-            const newSortedPodcasts = [...podcasts].sort((a, b) => {
-                const showA = a.show.name.toLowerCase();
-                const showB = b.show.name.toLowerCase();
-                if (showA < showB) return -1;
-                if (showA > showB) return 1;
-                return 0;
-            });
-            setSortedPodcasts(newSortedPodcasts);
-        }
-    }, [podcasts]);
+    const podcastSource = podcasts ?? offlinePodcasts;
+    const sortedPodcasts = useMemo(() =>
+        podcastSource ? [...podcastSource].sort((a, b) => a.show.name.localeCompare(b.show.name)) : null
+    , [podcastSource]);
 
     const checkCachedShows = useCallback(async () => {
         if (!sortedPodcasts) return;
+        const keys = sortedPodcasts.map(s => `${SHOW_DETAIL_KEY_PREFIX}${s.show.id}`);
+        const results = await AsyncStorage.multiGet(keys);
         const cachedIds = new Set<string>();
-        for (const show of sortedPodcasts) {
-            const cached = await isShowCached(show.show.id);
-            if (cached) {
-                cachedIds.add(show.show.id);
-            }
-        }
+        results.forEach(([, value], index) => {
+            if (value !== null) cachedIds.add(sortedPodcasts[index].show.id);
+        });
         setCachedShowIds(cachedIds);
     }, [sortedPodcasts]);
 
@@ -91,14 +81,7 @@ export default function PodcastsScreen() {
             try {
                 const cachedShows = await refreshFollowedPodcastsFromCache();
                 if (cachedShows && cachedShows.length > 0) {
-                    const newSortedPodcasts = [...cachedShows].sort((a, b) => {
-                        const showA = a.show.name.toLowerCase();
-                        const showB = b.show.name.toLowerCase();
-                        if (showA < showB) return -1;
-                        if (showA > showB) return 1;
-                        return 0;
-                    });
-                    setSortedPodcasts(newSortedPodcasts);
+                    setOfflinePodcasts(cachedShows);
                     log(
                         `Podcasts: Loaded ${cachedShows.length} cached followed podcasts`
                     );

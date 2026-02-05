@@ -1,5 +1,6 @@
 import React, { useState } from "react";
-import { View, StyleSheet, Image, StyleProp, ViewStyle, ImageStyle } from "react-native";
+import { View, StyleSheet, StyleProp, ViewStyle } from "react-native";
+import { Image, ImageStyle } from "expo-image";
 import { n } from "@/shared/utils";
 import { HapticPressable } from "@/shared/components/HapticPressable";
 import { StyledText } from "@/shared/components/StyledText";
@@ -17,7 +18,7 @@ interface MediaListItemProps {
     style?: StyleProp<ViewStyle>;
 }
 
-export function MediaListItem({
+export const MediaListItem = React.memo(function MediaListItem({
     primaryText,
     secondaryText,
     imageUri,
@@ -52,6 +53,7 @@ export function MediaListItem({
                         <Image
                             source={{ uri: imageUri }}
                             style={[styles.image, imageStyle]}
+                            cachePolicy="disk"
                             onError={() => setImageError(true)}
                         />
                     </View>
@@ -69,7 +71,7 @@ export function MediaListItem({
             </View>
         </HapticPressable>
     );
-}
+});
 
 const styles = StyleSheet.create({
     itemContainer: {

@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from "react";
+import React, { useEffect, useState, useCallback, useMemo } from "react";
 import {
     View,
     RefreshControl,
@@ -10,7 +10,9 @@ import { StyledText, ContentContainer, CustomScrollView, MediaListItem } from "@
 import { useRouter, useFocusEffect } from "expo-router";
 import { logError, log } from "@/shared/utils/logger";
 import { n } from "@/shared/utils";
-import { refreshPlaylistsFromCache, isPlaylistCached } from "@/features/library/utils/cache";
+import { refreshPlaylistsFromCache } from "@/features/library/utils/cache";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { PLAYLIST_DETAIL_KEY_PREFIX } from "@/constants/spotify";
 import { useNetworkState, usePreventDoubleTap } from "@/shared/hooks";
 import { tabScreenStyles as styles } from "@/shared/styles/detailScreen";
 import { useSettings } from "@/features/settings";
@@ -31,9 +33,7 @@ export default function PlaylistsScreen() {
 
     const { isOnline } = useNetworkState();
     const { hideCreatePlaylist } = useSettings();
-    const [sortedPlaylists, setSortedPlaylists] = useState<
-        SpotifyPlaylist[] | null
-    >(null);
+    const [offlinePlaylists, setOfflinePlaylists] = useState<SpotifyPlaylist[] | null>(null);
     const [cachedPlaylistIds, setCachedPlaylistIds] = useState<Set<string>>(new Set());
 
     useEffect(() => {
@@ -48,38 +48,24 @@ export default function PlaylistsScreen() {
         }
     }, [accessToken, user, playlists, fetchPlaylists, isLoading, isRefreshingPlaylists]);
 
-    useEffect(() => {
-        if (playlists) {
-            const newSortedPlaylists = [...playlists].sort((a, b) => {
-                const ownerA =
-                    a.owner.display_name?.toLowerCase() ||
-                    a.owner.id.toLowerCase() ||
-                    "";
-                const ownerB =
-                    b.owner.display_name?.toLowerCase() ||
-                    b.owner.id.toLowerCase() ||
-                    "";
-                if (ownerA < ownerB) return -1;
-                if (ownerA > ownerB) return 1;
-                const nameA = a.name.toLowerCase();
-                const nameB = b.name.toLowerCase();
-                if (nameA < nameB) return -1;
-                if (nameA > nameB) return 1;
-                return 0;
-            });
-            setSortedPlaylists(newSortedPlaylists);
-        }
-    }, [playlists]);
+    const playlistSource = playlists ?? offlinePlaylists;
+    const sortedPlaylists = useMemo(() =>
+        playlistSource ? [...playlistSource].sort((a, b) => {
+            const ownerCmp = (a.owner.display_name ?? a.owner.id ?? "")
+                .localeCompare(b.owner.display_name ?? b.owner.id ?? "");
+            if (ownerCmp !== 0) return ownerCmp;
+            return a.name.localeCompare(b.name);
+        }) : null
+    , [playlistSource]);
 
     const checkCachedPlaylists = useCallback(async () => {
         if (!sortedPlaylists) return;
+        const keys = sortedPlaylists.map(p => `${PLAYLIST_DETAIL_KEY_PREFIX}${p.id}`);
+        const results = await AsyncStorage.multiGet(keys);
         const cachedIds = new Set<string>();
-        for (const playlist of sortedPlaylists) {
-            const isCached = await isPlaylistCached(playlist.id);
-            if (isCached) {
-                cachedIds.add(playlist.id);
-            }
-        }
+        results.forEach(([, value], index) => {
+            if (value !== null) cachedIds.add(sortedPlaylists[index].id);
+        });
         setCachedPlaylistIds(cachedIds);
     }, [sortedPlaylists]);
 
@@ -97,25 +83,7 @@ export default function PlaylistsScreen() {
             try {
                 const cachedPlaylists = await refreshPlaylistsFromCache();
                 if (cachedPlaylists && cachedPlaylists.length > 0) {
-                    const newSortedPlaylists = [...cachedPlaylists].sort((a, b) => {
-                        const ownerA =
-                            a.owner.display_name?.toLowerCase() ||
-                            a.owner.id.toLowerCase() ||
-                            "";
-                        const ownerB =
-                            b.owner.display_name?.toLowerCase() ||
-                            b.owner.id.toLowerCase() ||
-                            "";
-                        if (ownerA < ownerB) return -1;
-                        if (ownerA > ownerB) return 1;
-                        // If owners are the same, sort by playlist name
-                        const nameA = a.name.toLowerCase();
-                        const nameB = b.name.toLowerCase();
-                        if (nameA < nameB) return -1;
-                        if (nameA > nameB) return 1;
-                        return 0;
-                    });
-                    setSortedPlaylists(newSortedPlaylists);
+                    setOfflinePlaylists(cachedPlaylists);
                     log(`Playlists: Loaded ${cachedPlaylists.length} cached playlists`);
                 } else {
                     log("Playlists: No cached playlists found");

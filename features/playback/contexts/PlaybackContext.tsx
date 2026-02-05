@@ -3,6 +3,7 @@ import React, {
 	useContext,
 	ReactNode,
 	useCallback,
+	useMemo,
 } from "react";
 import { useSpotifyConnection, spotify } from "@/modules/spotify-sdk";
 import { useAuth } from "@/features/auth/contexts/AuthContext";
@@ -160,7 +161,7 @@ export const PlaybackProvider = ({ children }: { children: ReactNode }) => {
 		return await forceAppRemoteConnectionService();
 	}, []);
 
-	const value: PlaybackContextType = {
+	const value: PlaybackContextType = useMemo(() => ({
 		isConnectedToAppRemote,
 		playTracksWithWebApi,
 		playTrackWithContext,
@@ -179,7 +180,7 @@ export const PlaybackProvider = ({ children }: { children: ReactNode }) => {
 		removeFromLibrary,
 		getLibraryState,
 		forceAppRemoteConnection: forceAppRemoteConnectionMethod,
-	};
+	}), [isConnectedToAppRemote, playTracksWithWebApi, playTrackWithContext, skipToIndex, getPlaybackState, getCurrentTrack, getAlbumArt, startPlayback, pausePlayback, skipToNext, skipToPrevious, toggleShuffle, toggleRepeat, seekToPosition, addToLibrary, removeFromLibrary, getLibraryState, forceAppRemoteConnectionMethod]);
 
 	return <PlaybackContext.Provider value={value}>{children}</PlaybackContext.Provider>;
 };

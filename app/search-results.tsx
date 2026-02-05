@@ -22,6 +22,8 @@ import { useNetworkState } from "@/shared/hooks/useNetworkState";
 import { usePreventDoubleTap } from "@/shared/hooks/usePreventDoubleTap";
 import { useSettings } from "@/features/settings";
 
+const ItemSeparator = () => <View style={{ height: n(8) }} />;
+
 type SearchItem =
     | { type: "track"; data: SpotifyTrack }
     | { type: "playlist"; data: SpotifyPlaylistSimple }
@@ -324,9 +326,7 @@ export default function SearchResultsScreen() {
                         }
                         style={styles.list}
                         contentContainerStyle={styles.listContentContainer}
-                        ItemSeparatorComponent={() => (
-                            <View style={{ height: n(8) }} />
-                        )}
+                        ItemSeparatorComponent={ItemSeparator}
                         overScrollMode={"never"}
                     />
                 </View>

@@ -1,5 +1,6 @@
 import React, { useState } from "react";
-import { Image, View, StyleSheet, StyleProp, ImageStyle, ViewStyle } from "react-native";
+import { View, StyleSheet, StyleProp, ViewStyle } from "react-native";
+import { Image, ImageStyle } from "expo-image";
 import { MaterialIcons } from "@expo/vector-icons";
 import { StyledText } from "./StyledText";
 
@@ -11,10 +12,9 @@ interface FallbackImageProps {
     placeholderText?: string;
     placeholderIconSize?: number;
     placeholderIconColor?: string;
-    fadeDuration?: number;
 }
 
-export function FallbackImage({
+export const FallbackImage = React.memo(function FallbackImage({
     uri,
     style,
     containerStyle,
@@ -22,7 +22,6 @@ export function FallbackImage({
     placeholderText,
     placeholderIconSize = 100,
     placeholderIconColor = "white",
-    fadeDuration = 0,
 }: FallbackImageProps) {
     const [hasError, setHasError] = useState(false);
 
@@ -51,12 +50,12 @@ export function FallbackImage({
             <Image
                 source={{ uri }}
                 style={style}
-                fadeDuration={fadeDuration}
+                cachePolicy="disk"
                 onError={() => setHasError(true)}
             />
         </View>
     );
-}
+});
 
 const styles = StyleSheet.create({
     placeholderContainer: {

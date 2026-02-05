@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from "react";
+import React, { useEffect, useState, useCallback, useMemo } from "react";
 import {
     View,
     RefreshControl,
@@ -9,7 +9,9 @@ import type { SpotifySavedAlbum } from "@/shared/types/spotify";
 import { StyledText, ContentContainer, CustomScrollView, MediaListItem } from "@/shared/components";
 import { useRouter, useFocusEffect } from "expo-router";
 import { log, logError, getArtistNames, n } from "@/shared/utils";
-import { refreshSavedAlbumsFromCache, isAlbumCached } from "@/features/library/utils/cache";
+import { refreshSavedAlbumsFromCache } from "@/features/library/utils/cache";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { ALBUM_DETAIL_KEY_PREFIX } from "@/constants/spotify";
 import { useNetworkState, usePreventDoubleTap } from "@/shared/hooks";
 import { tabScreenStyles as styles } from "@/shared/styles/detailScreen";
 
@@ -26,9 +28,7 @@ export default function AlbumsScreen() {
     const router = useRouter();
 
     const { isOnline, isLoading: networkLoading } = useNetworkState();
-    const [sortedAlbums, setSortedAlbums] = useState<
-        SpotifySavedAlbum[] | null
-    >(null);
+    const [offlineAlbums, setOfflineAlbums] = useState<SpotifySavedAlbum[] | null>(null);
     const [cachedAlbumIds, setCachedAlbumIds] = useState<Set<string>>(new Set());
 
     useEffect(() => {
@@ -43,28 +43,21 @@ export default function AlbumsScreen() {
         }
     }, [accessToken, user, albums, isLoading, isRefreshingAlbums]);
 
-    useEffect(() => {
-        if (albums) {
-            const newSortedAlbums = [...albums].sort((a, b) => {
-                const artistA = a.album.artists[0]?.name.toLowerCase() || "";
-                const artistB = b.album.artists[0]?.name.toLowerCase() || "";
-                if (artistA < artistB) return -1;
-                if (artistA > artistB) return 1;
-                return 0;
-            });
-            setSortedAlbums(newSortedAlbums);
-        }
-    }, [albums]);
+    const albumSource = albums ?? offlineAlbums;
+    const sortedAlbums = useMemo(() =>
+        albumSource ? [...albumSource].sort((a, b) =>
+            (a.album.artists[0]?.name ?? "").localeCompare(b.album.artists[0]?.name ?? "")
+        ) : null
+    , [albumSource]);
 
     const checkCachedAlbums = useCallback(async () => {
         if (!sortedAlbums) return;
+        const keys = sortedAlbums.map(a => `${ALBUM_DETAIL_KEY_PREFIX}${a.album.id}`);
+        const results = await AsyncStorage.multiGet(keys);
         const cachedIds = new Set<string>();
-        for (const album of sortedAlbums) {
-            const isCached = await isAlbumCached(album.album.id);
-            if (isCached) {
-                cachedIds.add(album.album.id);
-            }
-        }
+        results.forEach(([, value], index) => {
+            if (value !== null) cachedIds.add(sortedAlbums[index].album.id);
+        });
         setCachedAlbumIds(cachedIds);
     }, [sortedAlbums]);
 
@@ -82,14 +75,7 @@ export default function AlbumsScreen() {
             try {
                 const cachedAlbums = await refreshSavedAlbumsFromCache();
                 if (cachedAlbums && cachedAlbums.length > 0) {
-                    const newSortedAlbums = [...cachedAlbums].sort((a, b) => {
-                        const artistA = a.album.artists[0]?.name.toLowerCase() || "";
-                        const artistB = b.album.artists[0]?.name.toLowerCase() || "";
-                        if (artistA < artistB) return -1;
-                        if (artistA > artistB) return 1;
-                        return 0;
-                    });
-                    setSortedAlbums(newSortedAlbums);
+                    setOfflineAlbums(cachedAlbums);
                     log(`Albums: Loaded ${cachedAlbums.length} cached albums`);
                 } else {
                     log("Albums: No cached albums found");

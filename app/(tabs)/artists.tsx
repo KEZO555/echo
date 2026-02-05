@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from "react";
+import React, { useCallback, useMemo } from "react";
 import {
     View,
     RefreshControl,
@@ -25,24 +25,12 @@ export default function ArtistsScreen() {
     const router = useRouter();
 
     const { isOnline } = useNetworkState();
-    const [sortedArtists, setSortedArtists] = useState<
-        SpotifyArtist[] | null
-    >(null);
-
-    useEffect(() => {
-        if (artists) {
-            const newSortedArtists = [...artists]
-                .filter((artist) => artist.id && artist.name)
-                .sort((a, b) => {
-                    const artistA = (a.name || "").toLowerCase();
-                    const artistB = (b.name || "").toLowerCase();
-                    if (artistA < artistB) return -1;
-                    if (artistA > artistB) return 1;
-                    return 0;
-                });
-            setSortedArtists(newSortedArtists);
-        }
-    }, [artists]);
+    const sortedArtists = useMemo(() =>
+        artists
+            ? [...artists].filter((artist) => artist.id && artist.name)
+                .sort((a, b) => (a.name ?? "").localeCompare(b.name ?? ""))
+            : null
+    , [artists]);
 
     const handleRefresh = useCallback(() => {
         if (!isRefreshingArtists) {

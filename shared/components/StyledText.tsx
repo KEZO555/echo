@@ -6,7 +6,7 @@ interface StyledTextProps extends TextProps {
     children: React.ReactNode;
 }
 
-export function StyledText({ style, ...rest }: StyledTextProps) {
+export const StyledText = React.memo(function StyledText({ style, ...rest }: StyledTextProps) {
     const { invertColors } = useSettings();
     return (
         <DefaultText
@@ -18,7 +18,7 @@ export function StyledText({ style, ...rest }: StyledTextProps) {
             {...rest}
         />
     );
-}
+});
 
 const styles = StyleSheet.create({
     text: {

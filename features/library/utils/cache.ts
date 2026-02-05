@@ -81,36 +81,14 @@ export const saveCachedData = async (
     savedEpisodesData?: SpotifySavedEpisode[]
 ) => {
     try {
-        if (playlistsData) {
-            await AsyncStorage.setItem(
-                PLAYLISTS_KEY,
-                JSON.stringify(playlistsData)
-            );
-        }
-        if (albumsData) {
-            await AsyncStorage.setItem(ALBUMS_KEY, JSON.stringify(albumsData));
-        }
-        if (podcastsData) {
-            await AsyncStorage.setItem(
-                PODCASTS_KEY,
-                JSON.stringify(podcastsData)
-            );
-        }
-        if (artistsData) {
-            await AsyncStorage.setItem(ARTISTS_KEY, JSON.stringify(artistsData));
-        }
-        if (tracksData) {
-            await AsyncStorage.setItem(
-                SAVED_TRACKS_KEY,
-                JSON.stringify(tracksData)
-            );
-        }
-        if (savedEpisodesData) {
-            await AsyncStorage.setItem(
-                SAVED_EPISODES_KEY,
-                JSON.stringify(savedEpisodesData)
-            );
-        }
+        const pairs: [string, string][] = [];
+        if (playlistsData) pairs.push([PLAYLISTS_KEY, JSON.stringify(playlistsData)]);
+        if (albumsData) pairs.push([ALBUMS_KEY, JSON.stringify(albumsData)]);
+        if (podcastsData) pairs.push([PODCASTS_KEY, JSON.stringify(podcastsData)]);
+        if (artistsData) pairs.push([ARTISTS_KEY, JSON.stringify(artistsData)]);
+        if (tracksData) pairs.push([SAVED_TRACKS_KEY, JSON.stringify(tracksData)]);
+        if (savedEpisodesData) pairs.push([SAVED_EPISODES_KEY, JSON.stringify(savedEpisodesData)]);
+        if (pairs.length > 0) await AsyncStorage.multiSet(pairs);
     } catch (error) {
         logError("Cache: Error saving cached data:", error);
     }
@@ -118,12 +96,14 @@ export const saveCachedData = async (
 
 export const clearCachedData = async () => {
     try {
-        await AsyncStorage.removeItem(PLAYLISTS_KEY);
-        await AsyncStorage.removeItem(ALBUMS_KEY);
-        await AsyncStorage.removeItem(PODCASTS_KEY);
-        await AsyncStorage.removeItem(ARTISTS_KEY);
-        await AsyncStorage.removeItem(SAVED_TRACKS_KEY);
-        await AsyncStorage.removeItem(SAVED_EPISODES_KEY);
+        await AsyncStorage.multiRemove([
+            PLAYLISTS_KEY,
+            ALBUMS_KEY,
+            PODCASTS_KEY,
+            ARTISTS_KEY,
+            SAVED_TRACKS_KEY,
+            SAVED_EPISODES_KEY,
+        ]);
         await clearCachedAlbumDetails();
         await clearCachedPlaylistDetails();
         await clearCachedShowDetails();

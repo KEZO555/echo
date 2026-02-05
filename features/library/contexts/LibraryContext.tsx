@@ -5,6 +5,7 @@ import React, {
 	useEffect,
 	ReactNode,
 	useCallback,
+	useMemo,
 } from "react";
 import { useAuth } from "@/features/auth/contexts/AuthContext";
 import { useNetworkState } from "@/shared/hooks";
@@ -569,7 +570,7 @@ export const LibraryProvider = ({ children }: { children: ReactNode }) => {
 		[makeApiRequestWithContext]
 	);
 
-	const value: LibraryContextType = {
+	const value: LibraryContextType = useMemo(() => ({
 		playlists,
 		playlistsNextUrl,
 		isLoadingMorePlaylists,
@@ -625,7 +626,7 @@ export const LibraryProvider = ({ children }: { children: ReactNode }) => {
 		clearCachedData,
 		makeApiRequest: makeApiRequestWithContext,
 		addTrackToPlaylist,
-	};
+	}), [playlists, playlistsNextUrl, isLoadingMorePlaylists, isRefreshingPlaylists, fetchPlaylists, fetchMorePlaylists, albums, albumsNextUrl, isLoadingMoreAlbums, isRefreshingAlbums, fetchAlbums, fetchMoreAlbums, saveAlbum, removeAlbum, checkIfAlbumIsSaved, podcasts, podcastsNextUrl, isLoadingMorePodcasts, isRefreshingPodcasts, fetchPodcasts, fetchMorePodcasts, followPodcast, unfollowPodcast, checkIfFollowingPodcast, artists, isLoadingMoreArtists, isRefreshingArtists, fetchArtists, fetchMoreArtists, artistsNextUrl, followArtist, unfollowArtist, checkIfFollowingArtist, fetchArtistTopTracks, fetchArtistAlbums, fetchMoreArtistAlbums, savedTracks, savedTracksNextUrl, isLoadingMoreSavedTracks, isRefreshingSavedTracks, fetchSavedTracks, fetchMoreSavedTracks, refreshSavedAlbumsFromCacheMethod, refreshFollowedPodcastsFromCacheMethod, refreshFollowedArtistsFromCacheMethod, savedEpisodes, savedEpisodesNextUrl, isLoadingMoreSavedEpisodes, isRefreshingSavedEpisodes, fetchSavedEpisodes, fetchMoreSavedEpisodes, refreshSavedEpisodesFromCacheMethod, clearCachedData, makeApiRequestWithContext, addTrackToPlaylist]);
 
 	return <LibraryContext.Provider value={value}>{children}</LibraryContext.Provider>;
 };

@@ -14,6 +14,13 @@ import { usePreventDoubleTap, useSaveStatus, useNetworkState } from "@/shared/ho
 import { detailScreenStyles } from "@/shared/styles/detailScreen";
 import { useSettings } from "@/features/settings";
 
+const AlbumItemSeparator = ({ leadingItem }: { leadingItem: { type: string } }) => {
+    if (leadingItem.type === "album") {
+        return <View style={{ height: n(8) }} />;
+    }
+    return null;
+};
+
 export default function ArtistDetailScreen() {
     const { id, artistString, artistName } = useLocalSearchParams<{
         id: string;
@@ -325,14 +332,7 @@ export default function ArtistDetailScreen() {
                     data={artistDetailList}
                     renderItem={renderItem}
                     keyExtractor={keyExtractor}
-                    ItemSeparatorComponent={({ leadingItem }) => {
-                        if (
-                            leadingItem.type === 'album'
-                        ) {
-                            return <View style={{ height: n(8) }} />;
-                        }
-                        return null;
-                    }}
+                    ItemSeparatorComponent={AlbumItemSeparator}
                     contentContainerStyle={detailScreenStyles.listContentContainer}
                     overScrollMode="never"
                     onEndReached={handleLoadMore}

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useMemo } from "react";
 import {
     View,
     StyleSheet,
@@ -27,9 +27,6 @@ export default function AddToPlaylistScreen() {
     const { trackUri } = params;
     log("AddToPlaylistScreen received params:", params);
     const [selectedPlaylists, setSelectedPlaylists] = useState<string[]>([]);
-    const [sortedPlaylists, setSortedPlaylists] = useState<
-        SpotifyPlaylist[] | null
-    >(null);
 
     React.useEffect(() => {
         if (accessToken && user && !playlists && !isLoading) {
@@ -37,29 +34,14 @@ export default function AddToPlaylistScreen() {
         }
     }, [accessToken, user, playlists, fetchPlaylists, isLoading]);
 
-    useEffect(() => {
-        if (playlists) {
-            const newSortedPlaylists = [...playlists].sort((a, b) => {
-                const ownerA =
-                    a.owner.display_name?.toLowerCase() ||
-                    a.owner.id.toLowerCase() ||
-                    "";
-                const ownerB =
-                    b.owner.display_name?.toLowerCase() ||
-                    b.owner.id.toLowerCase() ||
-                    "";
-                if (ownerA < ownerB) return -1;
-                if (ownerA > ownerB) return 1;
-                // If owners are the same, sort by playlist name
-                const nameA = a.name.toLowerCase();
-                const nameB = b.name.toLowerCase();
-                if (nameA < nameB) return -1;
-                if (nameA > nameB) return 1;
-                return 0;
-            });
-            setSortedPlaylists(newSortedPlaylists);
-        }
-    }, [playlists]);
+    const sortedPlaylists = useMemo(() =>
+        playlists ? [...playlists].sort((a, b) => {
+            const ownerCmp = (a.owner.display_name ?? a.owner.id ?? "")
+                .localeCompare(b.owner.display_name ?? b.owner.id ?? "");
+            if (ownerCmp !== 0) return ownerCmp;
+            return a.name.localeCompare(b.name);
+        }) : null
+    , [playlists]);
 
     const togglePlaylistSelection = (playlistId: string) => {
         setSelectedPlaylists((prevSelected) =>

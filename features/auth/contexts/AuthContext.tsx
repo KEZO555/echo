@@ -3,6 +3,8 @@ import React, {
     useContext,
     useState,
     useEffect,
+    useRef,
+    useMemo,
     ReactNode,
     useCallback,
 } from "react";
@@ -45,6 +47,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     const [isAuthenticating, setIsAuthenticating] = useState(false);
     const [initialAuthProcessed, setInitialAuthProcessed] = useState(false);
     const [appState, setAppState] = useState(AppState.currentState);
+    const appStateRef = useRef(AppState.currentState);
     const [authError, setAuthError] = useState<AuthError | null>(null);
 
     const clearAuthError = useCallback(() => {
@@ -194,9 +197,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
     useEffect(() => {
         const handleAppStateChange = (nextAppState: AppStateStatus) => {
-            if (appState.match(/inactive|background/) && nextAppState === "active") {
+            if (appStateRef.current.match(/inactive|background/) && nextAppState === "active") {
                 logInfo("AuthContext: App resumed");
             }
+            appStateRef.current = nextAppState;
             setAppState(nextAppState);
         };
 
@@ -205,7 +209,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         return () => {
             appStateSubscription?.remove();
         };
-    }, [appState]);
+    }, []);
 
     useEffect(() => {
         if (initialAuthProcessed || isAuthenticating) {
@@ -236,20 +240,22 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         loadInitialAuth();
     }, [isAuthenticating, initialAuthProcessed]);
 
-    const value: AuthContextType = {
+    const isAuthenticated = !!accessToken && !!user;
+
+    const value: AuthContextType = useMemo(() => ({
         accessToken,
         refreshToken,
         user,
         tokenExpiry,
         isLoading,
-        isAuthenticated: !!accessToken && !!user,
+        isAuthenticated,
         appState,
         authError,
         clearAuthError,
         login,
         logout,
         ensureValidToken,
-    };
+    }), [accessToken, refreshToken, user, tokenExpiry, isLoading, isAuthenticated, appState, authError, clearAuthError, login, logout, ensureValidToken]);
 
     return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };

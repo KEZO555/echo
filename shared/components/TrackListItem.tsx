@@ -16,7 +16,7 @@ interface TrackListItemProps {
     onPress: () => void;
 }
 
-export function TrackListItem({
+export const TrackListItem = React.memo(function TrackListItem({
     trackNumber,
     name,
     artists,
@@ -38,7 +38,7 @@ export function TrackListItem({
             </View>
         </HapticPressable>
     );
-}
+});
 
 const styles = StyleSheet.create({
     container: {

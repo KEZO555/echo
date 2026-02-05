@@ -17,7 +17,7 @@ interface HeaderProps {
     onTitlePress?: () => void;
 }
 
-export function Header({
+export const Header = React.memo(function Header({
     iconName,
     onIconPress,
     iconShowLength = 1,
@@ -84,7 +84,7 @@ export function Header({
             )}
         </View>
     );
-}
+});
 
 const styles = StyleSheet.create({
     header: {

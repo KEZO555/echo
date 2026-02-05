@@ -1,4 +1,4 @@
-import React, { useEffect, useCallback } from "react";
+import React, { useEffect, useCallback, useMemo } from "react";
 import { View, RefreshControl } from "react-native";
 import { useAuth } from "@/features/auth/contexts/AuthContext";
 import { useSpotifyLibrary } from "@/features/library/contexts/LibraryContext";
@@ -47,7 +47,9 @@ export default function LikedSongsScreen() {
         }
     }, [fetchSavedTracks, isRefreshingSavedTracks]);
 
-
+    const filteredTracks = useMemo(() =>
+        savedTracks?.filter((item) => item.track !== null) ?? []
+    , [savedTracks]);
 
     const handleTrackPress = usePreventDoubleTap(
         async (item: SavedTrackObject, index: number, isDisabled: boolean) => {
@@ -195,7 +197,7 @@ export default function LikedSongsScreen() {
             headerIconShowLength={1}
         >
             <CustomScrollView
-                data={savedTracks?.filter((item: SavedTrackObject) => item.track !== null) || []}
+                data={filteredTracks}
                 renderItem={renderTrackItem}
                 keyExtractor={(item: SavedTrackObject) =>
                     `${item.added_at}-${item.track?.id || "unknown"}`
