@@ -9,7 +9,6 @@ import {
 import { exchangeCodeForTokens } from "@/features/auth/services/tokenExchange";
 import type { Credentials } from "@/features/credentials";
 import { getStoredCredentials, REDIRECT_URI } from "@/features/credentials";
-import { clearCachedData } from "@/features/library";
 import SpotifySdk from "@/modules/spotify-sdk";
 import type { SpotifyUser } from "@/shared/types/spotify";
 import { log, logError } from "@/shared/utils/logger";
@@ -106,10 +105,10 @@ export const loginWithSpotify = async (
 };
 
 export const logoutFromSpotify = async (
-  clearState: () => void
+  clearState: () => void,
+  onCleanup?: () => Promise<void>
 ): Promise<void> => {
   log("Logging out...");
-  // Disable auto-connect and clear native SDK session
   try {
     await SpotifySdk.disconnect();
     await SpotifySdk.clearSession();
@@ -122,8 +121,7 @@ export const logoutFromSpotify = async (
   await SecureStore.deleteItemAsync(USER_INFO_KEY);
   await SecureStore.deleteItemAsync(TOKEN_EXPIRY_KEY);
 
-  // Clear cached data
-  await clearCachedData();
+  if (onCleanup) await onCleanup();
 
   clearState();
 };

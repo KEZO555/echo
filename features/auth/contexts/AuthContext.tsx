@@ -16,7 +16,15 @@ import {
   TOKEN_EXPIRY_KEY,
 } from "@/constants/spotify";
 import { useCredentials } from "@/features/credentials";
+import { useAlbumsStore } from "@/features/library/stores/useAlbumsStore";
+import { useArtistsStore } from "@/features/library/stores/useArtistsStore";
+import { usePlaylistsStore } from "@/features/library/stores/usePlaylistsStore";
+import { usePodcastsStore } from "@/features/library/stores/usePodcastsStore";
+import { useSavedEpisodesStore } from "@/features/library/stores/useSavedEpisodesStore";
+import { useSavedTracksStore } from "@/features/library/stores/useSavedTracksStore";
+import { clearCachedData } from "@/features/library/utils/cache";
 import type { SpotifyUser } from "@/shared/types/spotify";
+import { configureApiClient } from "@/shared/utils/api-client";
 import { logError, logInfo, logWarn } from "@/shared/utils/logger";
 import {
   loadStoredAuth,
@@ -92,6 +100,16 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     logInfo("AuthContext: State cleared");
   }, []);
 
+  const handleLibraryCleanup = useCallback(async () => {
+    await clearCachedData();
+    useAlbumsStore.getState().reset();
+    useArtistsStore.getState().reset();
+    usePlaylistsStore.getState().reset();
+    usePodcastsStore.getState().reset();
+    useSavedEpisodesStore.getState().reset();
+    useSavedTracksStore.getState().reset();
+  }, []);
+
   const ensureValidToken = useCallback(async (): Promise<string | null> => {
     const [latestAccessToken, latestRefreshToken, latestTokenExpiry] =
       await Promise.all([
@@ -130,7 +148,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           latestRefreshToken,
           handleTokenUpdate,
           async () => {
-            await logoutFromSpotify(clearState);
+            await logoutFromSpotify(clearState, handleLibraryCleanup);
           }
         );
         if (refreshed) {
@@ -151,7 +169,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
 
     return latestAccessToken;
-  }, [handleTokenUpdate, clearState]);
+  }, [handleTokenUpdate, clearState, handleLibraryCleanup]);
 
   const { credentials, redirectUri } = useCredentials();
 
@@ -216,9 +234,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
 
     logInfo("AuthContext: Logout initiated");
-    await logoutFromSpotify(clearState);
+    await logoutFromSpotify(clearState, handleLibraryCleanup);
     logInfo("AuthContext: Logout completed");
-  }, [isAuthenticating, clearState]);
+  }, [isAuthenticating, clearState, handleLibraryCleanup]);
 
   useEffect(() => {
     const handleAppStateChange = (nextAppState: AppStateStatus) => {
@@ -270,6 +288,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
     loadInitialAuth();
   }, [isAuthenticating, initialAuthProcessed]);
+
+  useEffect(() => {
+    configureApiClient({ getToken: ensureValidToken, onLogout: logout });
+  }, [ensureValidToken, logout]);
 
   const isAuthenticated = !!accessToken && !!user;
 

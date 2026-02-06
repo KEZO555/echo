@@ -1,3 +1,4 @@
+export * from "./api-client";
 export * from "./formatters";
 export * from "./logger";
 export * from "./scaling";

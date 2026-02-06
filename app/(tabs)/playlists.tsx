@@ -1,37 +1,28 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useFocusEffect, useRouter } from "expo-router";
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { RefreshControl, View } from "react-native";
+import { useCallback, useMemo, useState } from "react";
+import { View } from "react-native";
 import { PLAYLIST_DETAIL_KEY_PREFIX } from "@/constants/spotify";
 import { useAuth } from "@/features/auth";
-import {
-  refreshPlaylistsFromCache,
-  useSpotifyLibrary,
-} from "@/features/library";
+import { refreshPlaylistsFromCache } from "@/features/library";
+import { usePlaylistsStore } from "@/features/library/stores";
 import { useSettings } from "@/features/settings";
-import {
-  ContentContainer,
-  CustomScrollView,
-  MediaListItem,
-} from "@/shared/components";
+import { ListScreen, MediaListItem } from "@/shared/components";
 import { useNetworkState, usePreventDoubleTap } from "@/shared/hooks";
 import { tabScreenStyles as styles } from "@/shared/styles/detailScreen";
 import type { SpotifyPlaylist } from "@/shared/types/spotify";
-import { n } from "@/shared/utils";
 import { log, logError } from "@/shared/utils/logger";
 
 const CREATE_NEW_PLAYLIST_ID = "CREATE_NEW_PLAYLIST_ID";
 
 export default function PlaylistsScreen() {
-  const { isLoading, accessToken, user } = useAuth();
-  const {
-    playlists,
-    fetchPlaylists,
-    isRefreshingPlaylists,
-    fetchMorePlaylists,
-    isLoadingMorePlaylists,
-    playlistsNextUrl,
-  } = useSpotifyLibrary();
+  const { isLoading } = useAuth();
+  const playlists = usePlaylistsStore((s) => s.playlists);
+  const fetchPlaylists = usePlaylistsStore((s) => s.fetch);
+  const isRefreshing = usePlaylistsStore((s) => s.isRefreshing);
+  const fetchMore = usePlaylistsStore((s) => s.fetchMore);
+  const isLoadingMore = usePlaylistsStore((s) => s.isLoadingMore);
+  const nextUrl = usePlaylistsStore((s) => s.nextUrl);
   const router = useRouter();
 
   const { isOnline } = useNetworkState();
@@ -42,25 +33,6 @@ export default function PlaylistsScreen() {
   const [cachedPlaylistIds, setCachedPlaylistIds] = useState<Set<string>>(
     new Set()
   );
-
-  useEffect(() => {
-    if (
-      accessToken &&
-      user &&
-      !playlists &&
-      !isLoading &&
-      !isRefreshingPlaylists
-    ) {
-      fetchPlaylists();
-    }
-  }, [
-    accessToken,
-    user,
-    playlists,
-    fetchPlaylists,
-    isLoading,
-    isRefreshingPlaylists,
-  ]);
 
   const playlistSource = playlists ?? offlinePlaylists;
   const sortedPlaylists = useMemo(
@@ -99,7 +71,7 @@ export default function PlaylistsScreen() {
   );
 
   const handleRefresh = useCallback(async () => {
-    if (isRefreshingPlaylists) return;
+    if (isRefreshing) return;
 
     if (isOnline) {
       fetchPlaylists();
@@ -117,7 +89,7 @@ export default function PlaylistsScreen() {
         logError("Playlists: Error loading cached playlists:", error);
       }
     }
-  }, [fetchPlaylists, isRefreshingPlaylists, isOnline]);
+  }, [fetchPlaylists, isRefreshing, isOnline]);
 
   const handleCreatePlaylistPress = usePreventDoubleTap(() => {
     router.push("/create-playlist");
@@ -133,7 +105,7 @@ export default function PlaylistsScreen() {
           playlistName: item.name as string,
           playlistString: JSON.stringify(item),
         },
-      } as any);
+      } as never);
     }
   );
 
@@ -172,31 +144,29 @@ export default function PlaylistsScreen() {
     );
   };
 
-  // Show global loading indicator if initial data is loading and no playlists are yet available
+  const handlePlayingPress = usePreventDoubleTap(() => {
+    router.push("/playing");
+  });
+
   if (isLoading && !sortedPlaylists) {
     return <View style={styles.centeredMessageContainer} />;
   }
 
-  // Show specific refresh indicator if only manual refresh is happening
-  // This is a bit redundant if the TabHeader also shows an indicator, but can be a fallback
-  // or primary if header doesn't have space/icon for it.
-  // For now, let's assume the header icon is the primary indicator and this is for safety.
-  if (isRefreshingPlaylists && !sortedPlaylists) {
-    // Or perhaps (isRefreshingPlaylists && playlists) if we want to show stale data UNDER the spinner
+  if (isRefreshing && !sortedPlaylists) {
     return <View style={styles.centeredMessageContainer} />;
   }
 
   const createNewPlaylistItem: SpotifyPlaylist = {
     id: CREATE_NEW_PLAYLIST_ID,
     name: "Create new playlist",
-    images: [], // No image for this item
-    owner: { display_name: "", id: "" }, // No owner
-    description: "", // Default value
-    tracks: { href: "", total: 0 }, // Default value
-    public: false, // Default value
-    collaborative: false, // Default value
-    uri: "", // Default value
-    href: "", // Default value
+    images: [],
+    owner: { display_name: "", id: "" },
+    description: "",
+    tracks: { href: "", total: 0 },
+    public: false,
+    collaborative: false,
+    uri: "",
+    href: "",
   };
 
   const displayPlaylists = sortedPlaylists
@@ -207,84 +177,25 @@ export default function PlaylistsScreen() {
       ? []
       : [createNewPlaylistItem];
 
-  const handlePlayingPress = usePreventDoubleTap(() => {
-    router.push("/playing");
-  });
-
   const handleLoadMore = () => {
-    if (isOnline && playlistsNextUrl && !isLoadingMorePlaylists) {
-      fetchMorePlaylists();
+    if (isOnline && nextUrl && !isLoadingMore) {
+      fetchMore();
     }
   };
 
-  const renderFooter = () => {
-    if (!isLoadingMorePlaylists) return null;
-    return <View style={{ paddingVertical: n(20) }} />;
-  };
-
-  if (!sortedPlaylists || sortedPlaylists.length === 0) {
-    const emptyData = hideCreatePlaylist ? [] : [createNewPlaylistItem];
-    return (
-      <ContentContainer
-        headerIcon="multitrack-audio"
-        headerIconPress={handlePlayingPress}
-        headerIconShowLength={1}
-        headerTitle="Playlists"
-        hideBackButton={true}
-        style={{ paddingHorizontal: n(20) }}
-      >
-        <CustomScrollView
-          contentContainerStyle={styles.listContentContainer}
-          data={emptyData}
-          ItemSeparatorComponent={() => <View style={{ height: n(8) }} />}
-          keyExtractor={(item) => item.id}
-          overScrollMode={"never"}
-          refreshControl={
-            <RefreshControl
-              colors={["white"]}
-              onRefresh={handleRefresh}
-              progressBackgroundColor={"black"}
-              refreshing={isRefreshingPlaylists}
-              size={"large" as any}
-            />
-          }
-          renderItem={renderPlaylistItem}
-          style={styles.list}
-        />
-      </ContentContainer>
-    );
-  }
-
   return (
-    <ContentContainer
-      headerIcon="multitrack-audio"
+    <ListScreen
+      data={displayPlaylists}
+      emptyMessage="No playlists found."
       headerIconPress={handlePlayingPress}
-      headerIconShowLength={1}
-      headerTitle="Playlists"
-      hideBackButton={true}
-      style={{ paddingHorizontal: n(20) }}
-    >
-      <CustomScrollView
-        contentContainerStyle={styles.listContentContainer}
-        data={displayPlaylists}
-        ItemSeparatorComponent={() => <View style={{ height: n(8) }} />}
-        keyExtractor={(item) => item.id}
-        ListFooterComponent={renderFooter}
-        onEndReached={handleLoadMore}
-        onEndReachedThreshold={2}
-        overScrollMode={"never"}
-        refreshControl={
-          <RefreshControl
-            colors={["white"]}
-            onRefresh={handleRefresh}
-            progressBackgroundColor={"black"}
-            refreshing={isRefreshingPlaylists}
-            size={"large" as any}
-          />
-        }
-        renderItem={renderPlaylistItem}
-        style={styles.list}
-      />
-    </ContentContainer>
+      isLoadingMore={isLoadingMore}
+      isOnline={isOnline}
+      isRefreshing={isRefreshing}
+      keyExtractor={(item) => item.id}
+      onLoadMore={handleLoadMore}
+      onRefresh={handleRefresh}
+      renderItem={renderPlaylistItem}
+      title="Playlists"
+    />
   );
 }

@@ -1,47 +1,34 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useFocusEffect, useRouter } from "expo-router";
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { RefreshControl, View } from "react-native";
+import { useCallback, useMemo, useState } from "react";
+import { View } from "react-native";
 import { ALBUM_DETAIL_KEY_PREFIX } from "@/constants/spotify";
 import { useAuth } from "@/features/auth";
 import {
   refreshSavedAlbumsFromCache,
-  useSpotifyLibrary,
+  useAlbumsStore,
 } from "@/features/library";
-import {
-  ContentContainer,
-  CustomScrollView,
-  MediaListItem,
-  StyledText,
-} from "@/shared/components";
+import { ListScreen, MediaListItem } from "@/shared/components";
 import { useNetworkState, usePreventDoubleTap } from "@/shared/hooks";
 import { tabScreenStyles as styles } from "@/shared/styles/detailScreen";
 import type { SpotifySavedAlbum } from "@/shared/types/spotify";
-import { getArtistNames, log, logError, n } from "@/shared/utils";
+import { getArtistNames, log, logError } from "@/shared/utils";
 
 export default function AlbumsScreen() {
-  const { isLoading, accessToken, user } = useAuth();
-  const {
-    albums,
-    fetchAlbums,
-    isRefreshingAlbums,
-    fetchMoreAlbums,
-    isLoadingMoreAlbums,
-    albumsNextUrl,
-  } = useSpotifyLibrary();
+  const { isLoading } = useAuth();
+  const albums = useAlbumsStore((s) => s.albums);
+  const fetchAlbums = useAlbumsStore((s) => s.fetch);
+  const isRefreshing = useAlbumsStore((s) => s.isRefreshing);
+  const fetchMore = useAlbumsStore((s) => s.fetchMore);
+  const isLoadingMore = useAlbumsStore((s) => s.isLoadingMore);
+  const nextUrl = useAlbumsStore((s) => s.nextUrl);
   const router = useRouter();
 
-  const { isOnline, isLoading: networkLoading } = useNetworkState();
+  const { isOnline } = useNetworkState();
   const [offlineAlbums, setOfflineAlbums] = useState<
     SpotifySavedAlbum[] | null
   >(null);
   const [cachedAlbumIds, setCachedAlbumIds] = useState<Set<string>>(new Set());
-
-  useEffect(() => {
-    if (accessToken && user && !albums && !isLoading && !isRefreshingAlbums) {
-      fetchAlbums();
-    }
-  }, [accessToken, user, albums, isLoading, isRefreshingAlbums]);
 
   const albumSource = albums ?? offlineAlbums;
   const sortedAlbums = useMemo(
@@ -76,7 +63,7 @@ export default function AlbumsScreen() {
   );
 
   const handleRefresh = useCallback(async () => {
-    if (isRefreshingAlbums) return;
+    if (isRefreshing) return;
 
     if (isOnline) {
       fetchAlbums();
@@ -94,7 +81,7 @@ export default function AlbumsScreen() {
         logError("Albums: Error loading cached albums:", error);
       }
     }
-  }, [fetchAlbums, isRefreshingAlbums, isOnline]);
+  }, [fetchAlbums, isRefreshing, isOnline]);
 
   const handleAlbumPress = usePreventDoubleTap(
     (item: SpotifySavedAlbum, isUncached: boolean) => {
@@ -116,9 +103,13 @@ export default function AlbumsScreen() {
           albumName: item.album.name as string,
           albumString: JSON.stringify(minimalAlbum),
         },
-      } as any);
+      } as never);
     }
   );
+
+  const handlePlayingPress = usePreventDoubleTap(() => {
+    router.push("/playing");
+  });
 
   const renderAlbumItem = ({ item }: { item: SpotifySavedAlbum }) => {
     const isOffline = !isOnline;
@@ -140,94 +131,33 @@ export default function AlbumsScreen() {
     );
   };
 
-  const handlePlayingPress = usePreventDoubleTap(() => {
-    router.push("/playing");
-  });
-
-  // Show global loading indicator if initial data is loading and no albums are yet available
   if (isLoading && !sortedAlbums) {
     return <View style={styles.centeredMessageContainer} />;
   }
 
-  // Show specific refresh indicator if only manual refresh is happening for albums
-  if (isRefreshingAlbums && !sortedAlbums) {
+  if (isRefreshing && !sortedAlbums) {
     return <View style={styles.centeredMessageContainer} />;
   }
 
   const handleLoadMore = () => {
-    if (albumsNextUrl && !isLoadingMoreAlbums) {
-      fetchMoreAlbums();
+    if (nextUrl && !isLoadingMore) {
+      fetchMore();
     }
   };
 
-  const renderFooter = () => {
-    if (!isLoadingMoreAlbums) return null;
-    return;
-  };
-
-  if (!sortedAlbums || sortedAlbums.length === 0) {
-    return (
-      <ContentContainer
-        headerIcon="multitrack-audio"
-        headerIconPress={handlePlayingPress}
-        headerIconShowLength={1}
-        headerTitle="Albums"
-        hideBackButton={true}
-        style={{ paddingHorizontal: n(20) }}
-      >
-        <CustomScrollView
-          data={[]}
-          ListHeaderComponent={
-            <StyledText style={styles.emptyText}>
-              No saved albums found.
-            </StyledText>
-          }
-          overScrollMode={"never"}
-          refreshControl={
-            <RefreshControl
-              colors={["white"]}
-              onRefresh={handleRefresh}
-              progressBackgroundColor={"black"}
-              refreshing={isRefreshingAlbums}
-              size={"large" as any}
-            />
-          }
-          renderItem={null}
-        />
-      </ContentContainer>
-    );
-  }
-
   return (
-    <ContentContainer
-      headerIcon="multitrack-audio"
+    <ListScreen
+      data={sortedAlbums}
+      emptyMessage="No saved albums found."
       headerIconPress={handlePlayingPress}
-      headerIconShowLength={1}
-      headerTitle="Albums"
-      hideBackButton={true}
-      style={{ paddingHorizontal: n(20) }}
-    >
-      <CustomScrollView
-        contentContainerStyle={styles.listContentContainer}
-        data={sortedAlbums}
-        ItemSeparatorComponent={() => <View style={{ height: n(8) }} />} // Use album id as key
-        keyExtractor={(item) => item.album.id}
-        ListFooterComponent={renderFooter}
-        onEndReached={handleLoadMore}
-        onEndReachedThreshold={2}
-        overScrollMode={"never"} // Added onEndReached
-        refreshControl={
-          <RefreshControl
-            colors={["white"]}
-            onRefresh={handleRefresh}
-            progressBackgroundColor={"black"}
-            refreshing={isRefreshingAlbums}
-            size={"large" as any}
-          />
-        }
-        renderItem={renderAlbumItem} // Added ListFooterComponent
-        style={styles.list}
-      />
-    </ContentContainer>
+      isLoadingMore={isLoadingMore}
+      isOnline={isOnline}
+      isRefreshing={isRefreshing}
+      keyExtractor={(item) => item.album.id}
+      onLoadMore={handleLoadMore}
+      onRefresh={handleRefresh}
+      renderItem={renderAlbumItem}
+      title="Albums"
+    />
   );
 }

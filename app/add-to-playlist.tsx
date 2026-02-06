@@ -3,7 +3,7 @@ import { router, useLocalSearchParams } from "expo-router";
 import React, { useMemo, useState } from "react";
 import { StyleSheet, View } from "react-native";
 import { useAuth } from "@/features/auth";
-import { useSpotifyLibrary } from "@/features/library";
+import { usePlaylistsStore } from "@/features/library/stores";
 import { useSettings } from "@/features/settings";
 import ContentContainer from "@/shared/components/ContentContainer";
 import CustomScrollView from "@/shared/components/CustomScrollView";
@@ -17,7 +17,9 @@ import { log, logError } from "@/shared/utils/logger";
 
 export default function AddToPlaylistScreen() {
   const { isLoading, accessToken, user } = useAuth();
-  const { playlists, fetchPlaylists, addTrackToPlaylist } = useSpotifyLibrary();
+  const playlists = usePlaylistsStore((s) => s.playlists);
+  const fetchPlaylists = usePlaylistsStore((s) => s.fetch);
+  const addTrackToPlaylist = usePlaylistsStore((s) => s.addTrackToPlaylist);
   const params = useLocalSearchParams<{
     trackUri?: string;
   }>();
@@ -72,22 +74,17 @@ export default function AddToPlaylistScreen() {
         ", "
       )}`
     );
-    let successCount = 0;
-    let failureCount = 0;
 
     for (const playlistId of selectedPlaylists) {
       try {
         const success = await addTrackToPlaylist(playlistId, trackUri);
         if (success) {
           log(`Successfully added track to playlist ${playlistId}`);
-          successCount++;
         } else {
           console.warn(`Failed to add track to playlist ${playlistId}`);
-          failureCount++;
         }
       } catch (error) {
         logError(`Error adding track to playlist ${playlistId}:`, error);
-        failureCount++;
       }
     }
 
@@ -107,7 +104,7 @@ export default function AddToPlaylistScreen() {
         returnTo: "add-to-playlist",
         trackUri,
       },
-    } as any);
+    } as never);
   });
 
   const renderPlaylistItem = ({ item }: { item: SpotifyPlaylist }) => {

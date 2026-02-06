@@ -1,0 +1,131 @@
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { create } from "zustand";
+import { PODCASTS_KEY } from "@/constants/spotify";
+import type {
+  SpotifySavedShow,
+  SpotifySavedShowsResponse,
+  SpotifyShow,
+} from "@/shared/types/spotify";
+import { apiDelete, apiGet, apiPut } from "@/shared/utils/api-client";
+import { log, logError } from "@/shared/utils/logger";
+import { saveCachedData, saveCachedShowDetail } from "../utils/cache";
+
+interface PodcastsState {
+  podcasts: SpotifySavedShow[] | null;
+  nextUrl: string | null;
+  isRefreshing: boolean;
+  isLoadingMore: boolean;
+  fetch: () => Promise<void>;
+  fetchMore: () => Promise<void>;
+  followPodcast: (showId: string) => Promise<boolean>;
+  unfollowPodcast: (showId: string) => Promise<boolean>;
+  checkIfFollowing: (showId: string) => Promise<boolean>;
+  setPodcasts: (podcasts: SpotifySavedShow[] | null) => void;
+  reset: () => void;
+}
+
+export const usePodcastsStore = create<PodcastsState>()((set, get) => ({
+  podcasts: null,
+  nextUrl: null,
+  isRefreshing: false,
+  isLoadingMore: false,
+
+  fetch: async () => {
+    set({ isRefreshing: true });
+    const data = await apiGet<SpotifySavedShowsResponse>(
+      "https://api.spotify.com/v1/me/shows?limit=50"
+    );
+    if (data) {
+      set({ podcasts: data.items, nextUrl: data.next });
+      await saveCachedData({ podcasts: data.items });
+    }
+    set({ isRefreshing: false });
+  },
+
+  fetchMore: async () => {
+    const { nextUrl, isLoadingMore } = get();
+    if (!nextUrl || isLoadingMore) return;
+    set({ isLoadingMore: true });
+    const data = await apiGet<SpotifySavedShowsResponse>(nextUrl);
+    if (data) {
+      set((state) => ({
+        podcasts: [...(state.podcasts || []), ...data.items],
+        nextUrl: data.next,
+      }));
+    }
+    set({ isLoadingMore: false });
+  },
+
+  followPodcast: async (showId: string) => {
+    try {
+      await apiPut(`https://api.spotify.com/v1/me/shows?ids=${showId}`);
+      const showData = await apiGet<SpotifyShow>(
+        `https://api.spotify.com/v1/shows/${showId}`
+      );
+      if (showData) {
+        await saveCachedShowDetail(showData);
+        const cachedShows = await AsyncStorage.getItem(PODCASTS_KEY);
+        const parsedShows: SpotifySavedShow[] = cachedShows
+          ? JSON.parse(cachedShows)
+          : [];
+        if (!parsedShows.some((item) => item.show.id === showId)) {
+          const newSavedShow: SpotifySavedShow = {
+            added_at: new Date().toISOString(),
+            show: showData,
+          };
+          parsedShows.unshift(newSavedShow);
+          await AsyncStorage.setItem(PODCASTS_KEY, JSON.stringify(parsedShows));
+          set({ podcasts: parsedShows });
+        }
+        log(`Show ${showId} followed successfully`);
+      }
+      return true;
+    } catch (error) {
+      logError("Error following podcast:", error);
+      return false;
+    }
+  },
+
+  unfollowPodcast: async (showId: string) => {
+    try {
+      await apiDelete(`https://api.spotify.com/v1/me/shows?ids=${showId}`);
+      const cachedShows = await AsyncStorage.getItem(PODCASTS_KEY);
+      if (cachedShows) {
+        const parsedShows: SpotifySavedShow[] = JSON.parse(cachedShows);
+        const filtered = parsedShows.filter((item) => item.show.id !== showId);
+        await AsyncStorage.setItem(PODCASTS_KEY, JSON.stringify(filtered));
+        set({ podcasts: filtered });
+        log(`Show ${showId} unfollowed successfully`);
+      }
+      return true;
+    } catch (error) {
+      logError("Error unfollowing podcast:", error);
+      return false;
+    }
+  },
+
+  checkIfFollowing: async (showId: string) => {
+    try {
+      const cachedShows = await AsyncStorage.getItem(PODCASTS_KEY);
+      if (cachedShows) {
+        const parsedShows: SpotifySavedShow[] = JSON.parse(cachedShows);
+        if (parsedShows.some((item) => item.show.id === showId)) return true;
+      }
+    } catch (error) {
+      logError("Error checking cached podcasts:", error);
+    }
+    const data = await apiGet<boolean[]>(
+      `https://api.spotify.com/v1/me/shows/contains?ids=${showId}`
+    );
+    return data ? (data[0] ?? false) : false;
+  },
+
+  setPodcasts: (podcasts) => set({ podcasts }),
+  reset: () =>
+    set({
+      podcasts: null,
+      nextUrl: null,
+      isRefreshing: false,
+      isLoadingMore: false,
+    }),
+}));

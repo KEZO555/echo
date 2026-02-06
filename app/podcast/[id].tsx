@@ -3,27 +3,15 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { StyleSheet, View } from "react-native";
 import { useAuth } from "@/features/auth";
-import {
-  getCachedShowDetail,
-  saveCachedShowDetail,
-  useSpotifyLibrary,
-} from "@/features/library";
+import { getCachedShowDetail, saveCachedShowDetail } from "@/features/library";
+import { usePodcastsStore } from "@/features/library/stores";
 import { usePlayback } from "@/features/playback";
-import { useSettings } from "@/features/settings";
-import {
-  ContentContainer,
-  CustomScrollView,
-  FallbackImage,
-  HapticPressable,
-  ListFooter,
-  StyledText,
-} from "@/shared/components";
+import { DetailScreen, HapticPressable, StyledText } from "@/shared/components";
 import {
   useNetworkState,
   usePreventDoubleTap,
   useSaveStatus,
 } from "@/shared/hooks";
-import { detailScreenStyles } from "@/shared/styles/detailScreen";
 import type { SpotifyEpisode, SpotifyShow } from "@/shared/types/spotify";
 import {
   formatDuration,
@@ -32,6 +20,7 @@ import {
   logError,
   n,
 } from "@/shared/utils";
+import { apiGet } from "@/shared/utils/api-client";
 
 export default function PodcastDetailScreen() {
   const { id, showString, showName } = useLocalSearchParams<{
@@ -42,14 +31,10 @@ export default function PodcastDetailScreen() {
 
   const { accessToken } = useAuth();
   const { playTrackWithContext } = usePlayback();
-  const {
-    followPodcast,
-    unfollowPodcast,
-    checkIfFollowingPodcast,
-    makeApiRequest,
-  } = useSpotifyLibrary();
+  const followPodcast = usePodcastsStore((s) => s.followPodcast);
+  const unfollowPodcast = usePodcastsStore((s) => s.unfollowPodcast);
+  const checkIfFollowing = usePodcastsStore((s) => s.checkIfFollowing);
   const router = useRouter();
-  const { hideDetailCovers } = useSettings();
   const { isOnline } = useNetworkState();
 
   const initialShow = useMemo(() => {
@@ -76,7 +61,7 @@ export default function PodcastDetailScreen() {
     toggle: handleToggleFollowShow,
   } = useSaveStatus({
     id,
-    checkFn: checkIfFollowingPodcast,
+    checkFn: checkIfFollowing,
     saveFn: followPodcast,
     removeFn: unfollowPodcast,
     accessToken,
@@ -99,16 +84,15 @@ export default function PodcastDetailScreen() {
             setShow(cachedShow);
             hasDisplayedData = true;
           }
-        } catch (error) {
-          logError("Error retrieving cached show:", error);
+        } catch (cacheError) {
+          logError("Error retrieving cached show:", cacheError);
         }
       }
 
       if (isOnline) {
         try {
-          const data = await makeApiRequest(
-            `https://api.spotify.com/v1/shows/${id}?market=from_token&limit=10`,
-            "Podcast details"
+          const data = await apiGet<SpotifyShow>(
+            `https://api.spotify.com/v1/shows/${id}?market=from_token&limit=10`
           );
           if (data) {
             log("Podcast details: Fetched fresh data from API");
@@ -117,10 +101,12 @@ export default function PodcastDetailScreen() {
           } else if (!hasDisplayedData) {
             throw new Error("Failed to fetch podcast details");
           }
-        } catch (e: any) {
+        } catch (e: unknown) {
+          const msg =
+            e instanceof Error ? e.message : "An unexpected error occurred.";
           logError("Error fetching podcast details:", e);
           if (!hasDisplayedData) {
-            setError(e.message || "An unexpected error occurred.");
+            setError(msg);
           }
         }
       } else if (!hasDisplayedData) {
@@ -133,20 +119,18 @@ export default function PodcastDetailScreen() {
     };
 
     fetchShowDetails();
-  }, [id, makeApiRequest]);
+  }, [id]);
 
   const loadMoreEpisodes = useCallback(async () => {
-    if (!show?.episodes?.next || isLoadingMoreEpisodes) {
-      return;
-    }
+    if (!show?.episodes?.next || isLoadingMoreEpisodes) return;
     setIsLoadingMoreEpisodes(true);
     try {
-      const data = await makeApiRequest(
-        show.episodes.next,
-        "More podcast episodes"
-      );
+      const data = await apiGet<{
+        items: SpotifyEpisode[];
+        next: string | null;
+      }>(show.episodes.next);
       if (data) {
-        setShow((prevShow: SpotifyShow | null) => {
+        setShow((prevShow) => {
           if (!(prevShow && prevShow.episodes)) return prevShow;
           const updatedShow = {
             ...prevShow,
@@ -160,12 +144,12 @@ export default function PodcastDetailScreen() {
           return updatedShow;
         });
       }
-    } catch (e: any) {
+    } catch (e: unknown) {
       logError("Error fetching more podcast episodes:", e);
     } finally {
       setIsLoadingMoreEpisodes(false);
     }
-  }, [show, isLoadingMoreEpisodes, makeApiRequest]);
+  }, [show, isLoadingMoreEpisodes]);
 
   const episodeItems = useMemo(
     () =>
@@ -198,8 +182,8 @@ export default function PodcastDetailScreen() {
             durationMs: episode.duration_ms?.toString() ?? "0",
           },
         });
-      } catch (error) {
-        logError("Error playing episode:", error);
+      } catch (playError) {
+        logError("Error playing episode:", playError);
         router.push({
           pathname: "/playing",
           params: {
@@ -267,56 +251,28 @@ export default function PodcastDetailScreen() {
   );
 
   return (
-    <ContentContainer
+    <DetailScreen
+      data={episodeItems}
+      emptyMessage={
+        isInitialLoading ? undefined : "No episodes found for this podcast."
+      }
+      error={error}
       headerIcon={isShowFollowed ? "remove" : "add"}
       headerIconPress={handleToggleFollowShow}
       headerIconShowLength={isCheckingFollowed ? 0 : 1}
-      headerTitle={displayName}
-      style={{ paddingHorizontal: n(20) }}
-    >
-      <View style={{ paddingBottom: n(20) }}>
-        <CustomScrollView
-          contentContainerStyle={detailScreenStyles.listContentContainer}
-          data={episodeItems}
-          keyExtractor={(item, index) => item?.id || index.toString()}
-          ListEmptyComponent={
-            error ? (
-              <StyledText style={detailScreenStyles.errorText}>
-                {error}
-              </StyledText>
-            ) : !isInitialLoading && episodeItems.length === 0 ? (
-              <StyledText style={detailScreenStyles.emptyText}>
-                No episodes found for this podcast.
-              </StyledText>
-            ) : null
-          }
-          ListFooterComponent={<ListFooter isLoading={isLoadingMoreEpisodes} />}
-          ListHeaderComponent={
-            hideDetailCovers ? null : (
-              <View style={detailScreenStyles.imageContainer}>
-                <FallbackImage
-                  placeholderIcon="mic"
-                  placeholderText={displayName.charAt(0)}
-                  style={detailScreenStyles.image}
-                  uri={displayImageUrl}
-                />
-              </View>
-            )
-          }
-          onEndReached={loadMoreEpisodes}
-          onEndReachedThreshold={2}
-          overScrollMode="never"
-          renderItem={renderEpisodeItem}
-        />
-      </View>
-    </ContentContainer>
+      imageUrl={displayImageUrl}
+      isLoadingMore={isLoadingMoreEpisodes}
+      keyExtractor={(item, index) => item?.id || index.toString()}
+      onLoadMore={loadMoreEpisodes}
+      placeholderIcon="mic"
+      placeholderText={displayName.charAt(0)}
+      renderItem={renderEpisodeItem}
+      title={displayName}
+    />
   );
 }
 
 const styles = StyleSheet.create({
-  placeholderText: {
-    fontSize: n(64),
-  },
   episodeItemContainer: {
     flexDirection: "row",
     justifyContent: "space-between",

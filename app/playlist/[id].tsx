@@ -1,28 +1,18 @@
 import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { View } from "react-native";
+import { useCallback, useMemo, useState } from "react";
 import {
   getCachedPlaylistDetail,
   saveCachedPlaylistDetail,
-  useSpotifyLibrary,
 } from "@/features/library";
 import { usePlayback } from "@/features/playback";
-import { useSettings } from "@/features/settings";
-import {
-  ContentContainer,
-  CustomScrollView,
-  FallbackImage,
-  ListFooter,
-  StyledText,
-  TrackListItem,
-} from "@/shared/components";
+import { DetailScreen, TrackListItem } from "@/shared/components";
 import { useNetworkState, usePreventDoubleTap } from "@/shared/hooks";
-import { detailScreenStyles } from "@/shared/styles/detailScreen";
 import type {
   SpotifyPlaylist,
   SpotifyTrackSimple,
 } from "@/shared/types/spotify";
-import { log, logError, n } from "@/shared/utils";
+import { log, logError } from "@/shared/utils";
+import { apiGet } from "@/shared/utils/api-client";
 
 interface PlaylistTrack {
   added_at: string;
@@ -59,9 +49,7 @@ export default function PlaylistDetailScreen() {
     playlistName?: string;
   }>();
   const { skipToIndex } = usePlayback();
-  const { makeApiRequest } = useSpotifyLibrary();
   const router = useRouter();
-  const { hideDetailCovers } = useSettings();
   const { isOnline } = useNetworkState();
 
   const initialPlaylist = useMemo(() => {
@@ -95,25 +83,6 @@ export default function PlaylistDetailScreen() {
     }
   }, [id, displayName, router]);
 
-  useEffect(() => {
-    const hasInitialTrackItems = !!(initialPlaylist as SpotifyPlaylistFull)
-      ?.tracks?.items;
-    if (hasInitialTrackItems || !id) return;
-
-    const loadCache = async () => {
-      try {
-        const cachedPlaylist = await getCachedPlaylistDetail(id);
-        if (cachedPlaylist?.tracks?.items) {
-          log("Playlist details: Displaying cached data");
-          setPlaylist(cachedPlaylist);
-        }
-      } catch (error) {
-        logError("Error retrieving cached playlist:", error);
-      }
-    };
-    loadCache();
-  }, [id, initialPlaylist]);
-
   const fetchPlaylistDetails = useCallback(async () => {
     if (!id) {
       setError("Playlist ID is missing.");
@@ -122,6 +91,18 @@ export default function PlaylistDetailScreen() {
 
     const hasInitialData = !!(initialPlaylist as SpotifyPlaylistFull)?.tracks
       ?.items;
+
+    if (!hasInitialData) {
+      try {
+        const cachedPlaylist = await getCachedPlaylistDetail(id);
+        if (cachedPlaylist?.tracks?.items) {
+          log("Playlist details: Displaying cached data");
+          setPlaylist(cachedPlaylist);
+        }
+      } catch (cacheError) {
+        logError("Error retrieving cached playlist:", cacheError);
+      }
+    }
 
     if (!isOnline) {
       setPlaylist((current) => {
@@ -136,9 +117,8 @@ export default function PlaylistDetailScreen() {
     }
 
     try {
-      const data = await makeApiRequest(
-        `https://api.spotify.com/v1/playlists/${id}`,
-        "Playlist details"
+      const data = await apiGet<SpotifyPlaylistFull>(
+        `https://api.spotify.com/v1/playlists/${id}`
       );
       if (data) {
         log("Playlist details: Fetched fresh data from API");
@@ -155,7 +135,7 @@ export default function PlaylistDetailScreen() {
         setError(errorMessage);
       }
     }
-  }, [id, makeApiRequest, initialPlaylist, isOnline]);
+  }, [id, initialPlaylist, isOnline]);
 
   useFocusEffect(
     useCallback(() => {
@@ -164,15 +144,13 @@ export default function PlaylistDetailScreen() {
   );
 
   const loadMoreTracks = useCallback(async () => {
-    if (!playlist?.tracks?.next || isLoadingMoreTracks) {
-      return;
-    }
+    if (!playlist?.tracks?.next || isLoadingMoreTracks) return;
     setIsLoadingMoreTracks(true);
     try {
-      const data = await makeApiRequest(
-        playlist.tracks.next,
-        "More playlist tracks"
-      );
+      const data = await apiGet<{
+        items: PlaylistTrack[];
+        next: string | null;
+      }>(playlist.tracks.next);
       if (data) {
         setPlaylist((prevPlaylist) => {
           if (!(prevPlaylist && prevPlaylist.tracks)) return prevPlaylist;
@@ -186,12 +164,12 @@ export default function PlaylistDetailScreen() {
           };
         });
       }
-    } catch (e: any) {
+    } catch (e: unknown) {
       logError("Error fetching more playlist tracks:", e);
     } finally {
       setIsLoadingMoreTracks(false);
     }
-  }, [playlist, isLoadingMoreTracks, makeApiRequest]);
+  }, [playlist, isLoadingMoreTracks]);
 
   const handleTrackPress = usePreventDoubleTap(async (trackIndex: number) => {
     const playlistTrack = playlist?.tracks?.items[trackIndex];
@@ -218,8 +196,8 @@ export default function PlaylistDetailScreen() {
           durationMs: track?.duration_ms?.toString() ?? "0",
         },
       });
-    } catch (error) {
-      logError("Error playing track:", error);
+    } catch (playError) {
+      logError("Error playing track:", playError);
       router.push({
         pathname: "/playing",
         params: {
@@ -255,47 +233,20 @@ export default function PlaylistDetailScreen() {
   };
 
   return (
-    <ContentContainer
-      headerTitle={displayName}
+    <DetailScreen
+      data={playlist?.tracks?.items || []}
+      emptyMessage="No tracks found in this playlist."
+      error={error}
+      imageUrl={displayImageUrl}
+      isLoadingMore={isLoadingMoreTracks}
+      keyExtractor={(item, index) =>
+        `${item.track?.id || "unknown-track"}-${index}`
+      }
+      onLoadMore={loadMoreTracks}
       onTitlePress={handleTitlePress}
-      style={{ paddingHorizontal: n(20) }}
-    >
-      <View style={{ paddingBottom: n(20) }}>
-        <CustomScrollView
-          contentContainerStyle={detailScreenStyles.listContentContainer}
-          data={playlist?.tracks?.items || []}
-          keyExtractor={(item, index) =>
-            `${item.track?.id || "unknown-track"}-${index}`
-          }
-          ListEmptyComponent={
-            error ? (
-              <StyledText style={detailScreenStyles.errorText}>
-                {error}
-              </StyledText>
-            ) : playlist?.tracks?.items?.length === 0 ? (
-              <StyledText style={detailScreenStyles.emptyText}>
-                No tracks found in this playlist.
-              </StyledText>
-            ) : null
-          }
-          ListFooterComponent={<ListFooter isLoading={isLoadingMoreTracks} />}
-          ListHeaderComponent={
-            hideDetailCovers ? null : (
-              <View style={detailScreenStyles.imageContainer}>
-                <FallbackImage
-                  placeholderIcon="music-note"
-                  style={detailScreenStyles.image}
-                  uri={displayImageUrl}
-                />
-              </View>
-            )
-          }
-          onEndReached={loadMoreTracks}
-          onEndReachedThreshold={2}
-          overScrollMode="never"
-          renderItem={renderTrackItem}
-        />
-      </View>
-    </ContentContainer>
+      placeholderIcon="music-note"
+      renderItem={renderTrackItem}
+      title={displayName}
+    />
   );
 }

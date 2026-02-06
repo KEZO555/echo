@@ -2,7 +2,7 @@ import { useRouter } from "expo-router";
 import { useCallback, useEffect } from "react";
 import { RefreshControl, View } from "react-native";
 import { useAuth } from "@/features/auth";
-import { useSpotifyLibrary } from "@/features/library";
+import { useSavedEpisodesStore } from "@/features/library/stores";
 import { usePlayback } from "@/features/playback";
 import {
   ContentContainer,
@@ -21,15 +21,12 @@ const ItemSeparator = () => <View style={{ height: n(8) }} />;
 export default function YourEpisodesScreen() {
   const { accessToken, user, isLoading: isAuthLoading } = useAuth();
   const { playTrackWithContext } = usePlayback();
-  const {
-    savedEpisodes,
-    savedEpisodesNextUrl,
-    isRefreshingSavedEpisodes,
-    isLoadingMoreSavedEpisodes,
-    fetchSavedEpisodes,
-    fetchMoreSavedEpisodes,
-    refreshSavedEpisodesFromCache,
-  } = useSpotifyLibrary();
+  const savedEpisodes = useSavedEpisodesStore((s) => s.savedEpisodes);
+  const nextUrl = useSavedEpisodesStore((s) => s.nextUrl);
+  const isRefreshing = useSavedEpisodesStore((s) => s.isRefreshing);
+  const isLoadingMore = useSavedEpisodesStore((s) => s.isLoadingMore);
+  const fetchEpisodes = useSavedEpisodesStore((s) => s.fetch);
+  const fetchMoreEpisodes = useSavedEpisodesStore((s) => s.fetchMore);
   const router = useRouter();
   const { isOnline } = useNetworkState();
 
@@ -39,33 +36,25 @@ export default function YourEpisodesScreen() {
       user &&
       !savedEpisodes &&
       !isAuthLoading &&
-      !isRefreshingSavedEpisodes
+      !isRefreshing
     ) {
-      fetchSavedEpisodes();
+      fetchEpisodes();
     }
   }, [
     accessToken,
     user,
     savedEpisodes,
     isAuthLoading,
-    isRefreshingSavedEpisodes,
-    fetchSavedEpisodes,
+    isRefreshing,
+    fetchEpisodes,
   ]);
 
   const handleRefresh = useCallback(async () => {
-    if (isRefreshingSavedEpisodes) return;
-
+    if (isRefreshing) return;
     if (isOnline) {
-      fetchSavedEpisodes();
-    } else {
-      await refreshSavedEpisodesFromCache();
+      fetchEpisodes();
     }
-  }, [
-    fetchSavedEpisodes,
-    isRefreshingSavedEpisodes,
-    isOnline,
-    refreshSavedEpisodesFromCache,
-  ]);
+  }, [fetchEpisodes, isRefreshing, isOnline]);
 
   const handleEpisodePress = usePreventDoubleTap(
     async (savedEpisode: SpotifySavedEpisode) => {
@@ -90,7 +79,7 @@ export default function YourEpisodesScreen() {
 
   const formatReleaseDate = (dateString: string): string => {
     const date = new Date(dateString);
-    if (isNaN(date.getTime())) return "";
+    if (Number.isNaN(date.getTime())) return "";
     return date.toLocaleDateString();
   };
 
@@ -134,7 +123,7 @@ export default function YourEpisodesScreen() {
   };
 
   const renderFooter = () => {
-    return <ListFooter isLoading={isLoadingMoreSavedEpisodes} />;
+    return <ListFooter isLoading={isLoadingMore} />;
   };
 
   return (
@@ -148,8 +137,7 @@ export default function YourEpisodesScreen() {
         ItemSeparatorComponent={ItemSeparator}
         keyExtractor={(item) => item.episode.id}
         ListEmptyComponent={
-          !isRefreshingSavedEpisodes &&
-          (!savedEpisodes || savedEpisodes.length === 0) ? (
+          !isRefreshing && (!savedEpisodes || savedEpisodes.length === 0) ? (
             <StyledText style={styles.emptyText}>
               No saved episodes yet.
             </StyledText>
@@ -157,8 +145,8 @@ export default function YourEpisodesScreen() {
         }
         ListFooterComponent={renderFooter}
         onEndReached={() => {
-          if (savedEpisodesNextUrl && !isLoadingMoreSavedEpisodes && isOnline) {
-            fetchMoreSavedEpisodes();
+          if (nextUrl && !isLoadingMore && isOnline) {
+            fetchMoreEpisodes();
           }
         }}
         onEndReachedThreshold={2}
@@ -168,8 +156,8 @@ export default function YourEpisodesScreen() {
             colors={["white"]}
             onRefresh={handleRefresh}
             progressBackgroundColor={"black"}
-            refreshing={isRefreshingSavedEpisodes}
-            size={"large" as any}
+            refreshing={isRefreshing}
+            size={"large" as unknown as number}
           />
         }
         renderItem={renderEpisodeItem}

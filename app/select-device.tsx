@@ -2,29 +2,27 @@ import { router } from "expo-router";
 import { useEffect, useState } from "react";
 import { StyleSheet } from "react-native";
 import { useAuth } from "@/features/auth";
-import { useSpotifyLibrary } from "@/features/library";
 import ContentContainer from "@/shared/components/ContentContainer";
 import CustomScrollView from "@/shared/components/CustomScrollView";
 import { HapticPressable } from "@/shared/components/HapticPressable";
 import { StyledText } from "@/shared/components/StyledText";
 import type { SpotifyDevice } from "@/shared/types/spotify";
 import { n } from "@/shared/utils";
+import { apiGet, apiPut } from "@/shared/utils/api-client";
 import { logError } from "@/shared/utils/logger";
 
 export default function SelectDeviceScreen() {
   const { ensureValidToken } = useAuth();
-  const { makeApiRequest } = useSpotifyLibrary();
   const [devices, setDevices] = useState<SpotifyDevice[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   const fetchDevices = async () => {
     setIsLoading(true);
     try {
-      const data = await makeApiRequest(
-        "https://api.spotify.com/v1/me/player/devices",
-        "Fetch available devices"
+      const data = await apiGet<{ devices: SpotifyDevice[] }>(
+        "https://api.spotify.com/v1/me/player/devices"
       );
-      if (data && data.devices) {
+      if (data?.devices) {
         setDevices(data.devices);
       }
     } catch (error) {
@@ -43,13 +41,8 @@ export default function SelectDeviceScreen() {
     try {
       const validToken = await ensureValidToken();
       if (!validToken) return;
-      await fetch("https://api.spotify.com/v1/me/player", {
-        method: "PUT",
-        headers: {
-          Authorization: `Bearer ${validToken}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ device_ids: [deviceId] }),
+      await apiPut("https://api.spotify.com/v1/me/player", {
+        device_ids: [deviceId],
       });
     } catch (error) {
       logError("Error transferring playback to device:", error);
@@ -94,10 +87,6 @@ export default function SelectDeviceScreen() {
 }
 
 const styles = StyleSheet.create({
-  centered: {
-    justifyContent: "center",
-    alignItems: "center",
-  },
   itemContainer: {
     flexDirection: "row",
     alignItems: "center",

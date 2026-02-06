@@ -4,11 +4,12 @@ import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 import { useCallback, useState } from "react";
 import { StyleSheet, TextInput, View } from "react-native";
 import { useAuth } from "@/features/auth";
-import { useSpotifyLibrary } from "@/features/library";
+import { usePlaylistsStore } from "@/features/library/stores";
 import { useSettings } from "@/features/settings";
 import ContentContainer from "@/shared/components/ContentContainer";
 import { HapticPressable } from "@/shared/components/HapticPressable";
 import { n } from "@/shared/utils";
+import { apiPost, apiPut } from "@/shared/utils/api-client";
 import { log, logError } from "@/shared/utils/logger";
 
 const navigateBack = (router: ReturnType<typeof useRouter>) => {
@@ -17,52 +18,6 @@ const navigateBack = (router: ReturnType<typeof useRouter>) => {
   } else {
     router.replace("/(tabs)/playlists");
   }
-};
-
-const renamePlaylist = async (
-  token: string,
-  playlistId: string,
-  name: string
-): Promise<boolean> => {
-  const response = await fetch(
-    `https://api.spotify.com/v1/playlists/${playlistId}`,
-    {
-      method: "PUT",
-      headers: {
-        Authorization: `Bearer ${token}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ name }),
-    }
-  );
-  if (!response.ok) {
-    logError("Error renaming playlist:", await response.json());
-  }
-  return response.ok;
-};
-
-const createPlaylist = async (
-  token: string,
-  userId: string,
-  name: string
-): Promise<boolean> => {
-  const response = await fetch(
-    `https://api.spotify.com/v1/users/${userId}/playlists`,
-    {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${token}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ name, public: false }),
-    }
-  );
-  if (response.ok) {
-    log("Playlist created successfully:", await response.json());
-  } else {
-    logError("Error creating playlist:", await response.json());
-  }
-  return response.ok;
 };
 
 export default function PlaylistFormScreen() {
@@ -77,7 +32,7 @@ export default function PlaylistFormScreen() {
   );
   const router = useRouter();
   const { user, ensureValidToken } = useAuth();
-  const { fetchPlaylists } = useSpotifyLibrary();
+  const fetchPlaylists = usePlaylistsStore((s) => s.fetch);
 
   useFocusEffect(
     useCallback(() => {
@@ -86,9 +41,7 @@ export default function PlaylistFormScreen() {
   );
 
   const handleSubmit = async () => {
-    if (!playlistName.trim()) {
-      return;
-    }
+    if (!playlistName.trim()) return;
 
     try {
       const validToken = await ensureValidToken();
@@ -103,19 +56,27 @@ export default function PlaylistFormScreen() {
           logError("Rename Playlist Error: Missing playlist ID");
           return;
         }
-        ok = await renamePlaylist(validToken, playlistId, playlistName);
+        await apiPut(`https://api.spotify.com/v1/playlists/${playlistId}`, {
+          name: playlistName,
+        });
+        ok = true;
       } else {
         if (!user?.id) {
           logError("Create Playlist Error: Missing user ID");
           return;
         }
-        ok = await createPlaylist(validToken, user.id, playlistName);
+        const result = await apiPost(
+          `https://api.spotify.com/v1/users/${user.id}/playlists`,
+          { name: playlistName, public: false }
+        );
+        ok = result !== null;
+        if (ok) {
+          log("Playlist created successfully");
+        }
       }
 
       if (ok) {
-        if (fetchPlaylists) {
-          await fetchPlaylists();
-        }
+        await fetchPlaylists();
         navigateBack(router);
       }
     } catch (error) {

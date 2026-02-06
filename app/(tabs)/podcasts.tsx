@@ -1,39 +1,27 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useFocusEffect, useRouter } from "expo-router";
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { RefreshControl, View } from "react-native";
+import { useCallback, useMemo, useState } from "react";
 import { SHOW_DETAIL_KEY_PREFIX } from "@/constants/spotify";
 import { useAuth } from "@/features/auth";
-import {
-  refreshFollowedPodcastsFromCache,
-  useSpotifyLibrary,
-} from "@/features/library";
+import { refreshFollowedPodcastsFromCache } from "@/features/library";
+import { usePodcastsStore } from "@/features/library/stores";
 import { useSettings } from "@/features/settings";
-import {
-  ContentContainer,
-  CustomScrollView,
-  MediaListItem,
-  StyledText,
-} from "@/shared/components";
+import { ListScreen, MediaListItem } from "@/shared/components";
 import { useNetworkState, usePreventDoubleTap } from "@/shared/hooks";
-import { tabScreenStyles as styles } from "@/shared/styles/detailScreen";
 import type { SpotifySavedShow } from "@/shared/types/spotify";
-import { n } from "@/shared/utils";
 import { getLargestImage } from "@/shared/utils/formatters";
 import { log, logError } from "@/shared/utils/logger";
 
 const YOUR_EPISODES_ID = "YOUR_EPISODES_ID";
 
 export default function PodcastsScreen() {
-  const { isLoading, accessToken, user } = useAuth();
-  const {
-    podcasts,
-    fetchPodcasts,
-    isRefreshingPodcasts,
-    fetchMorePodcasts,
-    isLoadingMorePodcasts,
-    podcastsNextUrl,
-  } = useSpotifyLibrary();
+  const { isLoading } = useAuth();
+  const podcasts = usePodcastsStore((s) => s.podcasts);
+  const fetchPodcasts = usePodcastsStore((s) => s.fetch);
+  const isRefreshing = usePodcastsStore((s) => s.isRefreshing);
+  const fetchMore = usePodcastsStore((s) => s.fetchMore);
+  const isLoadingMore = usePodcastsStore((s) => s.isLoadingMore);
+  const nextUrl = usePodcastsStore((s) => s.nextUrl);
   const router = useRouter();
 
   const { isOnline } = useNetworkState();
@@ -42,18 +30,6 @@ export default function PodcastsScreen() {
     SpotifySavedShow[] | null
   >(null);
   const [cachedShowIds, setCachedShowIds] = useState<Set<string>>(new Set());
-
-  useEffect(() => {
-    if (
-      accessToken &&
-      user &&
-      !podcasts &&
-      !isLoading &&
-      !isRefreshingPodcasts
-    ) {
-      fetchPodcasts();
-    }
-  }, [accessToken, user, podcasts, isLoading, isRefreshingPodcasts]);
 
   const podcastSource = podcasts ?? offlinePodcasts;
   const sortedPodcasts = useMemo(
@@ -86,7 +62,7 @@ export default function PodcastsScreen() {
   );
 
   const handleRefresh = useCallback(async () => {
-    if (isRefreshingPodcasts) return;
+    if (isRefreshing) return;
 
     if (isOnline) {
       fetchPodcasts();
@@ -106,10 +82,10 @@ export default function PodcastsScreen() {
         logError("Podcasts: Error loading cached podcasts:", error);
       }
     }
-  }, [fetchPodcasts, isRefreshingPodcasts, isOnline]);
+  }, [fetchPodcasts, isRefreshing, isOnline]);
 
   const handleYourEpisodesPress = usePreventDoubleTap(() => {
-    router.push("/your-episodes" as any);
+    router.push("/your-episodes" as never);
   });
 
   const handleShowPress = usePreventDoubleTap(
@@ -122,7 +98,7 @@ export default function PodcastsScreen() {
           showName: item.show.name as string,
           showString: JSON.stringify(item.show),
         },
-      } as any);
+      } as never);
     }
   );
 
@@ -185,89 +161,41 @@ export default function PodcastsScreen() {
     );
   };
 
-  const renderFooter = () => {
-    if (!isLoadingMorePodcasts) return null;
-    return <View style={{ paddingVertical: n(20) }} />;
-  };
-
   const handlePlayingPress = usePreventDoubleTap(() => {
     router.push("/playing");
   });
 
   if (!sortedPodcasts || sortedPodcasts.length === 0) {
-    const emptyData = hideYourEpisodes ? [] : [yourEpisodesItem];
     return (
-      <ContentContainer
-        headerIcon="multitrack-audio"
+      <ListScreen
+        data={displayPodcasts}
+        emptyMessage="No followed podcasts yet."
         headerIconPress={handlePlayingPress}
-        headerIconShowLength={1}
-        headerTitle="Podcasts"
-        hideBackButton={true}
-        style={{ paddingHorizontal: n(20) }}
-      >
-        <CustomScrollView
-          contentContainerStyle={styles.listContentContainer}
-          data={emptyData}
-          ItemSeparatorComponent={() => <View style={{ height: n(8) }} />}
-          keyExtractor={(item) => item.show.id}
-          overScrollMode="never"
-          refreshControl={
-            <RefreshControl
-              colors={["white"]}
-              onRefresh={handleRefresh}
-              progressBackgroundColor={"black"}
-              refreshing={isRefreshingPodcasts}
-              size={"large" as any}
-            />
-          }
-          renderItem={renderShowItem}
-          style={styles.list}
-        />
-      </ContentContainer>
+        isRefreshing={isRefreshing}
+        keyExtractor={(item) => item.show.id}
+        onRefresh={handleRefresh}
+        renderItem={renderShowItem}
+        title="Podcasts"
+      />
     );
   }
 
   return (
-    <ContentContainer
-      headerIcon="multitrack-audio"
+    <ListScreen
+      data={displayPodcasts}
+      emptyMessage="No followed podcasts yet."
       headerIconPress={handlePlayingPress}
-      headerIconShowLength={1}
-      headerTitle="Podcasts"
-      hideBackButton={true}
-      style={{ paddingHorizontal: n(20) }}
-    >
-      <CustomScrollView
-        contentContainerStyle={styles.listContentContainer}
-        data={displayPodcasts}
-        ItemSeparatorComponent={() => <View style={{ height: n(8) }} />}
-        keyExtractor={(item) => item.show.id}
-        ListEmptyComponent={
-          isLoading || isRefreshingPodcasts ? null : (
-            <StyledText style={styles.emptyText}>
-              No followed podcasts yet.
-            </StyledText>
-          )
+      isLoadingMore={isLoadingMore}
+      isRefreshing={isRefreshing}
+      keyExtractor={(item) => item.show.id}
+      onLoadMore={() => {
+        if (nextUrl && !isLoadingMore) {
+          fetchMore();
         }
-        ListFooterComponent={renderFooter}
-        onEndReached={() => {
-          if (podcastsNextUrl && !isLoadingMorePodcasts) {
-            fetchMorePodcasts();
-          }
-        }}
-        onEndReachedThreshold={2}
-        overScrollMode="never"
-        refreshControl={
-          <RefreshControl
-            colors={["white"]}
-            onRefresh={handleRefresh}
-            progressBackgroundColor={"black"}
-            refreshing={isRefreshingPodcasts}
-            size={"large" as any}
-          />
-        }
-        renderItem={renderShowItem}
-        style={styles.list}
-      />
-    </ContentContainer>
+      }}
+      onRefresh={handleRefresh}
+      renderItem={renderShowItem}
+      title="Podcasts"
+    />
   );
 }

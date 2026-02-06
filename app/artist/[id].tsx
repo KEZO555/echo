@@ -2,15 +2,13 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import { useEffect, useMemo, useState } from "react";
 import { StyleSheet, View } from "react-native";
 import { useAuth } from "@/features/auth";
-import { useSpotifyLibrary } from "@/features/library";
+import { useArtistsStore } from "@/features/library/stores";
 import { usePlayback } from "@/features/playback";
 import { useSettings } from "@/features/settings";
 import {
-  ContentContainer,
-  CustomScrollView,
+  DetailScreen,
   FallbackImage,
   HapticPressable,
-  ListFooter,
   StyledText,
   TrackListItem,
 } from "@/shared/components";
@@ -19,13 +17,13 @@ import {
   usePreventDoubleTap,
   useSaveStatus,
 } from "@/shared/hooks";
-import { detailScreenStyles } from "@/shared/styles/detailScreen";
 import type {
   SpotifyAlbumSimple,
   SpotifyArtist,
   SpotifyTrack,
 } from "@/shared/types/spotify";
 import { log, logError, n } from "@/shared/utils";
+import { apiGet } from "@/shared/utils/api-client";
 
 const AlbumItemSeparator = ({
   leadingItem,
@@ -38,6 +36,11 @@ const AlbumItemSeparator = ({
   return null;
 };
 
+type ArtistDetailItem =
+  | { type: "header"; title: string }
+  | { type: "track"; data: SpotifyTrack; index: number }
+  | { type: "album"; data: SpotifyAlbumSimple; index: number };
+
 export default function ArtistDetailScreen() {
   const { id, artistString, artistName } = useLocalSearchParams<{
     id: string;
@@ -47,18 +50,15 @@ export default function ArtistDetailScreen() {
 
   const { accessToken } = useAuth();
   const { playTracksWithWebApi } = usePlayback();
-  const {
-    followArtist,
-    unfollowArtist,
-    fetchArtistTopTracks,
-    fetchArtistAlbums,
-    fetchMoreArtistAlbums,
-    checkIfFollowingArtist,
-    makeApiRequest,
-  } = useSpotifyLibrary();
+  const followArtist = useArtistsStore((s) => s.followArtist);
+  const unfollowArtist = useArtistsStore((s) => s.unfollowArtist);
+  const checkIfFollowing = useArtistsStore((s) => s.checkIfFollowing);
+  const fetchArtistTopTracks = useArtistsStore((s) => s.fetchArtistTopTracks);
+  const fetchArtistAlbums = useArtistsStore((s) => s.fetchArtistAlbums);
+  const fetchMoreArtistAlbums = useArtistsStore((s) => s.fetchMoreArtistAlbums);
 
   const router = useRouter();
-  const { hideDetailCovers, hideAlbumCovers } = useSettings();
+  const { hideAlbumCovers } = useSettings();
   const { isOnline } = useNetworkState();
 
   const initialArtist = useMemo(() => {
@@ -87,7 +87,7 @@ export default function ArtistDetailScreen() {
     toggle: handleToggleFollowArtist,
   } = useSaveStatus({
     id,
-    checkFn: checkIfFollowingArtist,
+    checkFn: checkIfFollowing,
     saveFn: followArtist,
     removeFn: unfollowArtist,
     accessToken,
@@ -98,16 +98,14 @@ export default function ArtistDetailScreen() {
 
     setIsLoadingMore(true);
     try {
-      const { albums: newAlbums, nextUrl } = await fetchMoreArtistAlbums(
-        albumsNextUrl,
-        isLoadingMore
-      );
+      const { albums: newAlbums, nextUrl } =
+        await fetchMoreArtistAlbums(albumsNextUrl);
       if (newAlbums) {
         setAlbums((prevAlbums) => [...(prevAlbums || []), ...newAlbums]);
         setAlbumsNextUrl(nextUrl);
       }
-    } catch (error) {
-      logError("Error fetching more artist albums:", error);
+    } catch (fetchError) {
+      logError("Error fetching more artist albums:", fetchError);
     } finally {
       setIsLoadingMore(false);
     }
@@ -134,9 +132,8 @@ export default function ArtistDetailScreen() {
       }
 
       try {
-        const data = await makeApiRequest(
-          `https://api.spotify.com/v1/artists/${id}`,
-          "Artist details"
+        const data = await apiGet<SpotifyArtist>(
+          `https://api.spotify.com/v1/artists/${id}`
         );
         if (data) {
           log("Artist details: Fetched fresh data from API");
@@ -144,10 +141,12 @@ export default function ArtistDetailScreen() {
         } else if (!initialArtist) {
           throw new Error("Failed to fetch artist details");
         }
-      } catch (e: any) {
+      } catch (e: unknown) {
+        const msg =
+          e instanceof Error ? e.message : "An unexpected error occurred.";
         logError("Error fetching artist details:", e);
         if (!initialArtist) {
-          setError(e.message || "An unexpected error occurred.");
+          setError(msg);
         }
       }
     };
@@ -157,26 +156,26 @@ export default function ArtistDetailScreen() {
       try {
         const data = await fetchArtistTopTracks(id);
         setTopTracks(data);
-      } catch (e: any) {
+      } catch (e: unknown) {
         logError("Error fetching artist top tracks:", e);
       }
     };
 
-    const fetchAlbums = async () => {
+    const fetchAlbumsData = async () => {
       if (!isOnline) return;
       try {
         const data = await fetchArtistAlbums(id);
         setAlbums(data.albums);
         setAlbumsNextUrl(data.nextUrl);
-      } catch (e: any) {
+      } catch (e: unknown) {
         logError("Error fetching artist albums:", e);
       }
     };
 
     fetchArtistDetails();
     fetchTopTracks();
-    fetchAlbums();
-  }, [id, makeApiRequest]);
+    fetchAlbumsData();
+  }, [id]);
 
   const artistAlbums = (albums || []).filter(
     (album) => album.album_type === "album"
@@ -185,18 +184,18 @@ export default function ArtistDetailScreen() {
     (album) => album.album_type === "single"
   );
 
-  const artistDetailList = [
+  const artistDetailList: ArtistDetailItem[] = [
     { type: "header", title: "Top Songs" },
     ...topTracks.slice(0, 10).map((track, idx) => ({
-      type: "track",
+      type: "track" as const,
       data: track,
       index: idx,
     })),
     ...(artistAlbums.length > 0
       ? [
-          { type: "header", title: "Albums" },
+          { type: "header" as const, title: "Albums" },
           ...artistAlbums.map((album, idx) => ({
-            type: "album",
+            type: "album" as const,
             data: album,
             index: idx,
           })),
@@ -204,9 +203,9 @@ export default function ArtistDetailScreen() {
       : []),
     ...(artistSingles.length > 0
       ? [
-          { type: "header", title: "Singles" },
+          { type: "header" as const, title: "Singles" },
           ...artistSingles.map((album, idx) => ({
-            type: "album",
+            type: "album" as const,
             data: album,
             index: idx,
           })),
@@ -220,7 +219,7 @@ export default function ArtistDetailScreen() {
 
   const handleTrackPress = usePreventDoubleTap(async (trackIndex: number) => {
     const track = topTracks[trackIndex];
-    const artistName =
+    const trackArtistName =
       track?.artists
         ?.map((a: SpotifyTrack["artists"][0]) => a.name)
         .join(", ") ?? "";
@@ -234,18 +233,18 @@ export default function ArtistDetailScreen() {
         pathname: "/playing",
         params: {
           trackName: track?.name ?? "",
-          artistName,
+          artistName: trackArtistName,
           albumArtUrl,
           durationMs: track?.duration_ms?.toString() ?? "0",
         },
       });
-    } catch (error) {
-      logError("Error playing track:", error);
+    } catch (playError) {
+      logError("Error playing track:", playError);
       router.push({
         pathname: "/playing",
         params: {
           trackName: track?.name ?? "",
-          artistName,
+          artistName: trackArtistName,
           albumArtUrl,
           durationMs: track?.duration_ms?.toString() ?? "0",
         },
@@ -275,7 +274,11 @@ export default function ArtistDetailScreen() {
     router.push(`/album/${albumId}`);
   });
 
-  const renderAlbumItem = ({ item }: { item: any }) => {
+  const renderAlbumItem = ({
+    item,
+  }: {
+    item: { data: SpotifyAlbumSimple };
+  }) => {
     const album = item.data;
     const hasImage = album.images && album.images.length > 0;
     return (
@@ -306,7 +309,7 @@ export default function ArtistDetailScreen() {
     );
   };
 
-  const renderItem = ({ item }: { item: any }) => {
+  const renderItem = ({ item }: { item: ArtistDetailItem }) => {
     if (item.type === "header") {
       return renderSectionHeader(item.title);
     }
@@ -319,7 +322,7 @@ export default function ArtistDetailScreen() {
     return null;
   };
 
-  const keyExtractor = (item: any, index: number) => {
+  const keyExtractor = (item: ArtistDetailItem, index: number) => {
     if (item.type === "header") return `header-${item.title}-${index}`;
     if (item.type === "track") return `track-${item.data.id}-${index}`;
     if (item.type === "album") return `album-${item.data.id}-${index}`;
@@ -327,49 +330,26 @@ export default function ArtistDetailScreen() {
   };
 
   return (
-    <ContentContainer
+    <DetailScreen
+      data={artistDetailList}
+      emptyMessage="No tracks or albums found for this artist."
+      error={error}
       headerIcon={isFollowingArtist ? "remove" : "add"}
       headerIconPress={handleToggleFollowArtist}
       headerIconShowLength={isCheckingFollowingArtist ? 0 : 1}
-      headerTitle={displayName}
-      style={{ paddingHorizontal: n(20) }}
-    >
-      <View style={{ paddingBottom: n(20) }}>
-        <CustomScrollView
-          contentContainerStyle={detailScreenStyles.listContentContainer}
-          data={artistDetailList}
-          ItemSeparatorComponent={AlbumItemSeparator}
-          keyExtractor={keyExtractor}
-          ListEmptyComponent={
-            error ? (
-              <StyledText style={detailScreenStyles.errorText}>
-                {error}
-              </StyledText>
-            ) : artistDetailList.length <= 1 ? (
-              <StyledText style={detailScreenStyles.emptyText}>
-                No tracks or albums found for this artist.
-              </StyledText>
-            ) : null
-          }
-          ListFooterComponent={<ListFooter isLoading={isLoadingMore} />}
-          ListHeaderComponent={
-            !hideDetailCovers && displayImageUrl ? (
-              <View style={detailScreenStyles.imageContainer}>
-                <FallbackImage
-                  placeholderIcon="person"
-                  style={detailScreenStyles.image}
-                  uri={displayImageUrl}
-                />
-              </View>
-            ) : null
-          }
-          onEndReached={handleLoadMore}
-          onEndReachedThreshold={2}
-          overScrollMode="never"
-          renderItem={renderItem}
-        />
-      </View>
-    </ContentContainer>
+      imageUrl={displayImageUrl}
+      isLoadingMore={isLoadingMore}
+      itemSeparatorComponent={
+        AlbumItemSeparator as React.ComponentType<{
+          leadingItem: ArtistDetailItem;
+        }>
+      }
+      keyExtractor={keyExtractor}
+      onLoadMore={handleLoadMore}
+      placeholderIcon="person"
+      renderItem={renderItem}
+      title={displayName}
+    />
   );
 }
 
@@ -388,14 +368,6 @@ const styles = StyleSheet.create({
   albumImage: {
     width: n(50),
     height: n(50),
-  },
-  placeholderImageContainer: {
-    width: n(50),
-    height: n(50),
-    marginRight: n(15),
-    backgroundColor: "#282828",
-    justifyContent: "center",
-    alignItems: "center",
   },
   textContainer: {
     flex: 1,

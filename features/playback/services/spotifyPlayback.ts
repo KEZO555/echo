@@ -2,7 +2,7 @@ import {
   addTrackToSavedCache,
   isTrackInSavedCache,
   removeTrackFromSavedCache,
-} from "@/features/library";
+} from "@/features/library/utils/cache";
 import { spotify } from "@/modules/spotify-sdk";
 import type {
   SpotifyCurrentlyPlaying,

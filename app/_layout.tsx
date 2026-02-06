@@ -8,13 +8,14 @@ import { useEffect, useRef } from "react";
 import { View } from "react-native";
 import { AuthProvider, useAuth } from "@/features/auth";
 import { CredentialsProvider, useCredentials } from "@/features/credentials";
-import { LibraryProvider } from "@/features/library";
+import { useLibraryInit } from "@/features/library";
 import { PlaybackProvider } from "@/features/playback";
 import { SettingsProvider, useSettings } from "@/features/settings";
 import { StyledText } from "@/shared/components/StyledText";
 import "@/shared/utils/logger";
 
 function RootNavigation() {
+  useLibraryInit();
   const router = useRouter();
   const {
     accessToken,
@@ -135,11 +136,9 @@ export default function RootLayout() {
     <CredentialsProvider>
       <SettingsProvider>
         <AuthProvider>
-          <LibraryProvider>
-            <PlaybackProvider>
-              <RootNavigation />
-            </PlaybackProvider>
-          </LibraryProvider>
+          <PlaybackProvider>
+            <RootNavigation />
+          </PlaybackProvider>
         </AuthProvider>
       </SettingsProvider>
     </CredentialsProvider>

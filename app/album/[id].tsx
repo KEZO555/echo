@@ -5,26 +5,18 @@ import { useAuth } from "@/features/auth";
 import {
   getCachedAlbumDetail,
   saveCachedAlbumDetail,
-  useSpotifyLibrary,
 } from "@/features/library";
+import { useAlbumsStore } from "@/features/library/stores";
 import { usePlayback } from "@/features/playback";
-import { useSettings } from "@/features/settings";
-import {
-  ContentContainer,
-  CustomScrollView,
-  FallbackImage,
-  ListFooter,
-  StyledText,
-  TrackListItem,
-} from "@/shared/components";
+import { DetailScreen, TrackListItem } from "@/shared/components";
 import {
   useNetworkState,
   usePreventDoubleTap,
   useSaveStatus,
 } from "@/shared/hooks";
-import { detailScreenStyles } from "@/shared/styles/detailScreen";
 import type { SpotifyAlbum, SpotifyTrackSimple } from "@/shared/types/spotify";
 import { log, logError, n } from "@/shared/utils";
+import { apiGet } from "@/shared/utils/api-client";
 
 export default function AlbumDetailScreen() {
   const { id, albumString, albumName } = useLocalSearchParams<{
@@ -35,10 +27,10 @@ export default function AlbumDetailScreen() {
 
   const { accessToken } = useAuth();
   const { skipToIndex } = usePlayback();
-  const { saveAlbum, removeAlbum, checkIfAlbumIsSaved, makeApiRequest } =
-    useSpotifyLibrary();
+  const saveAlbum = useAlbumsStore((s) => s.saveAlbum);
+  const removeAlbum = useAlbumsStore((s) => s.removeAlbum);
+  const checkIfSaved = useAlbumsStore((s) => s.checkIfSaved);
   const router = useRouter();
-  const { hideDetailCovers } = useSettings();
   const { isOnline } = useNetworkState();
 
   const initialAlbum = albumString
@@ -55,7 +47,7 @@ export default function AlbumDetailScreen() {
     toggle: handleToggleAlbumSave,
   } = useSaveStatus({
     id,
-    checkFn: checkIfAlbumIsSaved,
+    checkFn: checkIfSaved,
     saveFn: saveAlbum,
     removeFn: removeAlbum,
     accessToken,
@@ -78,16 +70,15 @@ export default function AlbumDetailScreen() {
             setAlbum(cachedAlbum);
             hasDisplayedData = true;
           }
-        } catch (error) {
-          logError("Error retrieving cached album:", error);
+        } catch (cacheError) {
+          logError("Error retrieving cached album:", cacheError);
         }
       }
 
       if (isOnline) {
         try {
-          const data = await makeApiRequest(
-            `https://api.spotify.com/v1/albums/${id}`,
-            "Album details"
+          const data = await apiGet<SpotifyAlbum>(
+            `https://api.spotify.com/v1/albums/${id}`
           );
           if (data) {
             log("Album details: Fetched fresh data from API");
@@ -96,10 +87,12 @@ export default function AlbumDetailScreen() {
           } else if (!hasDisplayedData) {
             throw new Error("Failed to fetch album details");
           }
-        } catch (e: any) {
+        } catch (e: unknown) {
+          const msg =
+            e instanceof Error ? e.message : "An unexpected error occurred.";
           logError("Error fetching album details:", e);
           if (!hasDisplayedData) {
-            setError(e.message || "An unexpected error occurred.");
+            setError(msg);
           }
         }
       } else if (!hasDisplayedData) {
@@ -110,17 +103,18 @@ export default function AlbumDetailScreen() {
     };
 
     fetchAlbumDetails();
-  }, [id, makeApiRequest]);
+  }, [id]);
 
   const loadMoreTracks = useCallback(async () => {
-    if (!album?.tracks?.next || isLoadingMoreTracks) {
-      return;
-    }
+    if (!album?.tracks?.next || isLoadingMoreTracks) return;
     setIsLoadingMoreTracks(true);
     try {
-      const data = await makeApiRequest(album.tracks.next, "More album tracks");
+      const data = await apiGet<{
+        items: SpotifyTrackSimple[];
+        next: string | null;
+      }>(album.tracks.next);
       if (data) {
-        setAlbum((prevAlbum: SpotifyAlbum | null) => {
+        setAlbum((prevAlbum) => {
           if (!(prevAlbum && prevAlbum.tracks)) return prevAlbum;
           return {
             ...prevAlbum,
@@ -132,12 +126,12 @@ export default function AlbumDetailScreen() {
           };
         });
       }
-    } catch (e: any) {
+    } catch (e: unknown) {
       logError("Error fetching more album tracks:", e);
     } finally {
       setIsLoadingMoreTracks(false);
     }
-  }, [album, isLoadingMoreTracks, makeApiRequest]);
+  }, [album, isLoadingMoreTracks]);
 
   const handleTrackPress = usePreventDoubleTap(async (trackIndex: number) => {
     const track = album?.tracks?.items[trackIndex];
@@ -162,8 +156,8 @@ export default function AlbumDetailScreen() {
           durationMs: track?.duration_ms?.toString() ?? "0",
         },
       });
-    } catch (error) {
-      logError("Error playing track:", error);
+    } catch (playError) {
+      logError("Error playing track:", playError);
       router.push({
         pathname: "/playing",
         params: {
@@ -178,21 +172,20 @@ export default function AlbumDetailScreen() {
 
   if (!album) {
     return (
-      <ContentContainer
+      <DetailScreen
+        data={[]}
+        emptyMessage=""
+        error={error}
         headerIcon={isAlbumSaved ? "remove" : "add"}
         headerIconPress={handleToggleAlbumSave}
         headerIconShowLength={isCheckingAlbumSaved ? 0 : 1}
-        headerTitle={albumName || "Album"}
-        style={{ paddingHorizontal: n(20) }}
-      >
-        {error && (
-          <StyledText style={detailScreenStyles.errorText}>{error}</StyledText>
-        )}
-      </ContentContainer>
+        keyExtractor={(_item, index) => index.toString()}
+        placeholderIcon="album"
+        renderItem={() => null}
+        title={albumName || "Album"}
+      />
     );
   }
-
-  const albumImageUrl = album.images?.[0]?.url;
 
   const renderTrackItem = ({
     item: track,
@@ -222,47 +215,20 @@ export default function AlbumDetailScreen() {
   };
 
   return (
-    <ContentContainer
+    <DetailScreen
+      data={album.tracks?.items || []}
+      emptyMessage="No tracks found in this album."
+      error={error}
       headerIcon={isAlbumSaved ? "remove" : "add"}
       headerIconPress={handleToggleAlbumSave}
       headerIconShowLength={isCheckingAlbumSaved ? 0 : 1}
-      headerTitle={album.name}
-      style={{ paddingHorizontal: n(20) }}
-    >
-      <View style={{ paddingBottom: n(20) }}>
-        <CustomScrollView
-          contentContainerStyle={detailScreenStyles.listContentContainer}
-          data={album.tracks?.items || []}
-          keyExtractor={(item, index) => item.id || index.toString()}
-          ListEmptyComponent={
-            error ? (
-              <StyledText style={detailScreenStyles.errorText}>
-                {error}
-              </StyledText>
-            ) : album.tracks?.items?.length === 0 ? (
-              <StyledText style={detailScreenStyles.emptyText}>
-                No tracks found in this album.
-              </StyledText>
-            ) : null
-          }
-          ListFooterComponent={<ListFooter isLoading={isLoadingMoreTracks} />}
-          ListHeaderComponent={
-            hideDetailCovers ? null : (
-              <View style={detailScreenStyles.imageContainer}>
-                <FallbackImage
-                  placeholderIcon="album"
-                  style={detailScreenStyles.image}
-                  uri={albumImageUrl}
-                />
-              </View>
-            )
-          }
-          onEndReached={loadMoreTracks}
-          onEndReachedThreshold={2}
-          overScrollMode="never"
-          renderItem={renderTrackItem}
-        />
-      </View>
-    </ContentContainer>
+      imageUrl={album.images?.[0]?.url}
+      isLoadingMore={isLoadingMoreTracks}
+      keyExtractor={(item, index) => item.id || index.toString()}
+      onLoadMore={loadMoreTracks}
+      placeholderIcon="album"
+      renderItem={renderTrackItem}
+      title={album.name}
+    />
   );
 }

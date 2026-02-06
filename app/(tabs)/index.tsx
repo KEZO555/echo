@@ -1,57 +1,36 @@
 import { useRouter } from "expo-router";
-import { useCallback, useEffect, useMemo } from "react";
-import { RefreshControl, View } from "react-native";
+import { useCallback, useMemo } from "react";
+import { View } from "react-native";
 import { useAuth } from "@/features/auth";
-import { useSpotifyLibrary } from "@/features/library";
+import { useSavedTracksStore } from "@/features/library/stores";
 import { usePlayback } from "@/features/playback";
-import {
-  ContentContainer,
-  CustomScrollView,
-  MediaListItem,
-  StyledText,
-} from "@/shared/components";
+import { ListScreen, MediaListItem } from "@/shared/components";
 import { useNetworkState, usePreventDoubleTap } from "@/shared/hooks";
 import { tabScreenStyles as styles } from "@/shared/styles/detailScreen";
 import type { SavedTrackObject } from "@/shared/types/spotify";
-import { getArtistNames, log, logError, logWarn, n } from "@/shared/utils";
+import { getArtistNames, log, logError, logWarn } from "@/shared/utils";
 
 export default function LikedSongsScreen() {
-  const { isLoading, accessToken, user } = useAuth();
-  const {
-    savedTracks,
-    fetchSavedTracks,
-    isRefreshingSavedTracks,
-    fetchMoreSavedTracks,
-    isLoadingMoreSavedTracks,
-    savedTracksNextUrl,
-  } = useSpotifyLibrary();
+  const { isLoading } = useAuth();
+  const savedTracks = useSavedTracksStore((s) => s.savedTracks);
+  const fetchSavedTracks = useSavedTracksStore((s) => s.fetch);
+  const isRefreshing = useSavedTracksStore((s) => s.isRefreshing);
+  const fetchMore = useSavedTracksStore((s) => s.fetchMore);
+  const isLoadingMore = useSavedTracksStore((s) => s.isLoadingMore);
+  const nextUrl = useSavedTracksStore((s) => s.nextUrl);
   const { playTrackWithContext, getPlaybackState, toggleShuffle } =
     usePlayback();
   const router = useRouter();
   const { isLoading: isNetworkLoading, isOnline } = useNetworkState();
 
-  useEffect(() => {
-    log("LikedSongs: useEffect triggered", {
-      hasAccessToken: !!accessToken,
-      hasUser: !!user,
-      hasSavedTracks: !!savedTracks,
-      isLoading,
-    });
-
-    if (accessToken && user && !savedTracks && !isLoading) {
-      log("LikedSongs: Fetching saved tracks...");
-      fetchSavedTracks();
-    }
-  }, [accessToken, user, savedTracks, fetchSavedTracks, isLoading]);
-
   const handleRefresh = useCallback(() => {
     log("LikedSongs: Manual refresh triggered", {
-      isRefreshingSavedTracks,
+      isRefreshing,
     });
-    if (!isRefreshingSavedTracks) {
+    if (!isRefreshing) {
       fetchSavedTracks();
     }
-  }, [fetchSavedTracks, isRefreshingSavedTracks]);
+  }, [fetchSavedTracks, isRefreshing]);
 
   const filteredTracks = useMemo(
     () => savedTracks?.filter((item) => item.track !== null) ?? [],
@@ -62,10 +41,7 @@ export default function LikedSongsScreen() {
     async (item: SavedTrackObject, index: number, isDisabled: boolean) => {
       if (isDisabled) return;
 
-      if (!user?.id) {
-        logError("Cannot play track: User not loaded");
-        return;
-      }
+      if (!savedTracks) return;
 
       const collectionUri = "spotify:collection:tracks";
 
@@ -78,7 +54,7 @@ export default function LikedSongsScreen() {
         try {
           const playbackState = await getPlaybackState();
           wasShuffling = !!playbackState?.shuffle_state;
-        } catch (e) {
+        } catch {
           logWarn(
             "Could not get playback state, proceeding without shuffle workaround"
           );
@@ -89,7 +65,7 @@ export default function LikedSongsScreen() {
         await playTrackWithContext(item.track.uri, {
           type: "liked",
           uri: collectionUri,
-          tracks: savedTracks || [],
+          tracks: savedTracks,
           currentIndex: index,
         });
         if (wasShuffling) {
@@ -119,7 +95,6 @@ export default function LikedSongsScreen() {
     index: number;
   }) => {
     if (!item.track) {
-      index;
       logWarn("Track is null for item:", item);
       return null;
     }
@@ -150,88 +125,32 @@ export default function LikedSongsScreen() {
     return <View style={styles.centeredMessageContainer} />;
   }
 
-  if (isRefreshingSavedTracks && !savedTracks) {
+  if (isRefreshing && !savedTracks) {
     return <View style={styles.centeredMessageContainer} />;
   }
 
   const handleLoadMore = () => {
-    if (isOnline && savedTracksNextUrl && !isLoadingMoreSavedTracks) {
-      fetchMoreSavedTracks();
+    if (isOnline && nextUrl && !isLoadingMore) {
+      fetchMore();
     }
   };
 
-  const renderFooter = () => {
-    if (!isLoadingMoreSavedTracks) return null;
-    return;
-  };
-
-  if (!savedTracks || savedTracks.length === 0) {
-    return (
-      <ContentContainer
-        headerIcon="multitrack-audio"
-        headerIconPress={handlePlayingPress}
-        headerIconShowLength={1}
-        headerTitle="Liked Songs"
-        hideBackButton={true}
-        style={{ paddingHorizontal: n(20) }}
-      >
-        <CustomScrollView
-          data={[]}
-          ListHeaderComponent={
-            <StyledText style={styles.emptyText}>
-              No saved tracks found.
-            </StyledText>
-          }
-          overScrollMode={"never"}
-          refreshControl={
-            <RefreshControl
-              colors={["white"]}
-              enabled={isOnline === true}
-              onRefresh={handleRefresh}
-              progressBackgroundColor={"black"}
-              refreshing={isRefreshingSavedTracks}
-              size={"large" as any}
-            />
-          }
-          renderItem={null}
-        />
-      </ContentContainer>
-    );
-  }
-
   return (
-    <ContentContainer
-      headerIcon="multitrack-audio"
+    <ListScreen
+      data={filteredTracks.length > 0 ? filteredTracks : savedTracks}
+      emptyMessage="No saved tracks found."
       headerIconPress={handlePlayingPress}
-      headerIconShowLength={1}
-      headerTitle="Liked Songs"
-      hideBackButton={true}
-      style={{ paddingHorizontal: n(20) }}
-    >
-      <CustomScrollView
-        contentContainerStyle={styles.listContentContainer}
-        data={filteredTracks}
-        ItemSeparatorComponent={() => <View style={{ height: n(8) }} />}
-        keyExtractor={(item: SavedTrackObject) =>
-          `${item.added_at}-${item.track?.id || "unknown"}`
-        }
-        ListFooterComponent={renderFooter}
-        onEndReached={handleLoadMore}
-        onEndReachedThreshold={2}
-        overScrollMode={"never"}
-        refreshControl={
-          <RefreshControl
-            colors={["white"]}
-            enabled={isOnline === true}
-            onRefresh={handleRefresh}
-            progressBackgroundColor={"black"}
-            refreshing={isRefreshingSavedTracks}
-            size={"large" as any}
-          />
-        }
-        renderItem={renderTrackItem}
-        style={styles.list}
-      />
-    </ContentContainer>
+      isLoadingMore={isLoadingMore}
+      isOnline={isOnline}
+      isRefreshing={isRefreshing}
+      keyExtractor={(item: SavedTrackObject) =>
+        `${item.added_at}-${item.track?.id || "unknown"}`
+      }
+      onLoadMore={handleLoadMore}
+      onRefresh={handleRefresh}
+      refreshEnabled={isOnline === true}
+      renderItem={renderTrackItem}
+      title="Liked Songs"
+    />
   );
 }
