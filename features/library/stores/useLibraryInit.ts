@@ -12,7 +12,7 @@ import { useSavedTracksStore } from "./useSavedTracksStore";
 
 export const useLibraryInit = () => {
   const { accessToken } = useAuth();
-  const { isOnline } = useNetworkState();
+  const { isOnline, isLoading: networkLoading } = useNetworkState();
   const initialFetchDone = useRef(false);
 
   useEffect(() => {
@@ -29,7 +29,7 @@ export const useLibraryInit = () => {
   }, []);
 
   useEffect(() => {
-    if (!accessToken || initialFetchDone.current) {
+    if (!accessToken || initialFetchDone.current || networkLoading) {
       return;
     }
 
@@ -51,5 +51,5 @@ export const useLibraryInit = () => {
     ]).then(() => {
       logInfo("LibraryInit: Initial data fetch completed");
     });
-  }, [accessToken, isOnline]);
+  }, [accessToken, isOnline, networkLoading]);
 };
