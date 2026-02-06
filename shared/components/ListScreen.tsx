@@ -78,7 +78,9 @@ export function ListScreen<T>({
   }
 
   const renderFooter = () => {
-    if (!isLoadingMore) return null;
+    if (!isLoadingMore) {
+      return null;
+    }
     return <View style={{ paddingVertical: n(20) }} />;
   };
 

@@ -1,4 +1,4 @@
-import * as SecureStore from "expo-secure-store";
+import { deleteItemAsync, getItemAsync, setItemAsync } from "expo-secure-store";
 import {
   AUTH_TOKEN_KEY,
   REFRESH_TOKEN_KEY,
@@ -22,85 +22,78 @@ export const loginWithSpotify = async (
     expiry?: number
   ) => void,
   onUserUpdate: (user: SpotifyUser) => void,
-  fetchInitialData: (token: string) => Promise<void>
+  _fetchInitialData: (token: string) => Promise<void>
 ): Promise<void> => {
-  try {
-    log("Auth: Starting authentication with CODE flow via server...");
+  log("Auth: Starting authentication with CODE flow via server...");
 
-    const authResult = await SpotifySdk.authorize(
+  const authResult = await SpotifySdk.authorize(
+    credentials.clientId,
+    redirectUri,
+    SPOTIFY_SCOPES,
+    undefined,
+    false
+  );
+
+  if (authResult.success && authResult.data?.authorizationCode) {
+    log("Auth: Authorization code received, exchanging for tokens...");
+
+    const tokenResponse = await exchangeCodeForTokens(
+      authResult.data.authorizationCode,
       credentials.clientId,
-      redirectUri,
-      SPOTIFY_SCOPES,
-      undefined,
-      false
+      credentials.clientSecret
     );
 
-    if (authResult.success && authResult.data?.authorizationCode) {
-      log("Auth: Authorization code received, exchanging for tokens...");
-
-      const tokenResponse = await exchangeCodeForTokens(
-        authResult.data.authorizationCode,
-        credentials.clientId,
-        credentials.clientSecret
-      );
-
-      if (!tokenResponse.refresh_token) {
-        throw new Error("No refresh token received from server");
-      }
-
-      const expiryTime = Date.now() + (tokenResponse.expires_in - 600) * 1000;
-
-      await Promise.all([
-        SecureStore.setItemAsync(AUTH_TOKEN_KEY, tokenResponse.access_token),
-        SecureStore.setItemAsync(
-          REFRESH_TOKEN_KEY,
-          tokenResponse.refresh_token
-        ),
-        SecureStore.setItemAsync(TOKEN_EXPIRY_KEY, expiryTime.toString()),
-      ]);
-
-      onTokenUpdate(
-        tokenResponse.access_token,
-        tokenResponse.refresh_token,
-        expiryTime
-      );
-
-      try {
-        log("Auth: Establishing App Remote connection...");
-        const connectionResult = await SpotifySdk.connect(
-          credentials.clientId,
-          redirectUri
-        );
-        if (connectionResult.connected) {
-          log("Auth: App Remote connected successfully");
-        } else {
-          console.warn(
-            "Auth: App Remote connection failed, will retry on first play"
-          );
-        }
-      } catch (connectionError) {
-        console.warn("Auth: App Remote connection error:", connectionError);
-      }
-
-      log("Auth: Authentication successful with refresh token");
-      await fetchUserInfo(
-        tokenResponse.access_token,
-        onUserUpdate,
-        () => Promise.resolve(),
-        undefined
-      );
-    } else {
-      logError(
-        "Auth: Authentication failed:",
-        authResult.error || "No authorization code received"
-      );
-      throw new Error(
-        String(authResult.error) ||
-          "Authentication failed - no authorization code"
-      );
+    if (!tokenResponse.refresh_token) {
+      throw new Error("No refresh token received from server");
     }
-  } catch (error) {
-    throw error;
+
+    const expiryTime = Date.now() + (tokenResponse.expires_in - 600) * 1000;
+
+    await Promise.all([
+      setItemAsync(AUTH_TOKEN_KEY, tokenResponse.access_token),
+      setItemAsync(REFRESH_TOKEN_KEY, tokenResponse.refresh_token),
+      setItemAsync(TOKEN_EXPIRY_KEY, expiryTime.toString()),
+    ]);
+
+    onTokenUpdate(
+      tokenResponse.access_token,
+      tokenResponse.refresh_token,
+      expiryTime
+    );
+
+    try {
+      log("Auth: Establishing App Remote connection...");
+      const connectionResult = await SpotifySdk.connect(
+        credentials.clientId,
+        redirectUri
+      );
+      if (connectionResult.connected) {
+        log("Auth: App Remote connected successfully");
+      } else {
+        console.warn(
+          "Auth: App Remote connection failed, will retry on first play"
+        );
+      }
+    } catch (connectionError) {
+      console.warn("Auth: App Remote connection error:", connectionError);
+    }
+
+    log("Auth: Authentication successful with refresh token");
+    await fetchUserInfo(
+      tokenResponse.access_token,
+      onUserUpdate,
+      () => Promise.resolve(),
+      undefined
+    );
+  } else {
+    logError(
+      "Auth: Authentication failed:",
+      authResult.error || "No authorization code received"
+    );
+    throw new Error(
+      String(authResult.error) ||
+        "Authentication failed - no authorization code"
+    );
   }
 };
 
@@ -116,12 +109,14 @@ export const logoutFromSpotify = async (
     logError("Error clearing native SDK session:", error);
   }
 
-  await SecureStore.deleteItemAsync(AUTH_TOKEN_KEY);
-  await SecureStore.deleteItemAsync(REFRESH_TOKEN_KEY);
-  await SecureStore.deleteItemAsync(USER_INFO_KEY);
-  await SecureStore.deleteItemAsync(TOKEN_EXPIRY_KEY);
+  await deleteItemAsync(AUTH_TOKEN_KEY);
+  await deleteItemAsync(REFRESH_TOKEN_KEY);
+  await deleteItemAsync(USER_INFO_KEY);
+  await deleteItemAsync(TOKEN_EXPIRY_KEY);
 
-  if (onCleanup) await onCleanup();
+  if (onCleanup) {
+    await onCleanup();
+  }
 
   clearState();
 };
@@ -133,11 +128,10 @@ export const loadStoredAuth = async (): Promise<{
   tokenExpiry: number | null;
 }> => {
   try {
-    const storedToken = await SecureStore.getItemAsync(AUTH_TOKEN_KEY);
-    const storedRefreshToken =
-      await SecureStore.getItemAsync(REFRESH_TOKEN_KEY);
-    const storedUser = await SecureStore.getItemAsync(USER_INFO_KEY);
-    const storedExpiry = await SecureStore.getItemAsync(TOKEN_EXPIRY_KEY);
+    const storedToken = await getItemAsync(AUTH_TOKEN_KEY);
+    const storedRefreshToken = await getItemAsync(REFRESH_TOKEN_KEY);
+    const storedUser = await getItemAsync(USER_INFO_KEY);
+    const storedExpiry = await getItemAsync(TOKEN_EXPIRY_KEY);
 
     if (storedToken && storedRefreshToken) {
       log("Auth: Found stored tokens, enabling auto-connect");
@@ -166,7 +160,7 @@ export const loadStoredAuth = async (): Promise<{
       accessToken: storedToken,
       refreshToken: storedRefreshToken,
       user: storedUser ? JSON.parse(storedUser) : null,
-      tokenExpiry: storedExpiry ? Number.parseInt(storedExpiry) : null,
+      tokenExpiry: storedExpiry ? Number.parseInt(storedExpiry, 10) : null,
     };
   } catch (error) {
     logError("Auth: Error loading stored auth:", error);
@@ -213,11 +207,14 @@ const fetchUserInfo = async (
     }
     const userData = responseData as SpotifyUser;
     onUserUpdate(userData);
-    await SecureStore.setItemAsync(USER_INFO_KEY, JSON.stringify(userData));
+    await setItemAsync(USER_INFO_KEY, JSON.stringify(userData));
     // Start fetching other data after user info is successfully retrieved
     await fetchInitialData(validToken);
-  } catch (error: any) {
-    logError("Auth: Error fetching user info:", error.message);
+  } catch (error: unknown) {
+    logError(
+      "Auth: Error fetching user info:",
+      error instanceof Error ? error.message : String(error)
+    );
     throw error;
   }
 };

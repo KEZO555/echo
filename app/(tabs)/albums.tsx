@@ -44,14 +44,18 @@ export default function AlbumsScreen() {
   );
 
   const checkCachedAlbums = useCallback(async () => {
-    if (!sortedAlbums) return;
+    if (!sortedAlbums) {
+      return;
+    }
     const keys = sortedAlbums.map(
       (a) => `${ALBUM_DETAIL_KEY_PREFIX}${a.album.id}`
     );
     const results = await AsyncStorage.multiGet(keys);
     const cachedIds = new Set<string>();
     results.forEach(([, value], index) => {
-      if (value !== null) cachedIds.add(sortedAlbums[index].album.id);
+      if (value !== null) {
+        cachedIds.add(sortedAlbums[index].album.id);
+      }
     });
     setCachedAlbumIds(cachedIds);
   }, [sortedAlbums]);
@@ -63,7 +67,9 @@ export default function AlbumsScreen() {
   );
 
   const handleRefresh = useCallback(async () => {
-    if (isRefreshing) return;
+    if (isRefreshing) {
+      return;
+    }
 
     if (isOnline) {
       fetchAlbums();
@@ -85,7 +91,9 @@ export default function AlbumsScreen() {
 
   const handleAlbumPress = usePreventDoubleTap(
     (item: SpotifySavedAlbum, isUncached: boolean) => {
-      if (isUncached) return;
+      if (isUncached) {
+        return;
+      }
 
       const minimalAlbum = {
         id: item.album.id,

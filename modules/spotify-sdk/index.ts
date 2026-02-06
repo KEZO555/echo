@@ -9,5 +9,4 @@ export { default as SpotifySdkNative } from "./src/SpotifySdkModule";
 export { spotify } from "./src/spotify";
 
 // Default export for backward compatibility
-import SpotifySdkNative from "./src/SpotifySdkModule";
-export default SpotifySdkNative;
+export { default } from "./src/SpotifySdkModule";

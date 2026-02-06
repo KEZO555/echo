@@ -15,7 +15,7 @@ export interface TabConfigItem {
 }
 
 interface NavbarProps {
-  tabsConfig: ReadonlyArray<TabConfigItem>;
+  tabsConfig: readonly TabConfigItem[];
   currentScreenName: string;
   navigation: BottomTabBarProps["navigation"];
 }
@@ -62,15 +62,11 @@ export function Navbar({
             onPress={() => navigation.navigate(tab.screenName)}
           >
             <MaterialIcons
-              color={
-                tab.screenName === currentScreenName
-                  ? invertColors
-                    ? "black"
-                    : "white"
-                  : invertColors
-                    ? "#C1C1C1"
-                    : "#6E6E6E"
-              }
+              color={(() => {
+                const isActive = tab.screenName === currentScreenName;
+                if (isActive) { return invertColors ? "black" : "white"; }
+                return invertColors ? "#C1C1C1" : "#6E6E6E";
+              })()}
               name={tab.iconName}
               size={n(48)}
             />

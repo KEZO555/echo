@@ -41,7 +41,9 @@ export default function PlaylistFormScreen() {
   );
 
   const handleSubmit = async () => {
-    if (!playlistName.trim()) return;
+    if (!playlistName.trim()) {
+      return;
+    }
 
     try {
       const validToken = await ensureValidToken();

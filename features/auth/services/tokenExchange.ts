@@ -25,62 +25,56 @@ export async function exchangeCodeForTokens(
   clientId: string,
   clientSecret: string
 ): Promise<TokenExchangeResponse> {
-  try {
-    log("TokenExchange: Exchanging authorization code for tokens...");
+  log("TokenExchange: Exchanging authorization code for tokens...");
 
-    const response = await fetch(SPOTIFY_TOKEN_URL, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/x-www-form-urlencoded",
-        Authorization: `Basic ${encodeCredentials(clientId, clientSecret)}`,
-      },
-      body: new URLSearchParams({
-        grant_type: "authorization_code",
-        code: authorizationCode,
-        redirect_uri: REDIRECT_URI,
-      }).toString(),
-    });
+  const response = await fetch(SPOTIFY_TOKEN_URL, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/x-www-form-urlencoded",
+      Authorization: `Basic ${encodeCredentials(clientId, clientSecret)}`,
+    },
+    body: new URLSearchParams({
+      grant_type: "authorization_code",
+      code: authorizationCode,
+      redirect_uri: REDIRECT_URI,
+    }).toString(),
+  });
 
-    const responseText = await response.text();
+  const responseText = await response.text();
 
-    let data;
-    if (!responseText || responseText.trim() === "") {
-      logError("TokenExchange: Empty response from Spotify");
-      throw new Error(
-        `Empty response from Spotify. Status: ${response.status}`
-      );
-    }
-
-    try {
-      data = JSON.parse(responseText);
-    } catch (parseError) {
-      logError("TokenExchange: Failed to parse response as JSON:", parseError);
-      logError("TokenExchange: Response was:", responseText);
-      throw new Error(`Invalid JSON response from Spotify: ${responseText}`);
-    }
-
-    log("TokenExchange: Response status:", response.status);
-
-    if (!response.ok) {
-      const error = data as TokenExchangeError;
-      throw new Error(
-        `Token exchange failed: ${error.error || "Unknown error"} - ${
-          error.error_description || "Spotify error"
-        }`
-      );
-    }
-
-    const tokenResponse = data as TokenExchangeResponse;
-
-    if (!(tokenResponse.access_token && tokenResponse.refresh_token)) {
-      throw new Error("Token exchange response missing required tokens");
-    }
-
-    log("TokenExchange: Successfully exchanged code for tokens");
-    return tokenResponse;
-  } catch (error) {
-    throw error;
+  let data: TokenExchangeResponse | TokenExchangeError;
+  if (!responseText || responseText.trim() === "") {
+    logError("TokenExchange: Empty response from Spotify");
+    throw new Error(`Empty response from Spotify. Status: ${response.status}`);
   }
+
+  try {
+    data = JSON.parse(responseText);
+  } catch (parseError) {
+    logError("TokenExchange: Failed to parse response as JSON:", parseError);
+    logError("TokenExchange: Response was:", responseText);
+    throw new Error(`Invalid JSON response from Spotify: ${responseText}`);
+  }
+
+  log("TokenExchange: Response status:", response.status);
+
+  if (!response.ok) {
+    const error = data as TokenExchangeError;
+    throw new Error(
+      `Token exchange failed: ${error.error || "Unknown error"} - ${
+        error.error_description || "Spotify error"
+      }`
+    );
+  }
+
+  const tokenResponse = data as TokenExchangeResponse;
+
+  if (!(tokenResponse.access_token && tokenResponse.refresh_token)) {
+    throw new Error("Token exchange response missing required tokens");
+  }
+
+  log("TokenExchange: Successfully exchanged code for tokens");
+  return tokenResponse;
 }
 
 export async function refreshAccessToken(
@@ -106,7 +100,7 @@ export async function refreshAccessToken(
     log("TokenExchange: Refresh response status:", response.status);
     const responseText = await response.text();
 
-    let data;
+    let data: TokenExchangeResponse | TokenExchangeError;
     if (!responseText || responseText.trim() === "") {
       logError("TokenExchange: Empty refresh response from Spotify");
       throw new Error(

@@ -1,4 +1,4 @@
-import * as SecureStore from "expo-secure-store";
+import { getItemAsync } from "expo-secure-store";
 import {
   createContext,
   type ReactNode,
@@ -10,6 +10,9 @@ import {
   useState,
 } from "react";
 import { AppState, type AppStateStatus } from "react-native";
+
+const APP_STATE_PATTERN = /inactive|background/;
+
 import {
   AUTH_TOKEN_KEY,
   REFRESH_TOKEN_KEY,
@@ -78,8 +81,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         newExpiry: expiry ? new Date(expiry).toISOString() : null,
       });
       setAccessToken(newAccessToken);
-      if (newRefreshToken) setRefreshToken(newRefreshToken);
-      if (expiry) setTokenExpiry(expiry);
+      if (newRefreshToken) {
+        setRefreshToken(newRefreshToken);
+      }
+      if (expiry) {
+        setTokenExpiry(expiry);
+      }
     },
     []
   );
@@ -113,9 +120,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const ensureValidToken = useCallback(async (): Promise<string | null> => {
     const [latestAccessToken, latestRefreshToken, latestTokenExpiry] =
       await Promise.all([
-        SecureStore.getItemAsync(AUTH_TOKEN_KEY),
-        SecureStore.getItemAsync(REFRESH_TOKEN_KEY),
-        SecureStore.getItemAsync(TOKEN_EXPIRY_KEY),
+        getItemAsync(AUTH_TOKEN_KEY),
+        getItemAsync(REFRESH_TOKEN_KEY),
+        getItemAsync(TOKEN_EXPIRY_KEY),
       ]);
 
     if (!(latestAccessToken && latestRefreshToken && latestTokenExpiry)) {
@@ -152,7 +159,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           }
         );
         if (refreshed) {
-          const updatedToken = await SecureStore.getItemAsync(AUTH_TOKEN_KEY);
+          const updatedToken = await getItemAsync(AUTH_TOKEN_KEY);
           logInfo("AuthContext: Token refresh successful", {
             hasUpdatedToken: !!updatedToken,
           });
@@ -193,12 +200,15 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         redirectUri,
         handleTokenUpdate,
         handleUserUpdate,
-        async () => {}
+        async () => {
+          /* no-op */
+        }
       );
-    } catch (error: any) {
+    } catch (error: unknown) {
       logError("AuthContext: Error during authentication:", error);
 
-      const errorMessage = error?.message || String(error);
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
       if (
         errorMessage.includes("invalid_client") ||
         errorMessage.includes("Invalid client secret") ||
@@ -241,7 +251,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   useEffect(() => {
     const handleAppStateChange = (nextAppState: AppStateStatus) => {
       if (
-        appStateRef.current.match(/inactive|background/) &&
+        appStateRef.current.match(APP_STATE_PATTERN) &&
         nextAppState === "active"
       ) {
         logInfo("AuthContext: App resumed");

@@ -4,6 +4,7 @@ import {
   removeTrackFromSavedCache,
 } from "@/features/library/utils/cache";
 import { spotify } from "@/modules/spotify-sdk";
+import type { SpotifyTrack as NativeSpotifyTrack } from "@/modules/spotify-sdk/src/SpotifySdk.types";
 import type {
   SpotifyCurrentlyPlaying,
   SpotifyEpisode,
@@ -14,10 +15,37 @@ import type {
 import { log, logError } from "@/shared/utils/logger";
 import { getValidToken } from "@/shared/utils/token-helper";
 
+export type SpotifyPlayerTrack = NativeSpotifyTrack & {
+  albumArt: string;
+  position: number;
+  isPaused: boolean;
+  isShuffling: boolean;
+  repeatMode: number;
+};
+
+type TrackInput = string | { uri?: string; track?: { uri?: string } };
+
+export interface SourceContext {
+  type?: string;
+  uri?: string;
+  currentIndex?: number | null;
+  tracks?: TrackInput[];
+}
+
 const inFlightLibraryChecks = new Map<
   string,
   Promise<{ isAdded: boolean; canAdd: boolean } | null>
 >();
+
+const _getRepeatStateLabel = (mode: number): "off" | "track" | "context" => {
+  if (mode === 0) {
+    return "off";
+  }
+  if (mode === 1) {
+    return "track";
+  }
+  return "context";
+};
 
 let cachedDeviceId: string | undefined;
 let lastDeviceFetch = 0;
@@ -68,7 +96,7 @@ export const forceAppRemoteConnection = async (): Promise<boolean> => {
 
   try {
     await spotify.disconnect();
-  } catch (error) {
+  } catch (_error) {
     // Ignore disconnect errors
   }
 
@@ -79,7 +107,7 @@ export const forceAppRemoteConnection = async (): Promise<boolean> => {
       if (connected) {
         return true;
       }
-    } catch (error) {
+    } catch (_error) {
       log(`Playback: Connection attempt ${i + 1} failed`);
     }
 
@@ -147,7 +175,7 @@ export const getPlaybackState =
   async (): Promise<SpotifyCurrentlyPlaying | null> => {
     try {
       const playerState = await spotify.getPlayerState();
-      if (!(playerState && playerState.track)) {
+      if (!playerState?.track) {
         log("Playback: No player state or track available");
         return null;
       }
@@ -161,7 +189,7 @@ export const getPlaybackState =
 
       if (albumUri) {
         const nativeImageUrl = await spotify.getCurrentTrackImage("LARGE");
-        if (nativeImageUrl && nativeImageUrl.startsWith("data:image/")) {
+        if (nativeImageUrl?.startsWith("data:image/")) {
           albumImages = [
             {
               url: nativeImageUrl,
@@ -196,12 +224,7 @@ export const getPlaybackState =
           uri: "spotify:device:app_remote",
         },
         shuffle_state: playerState.playbackOptions.isShuffling,
-        repeat_state:
-          playerState.playbackOptions.repeatMode === 0
-            ? "off"
-            : playerState.playbackOptions.repeatMode === 1
-              ? "track"
-              : "context",
+        repeat_state: (["off", "track", "context"] as const)[playerState.playbackOptions.repeatMode] ?? "off",
       };
 
       if (isEpisode) {
@@ -353,7 +376,8 @@ export const toggleRepeat = async (
   state: "off" | "context" | "track"
 ): Promise<void> => {
   try {
-    const repeatMode = state === "off" ? 0 : state === "track" ? 1 : 2;
+    const repeatModes = { off: 0, track: 1, context: 2 } as const;
+    const repeatMode = repeatModes[state];
     await spotify.setRepeat(repeatMode);
     log(`Playback: Repeat set to ${state}`);
   } catch (error) {
@@ -370,10 +394,12 @@ export const seekToPosition = async (positionMs: number): Promise<void> => {
   }
 };
 
-export const getCurrentTrack = async (): Promise<any | null> => {
+export const getCurrentTrack = async (): Promise<SpotifyPlayerTrack | null> => {
   try {
     const playerState = await spotify.getPlayerState();
-    if (!(playerState && playerState.track)) return null;
+    if (!playerState?.track) {
+      return null;
+    }
     return {
       ...playerState.track,
       albumArt: playerState.track.imageUri,
@@ -393,12 +419,12 @@ export const getAlbumArt = async (
   size = "LARGE"
 ): Promise<string | null> => {
   try {
-    // If no URI provided, get current track image directly
-    if (!uri) {
+    let resolvedUri = uri;
+    if (!resolvedUri) {
       try {
         log("Playback: Getting current track image from Native SDK");
         const imageUrl = await spotify.getCurrentTrackImage(size);
-        if (imageUrl && imageUrl.startsWith("data:image/")) {
+        if (imageUrl?.startsWith("data:image/")) {
           log("Playback: Successfully got current track image from Native SDK");
           return imageUrl;
         }
@@ -409,22 +435,22 @@ export const getAlbumArt = async (
         );
       }
 
-      // Fallback: get player state and use album URI
       try {
         const playerState = await spotify.getPlayerState();
-        if (!(playerState && playerState.track)) return null;
-        uri = playerState.track.album.uri;
+        if (!playerState?.track) {
+          return null;
+        }
+        resolvedUri = playerState.track.album.uri;
       } catch (error) {
         log("Playback: Failed to get player state for album art:", error);
         return null;
       }
     }
 
-    // Try to get image with provided or derived URI
-    if (uri) {
-      log("Playback: Getting image for URI:", uri);
-      const imageUrl = await spotify.getImage(uri, size);
-      if (imageUrl && imageUrl.startsWith("data:image/")) {
+    if (resolvedUri) {
+      log("Playback: Getting image for URI:", resolvedUri);
+      const imageUrl = await spotify.getImage(resolvedUri, size);
+      if (imageUrl?.startsWith("data:image/")) {
         log("Playback: Successfully got image from Native SDK");
         return imageUrl;
       }
@@ -437,162 +463,131 @@ export const getAlbumArt = async (
   }
 };
 
+const findTrackPosition = (
+  trackUri: string,
+  sourceContext: SourceContext
+): number | null => {
+  if (
+    sourceContext.currentIndex !== undefined &&
+    sourceContext.currentIndex !== null
+  ) {
+    return sourceContext.currentIndex;
+  }
+
+  if (!sourceContext.tracks?.length) {
+    return null;
+  }
+
+  const foundIndex = sourceContext.tracks.findIndex((track) => {
+    if (!track) {
+      return false;
+    }
+    if (typeof track === "string") {
+      return track === trackUri;
+    }
+    if (track.uri) {
+      return track.uri === trackUri;
+    }
+    return track.track?.uri === trackUri;
+  });
+
+  return foundIndex >= 0 ? foundIndex : null;
+};
+
+const buildPlaybackBody = (
+  trackUri: string,
+  sourceContext: SourceContext
+): Record<string, unknown> => {
+  const body: Record<string, unknown> = {};
+
+  if (sourceContext.uri) {
+    body.context_uri = sourceContext.uri;
+  }
+
+  if (sourceContext.type === "liked") {
+    const position = findTrackPosition(trackUri, sourceContext);
+    body.offset =
+      position !== null ? { position } : { uri: trackUri };
+  } else if (trackUri) {
+    body.offset = { uri: trackUri };
+  }
+
+  return body;
+};
+
+const playViaWebApi = async (
+  trackUri: string,
+  token: string,
+  sourceContext: SourceContext
+): Promise<void> => {
+  const deviceId = await getCachedDeviceId(token);
+  const playbackBody = buildPlaybackBody(trackUri, sourceContext);
+
+  const playUrl = deviceId
+    ? `https://api.spotify.com/v1/me/player/play?device_id=${deviceId}`
+    : "https://api.spotify.com/v1/me/player/play";
+
+  const response = await fetch(playUrl, {
+    method: "PUT",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(playbackBody),
+  });
+
+  log("Playback: Web API response status:", response.status);
+
+  if (response.ok) {
+    await spotify.play();
+    return;
+  }
+
+  if (response.status === 404) {
+    invalidateDeviceCache();
+  }
+
+  const errorText = await response.text();
+  throw new Error(`HTTP ${response.status}: ${errorText}`);
+};
+
 export const playTrackWithContext = async (
   trackUri: string,
   accessToken: string | null,
-  sourceContext?: {
-    type: "album" | "playlist" | "liked" | "artist" | "podcast";
-    uri?: string;
-    tracks?: any[];
-    currentIndex?: number;
-  },
+  sourceContext?: SourceContext,
   ensureValidToken?: () => Promise<string | null>
 ): Promise<void> => {
   log("Playback: Playing track with context:", sourceContext?.type || "none");
 
   try {
-    // UNIFIED HYBRID APPROACH: Web API for context + Native SDK for control
     if (sourceContext?.uri && sourceContext.type !== "artist") {
-      try {
-        log("Playback: Setting context via Web API");
-
-        const validToken = await getValidToken(accessToken, ensureValidToken);
-        if (!validToken) {
-          log(
-            "Playback: No valid token available, falling back to direct play"
-          );
-          throw new Error("No valid token");
-        }
-
-        log("Playback: Making Web API call with context:", {
-          contextUri: sourceContext.uri,
-          trackUri,
-          tokenLength: validToken.length,
-        });
-
-        const deviceId = await getCachedDeviceId(validToken);
-
-        // Prepare the playback request body
-        const playbackBody: Record<string, any> = {};
-
-        if (sourceContext.uri) {
-          playbackBody.context_uri = sourceContext.uri;
-        }
-
-        const resolveLikedTrackPosition = () => {
-          if (
-            sourceContext?.currentIndex !== undefined &&
-            sourceContext?.currentIndex !== null
-          ) {
-            return sourceContext.currentIndex;
-          }
-
-          if (!sourceContext?.tracks?.length) {
-            return null;
-          }
-
-          const foundIndex = sourceContext.tracks.findIndex((track: any) => {
-            if (!track) return false;
-
-            if (typeof track === "string") {
-              return track === trackUri;
-            }
-
-            if (track?.uri) {
-              return track.uri === trackUri;
-            }
-
-            if (track?.track?.uri) {
-              return track.track.uri === trackUri;
-            }
-
-            return false;
-          });
-
-          return foundIndex >= 0 ? foundIndex : null;
-        };
-
-        if (sourceContext?.type === "liked") {
-          const likedPosition = resolveLikedTrackPosition();
-
-          if (likedPosition !== null) {
-            playbackBody.offset = { position: likedPosition };
-            log("Playback: Using liked songs position", likedPosition);
-          } else {
-            playbackBody.offset = { uri: trackUri };
-            log(
-              "Playback: Falling back to URI offset for liked songs",
-              trackUri
-            );
-          }
-        } else if (trackUri) {
-          playbackBody.offset = { uri: trackUri }; // Start from specific track
-        }
-
-        // Web API to set context + track offset
-        const playUrl = deviceId
-          ? `https://api.spotify.com/v1/me/player/play?device_id=${deviceId}`
-          : "https://api.spotify.com/v1/me/player/play";
-
-        const response = await fetch(playUrl, {
-          method: "PUT",
-          headers: {
-            Authorization: `Bearer ${validToken}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify(playbackBody),
-        });
-
-        log("Playback: Web API response status:", response.status);
-
-        if (response.ok) {
-          log("Playback: Context set successfully, starting playback");
-          await spotify.play();
-          log("Playback: Started with context");
+      const validToken = await getValidToken(accessToken, ensureValidToken);
+      if (validToken) {
+        try {
+          await playViaWebApi(trackUri, validToken, sourceContext);
           return;
+        } catch (webApiError: unknown) {
+          log(
+            "Playback: Web API failed, falling back to direct play:",
+            webApiError instanceof Error
+              ? webApiError.message
+              : String(webApiError)
+          );
         }
-        if (response.status === 401) {
-          const errorText = await response.text();
-          log("Playback: Token expired during context call:", errorText);
-          throw new Error("Token expired - using fallback");
-        }
-        if (response.status === 404) {
-          invalidateDeviceCache();
-          const errorText = await response.text();
-          log("Playback: Device not found (404):", errorText);
-          throw new Error("Device not found - using fallback");
-        }
-        const errorText = await response.text();
-        log("Playback: Web API context failed:", {
-          status: response.status,
-          statusText: response.statusText,
-          error: errorText,
-        });
-        throw new Error(`HTTP ${response.status} - using fallback`);
-      } catch (webApiError: any) {
-        log(
-          "Playback: Web API context failed, falling back to direct play:",
-          webApiError.message
-        );
       }
     }
 
-    // Fallback: Direct track play (no context)
     log("Playback: Direct track play (no context)");
     await spotify.play(trackUri);
-    log("Playback: Direct playback started");
   } catch (error) {
     logError("Playback: Error in playTrackWithContext:", error);
     throw error;
   }
 };
 
-export const skipToIndex = async (sourceContext: {
-  type: "album" | "playlist" | "liked" | "artist" | "podcast";
-  uri?: string;
-  tracks?: any[];
-  currentIndex?: number;
-}): Promise<void> => {
+export const skipToIndex = async (
+  sourceContext: SourceContext
+): Promise<void> => {
   log(
     "Playback: Playing track with context via SkipToIndex:",
     sourceContext?.type || "none"
@@ -636,7 +631,7 @@ export const addToLibrary = async (
 
 export const removeFromLibrary = async (
   uri: string,
-  accessToken?: string | null
+  _accessToken?: string | null
 ): Promise<boolean> => {
   try {
     const removed = await spotify.removeFromLibrary(uri);
@@ -659,7 +654,11 @@ export const getLibraryState = async (
 ): Promise<{ isAdded: boolean; canAdd: boolean } | null> => {
   if (inFlightLibraryChecks.has(uri)) {
     log(`Playback: Reusing in-flight library check for ${uri}`);
-    return await inFlightLibraryChecks.get(uri)!;
+    const existing = inFlightLibraryChecks.get(uri);
+    if (existing) {
+      return await existing;
+    }
+    return null;
   }
 
   const requestPromise = (async () => {

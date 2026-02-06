@@ -8,39 +8,12 @@ import { usePlayback } from "@/features/playback";
 import { DetailScreen, TrackListItem } from "@/shared/components";
 import { useNetworkState, usePreventDoubleTap } from "@/shared/hooks";
 import type {
-  SpotifyPlaylist,
+  SpotifyPlaylistFull,
+  SpotifyPlaylistTrack,
   SpotifyTrackSimple,
 } from "@/shared/types/spotify";
 import { log, logError } from "@/shared/utils";
 import { apiGet } from "@/shared/utils/api-client";
-
-interface PlaylistTrack {
-  added_at: string;
-  added_by: {
-    external_urls: { spotify: string };
-    href: string;
-    id: string;
-    type: string;
-    uri: string;
-  } | null;
-  is_local: boolean;
-  track: SpotifyTrackSimple | null;
-}
-
-interface SpotifyPlaylistFull extends SpotifyPlaylist {
-  id: string;
-  name: string;
-  images: { url: string }[];
-  tracks: {
-    href: string;
-    items: PlaylistTrack[];
-    limit: number;
-    next: string | null;
-    offset: number;
-    previous: string | null;
-    total: number;
-  };
-}
 
 export default function PlaylistDetailScreen() {
   const { id, playlistString, playlistName } = useLocalSearchParams<{
@@ -53,7 +26,9 @@ export default function PlaylistDetailScreen() {
   const { isOnline } = useNetworkState();
 
   const initialPlaylist = useMemo(() => {
-    if (!playlistString) return null;
+    if (!playlistString) {
+      return null;
+    }
     try {
       return JSON.parse(playlistString) as SpotifyPlaylistFull;
     } catch {
@@ -83,6 +58,7 @@ export default function PlaylistDetailScreen() {
     }
   }, [id, displayName, router]);
 
+  // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: data fetching with cache fallback
   const fetchPlaylistDetails = useCallback(async () => {
     if (!id) {
       setError("Playlist ID is missing.");
@@ -144,16 +120,20 @@ export default function PlaylistDetailScreen() {
   );
 
   const loadMoreTracks = useCallback(async () => {
-    if (!playlist?.tracks?.next || isLoadingMoreTracks) return;
+    if (!playlist?.tracks?.next || isLoadingMoreTracks) {
+      return;
+    }
     setIsLoadingMoreTracks(true);
     try {
       const data = await apiGet<{
-        items: PlaylistTrack[];
+        items: SpotifyPlaylistTrack[];
         next: string | null;
       }>(playlist.tracks.next);
       if (data) {
         setPlaylist((prevPlaylist) => {
-          if (!(prevPlaylist && prevPlaylist.tracks)) return prevPlaylist;
+          if (!prevPlaylist?.tracks) {
+            return prevPlaylist;
+          }
           return {
             ...prevPlaylist,
             tracks: {
@@ -214,11 +194,13 @@ export default function PlaylistDetailScreen() {
     item,
     index,
   }: {
-    item: PlaylistTrack;
+    item: SpotifyPlaylistTrack;
     index: number;
   }) => {
     const track = item.track;
-    if (!track) return null;
+    if (!track) {
+      return null;
+    }
 
     return (
       <TrackListItem

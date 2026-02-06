@@ -26,7 +26,9 @@ export function useSaveStatus({
   const [isChecking, setIsChecking] = useState(false);
 
   const checkStatus = useCallback(async () => {
-    if (!id) return;
+    if (!id) {
+      return;
+    }
 
     setIsChecking(true);
     try {
@@ -41,7 +43,9 @@ export function useSaveStatus({
   }, [id, checkFn]);
 
   const toggle = useCallback(async () => {
-    if (!id) return;
+    if (!id) {
+      return;
+    }
 
     try {
       if (isSaved) {

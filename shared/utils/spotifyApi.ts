@@ -1,4 +1,4 @@
-import * as SecureStore from "expo-secure-store";
+import { deleteItemAsync, setItemAsync } from "expo-secure-store";
 import {
   AUTH_TOKEN_KEY,
   REFRESH_TOKEN_KEY,
@@ -78,12 +78,12 @@ const performTokenRefresh = async (
     const expiryTime = Date.now() + (tokenResponse.expires_in - 600) * 1000;
 
     const storagePromises: Promise<void>[] = [
-      SecureStore.setItemAsync(AUTH_TOKEN_KEY, tokenResponse.access_token),
-      SecureStore.setItemAsync(TOKEN_EXPIRY_KEY, expiryTime.toString()),
+      setItemAsync(AUTH_TOKEN_KEY, tokenResponse.access_token),
+      setItemAsync(TOKEN_EXPIRY_KEY, expiryTime.toString()),
     ];
     if (tokenResponse.refresh_token) {
       storagePromises.push(
-        SecureStore.setItemAsync(REFRESH_TOKEN_KEY, tokenResponse.refresh_token)
+        setItemAsync(REFRESH_TOKEN_KEY, tokenResponse.refresh_token)
       );
     }
     await Promise.all(storagePromises);
@@ -109,10 +109,10 @@ const performTokenRefresh = async (
     }
 
     log("API: Authentication error during token refresh, clearing session");
-    await SecureStore.deleteItemAsync(AUTH_TOKEN_KEY);
-    await SecureStore.deleteItemAsync(REFRESH_TOKEN_KEY);
-    await SecureStore.deleteItemAsync(USER_INFO_KEY);
-    await SecureStore.deleteItemAsync(TOKEN_EXPIRY_KEY);
+    await deleteItemAsync(AUTH_TOKEN_KEY);
+    await deleteItemAsync(REFRESH_TOKEN_KEY);
+    await deleteItemAsync(USER_INFO_KEY);
+    await deleteItemAsync(TOKEN_EXPIRY_KEY);
     await onLogout();
     return false;
   }

@@ -4,6 +4,7 @@ import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   Animated,
+  type GestureResponderEvent,
   type LayoutChangeEvent,
   type StyleProp,
   StyleSheet,
@@ -82,13 +83,16 @@ function MarqueeText({
 let cachedPlaybackState: SpotifyCurrentlyPlaying | null = null;
 
 const formatTime = (ms: number | null | undefined): string => {
-  if (ms === null || ms === undefined) return "0:00";
+  if (ms === null || ms === undefined) {
+    return "0:00";
+  }
   const totalSeconds = Math.floor(ms / 1000);
   const minutes = Math.floor(totalSeconds / 60);
   const seconds = totalSeconds % 60;
   return `${minutes}:${seconds < 10 ? "0" : ""}${seconds}`;
 };
 
+// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: large screen component with playback controls
 export default function PlayingScreen() {
   const { appState } = useAuth();
   const {
@@ -172,6 +176,7 @@ export default function PlayingScreen() {
   }, [appState]);
 
   const checkIfTrackIsSaved = useCallback(
+    // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: track save check with multiple conditions
     async (state: SpotifyCurrentlyPlaying | null): Promise<void> => {
       if (
         pausePollingUntilRef.current &&
@@ -223,7 +228,7 @@ export default function PlayingScreen() {
     }
     setPlaybackState(state);
 
-    if (state && state.item && "duration_ms" in state.item) {
+    if (state?.item && "duration_ms" in state.item) {
       if (state.progress_ms !== null && state.item.duration_ms) {
         const progressRatio = state.progress_ms / state.item.duration_ms;
         progress.setValue(progressRatio > 0 ? progressRatio : 0);
@@ -240,7 +245,9 @@ export default function PlayingScreen() {
   }, [checkIfTrackIsSaved, getPlaybackState, progress]);
 
   const handlePlayPause = async () => {
-    if (!playbackState) return;
+    if (!playbackState) {
+      return;
+    }
 
     try {
       if (playbackState.is_playing) {
@@ -273,7 +280,9 @@ export default function PlayingScreen() {
   };
 
   const handleSeekBackward = async () => {
-    if (!(playbackState && playbackState.item)) return;
+    if (!playbackState?.item) {
+      return;
+    }
 
     const currentPosition = playbackState.progress_ms ?? 0;
     const newPosition = Math.max(currentPosition - 15_000, 0);
@@ -292,11 +301,15 @@ export default function PlayingScreen() {
   };
 
   const handleSeekForward = async () => {
-    if (!(playbackState && playbackState.item)) return;
+    if (!playbackState?.item) {
+      return;
+    }
 
     const currentPosition = playbackState.progress_ms ?? 0;
     const totalDuration = playbackState.item.duration_ms;
-    if (!totalDuration) return;
+    if (!totalDuration) {
+      return;
+    }
 
     const newPosition = Math.min(currentPosition + 15_000, totalDuration);
 
@@ -311,7 +324,9 @@ export default function PlayingScreen() {
   };
 
   const handleShuffleToggle = async () => {
-    if (!playbackState) return;
+    if (!playbackState) {
+      return;
+    }
 
     try {
       await toggleShuffle(!playbackState.shuffle_state);
@@ -322,7 +337,9 @@ export default function PlayingScreen() {
   };
 
   const handleRepeatToggle = async () => {
-    if (!playbackState) return;
+    if (!playbackState) {
+      return;
+    }
 
     try {
       let newState: "off" | "context" | "track";
@@ -340,9 +357,10 @@ export default function PlayingScreen() {
     }
   };
 
-  const handleProgressBarSeek = async (event: any) => {
-    if (!(playbackState && playbackState.item && progressBarWidthRef.current))
+  const handleProgressBarSeek = async (event: GestureResponderEvent) => {
+    if (!(playbackState?.item && progressBarWidthRef.current)) {
       return;
+    }
 
     const tapPositionX = event.nativeEvent.locationX;
     const totalDurationMs = playbackState.item.duration_ms;
@@ -361,11 +379,12 @@ export default function PlayingScreen() {
 
   const handleToggleSaveTrack = async () => {
     if (
-      !(playbackState && playbackState.item && playbackState.item.id) ||
+      !playbackState?.item?.id ||
       playbackState.currently_playing_type !== "track" ||
       playbackState.item.type === "episode"
-    )
+    ) {
       return;
+    }
 
     const trackId = playbackState.item.id;
     const currentlySaved = isCurrentTrackSaved;
@@ -396,9 +415,7 @@ export default function PlayingScreen() {
 
   const handleNavigateToAddToPlaylist = usePreventDoubleTap(() => {
     if (
-      playbackState &&
-      playbackState.item &&
-      playbackState.item.uri &&
+      playbackState?.item?.uri &&
       playbackState.currently_playing_type === "track" &&
       playbackState.item.type !== "episode"
     ) {
@@ -464,13 +481,12 @@ export default function PlayingScreen() {
         (value): value is string => !!value
       )
     : [];
-  const displaySubtitle = isEpisode
-    ? subtitleParts.length > 0
-      ? subtitleParts.join(" • ")
-      : "Podcast"
-    : currentTrack
-      ? getArtistNames(currentTrack.artists)
-      : "";
+  const episodeSubtitle =
+    subtitleParts.length > 0 ? subtitleParts.join(" • ") : "Podcast";
+  const trackSubtitle = currentTrack
+    ? getArtistNames(currentTrack.artists)
+    : "";
+  const displaySubtitle = isEpisode ? episodeSubtitle : trackSubtitle;
   const canNavigateToShow = isEpisode && isOnline && !!currentEpisode?.show?.id;
   const canNavigateToAlbum =
     !isEpisode && isOnline && !!currentTrack?.album?.id;
@@ -488,8 +504,10 @@ export default function PlayingScreen() {
     outputRange: ["0%", "100%"],
   });
 
-  const handleTitlePress = usePreventDoubleTap(async () => {
-    if (!isOnline) return;
+  const handleTitlePress = usePreventDoubleTap(() => {
+    if (!isOnline) {
+      return;
+    }
     if (isEpisode && currentEpisode?.show?.id) {
       router.push({
         pathname: "/podcast/[id]",
@@ -497,7 +515,7 @@ export default function PlayingScreen() {
           id: currentEpisode.show.id,
           showName: currentEpisode.show.name as string,
         },
-      } as any);
+      } as never);
     } else if (currentTrack?.album?.id) {
       router.push({
         pathname: "/album/[id]",
@@ -509,8 +527,10 @@ export default function PlayingScreen() {
     }
   });
 
-  const handleSubtitlePress = usePreventDoubleTap(async () => {
-    if (!isOnline) return;
+  const handleSubtitlePress = usePreventDoubleTap(() => {
+    if (!isOnline) {
+      return;
+    }
     if (isEpisode && currentEpisode?.show?.id) {
       router.push({
         pathname: "/podcast/[id]",
@@ -518,7 +538,7 @@ export default function PlayingScreen() {
           id: currentEpisode.show.id,
           showName: currentEpisode.show.name as string,
         },
-      } as any);
+      } as never);
     } else if (currentTrack && currentTrack.artists.length > 0) {
       const artist = currentTrack.artists[0];
       router.push({
@@ -533,7 +553,7 @@ export default function PlayingScreen() {
 
   const handleSelectDevicePress = usePreventDoubleTap(() => {
     if (isOnline) {
-      router.push({ pathname: "/select-device" as any });
+      router.push({ pathname: "/select-device" as never });
     }
   });
 

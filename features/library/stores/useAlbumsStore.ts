@@ -44,7 +44,9 @@ export const useAlbumsStore = create<AlbumsState>()((set, get) => ({
 
   fetchMore: async () => {
     const { nextUrl, isLoadingMore } = get();
-    if (!nextUrl || isLoadingMore) return;
+    if (!nextUrl || isLoadingMore) {
+      return;
+    }
     set({ isLoadingMore: true });
     const data =
       await apiGet<SpotifyPaginatedResponse<SpotifySavedAlbum>>(nextUrl);
@@ -107,7 +109,9 @@ export const useAlbumsStore = create<AlbumsState>()((set, get) => ({
       const cachedAlbums = await AsyncStorage.getItem(ALBUMS_KEY);
       if (cachedAlbums) {
         const parsedAlbums: SpotifySavedAlbum[] = JSON.parse(cachedAlbums);
-        if (parsedAlbums.some((sa) => sa.album?.id === albumId)) return true;
+        if (parsedAlbums.some((sa) => sa.album?.id === albumId)) {
+          return true;
+        }
       }
     } catch (error) {
       logError("Error checking cached albums:", error);

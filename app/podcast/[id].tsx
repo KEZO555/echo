@@ -38,7 +38,9 @@ export default function PodcastDetailScreen() {
   const { isOnline } = useNetworkState();
 
   const initialShow = useMemo(() => {
-    if (!showString) return null;
+    if (!showString) {
+      return null;
+    }
     try {
       return JSON.parse(showString) as SpotifyShow;
     } catch {
@@ -73,6 +75,7 @@ export default function PodcastDetailScreen() {
       return;
     }
 
+    // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: data fetching with cache fallback
     const fetchShowDetails = async () => {
       let hasDisplayedData = !!initialShow?.episodes?.items;
 
@@ -119,10 +122,12 @@ export default function PodcastDetailScreen() {
     };
 
     fetchShowDetails();
-  }, [id]);
+  }, [id, initialShow?.episodes?.items, isOnline]);
 
   const loadMoreEpisodes = useCallback(async () => {
-    if (!show?.episodes?.next || isLoadingMoreEpisodes) return;
+    if (!show?.episodes?.next || isLoadingMoreEpisodes) {
+      return;
+    }
     setIsLoadingMoreEpisodes(true);
     try {
       const data = await apiGet<{
@@ -131,7 +136,9 @@ export default function PodcastDetailScreen() {
       }>(show.episodes.next);
       if (data) {
         setShow((prevShow) => {
-          if (!(prevShow && prevShow.episodes)) return prevShow;
+          if (!prevShow?.episodes) {
+            return prevShow;
+          }
           const updatedShow = {
             ...prevShow,
             episodes: {
@@ -231,13 +238,12 @@ export default function PodcastDetailScreen() {
                   0
                 )
               : 0;
-          const progressLabel = resumePoint
-            ? resumePoint.fully_played
-              ? "Played"
-              : resumePoint.resume_position_ms > 0
-                ? `${formatDuration(remainingMs, true)} left`
-                : null
-            : null;
+          let progressLabel: string | null = null;
+          if (resumePoint?.fully_played) {
+            progressLabel = "Played";
+          } else if (resumePoint && resumePoint.resume_position_ms > 0) {
+            progressLabel = `${formatDuration(remainingMs, true)} left`;
+          }
           return (
             <StyledText numberOfLines={1} style={styles.episodeMeta}>
               {new Date(episode.release_date).toLocaleDateString()} ·{" "}

@@ -2,6 +2,8 @@ import NetInfo, { type NetInfoState } from "@react-native-community/netinfo";
 import { useEffect, useState } from "react";
 import { AppState } from "react-native";
 
+const APP_STATE_PATTERN = /inactive|background/;
+
 NetInfo.configure({
   reachabilityUrl: "https://clients3.google.com/generate_204",
   reachabilityTest: async (response) => response.status === 204,
@@ -18,18 +20,22 @@ const listeners = new Set<Listener>();
 let isInitialised = false;
 
 function initialiseNetworkListener() {
-  if (isInitialised) return;
+  if (isInitialised) {
+    return;
+  }
   isInitialised = true;
 
   NetInfo.addEventListener((state: NetInfoState) => {
     globalIsOnline = state.isInternetReachable === true;
-    listeners.forEach((listener) => listener(globalIsOnline));
+    for (const listener of listeners) {
+      listener(globalIsOnline);
+    }
   });
 
   let lastAppState = AppState.currentState;
   AppState.addEventListener("change", (nextAppState) => {
     if (
-      lastAppState.match(/inactive|background/) &&
+      APP_STATE_PATTERN.test(lastAppState) &&
       nextAppState === "active"
     ) {
       NetInfo.refresh();

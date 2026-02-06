@@ -6,7 +6,9 @@ interface ListFooterProps {
 }
 
 export function ListFooter({ isLoading }: ListFooterProps) {
-  if (!isLoading) return null;
+  if (!isLoading) {
+    return null;
+  }
   return (
     <ActivityIndicator
       color="white"

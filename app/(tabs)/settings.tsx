@@ -1,6 +1,6 @@
-import * as Application from "expo-application";
+import { nativeApplicationVersion } from "expo-application";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useAuth } from "@/features/auth";
 import { useCredentials } from "@/features/credentials";
 import { clearCachedData } from "@/features/library";
@@ -43,8 +43,21 @@ export default function SettingsScreen() {
   };
 
   const handleCustomise = () => {
-    router.push("/customise" as any);
+    router.push("/customise" as never);
   };
+
+  const handleLogoutConfirmed = useCallback(async () => {
+    setIsLoggingOut(true);
+    await logout();
+    router.replace("/login");
+  }, [logout, router]);
+
+  const handleResetCredentialsConfirmed = useCallback(async () => {
+    setIsLoggingOut(true);
+    await logout();
+    await clearCredentials();
+    router.replace("/login");
+  }, [logout, clearCredentials, router]);
 
   useEffect(() => {
     if (params.confirmed === "true") {
@@ -57,20 +70,13 @@ export default function SettingsScreen() {
         handleLogoutConfirmed();
       }
     }
-  }, [params.confirmed, params.action]);
-
-  const handleLogoutConfirmed = async () => {
-    setIsLoggingOut(true);
-    await logout();
-    router.replace("/login");
-  };
-
-  const handleResetCredentialsConfirmed = async () => {
-    setIsLoggingOut(true);
-    await logout();
-    await clearCredentials();
-    router.replace("/login");
-  };
+  }, [
+    params.confirmed,
+    params.action,
+    handleLogoutConfirmed,
+    handleResetCredentialsConfirmed,
+    router,
+  ]);
 
   const handleClearCache = () => {
     router.push({
@@ -90,7 +96,7 @@ export default function SettingsScreen() {
 
   return (
     <ContentContainer
-      headerTitle={`Settings (v${Application.nativeApplicationVersion})`}
+      headerTitle={`Settings (v${nativeApplicationVersion})`}
       hideBackButton={true}
     >
       <StyledButton onPress={handleCustomise} text="Customise" />

@@ -1,4 +1,4 @@
-import * as SecureStore from "expo-secure-store";
+import { deleteItemAsync, getItemAsync, setItemAsync } from "expo-secure-store";
 import {
   createContext,
   type ReactNode,
@@ -33,7 +33,7 @@ export const REDIRECT_URI = "echo://callback";
 
 export const getStoredCredentials = async (): Promise<Credentials | null> => {
   try {
-    const stored = await SecureStore.getItemAsync(CREDENTIALS_KEY);
+    const stored = await getItemAsync(CREDENTIALS_KEY);
     if (stored) {
       return JSON.parse(stored) as Credentials;
     }
@@ -67,10 +67,7 @@ export const CredentialsProvider = ({ children }: { children: ReactNode }) => {
 
   const saveCredentials = useCallback(async (newCredentials: Credentials) => {
     try {
-      await SecureStore.setItemAsync(
-        CREDENTIALS_KEY,
-        JSON.stringify(newCredentials)
-      );
+      await setItemAsync(CREDENTIALS_KEY, JSON.stringify(newCredentials));
       setCredentials(newCredentials);
       logInfo("Credentials: Saved to secure storage");
     } catch (error) {
@@ -81,7 +78,7 @@ export const CredentialsProvider = ({ children }: { children: ReactNode }) => {
 
   const clearCredentials = useCallback(async () => {
     try {
-      await SecureStore.deleteItemAsync(CREDENTIALS_KEY);
+      await deleteItemAsync(CREDENTIALS_KEY);
       setCredentials(null);
       logInfo("Credentials: Cleared from secure storage");
     } catch (error) {

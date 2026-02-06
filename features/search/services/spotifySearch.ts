@@ -7,7 +7,9 @@ export const searchItems = async (
   accessToken: string | null,
   ensureValidToken?: () => Promise<string | null>
 ): Promise<SpotifySearchResults | null> => {
-  if (!query.trim()) return null;
+  if (!query.trim()) {
+    return null;
+  }
 
   let validToken = accessToken;
   if (ensureValidToken) {
@@ -17,7 +19,9 @@ export const searchItems = async (
     }
   }
 
-  if (!validToken) return null;
+  if (!validToken) {
+    return null;
+  }
 
   const typeString = types.join(",");
   const url = `https://api.spotify.com/v1/search?q=${encodeURIComponent(

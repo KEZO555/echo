@@ -10,6 +10,10 @@ import { useSpotifyConnection } from "@/modules/spotify-sdk";
 
 import type { SpotifyCurrentlyPlaying } from "@/shared/types/spotify";
 
+import type {
+  SourceContext,
+  SpotifyPlayerTrack,
+} from "../services/spotifyPlayback";
 import {
   addToLibrary as addToLibraryService,
   forceAppRemoteConnection as forceAppRemoteConnectionService,
@@ -42,25 +46,15 @@ export interface PlaybackContextType {
   toggleRepeat: (state: "off" | "context" | "track") => Promise<void>;
 
   getPlaybackState: () => Promise<SpotifyCurrentlyPlaying | null>;
-  getCurrentTrack: () => Promise<any | null>;
+  getCurrentTrack: () => Promise<SpotifyPlayerTrack | null>;
   getAlbumArt: (uri?: string, size?: string) => Promise<string | null>;
 
   playTrackWithContext: (
     trackUri: string,
-    sourceContext?: {
-      type: "album" | "playlist" | "liked" | "artist" | "podcast";
-      uri?: string;
-      tracks?: any[];
-      currentIndex?: number;
-    }
+    sourceContext?: SourceContext
   ) => Promise<void>;
   playTracksWithWebApi: (uris: string[]) => Promise<void>;
-  skipToIndex: (sourceContext: {
-    type: "album" | "playlist" | "liked" | "artist" | "podcast";
-    uri?: string;
-    tracks?: any[];
-    currentIndex?: number;
-  }) => Promise<void>;
+  skipToIndex: (sourceContext: SourceContext) => Promise<void>;
 
   addToLibrary: (uri: string) => Promise<boolean>;
   removeFromLibrary: (uri: string) => Promise<boolean>;
@@ -80,22 +74,14 @@ export const PlaybackProvider = ({ children }: { children: ReactNode }) => {
   const { isConnected: isConnectedToAppRemote } = useSpotifyConnection();
 
   const playTracksWithWebApi = useCallback(
-    async (uris: string[]) => {
+    (uris: string[]) => {
       return playTracksWithWebApiService(uris, accessToken, ensureValidToken);
     },
     [accessToken, ensureValidToken]
   );
 
   const playTrackWithContext = useCallback(
-    async (
-      trackUri: string,
-      sourceContext?: {
-        type: "album" | "playlist" | "liked" | "artist" | "podcast";
-        uri?: string;
-        tracks?: any[];
-        currentIndex?: number;
-      }
-    ) => {
+    async (trackUri: string, sourceContext?: SourceContext) => {
       const validToken = await ensureValidToken();
 
       return playTrackWithContextService(
@@ -108,17 +94,9 @@ export const PlaybackProvider = ({ children }: { children: ReactNode }) => {
     [ensureValidToken]
   );
 
-  const skipToIndex = useCallback(
-    async (sourceContext: {
-      type: "album" | "playlist" | "liked" | "artist" | "podcast";
-      uri?: string;
-      tracks?: any[];
-      currentIndex?: number;
-    }) => {
-      return skipToIndexService(sourceContext);
-    },
-    []
-  );
+  const skipToIndex = useCallback((sourceContext: SourceContext) => {
+    return skipToIndexService(sourceContext);
+  }, []);
 
   const getPlaybackState = useCallback(
     (): Promise<SpotifyCurrentlyPlaying | null> => getPlaybackStateService(),

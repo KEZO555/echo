@@ -1,5 +1,5 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import * as Haptics from "expo-haptics";
+import { ImpactFeedbackStyle, impactAsync } from "expo-haptics";
 import {
   createContext,
   type ReactNode,
@@ -107,6 +107,23 @@ interface SettingsContextType {
   isLoading: boolean;
 }
 
+const parseStoredSettings = (
+  results: readonly [string, string | null][]
+): { settings: BooleanSettings; tabPrefs: TabPreferences | null } => {
+  const settings = { ...defaultSettings };
+  let tabPrefs: TabPreferences | null = null;
+  for (const [key, value] of results) {
+    if (key === TAB_PREFERENCES_KEY) {
+      if (value) {
+        tabPrefs = { ...defaultTabPreferences, ...JSON.parse(value) };
+      }
+    } else if (value !== null && key in SETTING_KEYS) {
+      settings[key as SettingKey] = value === "true";
+    }
+  }
+  return { settings, tabPrefs };
+};
+
 const SettingsContext = createContext<SettingsContextType | undefined>(
   undefined
 );
@@ -126,19 +143,9 @@ export const SettingsProvider = ({ children }: { children: ReactNode }) => {
           ...keys,
           TAB_PREFERENCES_KEY,
         ]);
-
-        const loaded = { ...defaultSettings };
-        for (const [key, value] of results) {
-          if (key === TAB_PREFERENCES_KEY) {
-            if (value) {
-              setTabPreferences({
-                ...defaultTabPreferences,
-                ...JSON.parse(value),
-              });
-            }
-          } else if (value !== null && key in SETTING_KEYS) {
-            loaded[key as SettingKey] = value === "true";
-          }
+        const { settings: loaded, tabPrefs } = parseStoredSettings(results);
+        if (tabPrefs) {
+          setTabPreferences(tabPrefs);
         }
         setSettings(loaded);
       } catch (error) {
@@ -152,7 +159,7 @@ export const SettingsProvider = ({ children }: { children: ReactNode }) => {
   }, []);
 
   const triggerHaptic = useCallback(() => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    impactAsync(ImpactFeedbackStyle.Light);
   }, []);
 
   const setSetting = useCallback(async (key: SettingKey, value: boolean) => {
@@ -219,10 +226,15 @@ export const SettingsProvider = ({ children }: { children: ReactNode }) => {
         const currentOrder = [...tabPreferences.tabOrder];
         const currentIndex = currentOrder.indexOf(tabId);
 
-        if (currentIndex === -1) return;
-        if (direction === "up" && currentIndex === 0) return;
-        if (direction === "down" && currentIndex === currentOrder.length - 1)
+        if (currentIndex === -1) {
           return;
+        }
+        if (direction === "up" && currentIndex === 0) {
+          return;
+        }
+        if (direction === "down" && currentIndex === currentOrder.length - 1) {
+          return;
+        }
 
         const newIndex =
           direction === "up" ? currentIndex - 1 : currentIndex + 1;

@@ -1,5 +1,5 @@
 import { router } from "expo-router";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { StyleSheet } from "react-native";
 import { useAuth } from "@/features/auth";
 import ContentContainer from "@/shared/components/ContentContainer";
@@ -16,7 +16,7 @@ export default function SelectDeviceScreen() {
   const [devices, setDevices] = useState<SpotifyDevice[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  const fetchDevices = async () => {
+  const fetchDevices = useCallback(async () => {
     setIsLoading(true);
     try {
       const data = await apiGet<{ devices: SpotifyDevice[] }>(
@@ -30,17 +30,21 @@ export default function SelectDeviceScreen() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     fetchDevices();
-  }, []);
+  }, [fetchDevices]);
 
   const handleSelectDevice = async (deviceId: string | null) => {
-    if (!deviceId) return;
+    if (!deviceId) {
+      return;
+    }
     try {
       const validToken = await ensureValidToken();
-      if (!validToken) return;
+      if (!validToken) {
+        return;
+      }
       await apiPut("https://api.spotify.com/v1/me/player", {
         device_ids: [deviceId],
       });

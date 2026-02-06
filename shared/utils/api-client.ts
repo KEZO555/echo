@@ -40,7 +40,9 @@ const apiFetch = async <T>(
     });
 
     if (response.ok) {
-      if (response.status === 204) return null;
+      if (response.status === 204) {
+        return null;
+      }
       return (await response.json()) as T;
     }
 

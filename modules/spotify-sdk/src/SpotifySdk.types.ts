@@ -1,12 +1,12 @@
 // Removed React Native view imports as they're not needed for this module
 
-export type SpotifySdkModuleEvents = {
+export interface SpotifySdkModuleEvents {
   onChange: (params: ChangeEventPayload) => void;
-};
+}
 
-export type ChangeEventPayload = {
+export interface ChangeEventPayload {
   value: string;
-};
+}
 
 // SpotifySdkViewProps removed - module doesn't export view components
 
@@ -162,7 +162,7 @@ export interface SpotifyRecommendation {
 export interface SpotifyError {
   message: string;
   code?: string;
-  details?: any;
+  details?: unknown;
 }
 
 // Connection State
@@ -208,6 +208,7 @@ export interface SpotifySdkEvents {
   onCapabilitiesChanged: (event: { capabilities: SpotifyCapabilities }) => void;
   onUserLoggedIn: (event: { user: SpotifyUser }) => void;
   onUserLoggedOut: (event: { loggedOut: boolean }) => void;
+  // biome-ignore lint/suspicious/noExplicitAny: index signature requires any for event handler variance
   [key: string]: (...args: any[]) => void;
 }
 

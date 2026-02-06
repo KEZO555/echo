@@ -5,12 +5,12 @@ import CustomScrollView from "@/shared/components/CustomScrollView";
 import { ToggleSwitch } from "@/shared/components/ToggleSwitch";
 import { n } from "@/shared/utils";
 
-type SettingsItem = {
+interface SettingsItem {
   type: "toggle";
   label: string;
   value: boolean;
   onValueChange: (value: boolean) => void;
-};
+}
 
 export default function CustomisePlayingScreen() {
   const {

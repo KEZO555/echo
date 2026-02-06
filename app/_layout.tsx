@@ -1,10 +1,10 @@
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import { useFonts } from "expo-font";
-import * as NavigationBar from "expo-navigation-bar";
+import { setVisibilityAsync } from "expo-navigation-bar";
 import { Stack, useRouter } from "expo-router";
 import { setStatusBarHidden } from "expo-status-bar";
-import * as SystemUI from "expo-system-ui";
-import { useEffect, useRef } from "react";
+import { setBackgroundColorAsync } from "expo-system-ui";
+import { useCallback, useEffect, useRef } from "react";
 import { View } from "react-native";
 import { AuthProvider, useAuth } from "@/features/auth";
 import { CredentialsProvider, useCredentials } from "@/features/credentials";
@@ -52,27 +52,41 @@ function RootNavigation() {
       });
       clearAuthError();
     }
-  }, [authError]);
+  }, [authError, clearAuthError, router]);
 
-  const getFirstAvailableTab = () => {
-    if (tabPreferences.showLikedSongs) return "/(tabs)";
-    if (tabPreferences.showArtists) return "/(tabs)/artists";
-    if (tabPreferences.showAlbums) return "/(tabs)/albums";
-    if (tabPreferences.showPodcasts) return "/(tabs)/podcasts";
-    if (tabPreferences.showPlaylists) return "/(tabs)/playlists";
-    if (tabPreferences.showSearch) return "/(tabs)/search";
+  const getFirstAvailableTab = useCallback(() => {
+    if (tabPreferences.showLikedSongs) {
+      return "/(tabs)";
+    }
+    if (tabPreferences.showArtists) {
+      return "/(tabs)/artists";
+    }
+    if (tabPreferences.showAlbums) {
+      return "/(tabs)/albums";
+    }
+    if (tabPreferences.showPodcasts) {
+      return "/(tabs)/podcasts";
+    }
+    if (tabPreferences.showPlaylists) {
+      return "/(tabs)/playlists";
+    }
+    if (tabPreferences.showSearch) {
+      return "/(tabs)/search";
+    }
     return "/(tabs)/settings";
-  };
+  }, [tabPreferences]);
 
   useEffect(() => {
     setStatusBarHidden(true, "none");
-    NavigationBar.setVisibilityAsync("hidden");
+    setVisibilityAsync("hidden");
     const newColor = invertColors ? "#FFFFFF" : "#000000";
-    SystemUI.setBackgroundColorAsync(newColor);
+    setBackgroundColorAsync(newColor);
   }, [invertColors]);
 
   useEffect(() => {
-    if (isLoading) return;
+    if (isLoading) {
+      return;
+    }
 
     const justLoggedIn = !previousAccessToken.current && accessToken;
     const shouldRoute = !hasDoneInitialRouting.current || justLoggedIn;
@@ -80,7 +94,7 @@ function RootNavigation() {
     if (shouldRoute) {
       if (accessToken) {
         const firstAvailableTab = getFirstAvailableTab();
-        router.replace(firstAvailableTab as any);
+        router.replace(firstAvailableTab as never);
       } else {
         router.replace("/login");
       }
@@ -88,7 +102,7 @@ function RootNavigation() {
     }
 
     previousAccessToken.current = accessToken;
-  }, [accessToken, isLoading, router]);
+  }, [accessToken, isLoading, router, getFirstAvailableTab]);
 
   if (isLoading) {
     return (

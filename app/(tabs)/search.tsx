@@ -1,5 +1,5 @@
 import { MaterialIcons } from "@expo/vector-icons";
-import * as Haptics from "expo-haptics";
+import { ImpactFeedbackStyle, impactAsync } from "expo-haptics";
 import { router } from "expo-router";
 import { useState } from "react";
 import { StyleSheet, TextInput, View } from "react-native";
@@ -50,7 +50,7 @@ export default function SearchScreen() {
           <HapticPressable
             onPress={() => {
               setSearchQuery("");
-              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+              impactAsync(ImpactFeedbackStyle.Medium);
             }}
             style={styles.clearButton}
           >

@@ -5,14 +5,20 @@ import SpotifySdkNative from "./SpotifySdkModule";
 class SpotifySDK {
   private connectionPromise: Promise<boolean> | null = null;
 
-  async connect(): Promise<boolean> {
-    if (this.connectionPromise) return this.connectionPromise;
+  connect(): Promise<boolean> {
+    if (this.connectionPromise) {
+      return this.connectionPromise;
+    }
 
     this.connectionPromise = (async () => {
       try {
-        if (await this.isConnected()) return true;
+        if (await this.isConnected()) {
+          return true;
+        }
         const credentials = await getStoredCredentials();
-        if (!credentials) return false;
+        if (!credentials) {
+          return false;
+        }
         const result = await SpotifySdkNative.connect(
           credentials.clientId,
           REDIRECT_URI
@@ -30,7 +36,7 @@ class SpotifySDK {
     await SpotifySdkNative.disconnect();
   }
 
-  async isConnected(): Promise<boolean> {
+  isConnected(): Promise<boolean> {
     return SpotifySdkNative.isConnected();
   }
 
@@ -81,7 +87,9 @@ class SpotifySDK {
   }
 
   async getPlayerState(): Promise<SpotifyPlayerState | null> {
-    if (!(await this.isConnected())) return null;
+    if (!(await this.isConnected())) {
+      return null;
+    }
     return SpotifySdkNative.getPlayerState();
   }
 
@@ -111,7 +119,9 @@ class SpotifySDK {
   async getLibraryState(
     uri: string
   ): Promise<{ isAdded: boolean; canAdd: boolean } | null> {
-    if (!(await this.isConnected())) return null;
+    if (!(await this.isConnected())) {
+      return null;
+    }
     return SpotifySdkNative.getLibraryState(uri);
   }
 
@@ -119,7 +129,9 @@ class SpotifySDK {
   private async ensureConnected(): Promise<void> {
     if (!(await this.isConnected())) {
       const connected = await this.connect();
-      if (!connected) throw new Error("Failed to connect to Spotify");
+      if (!connected) {
+        throw new Error("Failed to connect to Spotify");
+      }
     }
   }
 
@@ -143,8 +155,8 @@ class SpotifySDK {
     );
     const startedSub = SpotifySdkNative.addListener(
       "onActivityStarted",
-      () => {}
-    ); // Keep alive
+      () => { /* keep alive */ }
+    );
 
     return () => {
       connectedSub.remove();

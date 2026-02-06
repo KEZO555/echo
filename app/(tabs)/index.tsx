@@ -39,9 +39,13 @@ export default function LikedSongsScreen() {
 
   const handleTrackPress = usePreventDoubleTap(
     async (item: SavedTrackObject, index: number, isDisabled: boolean) => {
-      if (isDisabled) return;
+      if (isDisabled) {
+        return;
+      }
 
-      if (!savedTracks) return;
+      if (!savedTracks) {
+        return;
+      }
 
       const collectionUri = "spotify:collection:tracks";
 

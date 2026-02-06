@@ -59,6 +59,7 @@ export default function AlbumDetailScreen() {
       return;
     }
 
+    // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: data fetching with cache fallback
     const fetchAlbumDetails = async () => {
       let hasDisplayedData = !!initialAlbum?.tracks?.items;
 
@@ -103,10 +104,12 @@ export default function AlbumDetailScreen() {
     };
 
     fetchAlbumDetails();
-  }, [id]);
+  }, [id, initialAlbum?.tracks?.items, isOnline]);
 
   const loadMoreTracks = useCallback(async () => {
-    if (!album?.tracks?.next || isLoadingMoreTracks) return;
+    if (!album?.tracks?.next || isLoadingMoreTracks) {
+      return;
+    }
     setIsLoadingMoreTracks(true);
     try {
       const data = await apiGet<{
@@ -115,7 +118,9 @@ export default function AlbumDetailScreen() {
       }>(album.tracks.next);
       if (data) {
         setAlbum((prevAlbum) => {
-          if (!(prevAlbum && prevAlbum.tracks)) return prevAlbum;
+          if (!prevAlbum?.tracks) {
+            return prevAlbum;
+          }
           return {
             ...prevAlbum,
             tracks: {

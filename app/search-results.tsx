@@ -17,6 +17,7 @@ import type {
   SpotifyArtist,
   SpotifyImage,
   SpotifyPlaylistSimple,
+  SpotifySearchResults,
   SpotifyShow,
   SpotifyTrack,
 } from "@/shared/types/spotify";
@@ -30,6 +31,89 @@ type SearchItem =
   | { type: "album"; data: SpotifyAlbumSimple }
   | { type: "artist"; data: SpotifyArtist }
   | { type: "podcast"; data: SpotifyShow };
+
+// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: search result collection with validation
+function collectSearchResults(apiResponse: SpotifySearchResults): SearchItem[] {
+  const newResults: SearchItem[] = [];
+  if (apiResponse.tracks?.items) {
+    for (const track of apiResponse.tracks.items) {
+      if (track?.id) {
+        newResults.push({ type: "track", data: track });
+      } else if (track) {
+        console.warn(
+          "Search result track is missing an id or is invalid:",
+          track
+        );
+      }
+    }
+  }
+  if (apiResponse.albums?.items) {
+    for (const album of apiResponse.albums.items) {
+      if (album?.id) {
+        newResults.push({ type: "album", data: album });
+      } else if (album) {
+        console.warn(
+          "Search result album is missing an id or is invalid:",
+          album
+        );
+      }
+    }
+  }
+  if (apiResponse.artists?.items) {
+    for (const artist of apiResponse.artists.items) {
+      if (artist?.id) {
+        newResults.push({ type: "artist", data: artist });
+      } else if (artist) {
+        console.warn(
+          "Search result artist is missing an id or is invalid:",
+          artist
+        );
+      }
+    }
+  }
+  if (apiResponse.playlists?.items) {
+    for (const playlist of apiResponse.playlists.items) {
+      if (playlist?.id) {
+        newResults.push({ type: "playlist", data: playlist });
+      } else if (playlist) {
+        console.warn(
+          "Search result playlist is missing an id or is invalid:",
+          playlist
+        );
+      }
+    }
+  }
+  if (apiResponse.shows?.items) {
+    for (const show of apiResponse.shows.items) {
+      if (show?.id) {
+        newResults.push({ type: "podcast", data: show });
+      } else if (show) {
+        console.warn(
+          "Search result show is missing an id or is invalid:",
+          show
+        );
+      }
+    }
+  }
+
+  const firstAlbumIndex = newResults.findIndex((item) => item.type === "album");
+  if (firstAlbumIndex > -1) {
+    const [firstAlbum] = newResults.splice(firstAlbumIndex, 1);
+    newResults.unshift(firstAlbum);
+  }
+
+  const firstPodcastIndex = newResults.findIndex(
+    (item) => item.type === "podcast"
+  );
+  if (firstPodcastIndex > -1) {
+    const [firstPodcast] = newResults.splice(firstPodcastIndex, 1);
+    const albumAtTop = newResults.length > 0 && newResults[0].type === "album";
+    const insertIndex = albumAtTop ? 1 : 0;
+    newResults.splice(insertIndex, 0, firstPodcast);
+  }
+
+  return newResults;
+}
 
 export default function SearchResultsScreen() {
   const params = useLocalSearchParams();
@@ -57,97 +141,10 @@ export default function SearchResultsScreen() {
         accessToken,
         ensureValidToken
       )
-        .then((apiResponse: any) => {
-          const newResults: SearchItem[] = [];
-          if (apiResponse?.tracks?.items) {
-            apiResponse.tracks.items.forEach((track: SpotifyTrack) => {
-              if (track && track.id) {
-                newResults.push({ type: "track", data: track });
-              } else if (track) {
-                console.warn(
-                  "Search result track is missing an id or is invalid:",
-                  track
-                );
-              }
-            });
+        .then((apiResponse) => {
+          if (apiResponse) {
+            setResults(collectSearchResults(apiResponse));
           }
-          if (apiResponse?.albums?.items) {
-            apiResponse.albums.items.forEach((album: SpotifyAlbumSimple) => {
-              if (album && album.id) {
-                newResults.push({ type: "album", data: album });
-              } else if (album) {
-                console.warn(
-                  "Search result album is missing an id or is invalid:",
-                  album
-                );
-              }
-            });
-          }
-          if (apiResponse?.artists?.items) {
-            apiResponse.artists.items.forEach((artist: SpotifyArtist) => {
-              if (artist && artist.id) {
-                newResults.push({ type: "artist", data: artist });
-              } else if (artist) {
-                console.warn(
-                  "Search result artist is missing an id or is invalid:",
-                  artist
-                );
-              }
-            });
-          }
-          if (apiResponse?.playlists?.items) {
-            apiResponse.playlists.items.forEach(
-              (playlist: SpotifyPlaylistSimple) => {
-                if (playlist && playlist.id) {
-                  newResults.push({
-                    type: "playlist",
-                    data: playlist,
-                  });
-                } else if (playlist) {
-                  console.warn(
-                    "Search result playlist is missing an id or is invalid:",
-                    playlist
-                  );
-                }
-              }
-            );
-          }
-          if (apiResponse?.shows?.items) {
-            apiResponse.shows.items.forEach((show: SpotifyShow) => {
-              if (show && show.id) {
-                newResults.push({
-                  type: "podcast",
-                  data: show,
-                });
-              } else if (show) {
-                console.warn(
-                  "Search result show is missing an id or is invalid:",
-                  show
-                );
-              }
-            });
-          }
-
-          const firstAlbumIndex = newResults.findIndex(
-            (item) => item.type === "album"
-          );
-          if (firstAlbumIndex > -1) {
-            const [firstAlbum] = newResults.splice(firstAlbumIndex, 1);
-            newResults.unshift(firstAlbum);
-          }
-
-          const firstPodcastIndex = newResults.findIndex(
-            (item) => item.type === "podcast"
-          );
-          if (firstPodcastIndex > -1) {
-            const [firstPodcast] = newResults.splice(firstPodcastIndex, 1);
-            const albumAtTop =
-              newResults.length > 0 && newResults[0].type === "album";
-            const insertIndex = albumAtTop ? 1 : 0;
-            newResults.splice(insertIndex, 0, firstPodcast);
-          }
-
-          setResults(newResults);
         })
         .catch((error: unknown) => logError("Search error:", error))
         .finally(() => setLoading(false));
@@ -202,7 +199,7 @@ export default function SearchResultsScreen() {
               uri: item.data.uri,
             }),
           },
-        } as any);
+        } as never);
       } else if (item.type === "artist") {
         router.push({
           pathname: `/artist/${item.data.id}`,
@@ -210,7 +207,7 @@ export default function SearchResultsScreen() {
             artistName: item.data.name as string,
             artistString: JSON.stringify(item.data),
           },
-        } as any);
+        } as never);
       } else if (item.type === "playlist") {
         router.push({
           pathname: `/playlist/${item.data.id}`,
@@ -218,7 +215,7 @@ export default function SearchResultsScreen() {
             playlistName: item.data.name as string,
             playlistString: JSON.stringify(item.data),
           },
-        } as any);
+        } as never);
       } else if (item.type === "podcast") {
         router.push({
           pathname: `/podcast/${item.data.id}`,
@@ -226,7 +223,7 @@ export default function SearchResultsScreen() {
             showName: item.data.name as string,
             showString: JSON.stringify(item.data),
           },
-        } as any);
+        } as never);
       }
     }
   );
@@ -240,13 +237,13 @@ export default function SearchResultsScreen() {
     switch (item.type) {
       case "track":
         title = item.data.name;
-        subtitle = `Song • ${getArtistNames(item.data.artists)}`;
+        subtitle = `Song \u2022 ${getArtistNames(item.data.artists)}`;
         images = item.data.album?.images;
         itemUri = item.data.uri;
         break;
       case "album":
         title = item.data.name;
-        subtitle = `Album • ${getArtistNames(item.data.artists)}`;
+        subtitle = `Album \u2022 ${getArtistNames(item.data.artists)}`;
         images = item.data.images;
         itemUri = item.data.uri;
         break;
@@ -258,15 +255,17 @@ export default function SearchResultsScreen() {
         break;
       case "playlist":
         title = item.data.name;
-        subtitle = `Playlist • ${item.data.owner?.display_name || "Playlist"}`;
+        subtitle = `Playlist \u2022 ${item.data.owner?.display_name || "Playlist"}`;
         images = item.data.images;
         itemUri = item.data.uri;
         break;
       case "podcast":
         title = item.data.name;
-        subtitle = `Podcast • ${item.data.publisher}`;
+        subtitle = `Podcast \u2022 ${item.data.publisher}`;
         images = item.data.images;
         itemUri = item.data.uri;
+        break;
+      default:
         break;
     }
 
@@ -307,44 +306,53 @@ export default function SearchResultsScreen() {
     );
   }
 
+  const resultsContent = (
+    <View style={{ paddingBottom: n(20) }}>
+      <CustomScrollView
+        contentContainerStyle={styles.listContentContainer}
+        data={results}
+        ItemSeparatorComponent={ItemSeparator}
+        keyExtractor={(item, index) => `${item.type}-${item.data.id}-${index}`}
+        overScrollMode={"never"}
+        renderItem={renderItem}
+        style={styles.list}
+      />
+    </View>
+  );
+
+  const noResultsContent = routeQuery ? (
+    <View style={styles.centeredMessageContainer}>
+      <StyledText style={styles.emptyText}>
+        No results found for &quot;{routeQuery}&quot;.
+      </StyledText>
+    </View>
+  ) : (
+    <View style={styles.centeredMessageContainer} />
+  );
+
+  const onlineContent = results.length > 0 ? resultsContent : noResultsContent;
+
+  const offlineContent = (
+    <View style={styles.centeredMessageContainer}>
+      <StyledText style={styles.emptyText}>
+        Search is not available offline.
+      </StyledText>
+    </View>
+  );
+
+  const loadedContent = isOnline ? onlineContent : offlineContent;
+  const bodyContent = loading ? (
+    <View style={styles.centeredMessageContainer} />
+  ) : (
+    loadedContent
+  );
+
   return (
     <ContentContainer
       headerTitle={`Results for ${routeQuery ?? ""}`}
       style={{ paddingHorizontal: n(20) }}
     >
-      {loading ? (
-        <View style={styles.centeredMessageContainer} />
-      ) : isOnline ? (
-        results.length > 0 ? (
-          <View style={{ paddingBottom: n(20) }}>
-            <CustomScrollView
-              contentContainerStyle={styles.listContentContainer}
-              data={results}
-              ItemSeparatorComponent={ItemSeparator}
-              keyExtractor={(item, index) =>
-                `${item.type}-${item.data.id}-${index}`
-              }
-              overScrollMode={"never"}
-              renderItem={renderItem}
-              style={styles.list}
-            />
-          </View>
-        ) : routeQuery ? (
-          <View style={styles.centeredMessageContainer}>
-            <StyledText style={styles.emptyText}>
-              No results found for "{routeQuery}".
-            </StyledText>
-          </View>
-        ) : (
-          <View style={styles.centeredMessageContainer} />
-        )
-      ) : (
-        <View style={styles.centeredMessageContainer}>
-          <StyledText style={styles.emptyText}>
-            Search is not available offline.
-          </StyledText>
-        </View>
-      )}
+      {bodyContent}
     </ContentContainer>
   );
 }

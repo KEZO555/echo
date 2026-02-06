@@ -38,7 +38,9 @@ export default function ArtistsScreen() {
 
   const handleArtistPress = usePreventDoubleTap(
     (item: SpotifyArtist, isDisabled: boolean) => {
-      if (isDisabled) return;
+      if (isDisabled) {
+        return;
+      }
 
       router.push({
         pathname: `/artist/${item.id}`,

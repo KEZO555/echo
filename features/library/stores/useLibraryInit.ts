@@ -29,7 +29,9 @@ export const useLibraryInit = () => {
   }, []);
 
   useEffect(() => {
-    if (!accessToken || initialFetchDone.current) return;
+    if (!accessToken || initialFetchDone.current) {
+      return;
+    }
 
     if (!isOnline) {
       logInfo("LibraryInit: Offline, using cached data");

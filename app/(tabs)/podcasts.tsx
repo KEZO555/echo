@@ -2,7 +2,6 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useFocusEffect, useRouter } from "expo-router";
 import { useCallback, useMemo, useState } from "react";
 import { SHOW_DETAIL_KEY_PREFIX } from "@/constants/spotify";
-import { useAuth } from "@/features/auth";
 import { refreshFollowedPodcastsFromCache } from "@/features/library";
 import { usePodcastsStore } from "@/features/library/stores";
 import { useSettings } from "@/features/settings";
@@ -15,7 +14,6 @@ import { log, logError } from "@/shared/utils/logger";
 const YOUR_EPISODES_ID = "YOUR_EPISODES_ID";
 
 export default function PodcastsScreen() {
-  const { isLoading } = useAuth();
   const podcasts = usePodcastsStore((s) => s.podcasts);
   const fetchPodcasts = usePodcastsStore((s) => s.fetch);
   const isRefreshing = usePodcastsStore((s) => s.isRefreshing);
@@ -43,15 +41,19 @@ export default function PodcastsScreen() {
   );
 
   const checkCachedShows = useCallback(async () => {
-    if (!sortedPodcasts) return;
+    if (!sortedPodcasts) {
+      return;
+    }
     const keys = sortedPodcasts.map(
       (s) => `${SHOW_DETAIL_KEY_PREFIX}${s.show.id}`
     );
     const results = await AsyncStorage.multiGet(keys);
     const cachedIds = new Set<string>();
-    results.forEach(([, value], index) => {
-      if (value !== null) cachedIds.add(sortedPodcasts[index].show.id);
-    });
+    for (const [index, [, value]] of results.entries()) {
+      if (value !== null) {
+        cachedIds.add(sortedPodcasts[index].show.id);
+      }
+    }
     setCachedShowIds(cachedIds);
   }, [sortedPodcasts]);
 
@@ -62,7 +64,9 @@ export default function PodcastsScreen() {
   );
 
   const handleRefresh = useCallback(async () => {
-    if (isRefreshing) return;
+    if (isRefreshing) {
+      return;
+    }
 
     if (isOnline) {
       fetchPodcasts();
@@ -90,7 +94,9 @@ export default function PodcastsScreen() {
 
   const handleShowPress = usePreventDoubleTap(
     (item: SpotifySavedShow, isUncached: boolean) => {
-      if (isUncached) return;
+      if (isUncached) {
+        return;
+      }
 
       router.push({
         pathname: `/podcast/${item.show.id}`,
@@ -123,17 +129,17 @@ export default function PodcastsScreen() {
     []
   );
 
-  const displayPodcasts = sortedPodcasts
-    ? hideYourEpisodes
-      ? sortedPodcasts
-      : [yourEpisodesItem, ...sortedPodcasts]
-    : hideYourEpisodes
-      ? []
-      : [yourEpisodesItem];
+  const withEpisodes = sortedPodcasts
+    ? [yourEpisodesItem, ...sortedPodcasts]
+    : [yourEpisodesItem];
+  const withoutEpisodes: SpotifySavedShow[] = sortedPodcasts ?? [];
+  const displayPodcasts = hideYourEpisodes ? withoutEpisodes : withEpisodes;
 
   const renderShowItem = ({ item }: { item: SpotifySavedShow }) => {
     if (item.show.id === YOUR_EPISODES_ID) {
-      if (hideYourEpisodes) return null;
+      if (hideYourEpisodes) {
+        return null;
+      }
       const isDisabled = !isOnline;
 
       return (

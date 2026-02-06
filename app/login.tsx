@@ -1,5 +1,5 @@
 import { MaterialIcons } from "@expo/vector-icons";
-import * as Haptics from "expo-haptics";
+import { ImpactFeedbackStyle, impactAsync } from "expo-haptics";
 import { useState } from "react";
 import { StyleSheet, TextInput, View } from "react-native";
 import { useAuth } from "@/features/auth";
@@ -21,7 +21,7 @@ export default function LoginScreen() {
   const [step, setStep] = useState<SetupStep>("clientId");
   const [clientId, setClientId] = useState(credentials?.clientId ?? "");
   const [clientSecret, setClientSecret] = useState("");
-  const [isSaving, setIsSaving] = useState(false);
+  const [_isSaving, setIsSaving] = useState(false);
 
   const textColor = invertColors ? "black" : "white";
   const borderColor = invertColors ? "black" : "white";
@@ -33,7 +33,9 @@ export default function LoginScreen() {
   };
 
   const handleSaveCredentials = async () => {
-    if (!clientSecret.trim()) return;
+    if (!clientSecret.trim()) {
+      return;
+    }
 
     setIsSaving(true);
     try {
@@ -81,7 +83,7 @@ export default function LoginScreen() {
               <HapticPressable
                 onPress={() => {
                   setClientId("");
-                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                  impactAsync(ImpactFeedbackStyle.Medium);
                 }}
                 style={styles.clearButton}
               >
@@ -122,7 +124,7 @@ export default function LoginScreen() {
             <HapticPressable
               onPress={() => {
                 setClientSecret("");
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                impactAsync(ImpactFeedbackStyle.Medium);
               }}
               style={styles.clearButton}
             >

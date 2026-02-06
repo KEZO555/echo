@@ -31,10 +31,10 @@ export default function CustomiseTabsScreen() {
     setHideYourEpisodes,
   } = useSettings();
   const handleCustomiseTabs = () => {
-    router.push("/customise-tabs" as any);
+    router.push("/customise-tabs" as never);
   };
   const handleCustomisePlaying = () => {
-    router.push("/customise-playing" as any);
+    router.push("/customise-playing" as never);
   };
 
   const settingsItems: SettingsItem[] = [

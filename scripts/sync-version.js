@@ -1,5 +1,5 @@
-const fs = require("fs");
-const path = require("path");
+const fs = require("node:fs");
+const _path = require("node:path");
 
 console.log("🔄 Syncing Android version from app.json...\n");
 
@@ -16,7 +16,7 @@ try {
   packageJson.version = version;
   fs.writeFileSync(
     "package.json",
-    JSON.stringify(packageJson, null, "\t") + "\n"
+    `${JSON.stringify(packageJson, null, "\t")}\n`
   );
   console.log(`✓ Updated package.json: ${oldPackageVersion} → ${version}`);
 

@@ -62,7 +62,9 @@ export default function ArtistDetailScreen() {
   const { isOnline } = useNetworkState();
 
   const initialArtist = useMemo(() => {
-    if (!artistString) return null;
+    if (!artistString) {
+      return null;
+    }
     try {
       return JSON.parse(artistString) as SpotifyArtist;
     } catch {
@@ -94,7 +96,9 @@ export default function ArtistDetailScreen() {
   });
 
   const handleLoadMore = async () => {
-    if (!albumsNextUrl || isLoadingMore) return;
+    if (!albumsNextUrl || isLoadingMore) {
+      return;
+    }
 
     setIsLoadingMore(true);
     try {
@@ -117,6 +121,7 @@ export default function ArtistDetailScreen() {
       return;
     }
 
+    // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: data fetching with cache fallback
     const fetchArtistDetails = async () => {
       if (initialArtist) {
         log("Artist details: Using pre-loaded artist data");
@@ -152,7 +157,9 @@ export default function ArtistDetailScreen() {
     };
 
     const fetchTopTracks = async () => {
-      if (!isOnline) return;
+      if (!isOnline) {
+        return;
+      }
       try {
         const data = await fetchArtistTopTracks(id);
         setTopTracks(data);
@@ -162,7 +169,9 @@ export default function ArtistDetailScreen() {
     };
 
     const fetchAlbumsData = async () => {
-      if (!isOnline) return;
+      if (!isOnline) {
+        return;
+      }
       try {
         const data = await fetchArtistAlbums(id);
         setAlbums(data.albums);
@@ -175,7 +184,7 @@ export default function ArtistDetailScreen() {
     fetchArtistDetails();
     fetchTopTracks();
     fetchAlbumsData();
-  }, [id]);
+  }, [id, fetchArtistAlbums, fetchArtistTopTracks, initialArtist, isOnline]);
 
   const artistAlbums = (albums || []).filter(
     (album) => album.album_type === "album"
@@ -323,9 +332,15 @@ export default function ArtistDetailScreen() {
   };
 
   const keyExtractor = (item: ArtistDetailItem, index: number) => {
-    if (item.type === "header") return `header-${item.title}-${index}`;
-    if (item.type === "track") return `track-${item.data.id}-${index}`;
-    if (item.type === "album") return `album-${item.data.id}-${index}`;
+    if (item.type === "header") {
+      return `header-${item.title}-${index}`;
+    }
+    if (item.type === "track") {
+      return `track-${item.data.id}-${index}`;
+    }
+    if (item.type === "album") {
+      return `album-${item.data.id}-${index}`;
+    }
     return `item-${index}`;
   };
 

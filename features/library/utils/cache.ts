@@ -15,26 +15,13 @@ import type {
   SpotifyAlbum,
   SpotifyArtist,
   SpotifyPlaylist,
+  SpotifyPlaylistFull,
   SpotifySavedAlbum,
   SpotifySavedEpisode,
   SpotifySavedShow,
   SpotifyShow,
 } from "@/shared/types/spotify";
 import { log, logError } from "@/shared/utils/logger";
-
-interface SpotifyPlaylistFull extends SpotifyPlaylist {
-  id: string;
-  name: string;
-  tracks: {
-    href: string;
-    items: any[];
-    limit: number;
-    next: string | null;
-    offset: number;
-    previous: string | null;
-    total: number;
-  };
-}
 
 export const loadCachedData = async () => {
   try {
@@ -103,19 +90,27 @@ export interface SaveCachedDataOptions {
 export const saveCachedData = async (options: SaveCachedDataOptions) => {
   try {
     const pairs: [string, string][] = [];
-    if (options.playlists)
+    if (options.playlists) {
       pairs.push([PLAYLISTS_KEY, JSON.stringify(options.playlists)]);
-    if (options.albums)
+    }
+    if (options.albums) {
       pairs.push([ALBUMS_KEY, JSON.stringify(options.albums)]);
-    if (options.podcasts)
+    }
+    if (options.podcasts) {
       pairs.push([PODCASTS_KEY, JSON.stringify(options.podcasts)]);
-    if (options.artists)
+    }
+    if (options.artists) {
       pairs.push([ARTISTS_KEY, JSON.stringify(options.artists)]);
-    if (options.tracks)
+    }
+    if (options.tracks) {
       pairs.push([SAVED_TRACKS_KEY, JSON.stringify(options.tracks)]);
-    if (options.savedEpisodes)
+    }
+    if (options.savedEpisodes) {
       pairs.push([SAVED_EPISODES_KEY, JSON.stringify(options.savedEpisodes)]);
-    if (pairs.length > 0) await AsyncStorage.multiSet(pairs);
+    }
+    if (pairs.length > 0) {
+      await AsyncStorage.multiSet(pairs);
+    }
   } catch (error) {
     logError("Cache: Error saving cached data:", error);
   }

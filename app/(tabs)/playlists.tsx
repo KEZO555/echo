@@ -44,7 +44,9 @@ export default function PlaylistsScreen() {
               a.owner.id ??
               ""
             ).localeCompare(b.owner.display_name ?? b.owner.id ?? "");
-            if (ownerCmp !== 0) return ownerCmp;
+            if (ownerCmp !== 0) {
+              return ownerCmp;
+            }
             return a.name.localeCompare(b.name);
           })
         : null,
@@ -52,15 +54,19 @@ export default function PlaylistsScreen() {
   );
 
   const checkCachedPlaylists = useCallback(async () => {
-    if (!sortedPlaylists) return;
+    if (!sortedPlaylists) {
+      return;
+    }
     const keys = sortedPlaylists.map(
       (p) => `${PLAYLIST_DETAIL_KEY_PREFIX}${p.id}`
     );
     const results = await AsyncStorage.multiGet(keys);
     const cachedIds = new Set<string>();
-    results.forEach(([, value], index) => {
-      if (value !== null) cachedIds.add(sortedPlaylists[index].id);
-    });
+    for (const [index, [, value]] of results.entries()) {
+      if (value !== null) {
+        cachedIds.add(sortedPlaylists[index].id);
+      }
+    }
     setCachedPlaylistIds(cachedIds);
   }, [sortedPlaylists]);
 
@@ -71,7 +77,9 @@ export default function PlaylistsScreen() {
   );
 
   const handleRefresh = useCallback(async () => {
-    if (isRefreshing) return;
+    if (isRefreshing) {
+      return;
+    }
 
     if (isOnline) {
       fetchPlaylists();
@@ -97,7 +105,9 @@ export default function PlaylistsScreen() {
 
   const handlePlaylistPress = usePreventDoubleTap(
     (item: SpotifyPlaylist, isUncached: boolean) => {
-      if (isUncached) return;
+      if (isUncached) {
+        return;
+      }
 
       router.push({
         pathname: `/playlist/${item.id}`,
@@ -111,14 +121,18 @@ export default function PlaylistsScreen() {
 
   const renderPlaylistItem = ({ item }: { item: SpotifyPlaylist }) => {
     if (item.id === CREATE_NEW_PLAYLIST_ID) {
-      if (hideCreatePlaylist) return null;
+      if (hideCreatePlaylist) {
+        return null;
+      }
       const isDisabled = !isOnline;
 
       return (
         <MediaListItem
           disabled={isDisabled}
           onPress={() => {
-            if (isDisabled) return;
+            if (isDisabled) {
+              return;
+            }
             handleCreatePlaylistPress();
           }}
           placeholderIcon="add"
@@ -169,13 +183,11 @@ export default function PlaylistsScreen() {
     href: "",
   };
 
-  const displayPlaylists = sortedPlaylists
-    ? hideCreatePlaylist
-      ? sortedPlaylists
-      : [createNewPlaylistItem, ...sortedPlaylists]
-    : hideCreatePlaylist
-      ? []
-      : [createNewPlaylistItem];
+  const withCreate = sortedPlaylists
+    ? [createNewPlaylistItem, ...sortedPlaylists]
+    : [createNewPlaylistItem];
+  const withoutCreate: SpotifyPlaylist[] = sortedPlaylists ?? [];
+  const displayPlaylists = hideCreatePlaylist ? withoutCreate : withCreate;
 
   const handleLoadMore = () => {
     if (isOnline && nextUrl && !isLoadingMore) {

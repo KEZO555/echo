@@ -42,7 +42,9 @@ export const usePlaylistsStore = create<PlaylistsState>()((set, get) => ({
 
   fetchMore: async () => {
     const { nextUrl, isLoadingMore } = get();
-    if (!nextUrl || isLoadingMore) return;
+    if (!nextUrl || isLoadingMore) {
+      return;
+    }
     set({ isLoadingMore: true });
     const data =
       await apiGet<SpotifyPaginatedResponse<SpotifyPlaylist>>(nextUrl);

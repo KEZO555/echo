@@ -32,14 +32,20 @@ export const getArtistNames = (artists: { name: string }[]): string => {
 export const getLargestImage = (
   images: { url: string; height?: number; width?: number }[] | undefined
 ): string | undefined => {
-  if (!images || images.length === 0) return undefined;
-  if (images.length === 1) return images[0].url;
+  if (!images || images.length === 0) {
+    return undefined;
+  }
+  if (images.length === 1) {
+    return images[0].url;
+  }
 
   const withDimensions = images.filter(
     (img) => img.height !== undefined && img.width !== undefined
   );
 
-  if (withDimensions.length === 0) return images[0].url;
+  if (withDimensions.length === 0) {
+    return images[0].url;
+  }
 
   const largest = withDimensions.reduce((prev, curr) =>
     (curr.height ?? 0) * (curr.width ?? 0) >

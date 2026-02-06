@@ -53,7 +53,9 @@ export const useArtistsStore = create<ArtistsState>()((set, get) => ({
 
   fetchMore: async () => {
     const { nextUrl, isLoadingMore } = get();
-    if (!nextUrl || isLoadingMore) return;
+    if (!nextUrl || isLoadingMore) {
+      return;
+    }
     set({ isLoadingMore: true });
     const data = await apiGet<SpotifyFollowedArtistsResponse>(nextUrl);
     if (data) {
@@ -115,7 +117,9 @@ export const useArtistsStore = create<ArtistsState>()((set, get) => ({
       const cachedArtists = await AsyncStorage.getItem(ARTISTS_KEY);
       if (cachedArtists) {
         const parsedArtists: SpotifyArtist[] = JSON.parse(cachedArtists);
-        if (parsedArtists.some((a) => a.id === artistId)) return true;
+        if (parsedArtists.some((a) => a.id === artistId)) {
+          return true;
+        }
       }
     } catch (error) {
       logError("Error checking cached artists:", error);
@@ -137,15 +141,21 @@ export const useArtistsStore = create<ArtistsState>()((set, get) => ({
     const data = await apiGet<SpotifyPaginatedResponse<SpotifyAlbumSimple>>(
       `https://api.spotify.com/v1/artists/${artistId}/albums?include_groups=album,single&limit=50`
     );
-    if (data) return { albums: data.items, nextUrl: data.next };
+    if (data) {
+      return { albums: data.items, nextUrl: data.next };
+    }
     return { albums: [], nextUrl: null };
   },
 
   fetchMoreArtistAlbums: async (nextUrl: string | null) => {
-    if (!nextUrl) return { albums: null, nextUrl: null };
+    if (!nextUrl) {
+      return { albums: null, nextUrl: null };
+    }
     const data =
       await apiGet<SpotifyPaginatedResponse<SpotifyAlbumSimple>>(nextUrl);
-    if (data) return { albums: data.items, nextUrl: data.next };
+    if (data) {
+      return { albums: data.items, nextUrl: data.next };
+    }
     return { albums: null, nextUrl: null };
   },
 

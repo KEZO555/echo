@@ -73,17 +73,23 @@ export function DetailScreen<T>({
             }>
           }
           keyExtractor={keyExtractor}
-          ListEmptyComponent={
-            error ? (
-              <StyledText style={detailScreenStyles.errorText}>
-                {error}
-              </StyledText>
-            ) : emptyMessage && data.length === 0 ? (
-              <StyledText style={detailScreenStyles.emptyText}>
-                {emptyMessage}
-              </StyledText>
-            ) : null
-          }
+          ListEmptyComponent={(() => {
+            if (error) {
+              return (
+                <StyledText style={detailScreenStyles.errorText}>
+                  {error}
+                </StyledText>
+              );
+            }
+            if (emptyMessage && data.length === 0) {
+              return (
+                <StyledText style={detailScreenStyles.emptyText}>
+                  {emptyMessage}
+                </StyledText>
+              );
+            }
+            return null;
+          })()}
           ListFooterComponent={<ListFooter isLoading={isLoadingMore} />}
           ListHeaderComponent={
             shouldHideCovers ? null : (

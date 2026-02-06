@@ -3,7 +3,7 @@ import { useMemo } from "react";
 import { useSettings } from "@/features/settings";
 import { Navbar, type TabConfigItem } from "@/shared/components/Navbar";
 
-export const TABS_CONFIG: ReadonlyArray<TabConfigItem> = [
+export const TABS_CONFIG: readonly TabConfigItem[] = [
   {
     name: "Liked Songs",
     screenName: "index",
@@ -67,8 +67,12 @@ export default function TabLayout() {
     });
 
     const sorted = [...filtered].sort((a, b) => {
-      if (a.screenName === "settings") return 1;
-      if (b.screenName === "settings") return -1;
+      if (a.screenName === "settings") {
+        return 1;
+      }
+      if (b.screenName === "settings") {
+        return -1;
+      }
       const aIndex = tabPreferences.tabOrder.indexOf(
         a.screenName as (typeof tabPreferences.tabOrder)[number]
       );

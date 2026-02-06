@@ -49,8 +49,10 @@ export default function YourEpisodesScreen() {
     fetchEpisodes,
   ]);
 
-  const handleRefresh = useCallback(async () => {
-    if (isRefreshing) return;
+  const handleRefresh = useCallback(() => {
+    if (isRefreshing) {
+      return;
+    }
     if (isOnline) {
       fetchEpisodes();
     }
@@ -79,7 +81,9 @@ export default function YourEpisodesScreen() {
 
   const formatReleaseDate = (dateString: string): string => {
     const date = new Date(dateString);
-    if (Number.isNaN(date.getTime())) return "";
+    if (Number.isNaN(date.getTime())) {
+      return "";
+    }
     return date.toLocaleDateString();
   };
 

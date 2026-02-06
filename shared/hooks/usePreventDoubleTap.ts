@@ -5,6 +5,7 @@ const DEFAULT_DELAY_MS = 600;
 /**
  * Returns a wrapped handler that ignores presses fired again within the delay window.
  */
+// biome-ignore lint/suspicious/noExplicitAny: generic constraint requires any for type variance
 export function usePreventDoubleTap<T extends (...args: any[]) => any>(
   handler: T,
   delay: number = DEFAULT_DELAY_MS

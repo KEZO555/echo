@@ -38,7 +38,9 @@ export const useSavedEpisodesStore = create<SavedEpisodesState>()(
 
     fetchMore: async () => {
       const { nextUrl, isLoadingMore } = get();
-      if (!nextUrl || isLoadingMore) return;
+      if (!nextUrl || isLoadingMore) {
+        return;
+      }
       set({ isLoadingMore: true });
       const data = await apiGet<SpotifySavedEpisodesResponse>(nextUrl);
       if (data) {

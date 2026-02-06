@@ -310,6 +310,34 @@ export interface SpotifyPlaylistSimple {
   uri: string;
 }
 
+export interface SpotifyPlaylistTrack {
+  added_at: string;
+  added_by: {
+    external_urls: { spotify: string };
+    href: string;
+    id: string;
+    type: string;
+    uri: string;
+  } | null;
+  is_local: boolean;
+  track: SpotifyTrackSimple | null;
+}
+
+export interface SpotifyPlaylistFull extends SpotifyPlaylist {
+  id: string;
+  name: string;
+  images: SpotifyImage[];
+  tracks: {
+    href: string;
+    items: SpotifyPlaylistTrack[];
+    limit: number;
+    next: string | null;
+    offset: number;
+    previous: string | null;
+    total: number;
+  };
+}
+
 export interface SpotifySearchResults {
   tracks?: SpotifyPaginatedResponse<SpotifyTrack>;
   albums?: SpotifyPaginatedResponse<SpotifyAlbumSimple>;

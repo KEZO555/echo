@@ -44,7 +44,9 @@ export const usePodcastsStore = create<PodcastsState>()((set, get) => ({
 
   fetchMore: async () => {
     const { nextUrl, isLoadingMore } = get();
-    if (!nextUrl || isLoadingMore) return;
+    if (!nextUrl || isLoadingMore) {
+      return;
+    }
     set({ isLoadingMore: true });
     const data = await apiGet<SpotifySavedShowsResponse>(nextUrl);
     if (data) {
@@ -109,7 +111,9 @@ export const usePodcastsStore = create<PodcastsState>()((set, get) => ({
       const cachedShows = await AsyncStorage.getItem(PODCASTS_KEY);
       if (cachedShows) {
         const parsedShows: SpotifySavedShow[] = JSON.parse(cachedShows);
-        if (parsedShows.some((item) => item.show.id === showId)) return true;
+        if (parsedShows.some((item) => item.show.id === showId)) {
+          return true;
+        }
       }
     } catch (error) {
       logError("Error checking cached podcasts:", error);

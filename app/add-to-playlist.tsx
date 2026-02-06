@@ -42,7 +42,9 @@ export default function AddToPlaylistScreen() {
               a.owner.id ??
               ""
             ).localeCompare(b.owner.display_name ?? b.owner.id ?? "");
-            if (ownerCmp !== 0) return ownerCmp;
+            if (ownerCmp !== 0) {
+              return ownerCmp;
+            }
             return a.name.localeCompare(b.name);
           })
         : null,
