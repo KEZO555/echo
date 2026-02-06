@@ -1,4 +1,39 @@
 {
   "$schema": "./node_modules/@biomejs/biome/configuration_schema.json",
-  "extends": ["ultracite/biome/core", "ultracite/biome/react"]
+  "extends": ["ultracite/biome/core", "ultracite/biome/react"],
+  "overrides": [
+    {
+      // Barrel re-exports are intentional for feature modules
+      "includes": ["**/index.ts"],
+      "linter": {
+        "rules": {
+          "performance": {
+            "noBarrelFile": "off"
+          }
+        }
+      }
+    },
+    {
+      // Expo Router uses [param] and camelCase conventions
+      "includes": ["app/**/*", "modules/**/*", "scripts/**/*"],
+      "linter": {
+        "rules": {
+          "style": {
+            "useFilenamingConvention": "off"
+          }
+        }
+      }
+    },
+    {
+      // Existing codebase uses camelCase filenames
+      "includes": ["features/**/*", "shared/**/*"],
+      "linter": {
+        "rules": {
+          "style": {
+            "useFilenamingConvention": "off"
+          }
+        }
+      }
+    }
+  ]
 }

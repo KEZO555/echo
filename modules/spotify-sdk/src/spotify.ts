@@ -153,10 +153,9 @@ class SpotifySDK {
     const disconnectedSub = SpotifySdkNative.addListener("onDisconnected", () =>
       callback(false)
     );
-    const startedSub = SpotifySdkNative.addListener(
-      "onActivityStarted",
-      () => { /* keep alive */ }
-    );
+    const startedSub = SpotifySdkNative.addListener("onActivityStarted", () => {
+      /* keep alive */
+    });
 
     return () => {
       connectedSub.remove();

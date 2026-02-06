@@ -224,7 +224,10 @@ export const getPlaybackState =
           uri: "spotify:device:app_remote",
         },
         shuffle_state: playerState.playbackOptions.isShuffling,
-        repeat_state: (["off", "track", "context"] as const)[playerState.playbackOptions.repeatMode] ?? "off",
+        repeat_state:
+          (["off", "track", "context"] as const)[
+            playerState.playbackOptions.repeatMode
+          ] ?? "off",
       };
 
       if (isEpisode) {
@@ -506,8 +509,7 @@ const buildPlaybackBody = (
 
   if (sourceContext.type === "liked") {
     const position = findTrackPosition(trackUri, sourceContext);
-    body.offset =
-      position !== null ? { position } : { uri: trackUri };
+    body.offset = position !== null ? { position } : { uri: trackUri };
   } else if (trackUri) {
     body.offset = { uri: trackUri };
   }

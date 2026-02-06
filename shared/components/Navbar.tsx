@@ -64,7 +64,9 @@ export function Navbar({
             <MaterialIcons
               color={(() => {
                 const isActive = tab.screenName === currentScreenName;
-                if (isActive) { return invertColors ? "black" : "white"; }
+                if (isActive) {
+                  return invertColors ? "black" : "white";
+                }
                 return invertColors ? "#C1C1C1" : "#6E6E6E";
               })()}
               name={tab.iconName}

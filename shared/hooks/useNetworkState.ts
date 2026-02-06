@@ -34,10 +34,7 @@ function initialiseNetworkListener() {
 
   let lastAppState = AppState.currentState;
   AppState.addEventListener("change", (nextAppState) => {
-    if (
-      APP_STATE_PATTERN.test(lastAppState) &&
-      nextAppState === "active"
-    ) {
+    if (APP_STATE_PATTERN.test(lastAppState) && nextAppState === "active") {
       NetInfo.refresh();
     }
     lastAppState = nextAppState;
