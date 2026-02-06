@@ -1,341 +1,119 @@
-import * as SecureStore from "expo-secure-store";
+import { deleteItemAsync, setItemAsync } from "expo-secure-store";
 import {
-    AUTH_TOKEN_KEY,
-    REFRESH_TOKEN_KEY,
-    USER_INFO_KEY,
-    TOKEN_EXPIRY_KEY,
+  AUTH_TOKEN_KEY,
+  REFRESH_TOKEN_KEY,
+  TOKEN_EXPIRY_KEY,
+  USER_INFO_KEY,
 } from "@/constants/spotify";
-import { refreshAccessToken as refreshTokenService } from "@/features/auth/services/tokenExchange";
+import { refreshAccessToken as refreshTokenService } from "@/features/auth";
 import { getStoredCredentials } from "@/features/credentials";
-import { log, logWarn, logError } from "./logger";
+import { log, logError } from "./logger";
 
-// Global refresh lock to prevent concurrent token refreshes
 let isRefreshInProgress = false;
 let refreshPromise: Promise<boolean> | null = null;
 
-// Request deduplication for frequently called endpoints
-const inFlightRequests = new Map<string, Promise<unknown>>();
-
-export const deduplicatedRequest = async <T>(
-    key: string,
-    request: () => Promise<T>
-): Promise<T> => {
-    if (inFlightRequests.has(key)) {
-        log(`API: Reusing in-flight request for ${key}`);
-        return inFlightRequests.get(key) as Promise<T>;
-    }
-
-    const promise = request().finally(() => {
-        inFlightRequests.delete(key);
-    });
-
-    inFlightRequests.set(key, promise);
-    return promise;
-};
-
-export const makeApiRequest = async (
-    url: string,
-    errorMessage: string,
-    accessToken: string | null,
-    refreshToken: string | null,
-    tokenExpiry: number | null,
-    onTokenUpdate: (
-        accessToken: string,
-        refreshToken?: string,
-        expiry?: number
-    ) => void,
-    onLogout: () => Promise<void>,
-    isRefreshing = false,
-    retryCount = 0,
-    options?: {
-        method?: string;
-        body?: string;
-        headers?: Record<string, string>;
-    }
-): Promise<any | null> => {
-    // Check if token is expired or about to expire (within 5 minutes) and refresh proactively
-    if (accessToken && tokenExpiry && refreshToken && retryCount === 0) {
-        const timeUntilExpiry = tokenExpiry - Date.now();
-        const isExpiredOrExpiringSoon = timeUntilExpiry < 5 * 60 * 1000; // Less than 5 minutes
-
-        if (isExpiredOrExpiringSoon) {
-            const isAlreadyExpired = timeUntilExpiry < 0;
-            log(
-                isAlreadyExpired
-                    ? "API: Token already expired, refreshing..."
-                    : "API: Token expires soon, refreshing proactively...",
-                { timeUntilExpiry }
-            );
-
-            try {
-                const refreshed = await refreshAccessToken(
-                    refreshToken,
-                    onTokenUpdate,
-                    onLogout
-                );
-                if (refreshed) {
-                    // Get the updated token from secure storage after refresh
-                    const updatedToken = await SecureStore.getItemAsync(
-                        AUTH_TOKEN_KEY
-                    );
-                    log(
-                        "API: Token refresh successful, using updated token for current request"
-                    );
-                    // Use the updated token for this request
-                    accessToken = updatedToken;
-                } else {
-                    logWarn(
-                        "API: Token refresh failed, proceeding with current token"
-                    );
-                }
-            } catch (error) {
-                logError(
-                    "API: Token refresh error, proceeding with current token:",
-                    error
-                );
-            }
-        }
-    }
-
-    if (!accessToken) {
-        logError("No access token available for API request.");
-        if (refreshToken) {
-            log("Attempting to refresh token before API request...");
-            const refreshed = await refreshAccessToken(
-                refreshToken,
-                onTokenUpdate,
-                onLogout
-            );
-            if (refreshed) {
-                // Get the updated token from secure storage after refresh
-                const updatedToken = await SecureStore.getItemAsync(
-                    AUTH_TOKEN_KEY
-                );
-                log("API: Using updated token for retry after refresh", {
-                    hasUpdatedToken: !!updatedToken,
-                });
-                // Retry the request once after successful refresh
-                return makeApiRequest(
-                    url,
-                    errorMessage,
-                    updatedToken,
-                    refreshToken,
-                    tokenExpiry,
-                    onTokenUpdate,
-                    onLogout,
-                    isRefreshing,
-                    1,
-                    options
-                );
-            } else {
-                logWarn(
-                    "No access token and refresh failed. The refreshAccessToken function already handled logout if needed."
-                );
-                return null;
-            }
-        }
-        return null;
-    }
-
-    if (isRefreshing) log(`Refreshing ${errorMessage.toLowerCase()}...`);
-
-    try {
-        const fetchOptions: RequestInit = {
-            method: options?.method || "GET",
-            headers: {
-                Authorization: `Bearer ${accessToken}`,
-                ...options?.headers,
-            },
-        };
-
-        if (options?.body) {
-            fetchOptions.body = options.body;
-        }
-
-        const response = await fetch(url, fetchOptions);
-        if (!response.ok) {
-            const errorData = await response
-                .json()
-                .catch(() => ({ message: "Unknown error" }));
-            logError(
-                `Error fetching ${errorMessage.toLowerCase()}: ${response.status
-                }`,
-                errorData
-            );
-            if (response.status === 401 && retryCount < 1 && refreshToken) {
-                logWarn(
-                    "Token might be expired. Attempting to refresh token.",
-                    { url, status: response.status, retryCount }
-                );
-                const refreshed = await refreshAccessToken(
-                    refreshToken,
-                    onTokenUpdate,
-                    onLogout
-                );
-                if (refreshed) {
-                    log("Token refreshed successfully. Retrying API request.");
-                    // Get the updated token from secure storage after refresh
-                    const updatedToken = await SecureStore.getItemAsync(
-                        AUTH_TOKEN_KEY
-                    );
-                    log(
-                        "API: Using updated token for retry after 401 refresh",
-                        { hasUpdatedToken: !!updatedToken }
-                    );
-                    return makeApiRequest(
-                        url,
-                        errorMessage,
-                        updatedToken,
-                        refreshToken,
-                        tokenExpiry,
-                        onTokenUpdate,
-                        onLogout,
-                        isRefreshing,
-                        1,
-                        options
-                    );
-                } else {
-                    logError(
-                        "Failed to refresh token. The refreshAccessToken function already handled logout if needed."
-                    );
-                    return null;
-                }
-            } else if (response.status === 401) {
-                logError(
-                    "Token is invalid even after refresh attempt or no refresh token. Logging out.",
-                    {
-                        url,
-                        status: response.status,
-                        retryCount,
-                        hasRefreshToken: !!refreshToken,
-                    }
-                );
-                await onLogout();
-            }
-            return null;
-        }
-        return await response.json();
-    } catch (error) {
-        logError(
-            `Network or other error fetching ${errorMessage.toLowerCase()}:`,
-            error
-        );
-        return null;
-    }
-};
-
 export const refreshAccessToken = async (
-    currentRefreshToken: string,
-    onTokenUpdate: (
-        accessToken: string,
-        refreshToken?: string,
-        expiry?: number
-    ) => void,
-    onLogout: () => Promise<void>
+  currentRefreshToken: string,
+  onTokenUpdate: (
+    accessToken: string,
+    refreshToken?: string,
+    expiry?: number
+  ) => void,
+  onLogout: () => Promise<void>
 ): Promise<boolean> => {
-    // If a refresh is already in progress, wait for it to complete
-    if (isRefreshInProgress && refreshPromise) {
-        log(
-            "API: Token refresh already in progress, waiting for completion..."
-        );
-        return await refreshPromise;
-    }
+  if (isRefreshInProgress && refreshPromise) {
+    log("API: Token refresh already in progress, waiting for completion...");
+    return await refreshPromise;
+  }
 
-    // Set the refresh lock and create the promise
-    isRefreshInProgress = true;
-    refreshPromise = performTokenRefresh(
-        currentRefreshToken,
-        onTokenUpdate,
-        onLogout
-    );
+  isRefreshInProgress = true;
+  refreshPromise = performTokenRefresh(
+    currentRefreshToken,
+    onTokenUpdate,
+    onLogout
+  );
 
-    try {
-        const result = await refreshPromise;
-        return result;
-    } finally {
-        // Clear the refresh lock
-        isRefreshInProgress = false;
-        refreshPromise = null;
-    }
+  try {
+    const result = await refreshPromise;
+    return result;
+  } finally {
+    isRefreshInProgress = false;
+    refreshPromise = null;
+  }
 };
 
 const performTokenRefresh = async (
-    currentRefreshToken: string,
-    onTokenUpdate: (
-        accessToken: string,
-        refreshToken?: string,
-        expiry?: number
-    ) => void,
-    onLogout: () => Promise<void>
+  currentRefreshToken: string,
+  onTokenUpdate: (
+    accessToken: string,
+    refreshToken?: string,
+    expiry?: number
+  ) => void,
+  onLogout: () => Promise<void>
 ): Promise<boolean> => {
-    log("API: Attempting to refresh access token...");
+  log("API: Attempting to refresh access token...");
 
-    try {
-        if (!currentRefreshToken) {
-            logError("API: No refresh token available");
-            throw new Error("No refresh token available");
-        }
-
-        log("API: Using new token exchange service for refresh...");
-
-        const credentials = await getStoredCredentials();
-        if (!credentials) {
-            logError("API: No credentials configured");
-            throw new Error("No credentials configured");
-        }
-
-		const tokenResponse = await refreshTokenService(
-			currentRefreshToken,
-			credentials.clientId,
-			credentials.clientSecret
-		);
-
-        log("API: Access token refreshed successfully");
-
-        // Set token expiry with 10-minute buffer for safety
-        const expiryTime = Date.now() + (tokenResponse.expires_in - 600) * 1000;
-
-        // Update tokens in secure storage in parallel for faster writes
-        const storagePromises: Promise<void>[] = [
-            SecureStore.setItemAsync(AUTH_TOKEN_KEY, tokenResponse.access_token),
-            SecureStore.setItemAsync(TOKEN_EXPIRY_KEY, expiryTime.toString()),
-        ];
-        if (tokenResponse.refresh_token) {
-            storagePromises.push(
-                SecureStore.setItemAsync(REFRESH_TOKEN_KEY, tokenResponse.refresh_token)
-            );
-        }
-        await Promise.all(storagePromises);
-
-        onTokenUpdate(
-            tokenResponse.access_token,
-            tokenResponse.refresh_token || currentRefreshToken, // Use existing refresh token if no new one provided
-            expiryTime
-        );
-
-        return true;
-    } catch (error) {
-        logError("API: Error during token refresh:", error);
-
-        // Check if this is a network error vs an authentication error
-        const isNetworkError =
-            error instanceof TypeError ||
-            (error as any)?.message?.includes("Network request failed") ||
-            (error as any)?.message?.includes("fetch");
-
-        if (isNetworkError) {
-            log("API: Network error during token refresh, will retry later");
-            // Don't logout on network errors - let the user try again
-            return false;
-        }
-
-        // Clear invalid tokens and require re-authentication only for auth errors
-        log("API: Authentication error during token refresh, clearing session");
-        await SecureStore.deleteItemAsync(AUTH_TOKEN_KEY);
-        await SecureStore.deleteItemAsync(REFRESH_TOKEN_KEY);
-        await SecureStore.deleteItemAsync(USER_INFO_KEY);
-        await SecureStore.deleteItemAsync(TOKEN_EXPIRY_KEY);
-        await onLogout();
-        return false;
+  try {
+    if (!currentRefreshToken) {
+      logError("API: No refresh token available");
+      throw new Error("No refresh token available");
     }
+
+    log("API: Using new token exchange service for refresh...");
+
+    const credentials = await getStoredCredentials();
+    if (!credentials) {
+      logError("API: No credentials configured");
+      throw new Error("No credentials configured");
+    }
+
+    const tokenResponse = await refreshTokenService(
+      currentRefreshToken,
+      credentials.clientId,
+      credentials.clientSecret
+    );
+
+    log("API: Access token refreshed successfully");
+
+    const expiryTime = Date.now() + (tokenResponse.expires_in - 600) * 1000;
+
+    const storagePromises: Promise<void>[] = [
+      setItemAsync(AUTH_TOKEN_KEY, tokenResponse.access_token),
+      setItemAsync(TOKEN_EXPIRY_KEY, expiryTime.toString()),
+    ];
+    if (tokenResponse.refresh_token) {
+      storagePromises.push(
+        setItemAsync(REFRESH_TOKEN_KEY, tokenResponse.refresh_token)
+      );
+    }
+    await Promise.all(storagePromises);
+
+    onTokenUpdate(
+      tokenResponse.access_token,
+      tokenResponse.refresh_token || currentRefreshToken,
+      expiryTime
+    );
+
+    return true;
+  } catch (error) {
+    logError("API: Error during token refresh:", error);
+
+    const isNetworkError =
+      error instanceof TypeError ||
+      (error as Error)?.message?.includes("Network request failed") ||
+      (error as Error)?.message?.includes("fetch");
+
+    if (isNetworkError) {
+      log("API: Network error during token refresh, will retry later");
+      return false;
+    }
+
+    log("API: Authentication error during token refresh, clearing session");
+    await deleteItemAsync(AUTH_TOKEN_KEY);
+    await deleteItemAsync(REFRESH_TOKEN_KEY);
+    await deleteItemAsync(USER_INFO_KEY);
+    await deleteItemAsync(TOKEN_EXPIRY_KEY);
+    await onLogout();
+    return false;
+  }
 };

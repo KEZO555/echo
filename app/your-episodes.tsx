@@ -1,146 +1,172 @@
-import React, { useEffect, useCallback } from "react";
-import { View, RefreshControl } from "react-native";
 import { useRouter } from "expo-router";
-import { useAuth } from "@/features/auth/contexts/AuthContext";
-import { useSpotifyLibrary } from "@/features/library/contexts/LibraryContext";
-import { usePlayback } from "@/features/playback/contexts/PlaybackContext";
-import type { SpotifySavedEpisode } from "@/shared/types/spotify";
-import { StyledText, ContentContainer, CustomScrollView, ListFooter, MediaListItem } from "@/shared/components";
-import { formatDuration, getLargestImage, n } from "@/shared/utils";
-import { usePreventDoubleTap, useNetworkState } from "@/shared/hooks";
+import { useCallback, useEffect } from "react";
+import { RefreshControl, View } from "react-native";
+import { useAuth } from "@/features/auth";
+import { useSavedEpisodesStore } from "@/features/library/stores";
+import { usePlayback } from "@/features/playback";
+import {
+  ContentContainer,
+  CustomScrollView,
+  ListFooter,
+  MediaListItem,
+  StyledText,
+} from "@/shared/components";
+import { useNetworkState, usePreventDoubleTap } from "@/shared/hooks";
 import { tabScreenStyles as styles } from "@/shared/styles/detailScreen";
+import type { SpotifySavedEpisode } from "@/shared/types/spotify";
+import { formatDuration, getLargestImage, n } from "@/shared/utils";
+
+const ItemSeparator = () => <View style={{ height: n(8) }} />;
 
 export default function YourEpisodesScreen() {
-    const { accessToken, user, isLoading: isAuthLoading } = useAuth();
-    const { playTrackWithContext } = usePlayback();
-    const {
-        savedEpisodes,
-        savedEpisodesNextUrl,
-        isRefreshingSavedEpisodes,
-        isLoadingMoreSavedEpisodes,
-        fetchSavedEpisodes,
-        fetchMoreSavedEpisodes,
-        refreshSavedEpisodesFromCache,
-    } = useSpotifyLibrary();
-    const router = useRouter();
-    const { isOnline } = useNetworkState();
+  const { accessToken, user, isLoading: isAuthLoading } = useAuth();
+  const { playTrackWithContext } = usePlayback();
+  const savedEpisodes = useSavedEpisodesStore((s) => s.savedEpisodes);
+  const nextUrl = useSavedEpisodesStore((s) => s.nextUrl);
+  const isRefreshing = useSavedEpisodesStore((s) => s.isRefreshing);
+  const isLoadingMore = useSavedEpisodesStore((s) => s.isLoadingMore);
+  const fetchEpisodes = useSavedEpisodesStore((s) => s.fetch);
+  const fetchMoreEpisodes = useSavedEpisodesStore((s) => s.fetchMore);
+  const router = useRouter();
+  const { isOnline } = useNetworkState();
 
-    useEffect(() => {
-        if (accessToken && user && !savedEpisodes && !isAuthLoading && !isRefreshingSavedEpisodes) {
-            fetchSavedEpisodes();
-        }
-    }, [accessToken, user, savedEpisodes, isAuthLoading, isRefreshingSavedEpisodes, fetchSavedEpisodes]);
+  useEffect(() => {
+    if (
+      accessToken &&
+      user &&
+      !savedEpisodes &&
+      !isAuthLoading &&
+      !isRefreshing
+    ) {
+      fetchEpisodes();
+    }
+  }, [
+    accessToken,
+    user,
+    savedEpisodes,
+    isAuthLoading,
+    isRefreshing,
+    fetchEpisodes,
+  ]);
 
-    const handleRefresh = useCallback(async () => {
-        if (isRefreshingSavedEpisodes) return;
+  const handleRefresh = useCallback(() => {
+    if (isRefreshing) {
+      return;
+    }
+    if (isOnline) {
+      fetchEpisodes();
+    }
+  }, [fetchEpisodes, isRefreshing, isOnline]);
 
-        if (!isOnline) {
-            await refreshSavedEpisodesFromCache();
-        } else {
-            fetchSavedEpisodes();
-        }
-    }, [fetchSavedEpisodes, isRefreshingSavedEpisodes, isOnline, refreshSavedEpisodesFromCache]);
+  const handleEpisodePress = usePreventDoubleTap(
+    async (savedEpisode: SpotifySavedEpisode) => {
+      const episode = savedEpisode.episode;
+      const albumArtUrl =
+        getLargestImage(episode.images) ??
+        getLargestImage(episode.show?.images) ??
+        "";
 
-    const handleEpisodePress = usePreventDoubleTap(
-        async (savedEpisode: SpotifySavedEpisode) => {
-            const episode = savedEpisode.episode;
-            const albumArtUrl = getLargestImage(episode.images) ?? getLargestImage(episode.show?.images) ?? "";
+      await playTrackWithContext(episode.uri);
+      router.push({
+        pathname: "/playing",
+        params: {
+          trackName: episode.name ?? "",
+          artistName: episode.show?.name ?? "",
+          albumArtUrl,
+          durationMs: episode.duration_ms?.toString() ?? "0",
+        },
+      });
+    }
+  );
 
-            await playTrackWithContext(episode.uri);
-            router.push({
-                pathname: "/playing",
-                params: {
-                    trackName: episode.name ?? "",
-                    artistName: episode.show?.name ?? "",
-                    albumArtUrl,
-                    durationMs: episode.duration_ms?.toString() ?? "0",
-                },
-            });
-        }
-    );
+  const formatReleaseDate = (dateString: string): string => {
+    const date = new Date(dateString);
+    if (Number.isNaN(date.getTime())) {
+      return "";
+    }
+    return date.toLocaleDateString();
+  };
 
-    const formatReleaseDate = (dateString: string): string => {
-        const date = new Date(dateString);
-        if (isNaN(date.getTime())) return "";
-        return date.toLocaleDateString();
-    };
+  const renderEpisodeItem = ({ item }: { item: SpotifySavedEpisode }) => {
+    const episode = item.episode;
+    const resumePoint = episode.resume_point;
+    const remainingMs =
+      resumePoint && !resumePoint.fully_played
+        ? Math.max(
+            episode.duration_ms - (resumePoint.resume_position_ms ?? 0),
+            0
+          )
+        : 0;
 
-    const renderEpisodeItem = ({ item }: { item: SpotifySavedEpisode }) => {
-        const episode = item.episode;
-        const resumePoint = episode.resume_point;
-        const remainingMs =
-            resumePoint && !resumePoint.fully_played
-                ? Math.max(episode.duration_ms - (resumePoint.resume_position_ms ?? 0), 0)
-                : 0;
-        
-        const releaseDate = formatReleaseDate(episode.release_date);
-        const metaParts = [
-            ...(releaseDate ? [releaseDate] : []),
-            formatDuration(episode.duration_ms, true),
-        ];
-        
-        if (resumePoint?.fully_played) {
-            metaParts.push("Played");
-        } else if (resumePoint && resumePoint.resume_position_ms > 0) {
-            metaParts.push(`${formatDuration(remainingMs, true)} left`);
-        }
+    const releaseDate = formatReleaseDate(episode.release_date);
+    const metaParts = [
+      ...(releaseDate ? [releaseDate] : []),
+      formatDuration(episode.duration_ms, true),
+    ];
 
-        const imageUri = getLargestImage(episode.images) ?? getLargestImage(episode.show?.images);
-        const isDisabled = !isOnline;
+    if (resumePoint?.fully_played) {
+      metaParts.push("Played");
+    } else if (resumePoint && resumePoint.resume_position_ms > 0) {
+      metaParts.push(`${formatDuration(remainingMs, true)} left`);
+    }
 
-        return (
-            <MediaListItem
-                primaryText={episode.name}
-                secondaryText={metaParts.join(" · ")}
-                imageUri={imageUri}
-                placeholderIcon="mic"
-                disabled={isDisabled}
-                onPress={() => handleEpisodePress(item)}
-            />
-        );
-    };
-
-    const renderFooter = () => {
-        return <ListFooter isLoading={isLoadingMoreSavedEpisodes} />;
-    };
+    const imageUri =
+      getLargestImage(episode.images) ?? getLargestImage(episode.show?.images);
+    const isDisabled = !isOnline;
 
     return (
-        <ContentContainer
-            headerTitle="Your Episodes"
-            style={{ paddingHorizontal: n(20), paddingBottom: n(20) }}
-        >
-            <CustomScrollView
-                style={styles.list}
-                contentContainerStyle={{ ...styles.listContentContainer }}
-                data={savedEpisodes ?? []}
-                renderItem={renderEpisodeItem}
-                keyExtractor={(item) => item.episode.id}
-                overScrollMode="never"
-                ItemSeparatorComponent={() => <View style={{ height: n(8) }} />}
-                onEndReached={() => {
-                    if (savedEpisodesNextUrl && !isLoadingMoreSavedEpisodes && isOnline) {
-                        fetchMoreSavedEpisodes();
-                    }
-                }}
-                onEndReachedThreshold={2}
-                ListFooterComponent={renderFooter}
-                refreshControl={
-                    <RefreshControl
-                        refreshing={isRefreshingSavedEpisodes}
-                        onRefresh={handleRefresh}
-                        colors={["white"]}
-                        progressBackgroundColor={"black"}
-                        size={"large" as any}
-                    />
-                }
-                ListEmptyComponent={
-                    !isRefreshingSavedEpisodes && (!savedEpisodes || savedEpisodes.length === 0) ? (
-                        <StyledText style={styles.emptyText}>
-                            No saved episodes yet.
-                        </StyledText>
-                    ) : null
-                }
-            />
-        </ContentContainer>
+      <MediaListItem
+        disabled={isDisabled}
+        imageUri={imageUri}
+        onPress={() => handleEpisodePress(item)}
+        placeholderIcon="mic"
+        primaryText={episode.name}
+        secondaryText={metaParts.join(" · ")}
+      />
     );
+  };
+
+  const renderFooter = () => {
+    return <ListFooter isLoading={isLoadingMore} />;
+  };
+
+  return (
+    <ContentContainer
+      headerTitle="Your Episodes"
+      style={{ paddingHorizontal: n(20), paddingBottom: n(20) }}
+    >
+      <CustomScrollView
+        contentContainerStyle={{ ...styles.listContentContainer }}
+        data={savedEpisodes ?? []}
+        ItemSeparatorComponent={ItemSeparator}
+        keyExtractor={(item) => item.episode.id}
+        ListEmptyComponent={
+          !isRefreshing && (!savedEpisodes || savedEpisodes.length === 0) ? (
+            <StyledText style={styles.emptyText}>
+              No saved episodes yet.
+            </StyledText>
+          ) : null
+        }
+        ListFooterComponent={renderFooter}
+        onEndReached={() => {
+          if (nextUrl && !isLoadingMore && isOnline) {
+            fetchMoreEpisodes();
+          }
+        }}
+        onEndReachedThreshold={2}
+        overScrollMode="never"
+        refreshControl={
+          <RefreshControl
+            colors={["white"]}
+            onRefresh={handleRefresh}
+            progressBackgroundColor={"black"}
+            refreshing={isRefreshing}
+            size={"large" as unknown as number}
+          />
+        }
+        renderItem={renderEpisodeItem}
+        style={styles.list}
+      />
+    </ContentContainer>
+  );
 }
