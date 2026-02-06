@@ -217,7 +217,7 @@ export default function PlaylistDetailScreen() {
   return (
     <DetailScreen
       data={playlist?.tracks?.items || []}
-      emptyMessage="No tracks found in this playlist."
+      emptyMessage={playlist ? "No tracks found in this playlist." : undefined}
       error={error}
       imageUrl={displayImageUrl}
       isLoadingMore={isLoadingMoreTracks}
