@@ -1,8 +1,11 @@
 import type { MaterialIcons } from "@expo/vector-icons";
+import { router } from "expo-router";
 import type { ReactNode } from "react";
+import { useCallback } from "react";
 import { type StyleProp, StyleSheet, View, type ViewStyle } from "react-native";
 import { useSettings } from "@/features/settings";
 import { Header } from "@/shared/components/Header";
+import { SwipeBackContainer } from "@/shared/components/SwipeBackContainer";
 import { n } from "@/shared/utils";
 
 interface ContentContainerProps {
@@ -29,26 +32,40 @@ export default function ContentContainer({
   onTitlePress,
 }: ContentContainerProps) {
   const { invertColors } = useSettings();
+  const canSwipeBack = Boolean(headerTitle) && !hideBackButton;
+  const handleBack = useCallback(() => {
+    if (onBackPress) {
+      onBackPress();
+      return;
+    }
+
+    if (router.canGoBack()) {
+      router.back();
+    }
+  }, [onBackPress]);
+
   return (
-    <View
-      style={[
-        styles.container,
-        { backgroundColor: invertColors ? "white" : "black" },
-      ]}
-    >
-      {headerTitle && (
-        <Header
-          backEvent={onBackPress}
-          headerTitle={headerTitle}
-          hideBackButton={hideBackButton}
-          iconName={headerIcon}
-          iconShowLength={headerIconShowLength}
-          onIconPress={headerIconPress}
-          onTitlePress={onTitlePress}
-        />
-      )}
-      <View style={[styles.content, style]}>{children ?? null}</View>
-    </View>
+    <SwipeBackContainer enabled={canSwipeBack} onSwipeBack={handleBack}>
+      <View
+        style={[
+          styles.container,
+          { backgroundColor: invertColors ? "white" : "black" },
+        ]}
+      >
+        {headerTitle && (
+          <Header
+            backEvent={handleBack}
+            headerTitle={headerTitle}
+            hideBackButton={hideBackButton}
+            iconName={headerIcon}
+            iconShowLength={headerIconShowLength}
+            onIconPress={headerIconPress}
+            onTitlePress={onTitlePress}
+          />
+        )}
+        <View style={[styles.content, style]}>{children ?? null}</View>
+      </View>
+    </SwipeBackContainer>
   );
 }
 

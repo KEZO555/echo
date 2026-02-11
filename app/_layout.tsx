@@ -6,6 +6,7 @@ import { setStatusBarHidden } from "expo-status-bar";
 import { setBackgroundColorAsync } from "expo-system-ui";
 import { useCallback, useEffect, useRef } from "react";
 import { View } from "react-native";
+import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { AuthProvider, useAuth } from "@/features/auth";
 import { CredentialsProvider, useCredentials } from "@/features/credentials";
 import { useLibraryInit } from "@/features/library";
@@ -147,14 +148,16 @@ function RootNavigation() {
 
 export default function RootLayout() {
   return (
-    <CredentialsProvider>
-      <SettingsProvider>
-        <AuthProvider>
-          <PlaybackProvider>
-            <RootNavigation />
-          </PlaybackProvider>
-        </AuthProvider>
-      </SettingsProvider>
-    </CredentialsProvider>
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <CredentialsProvider>
+        <SettingsProvider>
+          <AuthProvider>
+            <PlaybackProvider>
+              <RootNavigation />
+            </PlaybackProvider>
+          </AuthProvider>
+        </SettingsProvider>
+      </CredentialsProvider>
+    </GestureHandlerRootView>
   );
 }
