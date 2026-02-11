@@ -22,6 +22,10 @@ import type {
   SpotifyShow,
 } from "@/shared/types/spotify";
 import { log, logError } from "@/shared/utils/logger";
+import {
+  parsePlaylist,
+  parsePlaylists,
+} from "@/shared/utils/normalize-playlist";
 
 export const loadCachedData = async () => {
   try {
@@ -37,7 +41,7 @@ export const loadCachedData = async () => {
 
     const cachedData = {
       playlists: results[0][1]
-        ? (JSON.parse(results[0][1]) as SpotifyPlaylist[])
+        ? parsePlaylists(JSON.parse(results[0][1]))
         : null,
       albums: results[1][1]
         ? (JSON.parse(results[1][1]) as SpotifySavedAlbum[])
@@ -91,7 +95,11 @@ export const saveCachedData = async (options: SaveCachedDataOptions) => {
   try {
     const pairs: [string, string][] = [];
     if (options.playlists) {
-      pairs.push([PLAYLISTS_KEY, JSON.stringify(options.playlists)]);
+      const canonicalPlaylists = parsePlaylists(options.playlists);
+      pairs.push([
+        PLAYLISTS_KEY,
+        JSON.stringify(canonicalPlaylists ?? options.playlists),
+      ]);
     }
     if (options.albums) {
       pairs.push([ALBUMS_KEY, JSON.stringify(options.albums)]);
@@ -155,7 +163,10 @@ export const refreshPlaylistsFromCache = async () => {
   try {
     const cachedPlaylists = await AsyncStorage.getItem(PLAYLISTS_KEY);
     if (cachedPlaylists) {
-      const parsedPlaylists = JSON.parse(cachedPlaylists);
+      const parsedPlaylists = parsePlaylists(JSON.parse(cachedPlaylists));
+      if (!parsedPlaylists) {
+        return null;
+      }
       log(
         `Cache: Refreshed playlists state from cache - ${parsedPlaylists.length} playlists`
       );
@@ -272,12 +283,15 @@ export const getCachedShowDetail = async (
 };
 
 export const saveCachedPlaylistDetail = async (
-  playlist: SpotifyPlaylistFull
+  playlist: SpotifyPlaylist | SpotifyPlaylistFull
 ) => {
   try {
-    const key = `${PLAYLIST_DETAIL_KEY_PREFIX}${playlist.id}`;
-    await AsyncStorage.setItem(key, JSON.stringify(playlist));
-    log(`Cache: Saved playlist detail for ${playlist.name} (${playlist.id})`);
+    const canonicalPlaylist = parsePlaylist(playlist) ?? playlist;
+    const key = `${PLAYLIST_DETAIL_KEY_PREFIX}${canonicalPlaylist.id}`;
+    await AsyncStorage.setItem(key, JSON.stringify(canonicalPlaylist));
+    log(
+      `Cache: Saved playlist detail for ${canonicalPlaylist.name} (${canonicalPlaylist.id})`
+    );
   } catch (error) {
     logError("Cache: Error saving playlist detail:", error);
   }
@@ -285,14 +299,16 @@ export const saveCachedPlaylistDetail = async (
 
 export const getCachedPlaylistDetail = async (
   playlistId: string
-): Promise<SpotifyPlaylistFull | null> => {
+): Promise<SpotifyPlaylist | SpotifyPlaylistFull | null> => {
   try {
     const key = `${PLAYLIST_DETAIL_KEY_PREFIX}${playlistId}`;
     const cachedPlaylist = await AsyncStorage.getItem(key);
     if (cachedPlaylist) {
-      const parsedPlaylist = JSON.parse(cachedPlaylist);
-      log(`Cache: Retrieved cached playlist detail for ${playlistId}`);
-      return parsedPlaylist;
+      const parsedPlaylist = parsePlaylist(JSON.parse(cachedPlaylist));
+      if (parsedPlaylist) {
+        log(`Cache: Retrieved cached playlist detail for ${playlistId}`);
+        return parsedPlaylist;
+      }
     }
   } catch (error) {
     logError("Cache: Error retrieving cached playlist detail:", error);

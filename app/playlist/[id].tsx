@@ -8,12 +8,36 @@ import { usePlayback } from "@/features/playback";
 import { DetailScreen, TrackListItem } from "@/shared/components";
 import { useNetworkState, usePreventDoubleTap } from "@/shared/hooks";
 import type {
+  SpotifyPlaylist,
   SpotifyPlaylistFull,
   SpotifyPlaylistTrack,
   SpotifyTrackSimple,
 } from "@/shared/types/spotify";
 import { log, logError } from "@/shared/utils";
 import { apiGet } from "@/shared/utils/api-client";
+import {
+  parsePlaylist,
+  parsePlaylistItemsPage,
+} from "@/shared/utils/normalize-playlist";
+
+const hasLoadedPlaylistItems = (
+  playlist: SpotifyPlaylist | SpotifyPlaylistFull | null
+): playlist is SpotifyPlaylistFull => {
+  const maybeItems = playlist?.items as unknown;
+  if (!maybeItems || typeof maybeItems !== "object") {
+    return false;
+  }
+  const candidate = maybeItems as {
+    items?: unknown;
+    limit?: unknown;
+    offset?: unknown;
+  };
+  return (
+    Array.isArray(candidate.items) &&
+    typeof candidate.limit === "number" &&
+    typeof candidate.offset === "number"
+  );
+};
 
 export default function PlaylistDetailScreen() {
   const { id, playlistString, playlistName } = useLocalSearchParams<{
@@ -30,19 +54,23 @@ export default function PlaylistDetailScreen() {
       return null;
     }
     try {
-      return JSON.parse(playlistString) as SpotifyPlaylistFull;
+      return parsePlaylist(JSON.parse(playlistString));
     } catch {
       return null;
     }
   }, [playlistString]);
 
-  const [fetchedPlaylist, setPlaylist] = useState<SpotifyPlaylistFull | null>(
-    null
-  );
+  const [fetchedPlaylist, setPlaylist] = useState<
+    SpotifyPlaylist | SpotifyPlaylistFull | null
+  >(null);
   const [error, setError] = useState<string | null>(null);
   const [isLoadingMoreTracks, setIsLoadingMoreTracks] = useState(false);
+  const [isInitialLoading, setIsInitialLoading] = useState(
+    !hasLoadedPlaylistItems(initialPlaylist)
+  );
 
   const playlist = fetchedPlaylist ?? initialPlaylist;
+  const loadedPlaylist = hasLoadedPlaylistItems(playlist) ? playlist : null;
   const displayName = playlist?.name ?? playlistName ?? "Playlist";
   const displayImageUrl = playlist?.images?.[0]?.url;
 
@@ -62,54 +90,59 @@ export default function PlaylistDetailScreen() {
   const fetchPlaylistDetails = useCallback(async () => {
     if (!id) {
       setError("Playlist ID is missing.");
+      setIsInitialLoading(false);
       return;
     }
 
-    const hasInitialData = !!(initialPlaylist as SpotifyPlaylistFull)?.tracks
-      ?.items;
-
-    if (!hasInitialData) {
-      try {
-        const cachedPlaylist = await getCachedPlaylistDetail(id);
-        if (cachedPlaylist?.tracks?.items) {
-          log("Playlist details: Displaying cached data");
-          setPlaylist(cachedPlaylist);
-        }
-      } catch (cacheError) {
-        logError("Error retrieving cached playlist:", cacheError);
-      }
-    }
-
-    if (!isOnline) {
-      setPlaylist((current) => {
-        if (!(hasInitialData || current)) {
-          setError(
-            "No cached data available. Connect to the internet to load this playlist."
-          );
-        }
-        return current;
-      });
-      return;
-    }
+    const hasInitialData = hasLoadedPlaylistItems(initialPlaylist);
 
     try {
-      const data = await apiGet<SpotifyPlaylistFull>(
-        `https://api.spotify.com/v1/playlists/${id}`
-      );
-      if (data) {
-        log("Playlist details: Fetched fresh data from API");
-        setPlaylist(data);
-        await saveCachedPlaylistDetail(data);
-      } else if (!hasInitialData) {
-        throw new Error("Failed to fetch playlist details");
-      }
-    } catch (e: unknown) {
-      const errorMessage =
-        e instanceof Error ? e.message : "An unexpected error occurred.";
-      logError("Error fetching playlist details:", e);
       if (!hasInitialData) {
-        setError(errorMessage);
+        try {
+          const cachedPlaylist = await getCachedPlaylistDetail(id);
+          if (hasLoadedPlaylistItems(cachedPlaylist)) {
+            log("Playlist details: Displaying cached data");
+            setPlaylist(cachedPlaylist);
+          }
+        } catch (cacheError) {
+          logError("Error retrieving cached playlist:", cacheError);
+        }
       }
+
+      if (!isOnline) {
+        setPlaylist((current) => {
+          if (!(hasInitialData || current)) {
+            setError(
+              "No cached data available. Connect to the internet to load this playlist."
+            );
+          }
+          return current;
+        });
+        return;
+      }
+
+      try {
+        const raw = await apiGet<unknown>(
+          `https://api.spotify.com/v1/playlists/${id}`
+        );
+        const data = raw ? parsePlaylist(raw) : null;
+        if (data) {
+          log("Playlist details: Fetched fresh data from API");
+          setPlaylist(data);
+          await saveCachedPlaylistDetail(data);
+        } else if (!hasInitialData) {
+          throw new Error("Failed to fetch playlist details");
+        }
+      } catch (e: unknown) {
+        const errorMessage =
+          e instanceof Error ? e.message : "An unexpected error occurred.";
+        logError("Error fetching playlist details:", e);
+        if (!hasInitialData) {
+          setError(errorMessage);
+        }
+      }
+    } finally {
+      setIsInitialLoading(false);
     }
   }, [id, initialPlaylist, isOnline]);
 
@@ -120,28 +153,31 @@ export default function PlaylistDetailScreen() {
   );
 
   const loadMoreTracks = useCallback(async () => {
-    if (!playlist?.tracks?.next || isLoadingMoreTracks) {
+    if (!loadedPlaylist?.items.next || isLoadingMoreTracks) {
       return;
     }
     setIsLoadingMoreTracks(true);
     try {
-      const data = await apiGet<{
-        items: SpotifyPlaylistTrack[];
-        next: string | null;
-      }>(playlist.tracks.next);
-      if (data) {
+      const raw = await apiGet<unknown>(loadedPlaylist.items.next);
+      if (raw) {
+        const data = parsePlaylistItemsPage(raw);
+        if (!data) {
+          return;
+        }
         setPlaylist((prevPlaylist) => {
-          if (!prevPlaylist?.tracks) {
+          if (!hasLoadedPlaylistItems(prevPlaylist)) {
             return prevPlaylist;
           }
-          return {
+          const updatedPlaylist = {
             ...prevPlaylist,
-            tracks: {
-              ...prevPlaylist.tracks,
-              items: [...prevPlaylist.tracks.items, ...data.items],
+            items: {
+              ...prevPlaylist.items,
+              items: [...prevPlaylist.items.items, ...data.items],
               next: data.next,
             },
           };
+          saveCachedPlaylistDetail(updatedPlaylist);
+          return updatedPlaylist;
         });
       }
     } catch (e: unknown) {
@@ -149,11 +185,11 @@ export default function PlaylistDetailScreen() {
     } finally {
       setIsLoadingMoreTracks(false);
     }
-  }, [playlist, isLoadingMoreTracks]);
+  }, [loadedPlaylist, isLoadingMoreTracks]);
 
   const handleTrackPress = usePreventDoubleTap(async (trackIndex: number) => {
-    const playlistTrack = playlist?.tracks?.items[trackIndex];
-    const track = playlistTrack?.track;
+    const playlistTrack = loadedPlaylist?.items.items[trackIndex];
+    const track = playlistTrack?.item;
     const artistName =
       track?.artists
         ?.map((a: SpotifyTrackSimple["artists"][0]) => a.name)
@@ -197,7 +233,7 @@ export default function PlaylistDetailScreen() {
     item: SpotifyPlaylistTrack;
     index: number;
   }) => {
-    const track = item.track;
+    const track = item.item;
     if (!track) {
       return null;
     }
@@ -209,20 +245,21 @@ export default function PlaylistDetailScreen() {
         key={`${track.id || "unknown"}-${index}`}
         name={track.name}
         onPress={() => handleTrackPress(index)}
-        trackNumber={(playlist?.tracks?.offset || 0) + index + 1}
+        trackNumber={(loadedPlaylist?.items.offset || 0) + index + 1}
       />
     );
   };
 
   return (
     <DetailScreen
-      data={playlist?.tracks?.items || []}
-      emptyMessage={playlist ? "No tracks found in this playlist." : undefined}
+      data={loadedPlaylist?.items.items || []}
+      emptyMessage="No tracks found in this playlist."
       error={error}
       imageUrl={displayImageUrl}
+      isInitialLoading={isInitialLoading}
       isLoadingMore={isLoadingMoreTracks}
       keyExtractor={(item, index) =>
-        `${item.track?.id || "unknown-track"}-${index}`
+        `${item.item?.id || "unknown-track"}-${index}`
       }
       onLoadMore={loadMoreTracks}
       onTitlePress={handleTitlePress}

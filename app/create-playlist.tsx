@@ -31,7 +31,7 @@ export default function PlaylistFormScreen() {
     isRename ? (currentName ?? "") : ""
   );
   const router = useRouter();
-  const { user, ensureValidToken } = useAuth();
+  const { ensureValidToken } = useAuth();
   const fetchPlaylists = usePlaylistsStore((s) => s.fetch);
 
   useFocusEffect(
@@ -58,17 +58,15 @@ export default function PlaylistFormScreen() {
           logError("Rename Playlist Error: Missing playlist ID");
           return;
         }
-        await apiPut(`https://api.spotify.com/v1/playlists/${playlistId}`, {
-          name: playlistName,
-        });
-        ok = true;
+        ok = await apiPut(
+          `https://api.spotify.com/v1/playlists/${playlistId}`,
+          {
+            name: playlistName,
+          }
+        );
       } else {
-        if (!user?.id) {
-          logError("Create Playlist Error: Missing user ID");
-          return;
-        }
         const result = await apiPost(
-          `https://api.spotify.com/v1/users/${user.id}/playlists`,
+          "https://api.spotify.com/v1/me/playlists",
           { name: playlistName, public: false }
         );
         ok = result !== null;

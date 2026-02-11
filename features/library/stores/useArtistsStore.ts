@@ -17,7 +17,7 @@ interface ArtistsState {
   nextUrl: string | null;
   isRefreshing: boolean;
   isLoadingMore: boolean;
-  fetch: () => Promise<void>;
+  fetch: (options?: { showRefreshing?: boolean }) => Promise<void>;
   fetchMore: () => Promise<void>;
   followArtist: (artistId: string) => Promise<boolean>;
   unfollowArtist: (artistId: string) => Promise<boolean>;
@@ -39,16 +39,24 @@ export const useArtistsStore = create<ArtistsState>()((set, get) => ({
   isRefreshing: false,
   isLoadingMore: false,
 
-  fetch: async () => {
-    set({ isRefreshing: true });
-    const data = await apiGet<SpotifyFollowedArtistsResponse>(
-      "https://api.spotify.com/v1/me/following?type=artist&limit=50"
-    );
-    if (data) {
-      set({ artists: data.artists.items, nextUrl: data.artists.next });
-      await saveCachedData({ artists: data.artists.items });
+  fetch: async (options) => {
+    const showRefreshing = options?.showRefreshing ?? true;
+    if (showRefreshing) {
+      set({ isRefreshing: true });
     }
-    set({ isRefreshing: false });
+    try {
+      const data = await apiGet<SpotifyFollowedArtistsResponse>(
+        "https://api.spotify.com/v1/me/following?type=artist&limit=50"
+      );
+      if (data) {
+        set({ artists: data.artists.items, nextUrl: data.artists.next });
+        await saveCachedData({ artists: data.artists.items });
+      }
+    } finally {
+      if (showRefreshing) {
+        set({ isRefreshing: false });
+      }
+    }
   },
 
   fetchMore: async () => {
@@ -69,9 +77,12 @@ export const useArtistsStore = create<ArtistsState>()((set, get) => ({
 
   followArtist: async (artistId: string) => {
     try {
-      await apiPut(
+      const followed = await apiPut(
         `https://api.spotify.com/v1/me/following?type=artist&ids=${artistId}`
       );
+      if (!followed) {
+        return false;
+      }
       const artistData = await apiGet<SpotifyArtist>(
         `https://api.spotify.com/v1/artists/${artistId}`
       );
@@ -94,9 +105,12 @@ export const useArtistsStore = create<ArtistsState>()((set, get) => ({
 
   unfollowArtist: async (artistId: string) => {
     try {
-      await apiDelete(
+      const unfollowed = await apiDelete(
         `https://api.spotify.com/v1/me/following?type=artist&ids=${artistId}`
       );
+      if (!unfollowed) {
+        return false;
+      }
       const cachedArtists = await AsyncStorage.getItem(ARTISTS_KEY);
       if (cachedArtists) {
         const parsedArtists: SpotifyArtist[] = JSON.parse(cachedArtists);

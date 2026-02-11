@@ -54,10 +54,10 @@ const CustomScrollView = <T,>({
 
   return (
     <View
-      style={styles.container}
       onLayout={(event) => {
         setScrollViewHeight(event.nativeEvent.layout.height);
       }}
+      style={styles.container}
     >
       <Animated.FlatList
         {...(rest as FlatListProps<unknown>)}

@@ -15,7 +15,7 @@ interface AlbumsState {
   nextUrl: string | null;
   isRefreshing: boolean;
   isLoadingMore: boolean;
-  fetch: () => Promise<void>;
+  fetch: (options?: { showRefreshing?: boolean }) => Promise<void>;
   fetchMore: () => Promise<void>;
   saveAlbum: (albumId: string) => Promise<boolean>;
   removeAlbum: (albumId: string) => Promise<boolean>;
@@ -30,16 +30,24 @@ export const useAlbumsStore = create<AlbumsState>()((set, get) => ({
   isRefreshing: false,
   isLoadingMore: false,
 
-  fetch: async () => {
-    set({ isRefreshing: true });
-    const data = await apiGet<SpotifyPaginatedResponse<SpotifySavedAlbum>>(
-      "https://api.spotify.com/v1/me/albums?limit=50"
-    );
-    if (data) {
-      set({ albums: data.items, nextUrl: data.next });
-      await saveCachedData({ albums: data.items });
+  fetch: async (options) => {
+    const showRefreshing = options?.showRefreshing ?? true;
+    if (showRefreshing) {
+      set({ isRefreshing: true });
     }
-    set({ isRefreshing: false });
+    try {
+      const data = await apiGet<SpotifyPaginatedResponse<SpotifySavedAlbum>>(
+        "https://api.spotify.com/v1/me/albums?limit=50"
+      );
+      if (data) {
+        set({ albums: data.items, nextUrl: data.next });
+        await saveCachedData({ albums: data.items });
+      }
+    } finally {
+      if (showRefreshing) {
+        set({ isRefreshing: false });
+      }
+    }
   },
 
   fetchMore: async () => {
@@ -61,7 +69,13 @@ export const useAlbumsStore = create<AlbumsState>()((set, get) => ({
 
   saveAlbum: async (albumId: string) => {
     try {
-      await apiPut(`https://api.spotify.com/v1/me/albums?ids=${albumId}`);
+      const uri = encodeURIComponent(`spotify:album:${albumId}`);
+      const saved = await apiPut(
+        `https://api.spotify.com/v1/me/library?uris=${uri}`
+      );
+      if (!saved) {
+        return false;
+      }
       const albumData = await apiGet<SpotifyAlbum>(
         `https://api.spotify.com/v1/albums/${albumId}`
       );
@@ -88,7 +102,13 @@ export const useAlbumsStore = create<AlbumsState>()((set, get) => ({
 
   removeAlbum: async (albumId: string) => {
     try {
-      await apiDelete(`https://api.spotify.com/v1/me/albums?ids=${albumId}`);
+      const uri = encodeURIComponent(`spotify:album:${albumId}`);
+      const removed = await apiDelete(
+        `https://api.spotify.com/v1/me/library?uris=${uri}`
+      );
+      if (!removed) {
+        return false;
+      }
       const cachedAlbums = await AsyncStorage.getItem(ALBUMS_KEY);
       if (cachedAlbums) {
         const parsedAlbums: SpotifySavedAlbum[] = JSON.parse(cachedAlbums);

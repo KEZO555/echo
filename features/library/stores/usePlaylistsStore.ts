@@ -1,10 +1,8 @@
 import { create } from "zustand";
-import type {
-  SpotifyPaginatedResponse,
-  SpotifyPlaylist,
-} from "@/shared/types/spotify";
+import type { SpotifyPlaylist } from "@/shared/types/spotify";
 import { apiGet, apiPost } from "@/shared/utils/api-client";
 import { logError } from "@/shared/utils/logger";
+import { parsePlaylistsPage } from "@/shared/utils/normalize-playlist";
 import { saveCachedData } from "../utils/cache";
 
 interface PlaylistsState {
@@ -12,7 +10,7 @@ interface PlaylistsState {
   nextUrl: string | null;
   isRefreshing: boolean;
   isLoadingMore: boolean;
-  fetch: () => Promise<void>;
+  fetch: (options?: { showRefreshing?: boolean }) => Promise<void>;
   fetchMore: () => Promise<void>;
   addTrackToPlaylist: (
     playlistId: string,
@@ -28,16 +26,25 @@ export const usePlaylistsStore = create<PlaylistsState>()((set, get) => ({
   isRefreshing: false,
   isLoadingMore: false,
 
-  fetch: async () => {
-    set({ isRefreshing: true });
-    const data = await apiGet<SpotifyPaginatedResponse<SpotifyPlaylist>>(
-      "https://api.spotify.com/v1/me/playlists?limit=50"
-    );
-    if (data) {
-      set({ playlists: data.items, nextUrl: data.next });
-      await saveCachedData({ playlists: data.items });
+  fetch: async (options) => {
+    const showRefreshing = options?.showRefreshing ?? true;
+    if (showRefreshing) {
+      set({ isRefreshing: true });
     }
-    set({ isRefreshing: false });
+    try {
+      const raw = await apiGet<unknown>(
+        "https://api.spotify.com/v1/me/playlists?limit=50"
+      );
+      const data = raw ? parsePlaylistsPage(raw) : null;
+      if (data) {
+        set({ playlists: data.items, nextUrl: data.next });
+        await saveCachedData({ playlists: data.items });
+      }
+    } finally {
+      if (showRefreshing) {
+        set({ isRefreshing: false });
+      }
+    }
   },
 
   fetchMore: async () => {
@@ -46,8 +53,8 @@ export const usePlaylistsStore = create<PlaylistsState>()((set, get) => ({
       return;
     }
     set({ isLoadingMore: true });
-    const data =
-      await apiGet<SpotifyPaginatedResponse<SpotifyPlaylist>>(nextUrl);
+    const raw = await apiGet<unknown>(nextUrl);
+    const data = raw ? parsePlaylistsPage(raw) : null;
     if (data) {
       set((state) => ({
         playlists: [...(state.playlists || []), ...data.items],
