@@ -3,25 +3,19 @@ import { useEffect, useMemo, useState } from "react";
 import { StyleSheet, View } from "react-native";
 import { useAuth } from "@/features/auth";
 import { useArtistsStore } from "@/features/library/stores";
-import { usePlayback } from "@/features/playback";
 import { useSettings } from "@/features/settings";
 import {
   DetailScreen,
   FallbackImage,
   HapticPressable,
   StyledText,
-  TrackListItem,
 } from "@/shared/components";
 import {
   useNetworkState,
   usePreventDoubleTap,
   useSaveStatus,
 } from "@/shared/hooks";
-import type {
-  SpotifyAlbumSimple,
-  SpotifyArtist,
-  SpotifyTrack,
-} from "@/shared/types/spotify";
+import type { SpotifyAlbumSimple, SpotifyArtist } from "@/shared/types/spotify";
 import { log, logError, n } from "@/shared/utils";
 import { apiGet } from "@/shared/utils/api-client";
 
@@ -38,7 +32,6 @@ const AlbumItemSeparator = ({
 
 type ArtistDetailItem =
   | { type: "header"; title: string }
-  | { type: "track"; data: SpotifyTrack; index: number }
   | { type: "album"; data: SpotifyAlbumSimple; index: number };
 
 export default function ArtistDetailScreen() {
@@ -49,11 +42,9 @@ export default function ArtistDetailScreen() {
   }>();
 
   const { accessToken } = useAuth();
-  const { playTracksWithWebApi } = usePlayback();
   const followArtist = useArtistsStore((s) => s.followArtist);
   const unfollowArtist = useArtistsStore((s) => s.unfollowArtist);
   const checkIfFollowing = useArtistsStore((s) => s.checkIfFollowing);
-  const fetchArtistTopTracks = useArtistsStore((s) => s.fetchArtistTopTracks);
   const fetchArtistAlbums = useArtistsStore((s) => s.fetchArtistAlbums);
   const fetchMoreArtistAlbums = useArtistsStore((s) => s.fetchMoreArtistAlbums);
 
@@ -74,7 +65,6 @@ export default function ArtistDetailScreen() {
 
   const [fetchedArtist, setArtist] = useState<SpotifyArtist | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [topTracks, setTopTracks] = useState<SpotifyTrack[]>([]);
   const [albums, setAlbums] = useState<SpotifyAlbumSimple[] | null>(null);
   const [albumsNextUrl, setAlbumsNextUrl] = useState<string | null>(null);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
@@ -163,15 +153,6 @@ export default function ArtistDetailScreen() {
       }
     };
 
-    const fetchTopTracks = async () => {
-      try {
-        const data = await fetchArtistTopTracks(id);
-        setTopTracks(data);
-      } catch (e: unknown) {
-        logError("Error fetching artist top tracks:", e);
-      }
-    };
-
     const fetchAlbumsData = async () => {
       try {
         const data = await fetchArtistAlbums(id);
@@ -183,17 +164,13 @@ export default function ArtistDetailScreen() {
     };
 
     const fetchArtistData = async () => {
-      await Promise.allSettled([
-        fetchArtistDetails(),
-        fetchTopTracks(),
-        fetchAlbumsData(),
-      ]);
+      await Promise.allSettled([fetchArtistDetails(), fetchAlbumsData()]);
       setHasConfirmedContent(true);
       setIsInitialLoading(false);
     };
 
     fetchArtistData();
-  }, [id, fetchArtistAlbums, fetchArtistTopTracks, initialArtist, isOnline]);
+  }, [id, fetchArtistAlbums, initialArtist, isOnline]);
 
   const artistAlbums = (albums || []).filter(
     (album) => album.album_type === "album"
@@ -203,12 +180,6 @@ export default function ArtistDetailScreen() {
   );
 
   const artistDetailList: ArtistDetailItem[] = [
-    { type: "header", title: "Top Songs" },
-    ...topTracks.slice(0, 10).map((track, idx) => ({
-      type: "track" as const,
-      data: track,
-      index: idx,
-    })),
     ...(artistAlbums.length > 0
       ? [
           { type: "header" as const, title: "Albums" },
@@ -234,59 +205,6 @@ export default function ArtistDetailScreen() {
   const renderSectionHeader = (title: string) => (
     <StyledText style={styles.sectionTitle}>{title}</StyledText>
   );
-
-  const handleTrackPress = usePreventDoubleTap(async (trackIndex: number) => {
-    const track = topTracks[trackIndex];
-    const trackArtistName =
-      track?.artists
-        ?.map((a: SpotifyTrack["artists"][0]) => a.name)
-        .join(", ") ?? "";
-    const albumArtUrl = track?.album?.images?.[0]?.url ?? "";
-
-    try {
-      const trackUris = topTracks.map((t) => t.uri);
-      const urisToPlay = trackUris.slice(trackIndex);
-      await playTracksWithWebApi(urisToPlay);
-      router.push({
-        pathname: "/playing",
-        params: {
-          trackName: track?.name ?? "",
-          artistName: trackArtistName,
-          albumArtUrl,
-          durationMs: track?.duration_ms?.toString() ?? "0",
-        },
-      });
-    } catch (playError) {
-      logError("Error playing track:", playError);
-      router.push({
-        pathname: "/playing",
-        params: {
-          trackName: track?.name ?? "",
-          artistName: trackArtistName,
-          albumArtUrl,
-          durationMs: track?.duration_ms?.toString() ?? "0",
-        },
-      });
-    }
-  });
-
-  const renderTrackItem = ({
-    item,
-  }: {
-    item: { data: SpotifyTrack; index: number };
-  }) => {
-    const track = item.data;
-    const index = item.index;
-    return (
-      <TrackListItem
-        artists={track.artists}
-        durationMs={track.duration_ms}
-        name={track.name}
-        onPress={() => handleTrackPress(index)}
-        trackNumber={index + 1}
-      />
-    );
-  };
 
   const handleAlbumPress = usePreventDoubleTap((albumId: string) => {
     router.push(`/album/${albumId}`);
@@ -331,9 +249,6 @@ export default function ArtistDetailScreen() {
     if (item.type === "header") {
       return renderSectionHeader(item.title);
     }
-    if (item.type === "track") {
-      return renderTrackItem({ item });
-    }
     if (item.type === "album") {
       return renderAlbumItem({ item });
     }
@@ -343,9 +258,6 @@ export default function ArtistDetailScreen() {
   const keyExtractor = (item: ArtistDetailItem, index: number) => {
     if (item.type === "header") {
       return `header-${item.title}-${index}`;
-    }
-    if (item.type === "track") {
-      return `track-${item.data.id}-${index}`;
     }
     if (item.type === "album") {
       return `album-${item.data.id}-${index}`;
@@ -358,7 +270,7 @@ export default function ArtistDetailScreen() {
       data={artistDetailList}
       emptyMessage={
         hasConfirmedContent && artist
-          ? "No tracks or albums found for this artist."
+          ? "No albums found for this artist."
           : undefined
       }
       error={error}

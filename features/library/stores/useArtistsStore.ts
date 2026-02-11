@@ -6,7 +6,6 @@ import type {
   SpotifyArtist,
   SpotifyFollowedArtistsResponse,
   SpotifyPaginatedResponse,
-  SpotifyTrack,
 } from "@/shared/types/spotify";
 import { apiDelete, apiGet, apiPut } from "@/shared/utils/api-client";
 import { log, logError } from "@/shared/utils/logger";
@@ -22,7 +21,6 @@ interface ArtistsState {
   followArtist: (artistId: string) => Promise<boolean>;
   unfollowArtist: (artistId: string) => Promise<boolean>;
   checkIfFollowing: (artistId: string) => Promise<boolean>;
-  fetchArtistTopTracks: (artistId: string) => Promise<SpotifyTrack[]>;
   fetchArtistAlbums: (
     artistId: string
   ) => Promise<{ albums: SpotifyAlbumSimple[] | null; nextUrl: string | null }>;
@@ -142,13 +140,6 @@ export const useArtistsStore = create<ArtistsState>()((set, get) => ({
       `https://api.spotify.com/v1/me/following/contains?type=artist&ids=${artistId}`
     );
     return data ? (data[0] ?? false) : false;
-  },
-
-  fetchArtistTopTracks: async (artistId: string) => {
-    const data = await apiGet<{ tracks: SpotifyTrack[] }>(
-      `https://api.spotify.com/v1/artists/${artistId}/top-tracks`
-    );
-    return data?.tracks ?? [];
   },
 
   fetchArtistAlbums: async (artistId: string) => {
