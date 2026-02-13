@@ -21,7 +21,10 @@
           "savePhotosPermission": "Allow Echo to save photos.",
           "granularPermissions": ["photo"]
         }
-      ]
+      ],
+      "./plugins/with-android-config-changes",
+      "./plugins/with-android-theme",
+      "./plugins/with-daltonizer-toggle"
     ],
     "experiments": {
       "typedRoutes": true
