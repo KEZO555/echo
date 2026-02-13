@@ -25,6 +25,8 @@ export default function CustomiseTabsScreen() {
     setHideAlbumCovers,
     hideDetailCovers,
     setHideDetailCovers,
+    showPlaylistTrackCovers,
+    setShowPlaylistTrackCovers,
     hideCreatePlaylist,
     setHideCreatePlaylist,
     hideYourEpisodes,
@@ -51,6 +53,12 @@ export default function CustomiseTabsScreen() {
       label: "Hide Detail Images",
       value: hideDetailCovers,
       onValueChange: setHideDetailCovers,
+    },
+    {
+      type: "toggle",
+      label: "Show Playlist Track Covers",
+      value: showPlaylistTrackCovers,
+      onValueChange: setShowPlaylistTrackCovers,
     },
     {
       type: "toggle",

@@ -17,6 +17,7 @@ const SETTING_KEYS = {
   invertColors: "invertColors",
   hideAlbumCovers: "hideAlbumCovers",
   hideDetailCovers: "hideDetailCovers",
+  showPlaylistTrackCovers: "showPlaylistTrackCovers",
   hideCreatePlaylist: "hideCreatePlaylist",
   hideLikeButton: "hideLikeButton",
   hideDevicesButton: "hideDevicesButton",
@@ -70,6 +71,7 @@ const defaultSettings: BooleanSettings = {
   invertColors: false,
   hideAlbumCovers: false,
   hideDetailCovers: false,
+  showPlaylistTrackCovers: false,
   hideCreatePlaylist: false,
   hideLikeButton: false,
   hideDevicesButton: false,
@@ -86,6 +88,8 @@ interface SettingsContextType {
   setHideAlbumCovers: (value: boolean) => void;
   hideDetailCovers: boolean;
   setHideDetailCovers: (value: boolean) => void;
+  showPlaylistTrackCovers: boolean;
+  setShowPlaylistTrackCovers: (value: boolean) => void;
   hideCreatePlaylist: boolean;
   setHideCreatePlaylist: (value: boolean) => void;
   hideLikeButton: boolean;
@@ -179,6 +183,10 @@ export const SettingsProvider = ({ children }: { children: ReactNode }) => {
     (v: boolean) => setSetting("hideDetailCovers", v),
     [setSetting]
   );
+  const setShowPlaylistTrackCovers = useCallback(
+    (v: boolean) => setSetting("showPlaylistTrackCovers", v),
+    [setSetting]
+  );
   const setHideCreatePlaylist = useCallback(
     (v: boolean) => setSetting("hideCreatePlaylist", v),
     [setSetting]
@@ -263,6 +271,8 @@ export const SettingsProvider = ({ children }: { children: ReactNode }) => {
       setHideAlbumCovers,
       hideDetailCovers: settings.hideDetailCovers,
       setHideDetailCovers,
+      showPlaylistTrackCovers: settings.showPlaylistTrackCovers,
+      setShowPlaylistTrackCovers,
       hideCreatePlaylist: settings.hideCreatePlaylist,
       setHideCreatePlaylist,
       hideLikeButton: settings.hideLikeButton,
@@ -286,6 +296,7 @@ export const SettingsProvider = ({ children }: { children: ReactNode }) => {
       setInvertColors,
       setHideAlbumCovers,
       setHideDetailCovers,
+      setShowPlaylistTrackCovers,
       setHideCreatePlaylist,
       setHideLikeButton,
       setHideDevicesButton,

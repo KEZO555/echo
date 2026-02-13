@@ -6,6 +6,7 @@ import {
   saveCachedPlaylistDetail,
 } from "@/features/library";
 import { usePlayback } from "@/features/playback";
+import { useSettings } from "@/features/settings";
 import { DetailScreen, TrackListItem } from "@/shared/components";
 import { useNetworkState, usePreventDoubleTap } from "@/shared/hooks";
 import type {
@@ -48,6 +49,7 @@ export default function PlaylistDetailScreen() {
   }>();
   const { user } = useAuth();
   const { skipToIndex } = usePlayback();
+  const { showPlaylistTrackCovers } = useSettings();
   const router = useRouter();
   const { isOnline } = useNetworkState();
 
@@ -247,9 +249,11 @@ export default function PlaylistDetailScreen() {
       <TrackListItem
         artists={track.artists}
         durationMs={track.duration_ms}
+        imageUri={track.album?.images?.[0]?.url}
         key={`${track.id || "unknown"}-${index}`}
         name={track.name}
         onPress={() => handleTrackPress(index)}
+        showImage={showPlaylistTrackCovers}
         trackNumber={(loadedPlaylist?.items.offset || 0) + index + 1}
       />
     );

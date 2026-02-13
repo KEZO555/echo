@@ -1,6 +1,7 @@
 import React from "react";
 import { StyleSheet, View } from "react-native";
 import { formatDuration, getArtistNames, n } from "@/shared/utils";
+import { FallbackImage } from "./FallbackImage";
 import { HapticPressable } from "./HapticPressable";
 import { StyledText } from "./StyledText";
 
@@ -13,6 +14,8 @@ interface TrackListItemProps {
   name: string;
   artists: Artist[];
   durationMs?: number;
+  imageUri?: string;
+  showImage?: boolean;
   onPress: () => void;
 }
 
@@ -21,6 +24,8 @@ export const TrackListItem = React.memo(function TrackListItem({
   name,
   artists,
   durationMs,
+  imageUri,
+  showImage = false,
   onPress,
 }: TrackListItemProps) {
   const subtitle = durationMs
@@ -29,7 +34,17 @@ export const TrackListItem = React.memo(function TrackListItem({
 
   return (
     <HapticPressable onPress={onPress} style={styles.container}>
-      <StyledText style={styles.trackNumber}>{trackNumber}.</StyledText>
+      {showImage ? (
+        <FallbackImage
+          containerStyle={styles.imageContainer}
+          placeholderIcon="album"
+          placeholderIconSize={n(24)}
+          style={styles.image}
+          uri={imageUri}
+        />
+      ) : (
+        <StyledText style={styles.trackNumber}>{trackNumber}.</StyledText>
+      )}
       <View style={styles.textContainer}>
         <StyledText numberOfLines={1} style={styles.trackName}>
           {name}
@@ -57,6 +72,16 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: "flex-start",
     paddingRight: n(10),
+  },
+  imageContainer: {
+    width: n(50),
+    height: n(50),
+    marginRight: n(15),
+    position: "relative",
+  },
+  image: {
+    width: n(50),
+    height: n(50),
   },
   trackName: {
     flex: 1,
