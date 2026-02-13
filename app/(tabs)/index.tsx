@@ -15,6 +15,7 @@ export default function LikedSongsScreen() {
   const savedTracks = useSavedTracksStore((s) => s.savedTracks);
   const fetchSavedTracks = useSavedTracksStore((s) => s.fetch);
   const isRefreshing = useSavedTracksStore((s) => s.isRefreshing);
+  const isFetching = useSavedTracksStore((s) => s.isFetching);
   const fetchMore = useSavedTracksStore((s) => s.fetchMore);
   const isLoadingMore = useSavedTracksStore((s) => s.isLoadingMore);
   const nextUrl = useSavedTracksStore((s) => s.nextUrl);
@@ -129,7 +130,7 @@ export default function LikedSongsScreen() {
     return <View style={styles.centeredMessageContainer} />;
   }
 
-  if (isRefreshing && !savedTracks) {
+  if (isFetching && !savedTracks) {
     return <View style={styles.centeredMessageContainer} />;
   }
 

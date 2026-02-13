@@ -9,6 +9,7 @@ interface PlaylistsState {
   playlists: SpotifyPlaylist[] | null;
   nextUrl: string | null;
   isRefreshing: boolean;
+  isFetching: boolean;
   isLoadingMore: boolean;
   fetch: (options?: { showRefreshing?: boolean }) => Promise<void>;
   fetchMore: () => Promise<void>;
@@ -24,12 +25,15 @@ export const usePlaylistsStore = create<PlaylistsState>()((set, get) => ({
   playlists: null,
   nextUrl: null,
   isRefreshing: false,
+  isFetching: false,
   isLoadingMore: false,
 
   fetch: async (options) => {
     const showRefreshing = options?.showRefreshing ?? true;
     if (showRefreshing) {
-      set({ isRefreshing: true });
+      set({ isRefreshing: true, isFetching: true });
+    } else {
+      set({ isFetching: true });
     }
     try {
       const raw = await apiGet<unknown>(
@@ -39,10 +43,14 @@ export const usePlaylistsStore = create<PlaylistsState>()((set, get) => ({
       if (data) {
         set({ playlists: data.items, nextUrl: data.next });
         await saveCachedData({ playlists: data.items });
+      } else if (get().playlists === null) {
+        set({ playlists: [], nextUrl: null });
       }
     } finally {
       if (showRefreshing) {
-        set({ isRefreshing: false });
+        set({ isRefreshing: false, isFetching: false });
+      } else {
+        set({ isFetching: false });
       }
     }
   },
@@ -83,6 +91,7 @@ export const usePlaylistsStore = create<PlaylistsState>()((set, get) => ({
       playlists: null,
       nextUrl: null,
       isRefreshing: false,
+      isFetching: false,
       isLoadingMore: false,
     }),
 }));

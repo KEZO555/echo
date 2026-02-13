@@ -10,6 +10,7 @@ interface SavedTracksState {
   savedTracks: SavedTrackObject[] | null;
   nextUrl: string | null;
   isRefreshing: boolean;
+  isFetching: boolean;
   isLoadingMore: boolean;
   fetch: (options?: { showRefreshing?: boolean }) => Promise<void>;
   fetchMore: () => Promise<void>;
@@ -21,12 +22,15 @@ export const useSavedTracksStore = create<SavedTracksState>()((set, get) => ({
   savedTracks: null,
   nextUrl: null,
   isRefreshing: false,
+  isFetching: false,
   isLoadingMore: false,
 
   fetch: async (options) => {
     const showRefreshing = options?.showRefreshing ?? true;
     if (showRefreshing) {
-      set({ isRefreshing: true });
+      set({ isRefreshing: true, isFetching: true });
+    } else {
+      set({ isFetching: true });
     }
     try {
       const data = await apiGet<SpotifyPaginatedResponse<SavedTrackObject>>(
@@ -35,10 +39,14 @@ export const useSavedTracksStore = create<SavedTracksState>()((set, get) => ({
       if (data) {
         set({ savedTracks: data.items, nextUrl: data.next });
         await saveCachedData({ tracks: data.items });
+      } else if (get().savedTracks === null) {
+        set({ savedTracks: [], nextUrl: null });
       }
     } finally {
       if (showRefreshing) {
-        set({ isRefreshing: false });
+        set({ isRefreshing: false, isFetching: false });
+      } else {
+        set({ isFetching: false });
       }
     }
   },
@@ -66,6 +74,7 @@ export const useSavedTracksStore = create<SavedTracksState>()((set, get) => ({
       savedTracks: null,
       nextUrl: null,
       isRefreshing: false,
+      isFetching: false,
       isLoadingMore: false,
     }),
 }));

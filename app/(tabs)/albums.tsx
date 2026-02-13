@@ -19,6 +19,7 @@ export default function AlbumsScreen() {
   const albums = useAlbumsStore((s) => s.albums);
   const fetchAlbums = useAlbumsStore((s) => s.fetch);
   const isRefreshing = useAlbumsStore((s) => s.isRefreshing);
+  const isFetching = useAlbumsStore((s) => s.isFetching);
   const fetchMore = useAlbumsStore((s) => s.fetchMore);
   const isLoadingMore = useAlbumsStore((s) => s.isLoadingMore);
   const nextUrl = useAlbumsStore((s) => s.nextUrl);
@@ -143,7 +144,7 @@ export default function AlbumsScreen() {
     return <View style={styles.centeredMessageContainer} />;
   }
 
-  if (isRefreshing && !sortedAlbums) {
+  if (isFetching && !sortedAlbums) {
     return <View style={styles.centeredMessageContainer} />;
   }
 

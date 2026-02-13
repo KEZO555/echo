@@ -14,6 +14,7 @@ interface PodcastsState {
   podcasts: SpotifySavedShow[] | null;
   nextUrl: string | null;
   isRefreshing: boolean;
+  isFetching: boolean;
   isLoadingMore: boolean;
   fetch: (options?: { showRefreshing?: boolean }) => Promise<void>;
   fetchMore: () => Promise<void>;
@@ -28,12 +29,15 @@ export const usePodcastsStore = create<PodcastsState>()((set, get) => ({
   podcasts: null,
   nextUrl: null,
   isRefreshing: false,
+  isFetching: false,
   isLoadingMore: false,
 
   fetch: async (options) => {
     const showRefreshing = options?.showRefreshing ?? true;
     if (showRefreshing) {
-      set({ isRefreshing: true });
+      set({ isRefreshing: true, isFetching: true });
+    } else {
+      set({ isFetching: true });
     }
     try {
       const data = await apiGet<SpotifySavedShowsResponse>(
@@ -42,10 +46,14 @@ export const usePodcastsStore = create<PodcastsState>()((set, get) => ({
       if (data) {
         set({ podcasts: data.items, nextUrl: data.next });
         await saveCachedData({ podcasts: data.items });
+      } else if (get().podcasts === null) {
+        set({ podcasts: [], nextUrl: null });
       }
     } finally {
       if (showRefreshing) {
-        set({ isRefreshing: false });
+        set({ isRefreshing: false, isFetching: false });
+      } else {
+        set({ isFetching: false });
       }
     }
   },
@@ -150,6 +158,7 @@ export const usePodcastsStore = create<PodcastsState>()((set, get) => ({
       podcasts: null,
       nextUrl: null,
       isRefreshing: false,
+      isFetching: false,
       isLoadingMore: false,
     }),
 }));

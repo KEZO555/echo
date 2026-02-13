@@ -14,6 +14,7 @@ interface AlbumsState {
   albums: SpotifySavedAlbum[] | null;
   nextUrl: string | null;
   isRefreshing: boolean;
+  isFetching: boolean;
   isLoadingMore: boolean;
   fetch: (options?: { showRefreshing?: boolean }) => Promise<void>;
   fetchMore: () => Promise<void>;
@@ -28,12 +29,15 @@ export const useAlbumsStore = create<AlbumsState>()((set, get) => ({
   albums: null,
   nextUrl: null,
   isRefreshing: false,
+  isFetching: false,
   isLoadingMore: false,
 
   fetch: async (options) => {
     const showRefreshing = options?.showRefreshing ?? true;
     if (showRefreshing) {
-      set({ isRefreshing: true });
+      set({ isRefreshing: true, isFetching: true });
+    } else {
+      set({ isFetching: true });
     }
     try {
       const data = await apiGet<SpotifyPaginatedResponse<SpotifySavedAlbum>>(
@@ -42,10 +46,14 @@ export const useAlbumsStore = create<AlbumsState>()((set, get) => ({
       if (data) {
         set({ albums: data.items, nextUrl: data.next });
         await saveCachedData({ albums: data.items });
+      } else if (get().albums === null) {
+        set({ albums: [], nextUrl: null });
       }
     } finally {
       if (showRefreshing) {
-        set({ isRefreshing: false });
+        set({ isRefreshing: false, isFetching: false });
+      } else {
+        set({ isFetching: false });
       }
     }
   },
@@ -148,6 +156,7 @@ export const useAlbumsStore = create<AlbumsState>()((set, get) => ({
       albums: null,
       nextUrl: null,
       isRefreshing: false,
+      isFetching: false,
       isLoadingMore: false,
     }),
 }));

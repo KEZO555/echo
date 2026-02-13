@@ -1,12 +1,14 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useFocusEffect, useRouter } from "expo-router";
 import { useCallback, useMemo, useState } from "react";
+import { View } from "react-native";
 import { SHOW_DETAIL_KEY_PREFIX } from "@/constants/spotify";
 import { refreshFollowedPodcastsFromCache } from "@/features/library";
 import { usePodcastsStore } from "@/features/library/stores";
 import { useSettings } from "@/features/settings";
 import { ListScreen, MediaListItem } from "@/shared/components";
 import { useNetworkState, usePreventDoubleTap } from "@/shared/hooks";
+import { tabScreenStyles as styles } from "@/shared/styles/detailScreen";
 import type { SpotifySavedShow } from "@/shared/types/spotify";
 import { getLargestImage } from "@/shared/utils/formatters";
 import { log, logError } from "@/shared/utils/logger";
@@ -17,6 +19,7 @@ export default function PodcastsScreen() {
   const podcasts = usePodcastsStore((s) => s.podcasts);
   const fetchPodcasts = usePodcastsStore((s) => s.fetch);
   const isRefreshing = usePodcastsStore((s) => s.isRefreshing);
+  const isFetching = usePodcastsStore((s) => s.isFetching);
   const fetchMore = usePodcastsStore((s) => s.fetchMore);
   const isLoadingMore = usePodcastsStore((s) => s.isLoadingMore);
   const nextUrl = usePodcastsStore((s) => s.nextUrl);
@@ -170,6 +173,10 @@ export default function PodcastsScreen() {
   const handlePlayingPress = usePreventDoubleTap(() => {
     router.push("/playing");
   });
+
+  if (isFetching && !sortedPodcasts) {
+    return <View style={styles.centeredMessageContainer} />;
+  }
 
   if (!sortedPodcasts || sortedPodcasts.length === 0) {
     return (

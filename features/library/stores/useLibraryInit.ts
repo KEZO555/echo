@@ -11,9 +11,15 @@ import { useSavedEpisodesStore } from "./useSavedEpisodesStore";
 import { useSavedTracksStore } from "./useSavedTracksStore";
 
 export const useLibraryInit = () => {
-  const { accessToken } = useAuth();
+  const { accessToken, isLoading: authLoading } = useAuth();
   const { isOnline, isLoading: networkLoading } = useNetworkState();
   const initialFetchDone = useRef(false);
+
+  useEffect(() => {
+    if (!accessToken) {
+      initialFetchDone.current = false;
+    }
+  }, [accessToken]);
 
   useEffect(() => {
     const load = async () => {
@@ -29,17 +35,20 @@ export const useLibraryInit = () => {
   }, []);
 
   useEffect(() => {
-    if (!accessToken || initialFetchDone.current || networkLoading) {
+    if (
+      !accessToken ||
+      authLoading ||
+      initialFetchDone.current ||
+      networkLoading
+    ) {
       return;
     }
 
     if (!isOnline) {
-      logInfo("LibraryInit: Offline, using cached data");
-      initialFetchDone.current = true;
+      logInfo("LibraryInit: Offline, waiting for connectivity");
       return;
     }
 
-    initialFetchDone.current = true;
     logInfo("LibraryInit: Starting initial data fetch");
 
     Promise.all([
@@ -49,7 +58,8 @@ export const useLibraryInit = () => {
       useArtistsStore.getState().fetch({ showRefreshing: false }),
       useSavedTracksStore.getState().fetch({ showRefreshing: false }),
     ]).then(() => {
+      initialFetchDone.current = true;
       logInfo("LibraryInit: Initial data fetch completed");
     });
-  }, [accessToken, isOnline, networkLoading]);
+  }, [accessToken, authLoading, isOnline, networkLoading]);
 };

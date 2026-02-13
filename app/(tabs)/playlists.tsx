@@ -20,6 +20,7 @@ export default function PlaylistsScreen() {
   const playlists = usePlaylistsStore((s) => s.playlists);
   const fetchPlaylists = usePlaylistsStore((s) => s.fetch);
   const isRefreshing = usePlaylistsStore((s) => s.isRefreshing);
+  const isFetching = usePlaylistsStore((s) => s.isFetching);
   const fetchMore = usePlaylistsStore((s) => s.fetchMore);
   const isLoadingMore = usePlaylistsStore((s) => s.isLoadingMore);
   const nextUrl = usePlaylistsStore((s) => s.nextUrl);
@@ -166,7 +167,7 @@ export default function PlaylistsScreen() {
     return <View style={styles.centeredMessageContainer} />;
   }
 
-  if (isRefreshing && !sortedPlaylists) {
+  if (isFetching && !sortedPlaylists) {
     return <View style={styles.centeredMessageContainer} />;
   }
 

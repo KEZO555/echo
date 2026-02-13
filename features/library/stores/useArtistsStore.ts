@@ -15,6 +15,7 @@ interface ArtistsState {
   artists: SpotifyArtist[] | null;
   nextUrl: string | null;
   isRefreshing: boolean;
+  isFetching: boolean;
   isLoadingMore: boolean;
   fetch: (options?: { showRefreshing?: boolean }) => Promise<void>;
   fetchMore: () => Promise<void>;
@@ -35,12 +36,15 @@ export const useArtistsStore = create<ArtistsState>()((set, get) => ({
   artists: null,
   nextUrl: null,
   isRefreshing: false,
+  isFetching: false,
   isLoadingMore: false,
 
   fetch: async (options) => {
     const showRefreshing = options?.showRefreshing ?? true;
     if (showRefreshing) {
-      set({ isRefreshing: true });
+      set({ isRefreshing: true, isFetching: true });
+    } else {
+      set({ isFetching: true });
     }
     try {
       const data = await apiGet<SpotifyFollowedArtistsResponse>(
@@ -49,10 +53,14 @@ export const useArtistsStore = create<ArtistsState>()((set, get) => ({
       if (data) {
         set({ artists: data.artists.items, nextUrl: data.artists.next });
         await saveCachedData({ artists: data.artists.items });
+      } else if (get().artists === null) {
+        set({ artists: [], nextUrl: null });
       }
     } finally {
       if (showRefreshing) {
-        set({ isRefreshing: false });
+        set({ isRefreshing: false, isFetching: false });
+      } else {
+        set({ isFetching: false });
       }
     }
   },
@@ -170,6 +178,7 @@ export const useArtistsStore = create<ArtistsState>()((set, get) => ({
       artists: null,
       nextUrl: null,
       isRefreshing: false,
+      isFetching: false,
       isLoadingMore: false,
     }),
 }));

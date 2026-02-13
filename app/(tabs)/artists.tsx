@@ -14,6 +14,7 @@ export default function ArtistsScreen() {
   const artists = useArtistsStore((s) => s.artists);
   const fetchArtists = useArtistsStore((s) => s.fetch);
   const isRefreshing = useArtistsStore((s) => s.isRefreshing);
+  const isFetching = useArtistsStore((s) => s.isFetching);
   const fetchMore = useArtistsStore((s) => s.fetchMore);
   const isLoadingMore = useArtistsStore((s) => s.isLoadingMore);
   const nextUrl = useArtistsStore((s) => s.nextUrl);
@@ -77,7 +78,7 @@ export default function ArtistsScreen() {
     return <View style={styles.centeredMessageContainer} />;
   }
 
-  if (isRefreshing && !sortedArtists) {
+  if (isFetching && !sortedArtists) {
     return <View style={styles.centeredMessageContainer} />;
   }
 
