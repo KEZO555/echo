@@ -2,8 +2,8 @@
 
 <p>A minimal Spotify client for the Light Phone III.</p>
 
-![GitHub License](https://img.shields.io/github/license/vandamd/echo)
-![GitHub Release](https://img.shields.io/github/v/release/vandamd/echo)
+![GitHub License](https://img.shields.io/github/license/vandamd/echo?)
+![GitHub Release](https://img.shields.io/github/v/release/vandamd/echo?)
 
 > [!NOTE]
 > There are a few steps required to complete before you can use Echo. Please read the [Setup](#setup) section below.
