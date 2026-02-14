@@ -7,22 +7,36 @@ import { useAuth } from "@/features/auth";
 import { refreshPlaylistsFromCache } from "@/features/library";
 import { usePlaylistsStore } from "@/features/library/stores";
 import { useSettings } from "@/features/settings";
-import { ListScreen, MediaListItem } from "@/shared/components";
+import {
+  ListScreen,
+  MediaListItem,
+  RateLimitListMessage,
+} from "@/shared/components";
 import { useNetworkState, usePreventDoubleTap } from "@/shared/hooks";
 import { tabScreenStyles as styles } from "@/shared/styles/detailScreen";
 import type { SpotifyPlaylist } from "@/shared/types/spotify";
+import type { WithRateLimitItem } from "@/shared/utils";
+import {
+  getRateLimitMessage,
+  isRateLimitItem,
+  prependRateLimitItem,
+} from "@/shared/utils";
 import { log, logError } from "@/shared/utils/logger";
 
 const CREATE_NEW_PLAYLIST_ID = "CREATE_NEW_PLAYLIST_ID";
 
+type PlaylistListItem = WithRateLimitItem<SpotifyPlaylist>;
+
 export default function PlaylistsScreen() {
-  const { isLoading } = useAuth();
+  const { accessToken, isLoading, user } = useAuth();
   const playlists = usePlaylistsStore((s) => s.playlists);
   const fetchPlaylists = usePlaylistsStore((s) => s.fetch);
   const isRefreshing = usePlaylistsStore((s) => s.isRefreshing);
   const isFetching = usePlaylistsStore((s) => s.isFetching);
   const fetchMore = usePlaylistsStore((s) => s.fetchMore);
   const isLoadingMore = usePlaylistsStore((s) => s.isLoadingMore);
+  const isRateLimited = usePlaylistsStore((s) => s.isRateLimited);
+  const rateLimitRetryAt = usePlaylistsStore((s) => s.rateLimitRetryAt);
   const nextUrl = usePlaylistsStore((s) => s.nextUrl);
   const router = useRouter();
 
@@ -36,10 +50,17 @@ export default function PlaylistsScreen() {
   );
 
   const playlistSource = playlists ?? offlinePlaylists;
+
+  const ownedPlaylists = useMemo(() => {
+    if (!(playlistSource && user?.id)) {
+      return null;
+    }
+    return playlistSource.filter((playlist) => playlist.owner.id === user.id);
+  }, [playlistSource, user?.id]);
   const sortedPlaylists = useMemo(
     () =>
-      playlistSource
-        ? [...playlistSource].sort((a, b) => {
+      ownedPlaylists
+        ? [...ownedPlaylists].sort((a, b) => {
             const ownerCmp = (
               a.owner.display_name ??
               a.owner.id ??
@@ -51,7 +72,11 @@ export default function PlaylistsScreen() {
             return a.name.localeCompare(b.name);
           })
         : null,
-    [playlistSource]
+    [ownedPlaylists]
+  );
+  const playlistRateLimitMessage = useMemo(
+    () => getRateLimitMessage("playlists", rateLimitRetryAt),
+    [rateLimitRetryAt]
   );
 
   const checkCachedPlaylists = useCallback(async () => {
@@ -120,7 +145,11 @@ export default function PlaylistsScreen() {
     }
   );
 
-  const renderPlaylistItem = ({ item }: { item: SpotifyPlaylist }) => {
+  const renderPlaylistItem = ({ item }: { item: PlaylistListItem }) => {
+    if (isRateLimitItem(item)) {
+      return <RateLimitListMessage message={item.message} />;
+    }
+
     if (item.id === CREATE_NEW_PLAYLIST_ID) {
       if (hideCreatePlaylist) {
         return null;
@@ -163,7 +192,9 @@ export default function PlaylistsScreen() {
     router.push("/playing");
   });
 
-  if (isLoading && !sortedPlaylists) {
+  const isUserPending = Boolean(accessToken) && !user?.id;
+
+  if ((isLoading || isUserPending) && !sortedPlaylists) {
     return <View style={styles.centeredMessageContainer} />;
   }
 
@@ -183,12 +214,16 @@ export default function PlaylistsScreen() {
     uri: "",
     href: "",
   };
-
   const withCreate = sortedPlaylists
     ? [createNewPlaylistItem, ...sortedPlaylists]
     : [createNewPlaylistItem];
   const withoutCreate: SpotifyPlaylist[] = sortedPlaylists ?? [];
-  const displayPlaylists = hideCreatePlaylist ? withoutCreate : withCreate;
+  const basePlaylists = hideCreatePlaylist ? withoutCreate : withCreate;
+  const displayPlaylists: PlaylistListItem[] = prependRateLimitItem(
+    basePlaylists,
+    isRateLimited,
+    playlistRateLimitMessage
+  );
 
   const handleLoadMore = () => {
     if (isOnline && nextUrl && !isLoadingMore) {

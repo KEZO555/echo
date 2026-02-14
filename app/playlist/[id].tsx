@@ -16,9 +16,10 @@ import type {
   SpotifyTrackSimple,
 } from "@/shared/types/spotify";
 import { log, logError } from "@/shared/utils";
-import { apiGet } from "@/shared/utils/api-client";
+import { apiGet, apiGetWithStatus } from "@/shared/utils/api-client";
 import {
   parsePlaylist,
+  parsePlaylistItems,
   parsePlaylistItemsPage,
 } from "@/shared/utils/normalize-playlist";
 
@@ -40,6 +41,9 @@ const hasLoadedPlaylistItems = (
     typeof candidate.offset === "number"
   );
 };
+
+const PLAYLIST_RATE_LIMIT_MESSAGE =
+  "Spotify has reduced playlist limits. Please try again later.";
 
 export default function PlaylistDetailScreen() {
   const { id, playlistString, playlistName } = useLocalSearchParams<{
@@ -68,6 +72,9 @@ export default function PlaylistDetailScreen() {
     SpotifyPlaylist | SpotifyPlaylistFull | null
   >(null);
   const [error, setError] = useState<string | null>(null);
+  const [itemsUnavailableMessage, setItemsUnavailableMessage] = useState<
+    string | null
+  >(null);
   const [isLoadingMoreTracks, setIsLoadingMoreTracks] = useState(false);
   const [isInitialLoading, setIsInitialLoading] = useState(
     !hasLoadedPlaylistItems(initialPlaylist)
@@ -101,14 +108,24 @@ export default function PlaylistDetailScreen() {
       return;
     }
 
-    const hasInitialData = hasLoadedPlaylistItems(initialPlaylist);
+    const initialPlaylistWithItems = hasLoadedPlaylistItems(initialPlaylist)
+      ? initialPlaylist
+      : null;
+    const hasInitialData = initialPlaylistWithItems !== null;
+    let cachedPlaylistWithItems: SpotifyPlaylistFull | null =
+      initialPlaylistWithItems;
+    let hasDisplayedData = hasInitialData;
 
     try {
+      setItemsUnavailableMessage(null);
+
       if (!hasInitialData) {
         try {
           const cachedPlaylist = await getCachedPlaylistDetail(id);
           if (hasLoadedPlaylistItems(cachedPlaylist)) {
             log("Playlist details: Displaying cached data");
+            cachedPlaylistWithItems = cachedPlaylist;
+            hasDisplayedData = true;
             setPlaylist(cachedPlaylist);
           }
         } catch (cacheError) {
@@ -129,22 +146,89 @@ export default function PlaylistDetailScreen() {
       }
 
       try {
-        const raw = await apiGet<unknown>(
+        const playlistResult = await apiGetWithStatus<unknown>(
           `https://api.spotify.com/v1/playlists/${id}`
         );
-        const data = raw ? parsePlaylist(raw) : null;
+        if (playlistResult.status === 429) {
+          if (!hasDisplayedData) {
+            setError(PLAYLIST_RATE_LIMIT_MESSAGE);
+          }
+          return;
+        }
+
+        const data = playlistResult.data
+          ? parsePlaylist(playlistResult.data)
+          : null;
         if (data) {
+          let playlistData: SpotifyPlaylist | SpotifyPlaylistFull = data;
+          let itemsUnavailable = false;
+          let itemsRateLimited = false;
+          let itemsFetchFailed = false;
+
+          if (!hasLoadedPlaylistItems(playlistData)) {
+            const itemsResult = await apiGetWithStatus<unknown>(
+              `https://api.spotify.com/v1/playlists/${id}/items?limit=50`
+            );
+
+            if (itemsResult.data) {
+              const playlistItems = parsePlaylistItems(itemsResult.data);
+              if (playlistItems) {
+                playlistData = { ...playlistData, items: playlistItems };
+              } else {
+                itemsFetchFailed = true;
+              }
+            } else if (itemsResult.status === 429) {
+              itemsRateLimited = true;
+            } else if (itemsResult.status === 403) {
+              itemsUnavailable = true;
+            } else {
+              itemsFetchFailed = true;
+            }
+
+            if (
+              !hasLoadedPlaylistItems(playlistData) &&
+              cachedPlaylistWithItems
+            ) {
+              playlistData = {
+                ...playlistData,
+                items: cachedPlaylistWithItems.items,
+              };
+            } else if (
+              !hasLoadedPlaylistItems(playlistData) &&
+              itemsUnavailable
+            ) {
+              setItemsUnavailableMessage(
+                "Spotify now only provides access to playlists you own or collaborate on."
+              );
+            }
+          }
+
+          if (itemsRateLimited && !hasLoadedPlaylistItems(playlistData)) {
+            setError(PLAYLIST_RATE_LIMIT_MESSAGE);
+            setItemsUnavailableMessage(null);
+          } else if (
+            itemsFetchFailed &&
+            !hasLoadedPlaylistItems(playlistData)
+          ) {
+            setError("Failed to load playlist tracks.");
+            setItemsUnavailableMessage(null);
+          } else {
+            setError(null);
+          }
+
           log("Playlist details: Fetched fresh data from API");
-          setPlaylist(data);
-          await saveCachedPlaylistDetail(data);
-        } else if (!hasInitialData) {
+          setPlaylist(playlistData);
+          if (hasLoadedPlaylistItems(playlistData)) {
+            await saveCachedPlaylistDetail(playlistData);
+          }
+        } else if (!hasDisplayedData) {
           throw new Error("Failed to fetch playlist details");
         }
       } catch (e: unknown) {
         const errorMessage =
           e instanceof Error ? e.message : "An unexpected error occurred.";
         logError("Error fetching playlist details:", e);
-        if (!hasInitialData) {
+        if (!hasDisplayedData) {
           setError(errorMessage);
         }
       }
@@ -262,7 +346,9 @@ export default function PlaylistDetailScreen() {
   return (
     <DetailScreen
       data={loadedPlaylist?.items.items || []}
-      emptyMessage="No tracks found in this playlist."
+      emptyMessage={
+        itemsUnavailableMessage ?? "No tracks found in this playlist."
+      }
       error={error}
       headerIcon={canEditPlaylist ? "edit" : undefined}
       headerIconPress={handleEditPress}

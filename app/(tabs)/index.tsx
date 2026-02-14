@@ -4,11 +4,28 @@ import { View } from "react-native";
 import { useAuth } from "@/features/auth";
 import { useSavedTracksStore } from "@/features/library/stores";
 import { usePlayback } from "@/features/playback";
-import { ListScreen, MediaListItem } from "@/shared/components";
+import {
+  ListScreen,
+  MediaListItem,
+  RateLimitListMessage,
+} from "@/shared/components";
 import { useNetworkState, usePreventDoubleTap } from "@/shared/hooks";
 import { tabScreenStyles as styles } from "@/shared/styles/detailScreen";
 import type { SavedTrackObject } from "@/shared/types/spotify";
-import { getArtistNames, log, logError, logWarn } from "@/shared/utils";
+import type { WithRateLimitItem } from "@/shared/utils";
+import {
+  getArtistNames,
+  getRateLimitMessage,
+  isRateLimitItem,
+  log,
+  logError,
+  logWarn,
+  prependRateLimitItem,
+} from "@/shared/utils";
+
+type LikedSongsListItem = WithRateLimitItem<SavedTrackObject>;
+const getSavedTrackKey = (item: SavedTrackObject): string =>
+  `${item.added_at}-${item.track?.id ?? item.track?.uri ?? "unknown"}`;
 
 export default function LikedSongsScreen() {
   const { isLoading } = useAuth();
@@ -18,6 +35,8 @@ export default function LikedSongsScreen() {
   const isFetching = useSavedTracksStore((s) => s.isFetching);
   const fetchMore = useSavedTracksStore((s) => s.fetchMore);
   const isLoadingMore = useSavedTracksStore((s) => s.isLoadingMore);
+  const isRateLimited = useSavedTracksStore((s) => s.isRateLimited);
+  const rateLimitRetryAt = useSavedTracksStore((s) => s.rateLimitRetryAt);
   const nextUrl = useSavedTracksStore((s) => s.nextUrl);
   const { playTrackWithContext, getPlaybackState, toggleShuffle } =
     usePlayback();
@@ -37,14 +56,37 @@ export default function LikedSongsScreen() {
     () => savedTracks?.filter((item) => item.track !== null) ?? [],
     [savedTracks]
   );
+  const baseTracks = useMemo(
+    () => (filteredTracks.length > 0 ? filteredTracks : (savedTracks ?? [])),
+    [filteredTracks, savedTracks]
+  );
+  const trackIndicesByKey = useMemo(() => {
+    const indices = new Map<string, number>();
+    for (const [index, track] of baseTracks.entries()) {
+      if (!track.track) {
+        continue;
+      }
+      indices.set(getSavedTrackKey(track), index);
+    }
+    return indices;
+  }, [baseTracks]);
+  const rateLimitMessage = useMemo(
+    () => getRateLimitMessage("liked songs", rateLimitRetryAt),
+    [rateLimitRetryAt]
+  );
 
   const handleTrackPress = usePreventDoubleTap(
-    async (item: SavedTrackObject, index: number, isDisabled: boolean) => {
+    async (
+      item: SavedTrackObject,
+      index: number,
+      sourceTracks: SavedTrackObject[],
+      isDisabled: boolean
+    ) => {
       if (isDisabled) {
         return;
       }
 
-      if (!savedTracks) {
+      if (sourceTracks.length === 0) {
         return;
       }
 
@@ -70,7 +112,7 @@ export default function LikedSongsScreen() {
         await playTrackWithContext(item.track.uri, {
           type: "liked",
           uri: collectionUri,
-          tracks: savedTracks,
+          tracks: sourceTracks,
           currentIndex: index,
         });
         if (wasShuffling) {
@@ -92,19 +134,25 @@ export default function LikedSongsScreen() {
     }
   );
 
-  const renderTrackItem = ({
-    item,
-    index,
-  }: {
-    item: SavedTrackObject;
-    index: number;
-  }) => {
+  const renderTrackItem = ({ item }: { item: LikedSongsListItem }) => {
+    if (isRateLimitItem(item)) {
+      return <RateLimitListMessage message={item.message} />;
+    }
+
     if (!item.track) {
       logWarn("Track is null for item:", item);
       return null;
     }
 
     const isDisabled = !isOnline;
+    const trackKey = getSavedTrackKey(item);
+    const trackIndex = trackIndicesByKey.get(trackKey);
+    if (trackIndex === undefined) {
+      logWarn("Could not resolve track index for liked song", {
+        key: trackKey,
+      });
+      return null;
+    }
 
     return (
       <MediaListItem
@@ -114,7 +162,9 @@ export default function LikedSongsScreen() {
             ? item.track.album.images[0].url
             : undefined
         }
-        onPress={() => handleTrackPress(item, index, isDisabled)}
+        onPress={() =>
+          handleTrackPress(item, trackIndex, baseTracks, isDisabled)
+        }
         placeholderIcon="music-note"
         primaryText={item.track.name}
         secondaryText={getArtistNames(item.track.artists)}
@@ -140,16 +190,22 @@ export default function LikedSongsScreen() {
     }
   };
 
+  const displayTracks: LikedSongsListItem[] = prependRateLimitItem(
+    baseTracks,
+    isRateLimited,
+    rateLimitMessage
+  );
+
   return (
     <ListScreen
-      data={filteredTracks.length > 0 ? filteredTracks : savedTracks}
+      data={displayTracks}
       emptyMessage="No saved tracks found."
       headerIconPress={handlePlayingPress}
       isLoadingMore={isLoadingMore}
       isOnline={isOnline}
       isRefreshing={isRefreshing}
-      keyExtractor={(item: SavedTrackObject) =>
-        `${item.added_at}-${item.track?.id || "unknown"}`
+      keyExtractor={(item: LikedSongsListItem) =>
+        isRateLimitItem(item) ? item.id : getSavedTrackKey(item)
       }
       onLoadMore={handleLoadMore}
       onRefresh={handleRefresh}

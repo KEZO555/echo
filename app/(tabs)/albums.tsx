@@ -8,11 +8,25 @@ import {
   refreshSavedAlbumsFromCache,
   useAlbumsStore,
 } from "@/features/library";
-import { ListScreen, MediaListItem } from "@/shared/components";
+import {
+  ListScreen,
+  MediaListItem,
+  RateLimitListMessage,
+} from "@/shared/components";
 import { useNetworkState, usePreventDoubleTap } from "@/shared/hooks";
 import { tabScreenStyles as styles } from "@/shared/styles/detailScreen";
 import type { SpotifySavedAlbum } from "@/shared/types/spotify";
-import { getArtistNames, log, logError } from "@/shared/utils";
+import type { WithRateLimitItem } from "@/shared/utils";
+import {
+  getArtistNames,
+  getRateLimitMessage,
+  isRateLimitItem,
+  log,
+  logError,
+  prependRateLimitItem,
+} from "@/shared/utils";
+
+type AlbumsListItem = WithRateLimitItem<SpotifySavedAlbum>;
 
 export default function AlbumsScreen() {
   const { isLoading } = useAuth();
@@ -22,6 +36,8 @@ export default function AlbumsScreen() {
   const isFetching = useAlbumsStore((s) => s.isFetching);
   const fetchMore = useAlbumsStore((s) => s.fetchMore);
   const isLoadingMore = useAlbumsStore((s) => s.isLoadingMore);
+  const isRateLimited = useAlbumsStore((s) => s.isRateLimited);
+  const rateLimitRetryAt = useAlbumsStore((s) => s.rateLimitRetryAt);
   const nextUrl = useAlbumsStore((s) => s.nextUrl);
   const router = useRouter();
 
@@ -42,6 +58,10 @@ export default function AlbumsScreen() {
           )
         : null,
     [albumSource]
+  );
+  const albumRateLimitMessage = useMemo(
+    () => getRateLimitMessage("albums", rateLimitRetryAt),
+    [rateLimitRetryAt]
   );
 
   const checkCachedAlbums = useCallback(async () => {
@@ -120,7 +140,11 @@ export default function AlbumsScreen() {
     router.push("/playing");
   });
 
-  const renderAlbumItem = ({ item }: { item: SpotifySavedAlbum }) => {
+  const renderAlbumItem = ({ item }: { item: AlbumsListItem }) => {
+    if (isRateLimitItem(item)) {
+      return <RateLimitListMessage message={item.message} />;
+    }
+
     const isOffline = !isOnline;
     const isUncached = isOffline && !cachedAlbumIds.has(item.album.id);
 
@@ -154,15 +178,21 @@ export default function AlbumsScreen() {
     }
   };
 
+  const displayAlbums: AlbumsListItem[] | null = prependRateLimitItem(
+    sortedAlbums,
+    isRateLimited,
+    albumRateLimitMessage
+  );
+
   return (
     <ListScreen
-      data={sortedAlbums}
+      data={displayAlbums}
       emptyMessage="No saved albums found."
       headerIconPress={handlePlayingPress}
       isLoadingMore={isLoadingMore}
       isOnline={isOnline}
       isRefreshing={isRefreshing}
-      keyExtractor={(item) => item.album.id}
+      keyExtractor={(item) => (isRateLimitItem(item) ? item.id : item.album.id)}
       onLoadMore={handleLoadMore}
       onRefresh={handleRefresh}
       renderItem={renderAlbumItem}

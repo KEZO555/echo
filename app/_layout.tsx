@@ -59,9 +59,6 @@ function RootNavigation() {
     if (tabPreferences.showLikedSongs) {
       return "/(tabs)";
     }
-    if (tabPreferences.showArtists) {
-      return "/(tabs)/artists";
-    }
     if (tabPreferences.showAlbums) {
       return "/(tabs)/albums";
     }
@@ -131,7 +128,6 @@ function RootNavigation() {
     >
       <Stack.Screen name="(tabs)" />
       <Stack.Screen name="album/[id]" />
-      <Stack.Screen name="artist/[id]" />
       <Stack.Screen name="playlist/[id]" />
       <Stack.Screen name="playlist/[id]/edit" />
       <Stack.Screen name="playlist/[id]/cover" />

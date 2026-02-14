@@ -6,14 +6,26 @@ import { SHOW_DETAIL_KEY_PREFIX } from "@/constants/spotify";
 import { refreshFollowedPodcastsFromCache } from "@/features/library";
 import { usePodcastsStore } from "@/features/library/stores";
 import { useSettings } from "@/features/settings";
-import { ListScreen, MediaListItem } from "@/shared/components";
+import {
+  ListScreen,
+  MediaListItem,
+  RateLimitListMessage,
+} from "@/shared/components";
 import { useNetworkState, usePreventDoubleTap } from "@/shared/hooks";
 import { tabScreenStyles as styles } from "@/shared/styles/detailScreen";
 import type { SpotifySavedShow } from "@/shared/types/spotify";
+import type { WithRateLimitItem } from "@/shared/utils";
+import {
+  getRateLimitMessage,
+  isRateLimitItem,
+  prependRateLimitItem,
+} from "@/shared/utils";
 import { getLargestImage } from "@/shared/utils/formatters";
 import { log, logError } from "@/shared/utils/logger";
 
 const YOUR_EPISODES_ID = "YOUR_EPISODES_ID";
+
+type PodcastListItem = WithRateLimitItem<SpotifySavedShow>;
 
 export default function PodcastsScreen() {
   const podcasts = usePodcastsStore((s) => s.podcasts);
@@ -22,6 +34,8 @@ export default function PodcastsScreen() {
   const isFetching = usePodcastsStore((s) => s.isFetching);
   const fetchMore = usePodcastsStore((s) => s.fetchMore);
   const isLoadingMore = usePodcastsStore((s) => s.isLoadingMore);
+  const isRateLimited = usePodcastsStore((s) => s.isRateLimited);
+  const rateLimitRetryAt = usePodcastsStore((s) => s.rateLimitRetryAt);
   const nextUrl = usePodcastsStore((s) => s.nextUrl);
   const router = useRouter();
 
@@ -41,6 +55,10 @@ export default function PodcastsScreen() {
           )
         : null,
     [podcastSource]
+  );
+  const podcastRateLimitMessage = useMemo(
+    () => getRateLimitMessage("podcasts", rateLimitRetryAt),
+    [rateLimitRetryAt]
   );
 
   const checkCachedShows = useCallback(async () => {
@@ -136,9 +154,18 @@ export default function PodcastsScreen() {
     ? [yourEpisodesItem, ...sortedPodcasts]
     : [yourEpisodesItem];
   const withoutEpisodes: SpotifySavedShow[] = sortedPodcasts ?? [];
-  const displayPodcasts = hideYourEpisodes ? withoutEpisodes : withEpisodes;
+  const basePodcasts = hideYourEpisodes ? withoutEpisodes : withEpisodes;
+  const displayPodcasts: PodcastListItem[] = prependRateLimitItem(
+    basePodcasts,
+    isRateLimited,
+    podcastRateLimitMessage
+  );
 
-  const renderShowItem = ({ item }: { item: SpotifySavedShow }) => {
+  const renderShowItem = ({ item }: { item: PodcastListItem }) => {
+    if (isRateLimitItem(item)) {
+      return <RateLimitListMessage message={item.message} />;
+    }
+
     if (item.show.id === YOUR_EPISODES_ID) {
       if (hideYourEpisodes) {
         return null;
@@ -185,7 +212,9 @@ export default function PodcastsScreen() {
         emptyMessage="No followed podcasts yet."
         headerIconPress={handlePlayingPress}
         isRefreshing={isRefreshing}
-        keyExtractor={(item) => item.show.id}
+        keyExtractor={(item) =>
+          isRateLimitItem(item) ? item.id : item.show.id
+        }
         onRefresh={handleRefresh}
         renderItem={renderShowItem}
         title="Podcasts"
@@ -200,7 +229,7 @@ export default function PodcastsScreen() {
       headerIconPress={handlePlayingPress}
       isLoadingMore={isLoadingMore}
       isRefreshing={isRefreshing}
-      keyExtractor={(item) => item.show.id}
+      keyExtractor={(item) => (isRateLimitItem(item) ? item.id : item.show.id)}
       onLoadMore={() => {
         if (nextUrl && !isLoadingMore) {
           fetchMore();

@@ -1,6 +1,6 @@
 import { MaterialIcons } from "@expo/vector-icons";
 import { router, useLocalSearchParams } from "expo-router";
-import React, { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { StyleSheet, View } from "react-native";
 import { useAuth } from "@/features/auth";
 import { usePlaylistsStore } from "@/features/library/stores";
@@ -9,10 +9,11 @@ import ContentContainer from "@/shared/components/ContentContainer";
 import CustomScrollView from "@/shared/components/CustomScrollView";
 import { FallbackImage } from "@/shared/components/FallbackImage";
 import { HapticPressable } from "@/shared/components/HapticPressable";
+import { RateLimitListMessage } from "@/shared/components/RateLimitListMessage";
 import { StyledText } from "@/shared/components/StyledText";
 import { usePreventDoubleTap } from "@/shared/hooks/usePreventDoubleTap";
 import type { SpotifyPlaylist } from "@/shared/types/spotify";
-import { n } from "@/shared/utils";
+import { getRateLimitMessage, n } from "@/shared/utils";
 import { log, logError } from "@/shared/utils/logger";
 
 export default function AddToPlaylistScreen() {
@@ -20,6 +21,8 @@ export default function AddToPlaylistScreen() {
   const playlists = usePlaylistsStore((s) => s.playlists);
   const fetchPlaylists = usePlaylistsStore((s) => s.fetch);
   const addTrackToPlaylist = usePlaylistsStore((s) => s.addTrackToPlaylist);
+  const isRateLimited = usePlaylistsStore((s) => s.isRateLimited);
+  const rateLimitRetryAt = usePlaylistsStore((s) => s.rateLimitRetryAt);
   const params = useLocalSearchParams<{
     trackUri?: string;
   }>();
@@ -27,16 +30,23 @@ export default function AddToPlaylistScreen() {
   log("AddToPlaylistScreen received params:", params);
   const [selectedPlaylists, setSelectedPlaylists] = useState<string[]>([]);
 
-  React.useEffect(() => {
+  useEffect(() => {
     if (accessToken && user && !playlists && !isLoading) {
       fetchPlaylists();
     }
   }, [accessToken, user, playlists, fetchPlaylists, isLoading]);
 
+  const ownedPlaylists = useMemo(() => {
+    if (!(playlists && user?.id)) {
+      return null;
+    }
+    return playlists.filter((playlist) => playlist.owner.id === user.id);
+  }, [playlists, user?.id]);
+
   const sortedPlaylists = useMemo(
     () =>
-      playlists
-        ? [...playlists].sort((a, b) => {
+      ownedPlaylists
+        ? [...ownedPlaylists].sort((a, b) => {
             const ownerCmp = (
               a.owner.display_name ??
               a.owner.id ??
@@ -48,7 +58,11 @@ export default function AddToPlaylistScreen() {
             return a.name.localeCompare(b.name);
           })
         : null,
-    [playlists]
+    [ownedPlaylists]
+  );
+  const playlistRateLimitMessage = useMemo(
+    () => getRateLimitMessage("playlists", rateLimitRetryAt),
+    [rateLimitRetryAt]
   );
 
   const togglePlaylistSelection = (playlistId: string) => {
@@ -149,7 +163,9 @@ export default function AddToPlaylistScreen() {
     );
   };
 
-  if (isLoading && !sortedPlaylists) {
+  const isUserPending = Boolean(accessToken) && !user?.id;
+
+  if ((isLoading || isUserPending) && !sortedPlaylists) {
     return (
       <ContentContainer
         headerTitle="Add to playlist"
@@ -167,7 +183,13 @@ export default function AddToPlaylistScreen() {
         style={{ paddingHorizontal: n(20), gap: 0 }}
       >
         <View style={styles.centeredMessageContainer}>
-          <StyledText style={styles.emptyText}>No playlists found.</StyledText>
+          {isRateLimited ? (
+            <RateLimitListMessage message={playlistRateLimitMessage} />
+          ) : (
+            <StyledText style={styles.emptyText}>
+              No playlists found.
+            </StyledText>
+          )}
         </View>
       </ContentContainer>
     );
@@ -184,9 +206,12 @@ export default function AddToPlaylistScreen() {
         ItemSeparatorComponent={() => <View style={{ height: n(8) }} />}
         keyExtractor={(item) => item.id}
         ListHeaderComponent={
-          hideCreatePlaylist
-            ? null
-            : () => (
+          isRateLimited || !hideCreatePlaylist ? (
+            <View>
+              {isRateLimited && (
+                <RateLimitListMessage message={playlistRateLimitMessage} />
+              )}
+              {!hideCreatePlaylist && (
                 <HapticPressable
                   onPress={handleCreatePlaylistPress}
                   style={styles.newPlaylistItemContainer}
@@ -202,7 +227,9 @@ export default function AddToPlaylistScreen() {
                     </StyledText>
                   </View>
                 </HapticPressable>
-              )
+              )}
+            </View>
+          ) : null
         }
         overScrollMode="never"
         renderItem={renderPlaylistItem}
@@ -247,6 +274,7 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
+    width: "100%",
   },
   emptyText: {
     fontSize: n(18),
