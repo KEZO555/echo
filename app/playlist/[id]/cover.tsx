@@ -12,10 +12,9 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import { memo, useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
+  Animated,
   Dimensions,
   FlatList,
-  type NativeScrollEvent,
-  type NativeSyntheticEvent,
   StyleSheet,
   View,
 } from "react-native";
@@ -55,9 +54,11 @@ const PhotoItem = memo(function PhotoItem({
       <Image
         cachePolicy="memory-disk"
         contentFit="cover"
+        decodeFormat="rgb"
         recyclingKey={item.id}
         source={{ uri: item.uri }}
         style={styles.photo}
+        transition={0}
       />
       {isSelected && (
         <View style={styles.selectedOverlay}>
@@ -159,27 +160,58 @@ export default function PlaylistCoverScreen() {
   const [error, setError] = useState<string | null>(null);
   const [contentHeight, setContentHeight] = useState(0);
   const [scrollViewHeight, setScrollViewHeight] = useState(0);
-  const [scrollY, setScrollY] = useState(0);
   const { invertColors } = useSettings();
   const { ensureValidToken } = useAuth();
   const router = useRouter();
 
   const mountedRef = useRef(true);
+  const scrollY = useRef(new Animated.Value(0)).current;
+  const scrollOpacity = useRef(new Animated.Value(0)).current;
+  const hideTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const uploadingRef = useRef(false);
   const loadingMoreRef = useRef(false);
   const photosRef = useRef<Asset[]>([]);
   const endCursorRef = useRef<string | undefined>(undefined);
 
   const trackHeight = scrollViewHeight - SCROLL_TRACK_PADDING * 2;
+
   const scrollIndicatorHeight =
     trackHeight > 0 && contentHeight > 0 && contentHeight > scrollViewHeight
       ? Math.max((trackHeight * trackHeight) / contentHeight, n(20))
       : 0;
 
-  const maxScroll = Math.max(contentHeight - scrollViewHeight, 0);
-  const maxIndicatorTravel = Math.max(trackHeight - scrollIndicatorHeight, 0);
   const scrollIndicatorPosition =
-    maxScroll > 0 ? (scrollY / maxScroll) * maxIndicatorTravel : 0;
+    contentHeight > scrollViewHeight && scrollIndicatorHeight > 0
+      ? scrollY.interpolate({
+          inputRange: [0, contentHeight - scrollViewHeight],
+          outputRange: [0, trackHeight - scrollIndicatorHeight],
+          extrapolate: "clamp",
+        })
+      : 0;
+
+  const handleScroll = Animated.event(
+    [{ nativeEvent: { contentOffset: { y: scrollY } } }],
+    {
+      useNativeDriver: false,
+      listener: () => {
+        if (hideTimeoutRef.current) {
+          clearTimeout(hideTimeoutRef.current);
+        }
+        Animated.timing(scrollOpacity, {
+          toValue: 1,
+          duration: 0,
+          useNativeDriver: true,
+        }).start();
+        hideTimeoutRef.current = setTimeout(() => {
+          Animated.timing(scrollOpacity, {
+            toValue: 0,
+            duration: 300,
+            useNativeDriver: true,
+          }).start();
+        }, 1000);
+      },
+    }
+  );
 
   useEffect(() => {
     mountedRef.current = true;
@@ -224,6 +256,9 @@ export default function PlaylistCoverScreen() {
     return () => {
       cancelled = true;
       mountedRef.current = false;
+      if (hideTimeoutRef.current) {
+        clearTimeout(hideTimeoutRef.current);
+      }
     };
   }, []);
 
@@ -245,7 +280,15 @@ export default function PlaylistCoverScreen() {
         return;
       }
 
-      const newPhotos = [...photosRef.current, ...media.assets];
+      const seenIds = new Set(photosRef.current.map((photo) => photo.id));
+      const dedupedAssets = media.assets.filter((asset) => {
+        if (seenIds.has(asset.id)) {
+          return false;
+        }
+        seenIds.add(asset.id);
+        return true;
+      });
+      const newPhotos = [...photosRef.current, ...dedupedAssets];
       photosRef.current = newPhotos;
       endCursorRef.current = media.endCursor;
       setPhotos(newPhotos);
@@ -256,13 +299,6 @@ export default function PlaylistCoverScreen() {
       loadingMoreRef.current = false;
     }
   }, [hasMore, loadState]);
-
-  const handleScroll = useCallback(
-    (event: NativeSyntheticEvent<NativeScrollEvent>) => {
-      setScrollY(event.nativeEvent.contentOffset.y);
-    },
-    []
-  );
 
   const toggleSelection = useCallback(
     (photoId: string) => {
@@ -351,15 +387,6 @@ export default function PlaylistCoverScreen() {
     [selectedId, toggleSelection]
   );
 
-  const getItemLayout = useCallback(
-    (_: ArrayLike<Asset> | null | undefined, index: number) => ({
-      length: ITEM_SIZE,
-      offset: ITEM_SIZE * Math.floor(index / COLUMNS),
-      index,
-    }),
-    []
-  );
-
   if (loadState === "loading") {
     return (
       <ContentContainer headerTitle="Change Cover">
@@ -405,10 +432,9 @@ export default function PlaylistCoverScreen() {
       <View style={styles.listContainer}>
         <FlatList
           data={photos}
-          getItemLayout={getItemLayout}
           initialNumToRender={15}
           keyExtractor={(item) => item.id}
-          maxToRenderPerBatch={21}
+          maxToRenderPerBatch={24}
           numColumns={COLUMNS}
           onContentSizeChange={(_, height) => setContentHeight(height)}
           onEndReached={loadMore}
@@ -418,30 +444,33 @@ export default function PlaylistCoverScreen() {
           }
           onScroll={handleScroll}
           overScrollMode="never"
-          removeClippedSubviews={true}
+          removeClippedSubviews={false}
           renderItem={renderItem}
           scrollEventThrottle={16}
           showsVerticalScrollIndicator={false}
-          windowSize={7}
+          windowSize={9}
         />
         {scrollIndicatorHeight > 0 && (
-          <View
+          <Animated.View
             style={[
               styles.scrollIndicatorTrack,
               { backgroundColor: invertColors ? "black" : "white" },
+              { opacity: scrollOpacity },
             ]}
           >
-            <View
+            <Animated.View
               style={[
                 styles.scrollIndicatorThumb,
                 { backgroundColor: invertColors ? "black" : "white" },
                 {
                   height: scrollIndicatorHeight,
-                  top: scrollIndicatorPosition,
+                  transform: [
+                    { translateY: scrollIndicatorPosition as number },
+                  ],
                 },
               ]}
             />
-          </View>
+          </Animated.View>
         )}
       </View>
     </ContentContainer>
