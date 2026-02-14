@@ -1,0 +1,79 @@
+name: Bug report
+description: Create a report to help Echo improve
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for helping us make Echo better by reporting a bug.
+        Please share as much detail as possible so we can fix it faster.
+
+  - type: textarea
+    id: bug-description
+    attributes:
+      label: Bug description
+      description: |
+        Please describe the bug.
+      placeholder: |
+        When I try to open a playlist, the app crashes.
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps-to-reproduce
+    attributes:
+      label: Steps to reproduce the bug
+      description: |
+        What did you do before you encountered the bug?
+        If you cannot trigger it reliably, please still share what you think causes it.
+      placeholder: |
+        1. Open Echo
+        2. Tap on 'Playlist' Tab
+        3. Tap on any playlist
+    validations:
+      required: true
+
+  - type: input
+    id: environment-information-version
+    attributes:
+      label: Echo version
+      placeholder: |
+        v3.0.0
+    validations:
+      required: true
+
+  - type: input
+    id: environment-information-device
+    attributes:
+      label: Device
+      placeholder: |
+        Light Phone III
+    validations:
+      required: true
+
+  - type: dropdown
+    id: environment-information-spotify-account-type
+    attributes:
+      label: Spotify account type
+      options:
+        - Free
+        - Premium
+        - Family
+        - Student
+        - Unknown
+    validations:
+      required: false
+
+  - type: textarea
+    id: screen-media
+    attributes:
+      label: Screenshots or screen recordings
+      description: |
+        If relevant, share screenshots or a screen recording to help explain the issue.
+
+  - type: textarea
+    id: additional-information
+    attributes:
+      label: Additional information
+      description: |
+        Any extra context that might help us solve the problem.
