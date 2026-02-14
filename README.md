@@ -34,7 +34,7 @@ I recommend using [Obtainium](https://github.com/ImranR98/Obtainium) and adding 
 9. Click **Save**
 
 > [!TIP]
-> It's very easy to miss the save button when adding the Android package details, so please double check youve added it and saved!
+> It's very easy to miss the save button when adding the Android package details, so please double check you've added it and saved!
 
 ### 2. Configure Echo
 1. Open Echo on your device
