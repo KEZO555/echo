@@ -16,9 +16,9 @@ I recommend using [Obtainium](https://github.com/ImranR98/Obtainium) and adding 
 
 ## Setup
 ### Prerequisites
-- Spotify installed on your device. (You can use Aurora Store to install it)
-- Active Spotify Premium subscription.
+- Spotify installed on your Light Phone III. (You can use Aurora Store to install it)
 - Your account is logged in on the Spotify app on your Light Phone III.
+- Active Spotify Premium subscription.
 
 ### 1. Create a Spotify Developer App
 1. Go to [developer.spotify.com/dashboard](https://developer.spotify.com/dashboard)
@@ -32,6 +32,9 @@ I recommend using [Obtainium](https://github.com/ImranR98/Obtainium) and adding 
    - **Package Name**: `com.vandam.echo`
    - **SHA1 Fingerprint**: `73:25:19:F7:40:25:9D:F2:B0:B2:CC:C1:5D:09:D6:7E:72:20:C2:64`
 9. Click **Save**
+
+> [!TIP]
+> It's very easy to miss the save button when adding the Android package details, so please double check youve added it and saved!
 
 ### 2. Configure Echo
 1. Open Echo on your device
@@ -50,6 +53,7 @@ I recommend using [Obtainium](https://github.com/ImranR98/Obtainium) and adding 
 ## Limitations
 - Requires the Spotify app to be installed
 - No Spotify owned content (e.g. Radio, Daylist, Playlists like "Discover Weekly")
+- Playlists created by the user are only supported. Collaborative playlists may be added in the future!
 - No queue management
 - Limited offline functionality
 - Liked song playback is currently using some not-so-great workarounds, so expect some bugs! Playlist and album playback should work fine though.
