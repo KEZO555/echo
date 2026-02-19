@@ -16,6 +16,7 @@ import { tabScreenStyles as styles } from "@/shared/styles/detailScreen";
 import type { SpotifySavedShow } from "@/shared/types/spotify";
 import type { WithRateLimitItem } from "@/shared/utils";
 import {
+  getAddedAtTimestamp,
   getRateLimitMessage,
   isRateLimitItem,
   prependRateLimitItem,
@@ -40,22 +41,41 @@ export default function PodcastsScreen() {
   const router = useRouter();
 
   const { isOnline } = useNetworkState();
-  const { hideYourEpisodes } = useSettings();
+  const { hideYourEpisodes, podcastSortOrder } = useSettings();
   const [offlinePodcasts, setOfflinePodcasts] = useState<
     SpotifySavedShow[] | null
   >(null);
   const [cachedShowIds, setCachedShowIds] = useState<Set<string>>(new Set());
 
   const podcastSource = podcasts ?? offlinePodcasts;
-  const sortedPodcasts = useMemo(
-    () =>
-      podcastSource
-        ? [...podcastSource].sort((a, b) =>
-            a.show.name.localeCompare(b.show.name)
-          )
-        : null,
-    [podcastSource]
-  );
+  const sortedPodcasts = useMemo(() => {
+    if (!podcastSource) {
+      return null;
+    }
+
+    return [...podcastSource].sort((a, b) => {
+      if (podcastSortOrder === "recentlyAdded") {
+        const timeDifference =
+          getAddedAtTimestamp(b.added_at) - getAddedAtTimestamp(a.added_at);
+        if (timeDifference !== 0) {
+          return timeDifference;
+        }
+        return a.show.name.localeCompare(b.show.name);
+      }
+
+      if (podcastSortOrder === "creator") {
+        const creatorDifference = (
+          a.show.publisher ?? a.show.name
+        ).localeCompare(b.show.publisher ?? b.show.name);
+        if (creatorDifference !== 0) {
+          return creatorDifference;
+        }
+        return a.show.name.localeCompare(b.show.name);
+      }
+
+      return a.show.name.localeCompare(b.show.name);
+    });
+  }, [podcastSortOrder, podcastSource]);
   const podcastRateLimitMessage = useMemo(
     () => getRateLimitMessage("podcasts", rateLimitRetryAt),
     [rateLimitRetryAt]
@@ -197,6 +217,9 @@ export default function PodcastsScreen() {
     );
   };
 
+  const handleSortPress = usePreventDoubleTap(() => {
+    router.push("/podcasts-sort" as never);
+  });
   const handlePlayingPress = usePreventDoubleTap(() => {
     router.push("/playing");
   });
@@ -211,6 +234,8 @@ export default function PodcastsScreen() {
         data={displayPodcasts}
         emptyMessage="No followed podcasts yet."
         headerIconPress={handlePlayingPress}
+        headerLeftIcon="sort"
+        headerLeftIconPress={handleSortPress}
         isRefreshing={isRefreshing}
         keyExtractor={(item) =>
           isRateLimitItem(item) ? item.id : item.show.id
@@ -227,6 +252,8 @@ export default function PodcastsScreen() {
       data={displayPodcasts}
       emptyMessage="No followed podcasts yet."
       headerIconPress={handlePlayingPress}
+      headerLeftIcon="sort"
+      headerLeftIconPress={handleSortPress}
       isLoadingMore={isLoadingMore}
       isRefreshing={isRefreshing}
       keyExtractor={(item) => (isRateLimitItem(item) ? item.id : item.show.id)}
