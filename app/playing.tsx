@@ -24,7 +24,13 @@ import type {
   SpotifyEpisode,
   SpotifyTrackSimple,
 } from "@/shared/types/spotify";
-import { getArtistNames, log, logError, n } from "@/shared/utils";
+import {
+  getArtistNames,
+  log,
+  logError,
+  n,
+  setAlbumNavigationImage,
+} from "@/shared/utils";
 
 function MarqueeText({
   children,
@@ -81,6 +87,14 @@ function MarqueeText({
 }
 
 let cachedPlaybackState: SpotifyCurrentlyPlaying | null = null;
+interface PlayingRouteParams {
+  trackName?: string;
+  artistName?: string;
+  albumArtUrl?: string;
+  durationMs?: string;
+  sourceContext?: string;
+}
+const ROUTE_PLAYBACK_TIMEOUT_MS = 4000;
 
 const formatTime = (ms: number | null | undefined): string => {
   if (ms === null || ms === undefined) {
@@ -90,6 +104,38 @@ const formatTime = (ms: number | null | undefined): string => {
   const minutes = Math.floor(totalSeconds / 60);
   const seconds = totalSeconds % 60;
   return `${minutes}:${seconds < 10 ? "0" : ""}${seconds}`;
+};
+
+const getRouteTrackKey = (params: PlayingRouteParams): string | null => {
+  if (!params.trackName) {
+    return null;
+  }
+
+  return [
+    params.trackName,
+    params.artistName ?? "",
+    params.durationMs ?? "",
+  ].join("::");
+};
+
+const getPlaybackTrackKey = (
+  state: SpotifyCurrentlyPlaying | null
+): string | null => {
+  const item = state?.item;
+  if (
+    !item ||
+    state?.currently_playing_type !== "track" ||
+    item.type === "episode"
+  ) {
+    return null;
+  }
+
+  const track = item as SpotifyTrackSimple;
+  return [
+    track.name ?? "",
+    getArtistNames(track.artists ?? []),
+    track.duration_ms?.toString() ?? "",
+  ].join("::");
 };
 
 // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: large screen component with playback controls
@@ -121,6 +167,7 @@ export default function PlayingScreen() {
     artistName?: string;
     albumArtUrl?: string;
     durationMs?: string;
+    sourceContext?: string;
   }>();
 
   const paramsState = params.trackName
@@ -158,6 +205,9 @@ export default function PlayingScreen() {
 
   const [playbackState, setPlaybackState] =
     useState<SpotifyCurrentlyPlaying | null>(initialState);
+  const [isRoutePlaybackPending, setIsRoutePlaybackPending] = useState(
+    paramsState !== null
+  );
   const [isCurrentTrackSaved, setIsCurrentTrackSaved] = useState(false);
   const [pendingSaveOperation, setPendingSaveOperation] = useState(false);
   const [optimisticSaveState, setOptimisticSaveState] = useState<
@@ -170,10 +220,39 @@ export default function PlayingScreen() {
   const isFocusedRef = useRef(true);
   const lastCheckedTrackUriRef = useRef<string | null>(null);
   const pausePollingUntilRef = useRef<number | null>(null);
+  const routePlaybackExpiresAtRef = useRef<number | null>(
+    paramsState !== null ? Date.now() + ROUTE_PLAYBACK_TIMEOUT_MS : null
+  );
 
   useEffect(() => {
     appStateRef.current = appState;
   }, [appState]);
+
+  const clearPendingRoutePlayback = useCallback(() => {
+    routePlaybackExpiresAtRef.current = null;
+    setIsRoutePlaybackPending(false);
+  }, []);
+
+  const routeTrackKey = getRouteTrackKey(params);
+  const isPendingRoutePlayback = isRoutePlaybackPending && paramsState !== null;
+  const isPendingLikedSongPlayback =
+    isPendingRoutePlayback && params.sourceContext === "liked";
+  const visiblePlaybackState = isPendingRoutePlayback
+    ? paramsState
+    : playbackState;
+  const displayedLikeState =
+    isPendingLikedSongPlayback || (optimisticSaveState ?? isCurrentTrackSaved);
+
+  useEffect(() => {
+    if (!isPendingRoutePlayback) {
+      return;
+    }
+
+    progress.setValue(0);
+    lastCheckedTrackUriRef.current = null;
+    setIsCurrentTrackSaved(isPendingLikedSongPlayback);
+    setOptimisticSaveState(null);
+  }, [isPendingLikedSongPlayback, isPendingRoutePlayback, progress]);
 
   const checkIfTrackIsSaved = useCallback(
     // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: track save check with multiple conditions
@@ -222,6 +301,16 @@ export default function PlayingScreen() {
 
   const fetchAndUpdatePlaybackState = useCallback(async () => {
     const state = (await getPlaybackState()) as SpotifyCurrentlyPlaying | null;
+    const playbackTrackKey = getPlaybackTrackKey(state);
+
+    if (
+      isRoutePlaybackPending &&
+      (playbackTrackKey === routeTrackKey ||
+        (routePlaybackExpiresAtRef.current !== null &&
+          Date.now() >= routePlaybackExpiresAtRef.current))
+    ) {
+      clearPendingRoutePlayback();
+    }
 
     if (state) {
       cachedPlaybackState = state;
@@ -242,7 +331,14 @@ export default function PlayingScreen() {
     await checkIfTrackIsSaved(state);
 
     return state;
-  }, [checkIfTrackIsSaved, getPlaybackState, progress]);
+  }, [
+    checkIfTrackIsSaved,
+    clearPendingRoutePlayback,
+    getPlaybackState,
+    isRoutePlaybackPending,
+    progress,
+    routeTrackKey,
+  ]);
 
   const handlePlayPause = async () => {
     if (!playbackState) {
@@ -264,6 +360,7 @@ export default function PlayingScreen() {
   const handleSkipToNext = async () => {
     try {
       await skipToNext();
+      clearPendingRoutePlayback();
       await fetchAndUpdatePlaybackState();
     } catch (error) {
       logError("Error skipping to next track:", error);
@@ -273,6 +370,7 @@ export default function PlayingScreen() {
   const handleSkipToPrevious = async () => {
     try {
       await skipToPrevious();
+      clearPendingRoutePlayback();
       await fetchAndUpdatePlaybackState();
     } catch (error) {
       logError("Error skipping to previous track:", error);
@@ -458,17 +556,15 @@ export default function PlayingScreen() {
     }, [fetchAndUpdatePlaybackState])
   );
 
-  const item = playbackState?.item ?? null;
+  const item = visiblePlaybackState?.item ?? null;
 
   const isEpisode =
-    playbackState?.currently_playing_type === "episode" ||
+    visiblePlaybackState?.currently_playing_type === "episode" ||
     item?.type === "episode";
   const currentEpisode = isEpisode ? (item as SpotifyEpisode) : null;
   const currentTrack = !isEpisode && item ? (item as SpotifyTrackSimple) : null;
-  const paramsMatchCurrentTrack =
-    params.trackName && item?.name === params.trackName;
   const artworkUrl =
-    (paramsMatchCurrentTrack && params.albumArtUrl) ||
+    (isPendingRoutePlayback && params.albumArtUrl) ||
     (isEpisode
       ? currentEpisode?.images?.[0]?.url ||
         currentEpisode?.show?.images?.[0]?.url
@@ -501,6 +597,7 @@ export default function PlayingScreen() {
     inputRange: [0, 1],
     outputRange: ["0%", "100%"],
   });
+  const progressBarWidth = isPendingRoutePlayback ? "0%" : animatedWidth;
 
   const handleTitlePress = usePreventDoubleTap(() => {
     if (!isOnline) {
@@ -515,6 +612,9 @@ export default function PlayingScreen() {
         },
       } as never);
     } else if (currentTrack?.album?.id) {
+      if (artworkUrl) {
+        setAlbumNavigationImage(currentTrack.album.id, artworkUrl);
+      }
       router.push({
         pathname: "/album/[id]",
         params: {
@@ -546,7 +646,7 @@ export default function PlayingScreen() {
     }
   });
 
-  if (!(playbackState && item)) {
+  if (!(visiblePlaybackState && item)) {
     return (
       <ContentContainer headerTitle=" " style={{ paddingHorizontal: n(20) }}>
         <View style={styles.content}>
@@ -662,14 +762,14 @@ export default function PlayingScreen() {
                   style={[
                     styles.progressBarForeground,
                     { backgroundColor: invertColors ? "black" : "white" },
-                    { width: animatedWidth },
+                    { width: progressBarWidth },
                   ]}
                 />
               </View>
             </HapticPressable>
             <View style={styles.progressBarInfo}>
               <StyledText style={styles.timeText}>
-                {formatTime(playbackState.progress_ms)}
+                {formatTime(visiblePlaybackState.progress_ms)}
               </StyledText>
               <StyledText style={styles.timeText}>
                 {formatTime(item.duration_ms)}
@@ -705,7 +805,9 @@ export default function PlayingScreen() {
                 <HapticPressable onPress={handlePlayPause}>
                   <MaterialIcons
                     color={invertColors ? "black" : "white"}
-                    name={playbackState.is_playing ? "pause" : "play-arrow"}
+                    name={
+                      visiblePlaybackState.is_playing ? "pause" : "play-arrow"
+                    }
                     size={n(52)}
                   />
                 </HapticPressable>
@@ -729,7 +831,9 @@ export default function PlayingScreen() {
                 <HapticPressable onPress={handlePlayPause}>
                   <MaterialIcons
                     color={invertColors ? "black" : "white"}
-                    name={playbackState.is_playing ? "pause" : "play-arrow"}
+                    name={
+                      visiblePlaybackState.is_playing ? "pause" : "play-arrow"
+                    }
                     size={n(52)}
                   />
                 </HapticPressable>
@@ -773,7 +877,12 @@ export default function PlayingScreen() {
         >
           {!hideLikeButton && (
             <HapticPressable
-              disabled={pendingSaveOperation || isEpisode || !isOnline}
+              disabled={
+                pendingSaveOperation ||
+                isEpisode ||
+                !isOnline ||
+                isPendingRoutePlayback
+              }
               onPress={handleToggleSaveTrack}
               style={
                 (isEpisode || pendingSaveOperation || !isOnline) &&
@@ -782,11 +891,7 @@ export default function PlayingScreen() {
             >
               <MaterialIcons
                 color={invertColors ? "black" : "white"}
-                name={
-                  (optimisticSaveState ?? isCurrentTrackSaved)
-                    ? "favorite"
-                    : "favorite-outline"
-                }
+                name={displayedLikeState ? "favorite" : "favorite-outline"}
                 size={n(30)}
               />
             </HapticPressable>
@@ -806,9 +911,9 @@ export default function PlayingScreen() {
           )}
           {!hideAddToPlaylistButton && (
             <HapticPressable
-              disabled={!isOnline || isEpisode}
+              disabled={!isOnline || isEpisode || isPendingRoutePlayback}
               onPress={() => {
-                if (isOnline && !isEpisode) {
+                if (isOnline && !isEpisode && !isPendingRoutePlayback) {
                   handleNavigateToAddToPlaylist();
                 }
               }}
@@ -828,10 +933,6 @@ export default function PlayingScreen() {
 }
 
 const styles = StyleSheet.create({
-  centered: {
-    justifyContent: "center",
-    alignItems: "center",
-  },
   content: {
     flex: 1,
     width: "100%",
@@ -842,7 +943,6 @@ const styles = StyleSheet.create({
     flex: 1,
     width: "100%",
     alignItems: "center",
-    justifyContent: "center",
   },
   albumArt: {
     width: n(200),

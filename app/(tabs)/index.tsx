@@ -3,6 +3,7 @@ import { useCallback, useMemo } from "react";
 import { View } from "react-native";
 import { useAuth } from "@/features/auth";
 import { useSavedTracksStore } from "@/features/library/stores";
+import { getSavedTrackIdentity } from "@/features/library/utils/savedTracks";
 import { usePlayback } from "@/features/playback";
 import {
   ListScreen,
@@ -24,8 +25,6 @@ import {
 } from "@/shared/utils";
 
 type LikedSongsListItem = WithRateLimitItem<SavedTrackObject>;
-const getSavedTrackKey = (item: SavedTrackObject): string =>
-  `${item.added_at}-${item.track?.id ?? item.track?.uri ?? "unknown"}`;
 
 export default function LikedSongsScreen() {
   const { isLoading } = useAuth();
@@ -34,12 +33,12 @@ export default function LikedSongsScreen() {
   const isRefreshing = useSavedTracksStore((s) => s.isRefreshing);
   const isFetching = useSavedTracksStore((s) => s.isFetching);
   const fetchMore = useSavedTracksStore((s) => s.fetchMore);
+  const hasMoreCachedPages = useSavedTracksStore((s) => s.hasMoreCachedPages);
   const isLoadingMore = useSavedTracksStore((s) => s.isLoadingMore);
   const isRateLimited = useSavedTracksStore((s) => s.isRateLimited);
   const rateLimitRetryAt = useSavedTracksStore((s) => s.rateLimitRetryAt);
   const nextUrl = useSavedTracksStore((s) => s.nextUrl);
-  const { playTrackWithContext, getPlaybackState, toggleShuffle } =
-    usePlayback();
+  const { playUriWithSkipToUri } = usePlayback();
   const router = useRouter();
   const { isLoading: isNetworkLoading, isOnline } = useNetworkState();
 
@@ -60,76 +59,37 @@ export default function LikedSongsScreen() {
     () => (filteredTracks.length > 0 ? filteredTracks : (savedTracks ?? [])),
     [filteredTracks, savedTracks]
   );
-  const trackIndicesByKey = useMemo(() => {
-    const indices = new Map<string, number>();
-    for (const [index, track] of baseTracks.entries()) {
-      if (!track.track) {
-        continue;
-      }
-      indices.set(getSavedTrackKey(track), index);
-    }
-    return indices;
-  }, [baseTracks]);
   const rateLimitMessage = useMemo(
     () => getRateLimitMessage("liked songs", rateLimitRetryAt),
     [rateLimitRetryAt]
   );
 
   const handleTrackPress = usePreventDoubleTap(
-    async (
-      item: SavedTrackObject,
-      index: number,
-      sourceTracks: SavedTrackObject[],
-      isDisabled: boolean
-    ) => {
-      if (isDisabled) {
-        return;
-      }
-
-      if (sourceTracks.length === 0) {
-        return;
-      }
-
-      const collectionUri = "spotify:collection:tracks";
+    async (item: SavedTrackObject) => {
+      const likedSongsUri = "spotify:collection:tracks";
+      const track = item.track;
+      const artistName = getArtistNames(track.artists ?? []);
+      const albumArtUrl = track.album?.images?.[0]?.url ?? "";
+      const playingParams = {
+        trackName: track.name ?? "",
+        artistName,
+        albumArtUrl,
+        durationMs: track.duration_ms?.toString() ?? "0",
+        sourceContext: "liked",
+      };
 
       try {
-        const track = item.track;
-        const artistName = getArtistNames(track.artists ?? []);
-        const albumArtUrl = track.album?.images?.[0]?.url ?? "";
-
-        let wasShuffling = false;
-        try {
-          const playbackState = await getPlaybackState();
-          wasShuffling = !!playbackState?.shuffle_state;
-        } catch {
-          logWarn(
-            "Could not get playback state, proceeding without shuffle workaround"
-          );
-        }
-        if (wasShuffling) {
-          await toggleShuffle(false);
-        }
-        await playTrackWithContext(item.track.uri, {
-          type: "liked",
-          uri: collectionUri,
-          tracks: sourceTracks,
-          currentIndex: index,
-        });
-        if (wasShuffling) {
-          await toggleShuffle(true);
-        }
+        await playUriWithSkipToUri(likedSongsUri, item.track.uri);
         router.push({
           pathname: "/playing",
-          params: {
-            trackName: track.name ?? "",
-            artistName,
-            albumArtUrl,
-            durationMs: track.duration_ms?.toString() ?? "0",
-          },
+          params: playingParams,
         });
       } catch (error) {
         logError("Error playing track:", error);
-        router.push("/playing");
+        router.push({
+          pathname: "/playing",
+          params: playingParams,
+        });
       }
     }
   );
@@ -144,27 +104,14 @@ export default function LikedSongsScreen() {
       return null;
     }
 
-    const isDisabled = !isOnline;
-    const trackKey = getSavedTrackKey(item);
-    const trackIndex = trackIndicesByKey.get(trackKey);
-    if (trackIndex === undefined) {
-      logWarn("Could not resolve track index for liked song", {
-        key: trackKey,
-      });
-      return null;
-    }
-
     return (
       <MediaListItem
-        disabled={isDisabled}
         imageUri={
           item.track.album?.images && item.track.album.images.length > 0
             ? item.track.album.images[0].url
             : undefined
         }
-        onPress={() =>
-          handleTrackPress(item, trackIndex, baseTracks, isDisabled)
-        }
+        onPress={() => handleTrackPress(item)}
         placeholderIcon="music-note"
         primaryText={item.track.name}
         secondaryText={getArtistNames(item.track.artists)}
@@ -185,8 +132,11 @@ export default function LikedSongsScreen() {
   }
 
   const handleLoadMore = () => {
-    if (isOnline && nextUrl && !isLoadingMore) {
-      fetchMore();
+    if (
+      !isLoadingMore &&
+      ((isOnline && nextUrl) || (!isOnline && hasMoreCachedPages))
+    ) {
+      fetchMore({ isOnline });
     }
   };
 
@@ -205,12 +155,13 @@ export default function LikedSongsScreen() {
       isOnline={isOnline}
       isRefreshing={isRefreshing}
       keyExtractor={(item: LikedSongsListItem) =>
-        isRateLimitItem(item) ? item.id : getSavedTrackKey(item)
+        isRateLimitItem(item) ? item.id : getSavedTrackIdentity(item)
       }
       onLoadMore={handleLoadMore}
       onRefresh={handleRefresh}
       refreshEnabled={isOnline === true}
       renderItem={renderTrackItem}
+      showLoadMoreFooter={false}
       title="Liked Songs"
     />
   );
