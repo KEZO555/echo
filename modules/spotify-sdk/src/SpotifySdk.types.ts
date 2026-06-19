@@ -141,6 +141,23 @@ export interface SpotifyListItem {
   imageUri?: string;
 }
 
+export interface SpotifyContentItem {
+  id: string;
+  uri: string;
+  title: string | null;
+  subtitle: string | null;
+  playable: boolean;
+  hasChildren: boolean;
+  imageUri: string | null;
+}
+
+export interface SpotifyContentItems {
+  items: SpotifyContentItem[];
+  total: number;
+  offset: number;
+  limit: number;
+}
+
 export interface SpotifyRecommendation {
   uri: string;
   title: string;

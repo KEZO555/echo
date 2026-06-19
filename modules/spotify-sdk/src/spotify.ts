@@ -1,5 +1,9 @@
 import { getStoredCredentials, REDIRECT_URI } from "@/features/credentials";
-import type { SpotifyPlayerState } from "./SpotifySdk.types";
+import type {
+  SpotifyContentItem,
+  SpotifyContentItems,
+  SpotifyPlayerState,
+} from "./SpotifySdk.types";
 import SpotifySdkNative from "./SpotifySdkModule";
 
 class SpotifySDK {
@@ -128,6 +132,30 @@ class SpotifySDK {
       return null;
     }
     return SpotifySdkNative.getLibraryState(uri);
+  }
+
+  // Content browsing (App Remote Content API)
+  async getRecommendedContent(
+    contentType?: string
+  ): Promise<SpotifyContentItems> {
+    await this.ensureConnected();
+    return SpotifySdkNative.getRecommendedContent(contentType);
+  }
+
+  async getContentChildren(
+    item: SpotifyContentItem,
+    perPage = 50,
+    offset = 0
+  ): Promise<SpotifyContentItems> {
+    await this.ensureConnected();
+    return SpotifySdkNative.getContentChildren(
+      item.id,
+      item.uri,
+      item.title ?? undefined,
+      item.hasChildren,
+      perPage,
+      offset
+    );
   }
 
   // Internal helper

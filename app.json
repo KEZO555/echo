@@ -2,7 +2,7 @@
   "expo": {
     "name": "Echo",
     "slug": "echo",
-    "version": "3.5.1",
+    "version": "3.5.2",
     "orientation": "portrait",
     "scheme": "echo",
     "newArchEnabled": true,
@@ -10,7 +10,9 @@
     "android": {
       "backgroundColor": "#000000",
       "package": "com.vandam.echo",
-      "permissions": ["android.permission.WRITE_SECURE_SETTINGS"]
+      "permissions": [
+        "android.permission.WRITE_SECURE_SETTINGS"
+      ]
     },
     "plugins": [
       "expo-router",
@@ -20,7 +22,9 @@
         {
           "photosPermission": "Allow Echo to access your photos.",
           "savePhotosPermission": "Allow Echo to save photos.",
-          "granularPermissions": ["photo"]
+          "granularPermissions": [
+            "photo"
+          ]
         }
       ],
       "./plugins/with-android-config-changes",
