@@ -14,6 +14,42 @@ const TITLE_TRAILING_TRIM = /[\s\-–—:|]+$/;
 const WHITESPACE = /\s+/g;
 const LINE_SPLIT = /\r?\n/;
 
+const HTML_BREAK = /<\s*(?:br|\/p|\/div|\/li|\/h[1-6])\s*\/?>/gi;
+const HTML_TAG = /<[^>]+>/g;
+const HTML_ENTITY = /&(amp|lt|gt|quot|#0?39|apos|nbsp);/g;
+const INLINE_TIMESTAMP = /(?:^|[\s([])((?:\d{1,2}:)?\d{1,2}:\d{2})[)\]]?/g;
+
+const ENTITY_VALUES: Record<string, string> = {
+  amp: "&",
+  lt: "<",
+  gt: ">",
+  quot: '"',
+  "#39": "'",
+  "#039": "'",
+  apos: "'",
+  nbsp: " ",
+};
+
+const normaliseText = (input: string): string =>
+  input
+    .replace(HTML_BREAK, "\n")
+    .replace(HTML_TAG, "")
+    .replace(
+      HTML_ENTITY,
+      (_match, entity: string) => ENTITY_VALUES[entity] ?? _match
+    );
+
+const timestampToMs = (timestamp: string): number => {
+  const parts = timestamp.split(":").map(Number);
+  if (parts.length === 3) {
+    return (parts[0] * 3600 + parts[1] * 60 + parts[2]) * 1000;
+  }
+  if (parts.length === 2) {
+    return (parts[0] * 60 + parts[1]) * 1000;
+  }
+  return 0;
+};
+
 const toMs = (first: string, second: string, third?: string): number => {
   if (third !== undefined) {
     return (Number(first) * 3600 + Number(second) * 60 + Number(third)) * 1000;
@@ -58,6 +94,28 @@ const collectTrailingChapters = (lines: string[]): EpisodeChapter[] => {
   return chapters;
 };
 
+const collectInlineChapters = (text: string): EpisodeChapter[] => {
+  const chapters: EpisodeChapter[] = [];
+  const matches = [...text.matchAll(INLINE_TIMESTAMP)];
+
+  for (let i = 0; i < matches.length; i++) {
+    const match = matches[i];
+    const matchIndex = match.index ?? 0;
+    const contentStart = matchIndex + match[0].length;
+    const contentEnd =
+      i + 1 < matches.length
+        ? (matches[i + 1].index ?? text.length)
+        : text.length;
+    const firstLine = text.slice(contentStart, contentEnd).split("\n")[0];
+    const title = cleanTitle(firstLine);
+    if (title) {
+      chapters.push({ title, positionMs: timestampToMs(match[1]) });
+    }
+  }
+
+  return chapters;
+};
+
 const finaliseChapters = (
   chapters: EpisodeChapter[],
   durationMs: number
@@ -90,7 +148,9 @@ export const parseEpisodeChapters = (
     return [];
   }
 
-  const lines = description.split(LINE_SPLIT);
+  const text = normaliseText(description);
+  const lines = text.split(LINE_SPLIT);
+
   const leading = collectLeadingChapters(lines);
   if (leading.length >= 2) {
     return finaliseChapters(leading, durationMs);
@@ -99,6 +159,11 @@ export const parseEpisodeChapters = (
   const trailing = collectTrailingChapters(lines);
   if (trailing.length >= 2) {
     return finaliseChapters(trailing, durationMs);
+  }
+
+  const inline = collectInlineChapters(text);
+  if (inline.length >= 2) {
+    return finaliseChapters(inline, durationMs);
   }
 
   return [];

@@ -654,6 +654,7 @@ export default function PlayingScreen() {
     : "";
   const displaySubtitle = isEpisode ? episodeSubtitle : trackSubtitle;
   const canNavigateToShow = isEpisode && isOnline && !!currentEpisode?.show?.id;
+  const canViewEpisode = isEpisode && isOnline && !!currentEpisode?.id;
   const canNavigateToAlbum =
     !isEpisode && isOnline && !!currentTrack?.album?.id;
 
@@ -693,12 +694,13 @@ export default function PlayingScreen() {
     if (!isOnline) {
       return;
     }
-    if (isEpisode && currentEpisode?.show?.id) {
+    if (isEpisode && currentEpisode?.id) {
       router.push({
-        pathname: "/podcast/[id]",
+        pathname: "/episode/[id]",
         params: {
-          id: currentEpisode.show.id,
-          showName: currentEpisode.show.name as string,
+          id: currentEpisode.id,
+          episodeName: currentEpisode.name as string,
+          showName: (currentEpisode.show?.name as string) ?? "",
         },
       } as never);
     } else if (currentTrack?.album?.id) {
@@ -820,7 +822,7 @@ export default function PlayingScreen() {
           )}
           <View style={styles.trackInfoContainer}>
             <HapticPressable
-              disabled={!(isEpisode ? canNavigateToShow : canNavigateToAlbum)}
+              disabled={!(isEpisode ? canViewEpisode : canNavigateToAlbum)}
               onPress={handleTitlePress}
             >
               <MarqueeText
@@ -867,7 +869,7 @@ export default function PlayingScreen() {
                       key={chapter.positionMs}
                       style={[
                         styles.chapterTick,
-                        { backgroundColor: invertColors ? "white" : "black" },
+                        { backgroundColor: invertColors ? "black" : "white" },
                         {
                           left: `${Math.min(
                             (chapter.positionMs / episodeDurationMs) * 100,
@@ -1162,9 +1164,9 @@ const styles = StyleSheet.create({
   },
   chapterTick: {
     position: "absolute",
-    top: n(-2),
+    top: n(-4),
     width: n(2),
-    height: n(6),
+    height: n(10),
   },
   chapterLabel: {
     fontSize: n(12),

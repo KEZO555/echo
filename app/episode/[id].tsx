@@ -99,6 +99,7 @@ export default function EpisodeDetailScreen() {
   const [isInitialLoading, setIsInitialLoading] = useState(
     !initialEpisode?.description
   );
+  const [aboutExpanded, setAboutExpanded] = useState(false);
 
   const episode = fetchedEpisode ?? initialEpisode;
   const displayName = episode?.name ?? episodeName ?? "Episode";
@@ -281,12 +282,23 @@ export default function EpisodeDetailScreen() {
     if (!episode?.description) {
       return null;
     }
+    const isLongAbout = episode.description.length > 280;
     return (
       <View style={styles.descriptionSection}>
         <StyledText style={styles.sectionLabel}>About</StyledText>
-        <StyledText style={styles.description}>
+        <StyledText
+          numberOfLines={isLongAbout && !aboutExpanded ? 6 : undefined}
+          style={styles.description}
+        >
           {episode.description}
         </StyledText>
+        {isLongAbout ? (
+          <HapticPressable onPress={() => setAboutExpanded((value) => !value)}>
+            <StyledText style={styles.showMore}>
+              {aboutExpanded ? "Show less" : "Show more"}
+            </StyledText>
+          </HapticPressable>
+        ) : null}
       </View>
     );
   };
@@ -407,6 +419,11 @@ const styles = StyleSheet.create({
   description: {
     fontSize: n(16),
     lineHeight: n(22),
+  },
+  showMore: {
+    fontSize: n(16),
+    textDecorationLine: "underline",
+    marginTop: n(10),
   },
   errorText: {
     fontSize: n(16),

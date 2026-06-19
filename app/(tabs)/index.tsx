@@ -39,7 +39,8 @@ export default function LikedSongsScreen() {
   const isRateLimited = useSavedTracksStore((s) => s.isRateLimited);
   const rateLimitRetryAt = useSavedTracksStore((s) => s.rateLimitRetryAt);
   const nextUrl = useSavedTracksStore((s) => s.nextUrl);
-  const { playUriWithSkipToUri, addToQueue } = usePlayback();
+  const { playUriWithSkipToUri, playTracksWithWebApi, addToQueue } =
+    usePlayback();
   const { triggerHaptic } = useSettings();
   const router = useRouter();
   const { isLoading: isNetworkLoading, isOnline } = useNetworkState();
@@ -80,19 +81,30 @@ export default function LikedSongsScreen() {
         sourceContext: "liked",
       };
 
+      const startIndex = baseTracks.findIndex(
+        (saved) => saved.track?.uri === track.uri
+      );
+      const orderedUris = (startIndex >= 0 ? baseTracks.slice(startIndex) : [])
+        .map((saved) => saved.track?.uri)
+        .filter((uri): uri is string => Boolean(uri))
+        .slice(0, 50);
+
       try {
-        await playUriWithSkipToUri(likedSongsUri, item.track.uri);
-        router.push({
-          pathname: "/playing",
-          params: playingParams,
-        });
+        if (orderedUris.length > 0) {
+          await playTracksWithWebApi(orderedUris);
+        } else {
+          await playUriWithSkipToUri(likedSongsUri, track.uri);
+        }
       } catch (error) {
-        logError("Error playing track:", error);
-        router.push({
-          pathname: "/playing",
-          params: playingParams,
-        });
+        logError("Error playing track via Web API, trying App Remote:", error);
+        try {
+          await playUriWithSkipToUri(likedSongsUri, track.uri);
+        } catch (fallbackError) {
+          logError("Error playing liked track:", fallbackError);
+        }
       }
+
+      router.push({ pathname: "/playing", params: playingParams });
     }
   );
 
