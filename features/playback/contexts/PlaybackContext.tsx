@@ -8,20 +8,27 @@ import {
 import { useAuth } from "@/features/auth";
 import { useSpotifyConnection } from "@/modules/spotify-sdk";
 
-import type { SpotifyCurrentlyPlaying } from "@/shared/types/spotify";
+import type {
+  SpotifyCurrentlyPlaying,
+  SpotifyQueueResponse,
+} from "@/shared/types/spotify";
 
 import type {
+  PlayContextOptions,
   SourceContext,
   SpotifyPlayerTrack,
 } from "../services/spotifyPlayback";
 import {
   addToLibrary as addToLibraryService,
+  addToQueue as addToQueueService,
   forceAppRemoteConnection as forceAppRemoteConnectionService,
   getAlbumArt as getAlbumArtService,
   getCurrentTrack as getCurrentTrackService,
   getLibraryState as getLibraryStateService,
   getPlaybackState as getPlaybackStateService,
+  getQueue as getQueueService,
   pausePlayback as pausePlaybackService,
+  playContext as playContextService,
   playTracksWithWebApi as playTracksWithWebApiService,
   playTrackWithContext as playTrackWithContextService,
   playUriWithSkipToUri as playUriWithSkipToUriService,
@@ -54,9 +61,15 @@ export interface PlaybackContextType {
     trackUri: string,
     sourceContext?: SourceContext
   ) => Promise<void>;
+  playContext: (
+    contextUri: string,
+    options?: PlayContextOptions
+  ) => Promise<void>;
   playUriWithSkipToUri: (uri: string, skipToUri: string) => Promise<void>;
   playTracksWithWebApi: (uris: string[]) => Promise<void>;
   skipToIndex: (sourceContext: SourceContext) => Promise<void>;
+  addToQueue: (uri: string) => Promise<void>;
+  getQueue: () => Promise<SpotifyQueueResponse | null>;
 
   addToLibrary: (uri: string) => Promise<boolean>;
   removeFromLibrary: (uri: string) => Promise<boolean>;
@@ -95,6 +108,29 @@ export const PlaybackProvider = ({ children }: { children: ReactNode }) => {
     },
     [ensureValidToken]
   );
+
+  const playContext = useCallback(
+    async (contextUri: string, options?: PlayContextOptions) => {
+      const validToken = await ensureValidToken();
+      return playContextService(
+        contextUri,
+        validToken,
+        options,
+        ensureValidToken
+      );
+    },
+    [ensureValidToken]
+  );
+
+  const addToQueue = useCallback(
+    async (uri: string) => {
+      const validToken = await ensureValidToken();
+      return addToQueueService(uri, validToken, ensureValidToken);
+    },
+    [ensureValidToken]
+  );
+
+  const getQueue = useCallback(() => getQueueService(), []);
 
   const playUriWithSkipToUri = useCallback((uri: string, skipToUri: string) => {
     return playUriWithSkipToUriService(uri, skipToUri);
@@ -172,8 +208,11 @@ export const PlaybackProvider = ({ children }: { children: ReactNode }) => {
       isConnectedToAppRemote,
       playTracksWithWebApi,
       playTrackWithContext,
+      playContext,
       playUriWithSkipToUri,
       skipToIndex,
+      addToQueue,
+      getQueue,
       getPlaybackState,
       getCurrentTrack,
       getAlbumArt,
@@ -193,8 +232,11 @@ export const PlaybackProvider = ({ children }: { children: ReactNode }) => {
       isConnectedToAppRemote,
       playTracksWithWebApi,
       playTrackWithContext,
+      playContext,
       playUriWithSkipToUri,
       skipToIndex,
+      addToQueue,
+      getQueue,
       getPlaybackState,
       getCurrentTrack,
       getAlbumArt,

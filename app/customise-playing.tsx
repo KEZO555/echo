@@ -22,6 +22,8 @@ export default function CustomisePlayingScreen() {
     setHideAddToPlaylistButton,
     hideLyricsButton,
     setHideLyricsButton,
+    hideQueueButton,
+    setHideQueueButton,
     hidePlayingCover,
     setHidePlayingCover,
   } = useSettings();
@@ -56,6 +58,12 @@ export default function CustomisePlayingScreen() {
       label: "Hide Lyrics Button",
       value: hideLyricsButton,
       onValueChange: setHideLyricsButton,
+    },
+    {
+      type: "toggle",
+      label: "Hide Queue Button",
+      value: hideQueueButton,
+      onValueChange: setHideQueueButton,
     },
   ];
 

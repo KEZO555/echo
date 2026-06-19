@@ -17,6 +17,7 @@ interface TrackListItemProps {
   imageUri?: string;
   showImage?: boolean;
   onPress: () => void;
+  onLongPress?: () => void;
 }
 
 export const TrackListItem = React.memo(function TrackListItem({
@@ -27,13 +28,18 @@ export const TrackListItem = React.memo(function TrackListItem({
   imageUri,
   showImage = false,
   onPress,
+  onLongPress,
 }: TrackListItemProps) {
   const subtitle = durationMs
     ? `${getArtistNames(artists)} · ${formatDuration(durationMs)}`
     : getArtistNames(artists);
 
   return (
-    <HapticPressable onPress={onPress} style={styles.container}>
+    <HapticPressable
+      onLongPress={onLongPress}
+      onPress={onPress}
+      style={styles.container}
+    >
       {showImage ? (
         <FallbackImage
           containerStyle={styles.imageContainer}

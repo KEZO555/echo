@@ -5,6 +5,7 @@ import { useAuth } from "@/features/auth";
 import { useSavedTracksStore } from "@/features/library/stores";
 import { getSavedTrackIdentity } from "@/features/library/utils/savedTracks";
 import { usePlayback } from "@/features/playback";
+import { useSettings } from "@/features/settings";
 import {
   ListScreen,
   MediaListItem,
@@ -38,7 +39,8 @@ export default function LikedSongsScreen() {
   const isRateLimited = useSavedTracksStore((s) => s.isRateLimited);
   const rateLimitRetryAt = useSavedTracksStore((s) => s.rateLimitRetryAt);
   const nextUrl = useSavedTracksStore((s) => s.nextUrl);
-  const { playUriWithSkipToUri } = usePlayback();
+  const { playUriWithSkipToUri, addToQueue } = usePlayback();
+  const { triggerHaptic } = useSettings();
   const router = useRouter();
   const { isLoading: isNetworkLoading, isOnline } = useNetworkState();
 
@@ -94,6 +96,21 @@ export default function LikedSongsScreen() {
     }
   );
 
+  const handleAddTrackToQueue = useCallback(
+    async (item: SavedTrackObject) => {
+      if (!item.track?.uri) {
+        return;
+      }
+      triggerHaptic();
+      try {
+        await addToQueue(item.track.uri);
+      } catch (error) {
+        logError("Error adding track to queue:", error);
+      }
+    },
+    [addToQueue, triggerHaptic]
+  );
+
   const renderTrackItem = ({ item }: { item: LikedSongsListItem }) => {
     if (isRateLimitItem(item)) {
       return <RateLimitListMessage message={item.message} />;
@@ -111,6 +128,7 @@ export default function LikedSongsScreen() {
             ? item.track.album.images[0].url
             : undefined
         }
+        onLongPress={() => handleAddTrackToQueue(item)}
         onPress={() => handleTrackPress(item)}
         placeholderIcon="music-note"
         primaryText={item.track.name}

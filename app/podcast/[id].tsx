@@ -6,6 +6,7 @@ import { useAuth } from "@/features/auth";
 import { getCachedShowDetail, saveCachedShowDetail } from "@/features/library";
 import { usePodcastsStore } from "@/features/library/stores";
 import { usePlayback } from "@/features/playback";
+import { useSettings } from "@/features/settings";
 import { DetailScreen, HapticPressable, StyledText } from "@/shared/components";
 import {
   useNetworkState,
@@ -30,7 +31,8 @@ export default function PodcastDetailScreen() {
   }>();
 
   const { accessToken } = useAuth();
-  const { playTrackWithContext } = usePlayback();
+  const { playContext, addToQueue } = usePlayback();
+  const { triggerHaptic } = useSettings();
   const followPodcast = usePodcastsStore((s) => s.followPodcast);
   const unfollowPodcast = usePodcastsStore((s) => s.unfollowPodcast);
   const checkIfFollowing = usePodcastsStore((s) => s.checkIfFollowing);
@@ -173,12 +175,17 @@ export default function PodcastDetailScreen() {
     async (episode: SpotifyEpisode, index: number) => {
       const albumArtUrl =
         getLargestImage(episode.images) ?? getLargestImage(show?.images) ?? "";
+      const resumePoint = episode.resume_point;
+      const resumeMs =
+        resumePoint && !resumePoint.fully_played
+          ? resumePoint.resume_position_ms
+          : undefined;
 
       try {
-        await playTrackWithContext(episode.uri, {
-          type: "podcast",
-          uri: `spotify:show:${id}`,
-          currentIndex: index,
+        await playContext(`spotify:show:${id}`, {
+          offsetUri: episode.uri,
+          offsetPosition: index,
+          positionMs: resumeMs,
         });
         router.push({
           pathname: "/playing",
@@ -204,6 +211,21 @@ export default function PodcastDetailScreen() {
     }
   );
 
+  const handleAddEpisodeToQueue = useCallback(
+    async (episode: SpotifyEpisode) => {
+      if (!episode.uri) {
+        return;
+      }
+      triggerHaptic();
+      try {
+        await addToQueue(episode.uri);
+      } catch (queueError) {
+        logError("Error adding episode to queue:", queueError);
+      }
+    },
+    [addToQueue, triggerHaptic]
+  );
+
   const renderEpisodeItem = ({
     item: episode,
     index,
@@ -212,6 +234,7 @@ export default function PodcastDetailScreen() {
     index: number;
   }) => (
     <HapticPressable
+      onLongPress={() => handleAddEpisodeToQueue(episode)}
       onPress={() => handleEpisodePress(episode, index)}
       style={styles.episodeItemContainer}
     >

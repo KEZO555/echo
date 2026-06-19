@@ -23,6 +23,7 @@ const SETTING_KEYS = {
   hideDevicesButton: "hideDevicesButton",
   hideAddToPlaylistButton: "hideAddToPlaylistButton",
   hideLyricsButton: "hideLyricsButton",
+  hideQueueButton: "hideQueueButton",
   hidePlayingCover: "hidePlayingCover",
   hideYourEpisodes: "hideYourEpisodes",
 } as const;
@@ -80,6 +81,7 @@ const defaultSettings: BooleanSettings = {
   hideDevicesButton: false,
   hideAddToPlaylistButton: false,
   hideLyricsButton: false,
+  hideQueueButton: false,
   hidePlayingCover: false,
   hideYourEpisodes: false,
 };
@@ -109,6 +111,8 @@ interface SettingsContextType {
   setHideAddToPlaylistButton: (value: boolean) => void;
   hideLyricsButton: boolean;
   setHideLyricsButton: (value: boolean) => void;
+  hideQueueButton: boolean;
+  setHideQueueButton: (value: boolean) => void;
   hidePlayingCover: boolean;
   setHidePlayingCover: (value: boolean) => void;
   hideYourEpisodes: boolean;
@@ -385,6 +389,10 @@ export const SettingsProvider = ({ children }: { children: ReactNode }) => {
     (v: boolean) => setSetting("hideLyricsButton", v),
     [setSetting]
   );
+  const setHideQueueButton = useCallback(
+    (v: boolean) => setSetting("hideQueueButton", v),
+    [setSetting]
+  );
   const setHidePlayingCover = useCallback(
     (v: boolean) => setSetting("hidePlayingCover", v),
     [setSetting]
@@ -480,6 +488,8 @@ export const SettingsProvider = ({ children }: { children: ReactNode }) => {
       setHideAddToPlaylistButton,
       hideLyricsButton: settings.hideLyricsButton,
       setHideLyricsButton,
+      hideQueueButton: settings.hideQueueButton,
+      setHideQueueButton,
       hidePlayingCover: settings.hidePlayingCover,
       setHidePlayingCover,
       hideYourEpisodes: settings.hideYourEpisodes,
@@ -505,6 +515,7 @@ export const SettingsProvider = ({ children }: { children: ReactNode }) => {
       setHideDevicesButton,
       setHideAddToPlaylistButton,
       setHideLyricsButton,
+      setHideQueueButton,
       setHidePlayingCover,
       setHideYourEpisodes,
       sortSettings,

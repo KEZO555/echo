@@ -15,6 +15,7 @@ interface MediaListItemProps {
   forceShowImage?: boolean;
   disabled?: boolean;
   onPress: () => void;
+  onLongPress?: () => void;
   imageStyle?: StyleProp<ImageStyle>;
   style?: StyleProp<ViewStyle>;
 }
@@ -27,6 +28,7 @@ export const MediaListItem = React.memo(function MediaListItem({
   forceShowImage = false,
   disabled = false,
   onPress,
+  onLongPress,
   imageStyle,
   style,
 }: MediaListItemProps) {
@@ -39,6 +41,7 @@ export const MediaListItem = React.memo(function MediaListItem({
   return (
     <HapticPressable
       disabled={disabled}
+      onLongPress={onLongPress}
       onPress={onPress}
       style={[
         styles.itemContainer,

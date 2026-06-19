@@ -160,6 +160,7 @@ export default function PlayingScreen() {
     hideDevicesButton,
     hideAddToPlaylistButton,
     hideLyricsButton,
+    hideQueueButton,
     hidePlayingCover,
   } = useSettings();
   const { isOnline } = useNetworkState();
@@ -615,6 +616,7 @@ export default function PlayingScreen() {
     !hideDevicesButton,
     !hideAddToPlaylistButton,
     !hideLyricsButton,
+    !hideQueueButton,
   ].filter(Boolean).length;
 
   const animatedWidth = progress.interpolate({
@@ -667,6 +669,12 @@ export default function PlayingScreen() {
   const handleSelectDevicePress = usePreventDoubleTap(() => {
     if (isOnline) {
       router.push({ pathname: "/select-device" as never });
+    }
+  });
+
+  const handleQueuePress = usePreventDoubleTap(() => {
+    if (isOnline) {
+      router.push({ pathname: "/queue" as never });
     }
   });
 
@@ -963,6 +971,23 @@ export default function PlayingScreen() {
               <MaterialIcons
                 color={invertColors ? "black" : "white"}
                 name="add"
+                size={n(30)}
+              />
+            </HapticPressable>
+          )}
+          {!hideQueueButton && (
+            <HapticPressable
+              disabled={!isOnline || isPendingRoutePlayback}
+              onPress={() => {
+                if (isOnline && !isPendingRoutePlayback) {
+                  handleQueuePress();
+                }
+              }}
+              style={!isOnline && styles.disabledButton}
+            >
+              <MaterialIcons
+                color={invertColors ? "black" : "white"}
+                name="queue-music"
                 size={n(30)}
               />
             </HapticPressable>

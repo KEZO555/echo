@@ -8,7 +8,9 @@ import type { SpotifyTrack as NativeSpotifyTrack } from "@/modules/spotify-sdk/s
 import type {
   SpotifyCurrentlyPlaying,
   SpotifyImage,
+  SpotifyQueueResponse,
 } from "@/shared/types/spotify";
+import { apiDelete, apiGet, apiPut } from "@/shared/utils/api-client";
 import { log, logError } from "@/shared/utils/logger";
 import { getValidToken } from "@/shared/utils/token-helper";
 import { normalisePlayerState } from "./playerState";
@@ -168,6 +170,147 @@ export const playTracksWithWebApi = async (
   });
   throw new Error(`Web API context failed: ${errorText}`);
 };
+
+export interface PlayContextOptions {
+  offsetPosition?: number;
+  offsetUri?: string;
+  positionMs?: number;
+}
+
+const buildContextBody = (
+  contextUri: string,
+  options?: PlayContextOptions
+): Record<string, unknown> => {
+  const body: Record<string, unknown> = { context_uri: contextUri };
+
+  if (options?.offsetUri) {
+    body.offset = { uri: options.offsetUri };
+  } else if (typeof options?.offsetPosition === "number") {
+    body.offset = { position: options.offsetPosition };
+  }
+
+  if (typeof options?.positionMs === "number" && options.positionMs > 0) {
+    body.position_ms = options.positionMs;
+  }
+
+  return body;
+};
+
+const playContextViaWebApi = async (
+  contextUri: string,
+  token: string,
+  options?: PlayContextOptions
+): Promise<void> => {
+  const deviceId = await getCachedDeviceId(token);
+  const playUrl = deviceId
+    ? `https://api.spotify.com/v1/me/player/play?device_id=${deviceId}`
+    : "https://api.spotify.com/v1/me/player/play";
+
+  const response = await fetch(playUrl, {
+    method: "PUT",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(buildContextBody(contextUri, options)),
+  });
+
+  if (response.ok) {
+    log("Playback: Web API started context playback.", { contextUri });
+    return;
+  }
+
+  if (response.status === 404) {
+    invalidateDeviceCache();
+  }
+
+  const errorText = await response.text();
+  throw new Error(`HTTP ${response.status}: ${errorText}`);
+};
+
+const playContextNative = async (
+  contextUri: string,
+  options?: PlayContextOptions
+): Promise<void> => {
+  if (typeof options?.offsetPosition === "number") {
+    await spotify.skipToIndex(contextUri, options.offsetPosition);
+  } else {
+    await spotify.play(contextUri);
+  }
+
+  if (typeof options?.positionMs === "number" && options.positionMs > 0) {
+    await spotify.seekTo(options.positionMs);
+  }
+};
+
+export const playContext = async (
+  contextUri: string,
+  accessToken: string | null,
+  options?: PlayContextOptions,
+  ensureValidToken?: () => Promise<string | null>
+): Promise<void> => {
+  log("Playback: Playing context", { contextUri, options });
+
+  try {
+    const validToken = await getValidToken(accessToken, ensureValidToken);
+    if (validToken) {
+      try {
+        await playContextViaWebApi(contextUri, validToken, options);
+        return;
+      } catch (webApiError: unknown) {
+        log(
+          "Playback: Web API context failed, falling back to native:",
+          webApiError instanceof Error
+            ? webApiError.message
+            : String(webApiError)
+        );
+      }
+    }
+
+    await playContextNative(contextUri, options);
+  } catch (error) {
+    logError("Playback: Error in playContext:", error);
+    throw error;
+  }
+};
+
+export const addToQueue = async (
+  uri: string,
+  accessToken: string | null,
+  ensureValidToken?: () => Promise<string | null>
+): Promise<void> => {
+  const validToken = await getValidToken(accessToken, ensureValidToken);
+  if (!validToken) {
+    log("Playback: No valid token available to queue track");
+    throw new Error("No valid token");
+  }
+
+  const deviceId = await getCachedDeviceId(validToken);
+  const queueBase = `https://api.spotify.com/v1/me/player/queue?uri=${encodeURIComponent(uri)}`;
+  const queueUrl = deviceId ? `${queueBase}&device_id=${deviceId}` : queueBase;
+
+  const response = await fetch(queueUrl, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${validToken}`,
+    },
+  });
+
+  if (response.ok) {
+    log("Playback: Added to queue", { uri });
+    return;
+  }
+
+  if (response.status === 404) {
+    invalidateDeviceCache();
+  }
+
+  const errorText = await response.text();
+  throw new Error(`Queue request failed: ${response.status} ${errorText}`);
+};
+
+export const getQueue = async (): Promise<SpotifyQueueResponse | null> =>
+  apiGet<SpotifyQueueResponse>("https://api.spotify.com/v1/me/player/queue");
 
 export const playUriWithSkipToUri = async (
   uri: string,
@@ -500,16 +643,22 @@ export const skipToIndex = async (
   return;
 };
 
+const getTrackIdFromUri = (uri: string): string =>
+  uri.replace("spotify:track:", "");
+
 export const addToLibrary = async (
   uri: string,
   accessToken?: string | null
 ): Promise<boolean> => {
   try {
-    const added = await spotify.addToLibrary(uri);
+    const trackId = getTrackIdFromUri(uri);
+    const added = await apiPut(
+      `https://api.spotify.com/v1/me/tracks?ids=${trackId}`
+    );
     log(`Playback: Added to library: ${uri}`, { added });
 
-    if (added && accessToken) {
-      await addTrackToSavedCache(uri, accessToken);
+    if (added) {
+      await addTrackToSavedCache(uri, accessToken ?? null);
     }
 
     return added;
@@ -524,11 +673,13 @@ export const removeFromLibrary = async (
   _accessToken?: string | null
 ): Promise<boolean> => {
   try {
-    const removed = await spotify.removeFromLibrary(uri);
+    const trackId = getTrackIdFromUri(uri);
+    const removed = await apiDelete(
+      `https://api.spotify.com/v1/me/tracks?ids=${trackId}`
+    );
     log(`Playback: Removed from library: ${uri}`, { removed });
 
     if (removed) {
-      const trackId = uri.replace("spotify:track:", "");
       await removeTrackFromSavedCache(trackId);
     }
 
@@ -552,19 +703,27 @@ export const getLibraryState = async (
   }
 
   const requestPromise = (async () => {
-    const trackId = uri.replace("spotify:track:", "");
+    const trackId = getTrackIdFromUri(uri);
 
-    const isInCache = await isTrackInSavedCache(trackId);
-    if (isInCache) {
-      log(`Playback: Track ${trackId} found in cache - returning saved state`);
-      return { isAdded: true, canAdd: true };
+    const contains = await apiGet<boolean[]>(
+      `https://api.spotify.com/v1/me/tracks/contains?ids=${trackId}`
+    );
+
+    if (contains) {
+      return { isAdded: contains[0] ?? false, canAdd: true };
     }
 
-    const result = await spotify.getLibraryState(uri);
-    inFlightLibraryChecks.delete(uri);
-    return result;
+    const isInCache = await isTrackInSavedCache(trackId);
+    log(
+      `Playback: tracks/contains unavailable for ${trackId}, using cache (${isInCache})`
+    );
+    return { isAdded: isInCache, canAdd: true };
   })();
 
   inFlightLibraryChecks.set(uri, requestPromise);
-  return await requestPromise;
+  try {
+    return await requestPromise;
+  } finally {
+    inFlightLibraryChecks.delete(uri);
+  }
 };

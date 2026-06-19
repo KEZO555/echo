@@ -8,6 +8,7 @@ import {
 } from "@/features/library";
 import { useAlbumsStore } from "@/features/library/stores";
 import { usePlayback } from "@/features/playback";
+import { useSettings } from "@/features/settings";
 import { DetailScreen, TrackListItem } from "@/shared/components";
 import {
   useNetworkState,
@@ -26,7 +27,8 @@ export default function AlbumDetailScreen() {
   }>();
 
   const { accessToken } = useAuth();
-  const { skipToIndex } = usePlayback();
+  const { playContext, addToQueue } = usePlayback();
+  const { triggerHaptic } = useSettings();
   const saveAlbum = useAlbumsStore((s) => s.saveAlbum);
   const removeAlbum = useAlbumsStore((s) => s.removeAlbum);
   const checkIfSaved = useAlbumsStore((s) => s.checkIfSaved);
@@ -156,11 +158,7 @@ export default function AlbumDetailScreen() {
     const albumArtUrl = album?.images?.[0]?.url ?? "";
 
     try {
-      await skipToIndex({
-        type: "album",
-        uri: `spotify:album:${id}`,
-        currentIndex: trackIndex,
-      });
+      await playContext(`spotify:album:${id}`, { offsetPosition: trackIndex });
       router.push({
         pathname: "/playing",
         params: {
@@ -183,6 +181,21 @@ export default function AlbumDetailScreen() {
       });
     }
   });
+
+  const handleAddTrackToQueue = useCallback(
+    async (track?: SpotifyTrackSimple) => {
+      if (!track?.uri) {
+        return;
+      }
+      triggerHaptic();
+      try {
+        await addToQueue(track.uri);
+      } catch (queueError) {
+        logError("Error adding track to queue:", queueError);
+      }
+    },
+    [addToQueue, triggerHaptic]
+  );
 
   if (!album) {
     return (
@@ -223,6 +236,7 @@ export default function AlbumDetailScreen() {
           durationMs={track.duration_ms}
           key={track.id || index.toString()}
           name={track.name}
+          onLongPress={() => handleAddTrackToQueue(track)}
           onPress={() => handleTrackPress(index)}
           trackNumber={track.track_number}
         />
