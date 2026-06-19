@@ -132,6 +132,7 @@ function RootNavigation() {
       <Stack.Screen name="playlist/[id]/edit" />
       <Stack.Screen name="playlist/[id]/cover" />
       <Stack.Screen name="podcast/[id]" />
+      <Stack.Screen name="episode/[id]" />
       <Stack.Screen name="search-results" />
       <Stack.Screen name="playing" />
       <Stack.Screen name="queue" />

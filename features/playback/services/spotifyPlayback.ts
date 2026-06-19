@@ -234,6 +234,8 @@ const playContextNative = async (
 ): Promise<void> => {
   if (typeof options?.offsetPosition === "number") {
     await spotify.skipToIndex(contextUri, options.offsetPosition);
+  } else if (options?.offsetUri) {
+    await spotify.play(options.offsetUri);
   } else {
     await spotify.play(contextUri);
   }

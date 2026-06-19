@@ -24,13 +24,17 @@ import type {
   SpotifyEpisode,
   SpotifyTrackSimple,
 } from "@/shared/types/spotify";
+import type { EpisodeChapter } from "@/shared/utils";
 import {
   getArtistNames,
+  getCurrentChapterIndex,
   log,
   logError,
   n,
+  parseEpisodeChapters,
   setAlbumNavigationImage,
 } from "@/shared/utils";
+import { apiGet } from "@/shared/utils/api-client";
 
 function MarqueeText({
   children,
@@ -215,6 +219,8 @@ export default function PlayingScreen() {
   const [optimisticSaveState, setOptimisticSaveState] = useState<
     boolean | null
   >(null);
+  const [episodeChapters, setEpisodeChapters] = useState<EpisodeChapter[]>([]);
+  const chaptersEpisodeIdRef = useRef<string | null>(null);
 
   const progress = useRef(new Animated.Value(0)).current;
   const progressBarWidthRef = useRef<number | null>(null);
@@ -580,6 +586,46 @@ export default function PlayingScreen() {
     }, [fetchAndUpdatePlaybackState])
   );
 
+  const playingEpisodeId =
+    playbackState?.currently_playing_type === "episode" &&
+    playbackState.item &&
+    "id" in playbackState.item &&
+    playbackState.item.id
+      ? playbackState.item.id
+      : null;
+
+  useEffect(() => {
+    if (!(playingEpisodeId && isOnline)) {
+      chaptersEpisodeIdRef.current = null;
+      setEpisodeChapters([]);
+      return;
+    }
+
+    if (chaptersEpisodeIdRef.current === playingEpisodeId) {
+      return;
+    }
+    chaptersEpisodeIdRef.current = playingEpisodeId;
+
+    let cancelled = false;
+    const fetchChapters = async () => {
+      const data = await apiGet<SpotifyEpisode>(
+        `https://api.spotify.com/v1/episodes/${playingEpisodeId}?market=from_token`
+      );
+      if (cancelled) {
+        return;
+      }
+      setEpisodeChapters(
+        data ? parseEpisodeChapters(data.description, data.duration_ms) : []
+      );
+    };
+
+    fetchChapters();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [playingEpisodeId, isOnline]);
+
   const item = visiblePlaybackState?.item ?? null;
 
   const isEpisode =
@@ -610,6 +656,24 @@ export default function PlayingScreen() {
   const canNavigateToShow = isEpisode && isOnline && !!currentEpisode?.show?.id;
   const canNavigateToAlbum =
     !isEpisode && isOnline && !!currentTrack?.album?.id;
+
+  const episodeDurationMs =
+    isEpisode && item?.duration_ms ? item.duration_ms : 0;
+  const hasChapters =
+    isEpisode &&
+    !isPendingRoutePlayback &&
+    episodeDurationMs > 0 &&
+    episodeChapters.length > 0;
+  const currentChapterIndex = hasChapters
+    ? getCurrentChapterIndex(
+        episodeChapters,
+        visiblePlaybackState?.progress_ms ?? 0
+      )
+    : -1;
+  const currentChapterTitle =
+    currentChapterIndex >= 0
+      ? episodeChapters[currentChapterIndex].title
+      : null;
 
   const visibleButtonCount = [
     !hideLikeButton,
@@ -797,6 +861,22 @@ export default function PlayingScreen() {
                     { width: progressBarWidth },
                   ]}
                 />
+                {hasChapters &&
+                  episodeChapters.map((chapter) => (
+                    <View
+                      key={chapter.positionMs}
+                      style={[
+                        styles.chapterTick,
+                        { backgroundColor: invertColors ? "white" : "black" },
+                        {
+                          left: `${Math.min(
+                            (chapter.positionMs / episodeDurationMs) * 100,
+                            100
+                          )}%`,
+                        },
+                      ]}
+                    />
+                  ))}
               </View>
             </HapticPressable>
             <View style={styles.progressBarInfo}>
@@ -807,6 +887,11 @@ export default function PlayingScreen() {
                 {formatTime(item.duration_ms)}
               </StyledText>
             </View>
+            {currentChapterTitle ? (
+              <StyledText numberOfLines={1} style={styles.chapterLabel}>
+                {currentChapterTitle}
+              </StyledText>
+            ) : null}
           </View>
           <View style={styles.musicControls}>
             <HapticPressable onPress={handleShuffleToggle}>
@@ -1073,6 +1158,18 @@ const styles = StyleSheet.create({
     width: "90%",
     alignItems: "center",
     justifyContent: "space-between",
+    marginBottom: n(6),
+  },
+  chapterTick: {
+    position: "absolute",
+    top: n(-2),
+    width: n(2),
+    height: n(6),
+  },
+  chapterLabel: {
+    fontSize: n(12),
+    width: "90%",
+    textAlign: "center",
     marginBottom: n(6),
   },
   musicControls: {

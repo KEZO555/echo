@@ -31,7 +31,7 @@ export default function PodcastDetailScreen() {
   }>();
 
   const { accessToken } = useAuth();
-  const { playContext, addToQueue } = usePlayback();
+  const { addToQueue } = usePlayback();
   const { triggerHaptic } = useSettings();
   const followPodcast = usePodcastsStore((s) => s.followPodcast);
   const unfollowPodcast = usePodcastsStore((s) => s.unfollowPodcast);
@@ -171,45 +171,20 @@ export default function PodcastDetailScreen() {
     [show?.episodes?.items]
   );
 
-  const handleEpisodePress = usePreventDoubleTap(
-    async (episode: SpotifyEpisode, index: number) => {
-      const albumArtUrl =
-        getLargestImage(episode.images) ?? getLargestImage(show?.images) ?? "";
-      const resumePoint = episode.resume_point;
-      const resumeMs =
-        resumePoint && !resumePoint.fully_played
-          ? resumePoint.resume_position_ms
-          : undefined;
-
-      try {
-        await playContext(`spotify:show:${id}`, {
-          offsetUri: episode.uri,
-          offsetPosition: index,
-          positionMs: resumeMs,
-        });
-        router.push({
-          pathname: "/playing",
-          params: {
-            trackName: episode.name ?? "",
-            artistName: show?.name ?? "",
-            albumArtUrl,
-            durationMs: episode.duration_ms?.toString() ?? "0",
-          },
-        });
-      } catch (playError) {
-        logError("Error playing episode:", playError);
-        router.push({
-          pathname: "/playing",
-          params: {
-            trackName: episode.name ?? "",
-            artistName: show?.name ?? "",
-            albumArtUrl,
-            durationMs: episode.duration_ms?.toString() ?? "0",
-          },
-        });
-      }
-    }
-  );
+  const handleEpisodePress = usePreventDoubleTap((episode: SpotifyEpisode) => {
+    const episodeWithShow: SpotifyEpisode = episode.show
+      ? episode
+      : { ...episode, show: show ?? undefined };
+    router.push({
+      pathname: "/episode/[id]",
+      params: {
+        id: episode.id,
+        episodeString: JSON.stringify(episodeWithShow),
+        episodeName: episode.name,
+        showName: show?.name ?? "",
+      },
+    });
+  });
 
   const handleAddEpisodeToQueue = useCallback(
     async (episode: SpotifyEpisode) => {
@@ -226,16 +201,10 @@ export default function PodcastDetailScreen() {
     [addToQueue, triggerHaptic]
   );
 
-  const renderEpisodeItem = ({
-    item: episode,
-    index,
-  }: {
-    item: SpotifyEpisode;
-    index: number;
-  }) => (
+  const renderEpisodeItem = ({ item: episode }: { item: SpotifyEpisode }) => (
     <HapticPressable
       onLongPress={() => handleAddEpisodeToQueue(episode)}
-      onPress={() => handleEpisodePress(episode, index)}
+      onPress={() => handleEpisodePress(episode)}
       style={styles.episodeItemContainer}
     >
       <View style={styles.episodeInfoContainer}>
