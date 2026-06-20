@@ -52,16 +52,11 @@ export default function PlaylistsScreen() {
 
   const playlistSource = playlists ?? offlinePlaylists;
 
-  const ownedPlaylists = useMemo(() => {
-    if (!(playlistSource && user?.id)) {
-      return null;
-    }
-    return playlistSource.filter((playlist) => playlist.owner.id === user.id);
-  }, [playlistSource, user?.id]);
+  const allPlaylists = useMemo(() => playlistSource ?? null, [playlistSource]);
   const sortedPlaylists = useMemo(
     () =>
-      ownedPlaylists
-        ? [...ownedPlaylists].sort((a, b) => {
+      allPlaylists
+        ? [...allPlaylists].sort((a, b) => {
             const ownerCmp = (
               a.owner.display_name ??
               a.owner.id ??
@@ -73,7 +68,7 @@ export default function PlaylistsScreen() {
             return a.name.localeCompare(b.name);
           })
         : null,
-    [ownedPlaylists]
+    [allPlaylists]
   );
   const playlistRateLimitMessage = useMemo(
     () => getRateLimitMessage("playlists", rateLimitRetryAt),
@@ -137,6 +132,19 @@ export default function PlaylistsScreen() {
   const handlePlaylistPress = usePreventDoubleTap(
     (item: SpotifyPlaylist, isUncached: boolean) => {
       if (isUncached) {
+        return;
+      }
+
+      if (item.owner.id === "spotify") {
+        router.push({
+          pathname: "/browse",
+          params: {
+            id: item.id,
+            uri: item.uri,
+            title: item.name as string,
+            hasChildren: "1",
+          },
+        } as never);
         return;
       }
 
