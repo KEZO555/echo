@@ -92,6 +92,22 @@ export default function BrowseScreen() {
     });
   });
 
+  const canPlayContext =
+    !!parentUri &&
+    (parentUri.includes(":playlist:") || parentUri.includes(":album:"));
+
+  const handlePlayAll = usePreventDoubleTap(async () => {
+    if (!parentUri) {
+      return;
+    }
+    try {
+      await spotify.play(parentUri);
+      router.push("/playing");
+    } catch (playError) {
+      logError("Browse: failed to play context", playError);
+    }
+  });
+
   const handlePress = (item: SpotifyContentItem, index: number) => {
     if (item.hasChildren) {
       handleOpen(item);
@@ -117,6 +133,9 @@ export default function BrowseScreen() {
 
   return (
     <ContentContainer
+      headerIcon={canPlayContext ? "play-arrow" : undefined}
+      headerIconPress={handlePlayAll}
+      headerIconShowLength={canPlayContext ? 1 : 0}
       headerTitle={headerTitle}
       style={{ paddingHorizontal: n(20) }}
     >
