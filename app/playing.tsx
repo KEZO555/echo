@@ -222,6 +222,12 @@ export default function PlayingScreen() {
   >(null);
   const [episodeChapters, setEpisodeChapters] = useState<EpisodeChapter[]>([]);
   const chaptersEpisodeIdRef = useRef<string | null>(null);
+  const [displayPositionMs, setDisplayPositionMs] = useState(
+    initialState?.progress_ms ?? 0
+  );
+  const positionBaseMsRef = useRef(initialState?.progress_ms ?? 0);
+  const positionBaseAtRef = useRef(Date.now());
+  const durationMsRef = useRef(0);
 
   const progress = useRef(new Animated.Value(0)).current;
   const progressBarWidthRef = useRef<number | null>(null);
@@ -259,10 +265,28 @@ export default function PlayingScreen() {
     }
 
     progress.setValue(0);
+    positionBaseMsRef.current = 0;
+    positionBaseAtRef.current = Date.now();
+    setDisplayPositionMs(0);
     lastCheckedTrackUriRef.current = null;
     setIsCurrentTrackSaved(isPendingLikedSongPlayback);
     setOptimisticSaveState(null);
   }, [isPendingLikedSongPlayback, isPendingRoutePlayback, progress]);
+
+  const applyPosition = useCallback(
+    (positionMs: number, durationMs: number) => {
+      durationMsRef.current = durationMs;
+      positionBaseMsRef.current = positionMs;
+      positionBaseAtRef.current = Date.now();
+      setDisplayPositionMs(positionMs);
+      if (durationMs > 0 && positionMs > 0) {
+        progress.setValue(Math.min(positionMs / durationMs, 1));
+      } else {
+        progress.setValue(0);
+      }
+    },
+    [progress]
+  );
 
   const checkIfTrackIsSaved = useCallback(
     // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: track save check with multiple conditions
@@ -309,7 +333,6 @@ export default function PlayingScreen() {
     [getLibraryState]
   );
 
-  // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: playback state sync with route-pending handling
   const fetchAndUpdatePlaybackState = useCallback(async () => {
     const state = (await getPlaybackState()) as SpotifyCurrentlyPlaying | null;
     const playbackTrackKey = getPlaybackTrackKey(state);
@@ -330,25 +353,20 @@ export default function PlayingScreen() {
     isPlayingRef.current = state?.is_playing ?? false;
 
     if (state?.item && "duration_ms" in state.item) {
-      if (state.progress_ms !== null && state.item.duration_ms) {
-        const progressRatio = state.progress_ms / state.item.duration_ms;
-        progress.setValue(progressRatio > 0 ? progressRatio : 0);
-      } else {
-        progress.setValue(0);
-      }
+      applyPosition(state.progress_ms ?? 0, state.item.duration_ms ?? 0);
     } else {
-      progress.setValue(0);
+      applyPosition(0, 0);
     }
 
     await checkIfTrackIsSaved(state);
 
     return state;
   }, [
+    applyPosition,
     checkIfTrackIsSaved,
     clearPendingRoutePlayback,
     getPlaybackState,
     isRoutePlaybackPending,
-    progress,
     routeTrackKey,
   ]);
 
@@ -399,11 +417,7 @@ export default function PlayingScreen() {
 
     try {
       await seekToPosition(newPosition);
-      const totalDuration = playbackState.item.duration_ms;
-      if (totalDuration) {
-        const progressRatio = newPosition / totalDuration;
-        progress.setValue(progressRatio > 0 ? progressRatio : 0);
-      }
+      applyPosition(newPosition, playbackState.item.duration_ms ?? 0);
       await fetchAndUpdatePlaybackState();
     } catch (error) {
       logError("Error seeking backward:", error);
@@ -425,8 +439,7 @@ export default function PlayingScreen() {
 
     try {
       await seekToPosition(newPosition);
-      const progressRatio = newPosition / totalDuration;
-      progress.setValue(progressRatio > 0 ? progressRatio : 0);
+      applyPosition(newPosition, totalDuration);
       await fetchAndUpdatePlaybackState();
     } catch (error) {
       logError("Error seeking forward:", error);
@@ -479,8 +492,7 @@ export default function PlayingScreen() {
 
     try {
       await seekToPosition(seekPositionMs);
-      const progressRatio = seekPositionMs / totalDurationMs;
-      progress.setValue(progressRatio > 0 ? progressRatio : 0);
+      applyPosition(seekPositionMs, totalDurationMs);
       await fetchAndUpdatePlaybackState();
     } catch (error) {
       logError("Error seeking track:", error);
@@ -580,33 +592,53 @@ export default function PlayingScreen() {
 
       fetchAll();
 
-      // Push: refresh immediately when the SDK reports a state change
-      // (track change, play/pause, seek). The interval below only keeps the
-      // progress bar advancing between events and is cheap now that artwork
-      // is cached.
+      // Push: sync immediately when the SDK reports a state change (track
+      // change, play/pause, seek). This replaces most of the polling.
       const unsubscribe = spotify.onPlayerStateChanged(() => {
         fetchAll();
       });
 
-      // Only tick while something is actually advancing: when playing, or
-      // while waiting for route-initiated playback to start. When paused, the
-      // push subscription above wakes us on resume, so we idle.
-      const intervalId = setInterval(() => {
+      // Local tick: advance the progress bar/time from the last known
+      // position without any native call. Runs only while playing.
+      const tickId = setInterval(() => {
+        if (
+          !isPlayingRef.current ||
+          routePlaybackExpiresAtRef.current !== null
+        ) {
+          return;
+        }
+        const duration = durationMsRef.current;
+        if (duration <= 0) {
+          return;
+        }
+        const elapsed = Date.now() - positionBaseAtRef.current;
+        const positionMs = Math.min(
+          positionBaseMsRef.current + elapsed,
+          duration
+        );
+        setDisplayPositionMs(positionMs);
+        progress.setValue(Math.min(positionMs / duration, 1));
+      }, 1000);
+
+      // Low-frequency native reconcile to correct drift and catch changes the
+      // push subscription may miss.
+      const reconcileId = setInterval(() => {
         if (
           isPlayingRef.current ||
           routePlaybackExpiresAtRef.current !== null
         ) {
           fetchAll();
         }
-      }, 1000);
+      }, 5000);
 
       return () => {
         isFocusedRef.current = false;
-        clearInterval(intervalId);
+        clearInterval(tickId);
+        clearInterval(reconcileId);
         unsubscribe();
-        log("PlayingScreen unfocused, cleared interval.");
+        log("PlayingScreen unfocused, cleared timers.");
       };
-    }, [fetchAndUpdatePlaybackState])
+    }, [fetchAndUpdatePlaybackState, progress])
   );
 
   const playingEpisodeId =
@@ -906,7 +938,7 @@ export default function PlayingScreen() {
             </HapticPressable>
             <View style={styles.progressBarInfo}>
               <StyledText style={styles.timeText}>
-                {formatTime(visiblePlaybackState.progress_ms)}
+                {formatTime(isPendingRoutePlayback ? 0 : displayPositionMs)}
               </StyledText>
               <StyledText style={styles.timeText}>
                 {formatTime(item.duration_ms)}
