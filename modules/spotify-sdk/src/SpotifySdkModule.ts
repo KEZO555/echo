@@ -2,7 +2,6 @@ import { NativeModule, requireNativeModule } from "expo";
 import type {
   SpotifyApiResponse,
   SpotifyAuthResponse,
-  SpotifyContentItems,
   SpotifyPlayerState,
   SpotifySdkEvents,
 } from "./SpotifySdk.types";
@@ -45,15 +44,6 @@ declare class SpotifySdkModule extends NativeModule<SpotifySdkEvents> {
   addToLibrary(uri: string): Promise<{ added: boolean }>;
   removeFromLibrary(uri: string): Promise<{ removed: boolean }>;
   getLibraryState(uri: string): Promise<{ isAdded: boolean; canAdd: boolean }>;
-  getRecommendedContent(contentType?: string): Promise<SpotifyContentItems>;
-  getContentChildren(
-    id: string,
-    uri: string,
-    title: string | undefined,
-    hasChildren: boolean,
-    perPage: number,
-    offset: number
-  ): Promise<SpotifyContentItems>;
 }
 
 export default requireNativeModule<SpotifySdkModule>("SpotifySdk");

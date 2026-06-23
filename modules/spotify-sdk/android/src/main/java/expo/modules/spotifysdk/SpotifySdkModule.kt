@@ -18,7 +18,6 @@ import com.spotify.sdk.android.auth.AuthorizationResponse
 // Spotify App Remote imports
 import com.spotify.android.appremote.api.ConnectionParams
 import com.spotify.android.appremote.api.Connector
-import com.spotify.android.appremote.api.ContentApi
 import com.spotify.android.appremote.api.SpotifyAppRemote
 import com.spotify.protocol.client.Subscription
 import com.spotify.protocol.types.*
@@ -489,48 +488,6 @@ class SpotifySdkModule : Module() {
       }
     }
 
-    AsyncFunction("getRecommendedContent") { contentType: String?, promise: Promise ->
-      try {
-        val contentApi = spotifyAppRemote?.contentApi
-        if (contentApi == null) {
-          promise.reject("NOT_CONNECTED", "Spotify not connected", null)
-          return@AsyncFunction
-        }
-        val type = if (contentType == "navigation") {
-          ContentApi.ContentType.NAVIGATION
-        } else {
-          ContentApi.ContentType.DEFAULT
-        }
-        contentApi.getRecommendedContentItems(type).setResultCallback { listItems ->
-          promise.resolve(listItemsToMap(listItems))
-        }.setErrorCallback { error ->
-          Log.e(TAG, "getRecommendedContent error", error)
-          promise.reject("CONTENT_ERROR", error.message, error)
-        }
-      } catch (e: Exception) {
-        promise.reject("CONTENT_ERROR", e.message, e)
-      }
-    }
-
-    AsyncFunction("getContentChildren") { id: String, uri: String, title: String?, hasChildren: Boolean, perPage: Int, offset: Int, promise: Promise ->
-      try {
-        val contentApi = spotifyAppRemote?.contentApi
-        if (contentApi == null) {
-          promise.reject("NOT_CONNECTED", "Spotify not connected", null)
-          return@AsyncFunction
-        }
-        val parent = ListItem(id, uri, null, title ?: "", "", false, hasChildren)
-        contentApi.getChildrenOfItem(parent, perPage, offset).setResultCallback { listItems ->
-          promise.resolve(listItemsToMap(listItems))
-        }.setErrorCallback { error ->
-          Log.e(TAG, "getContentChildren error", error)
-          promise.reject("CONTENT_ERROR", error.message, error)
-        }
-      } catch (e: Exception) {
-        promise.reject("CONTENT_ERROR", e.message, e)
-      }
-    }
-
     OnActivityEntersForeground {
       Log.d(TAG, "Activity entered foreground")
 
@@ -581,27 +538,6 @@ class SpotifySdkModule : Module() {
   }
 
   // Private helper functions
-  private fun listItemsToMap(listItems: ListItems): Map<String, Any?> {
-    val items = listItems.items?.map { item ->
-      mapOf(
-        "id" to item.id,
-        "uri" to item.uri,
-        "title" to item.title,
-        "subtitle" to item.subtitle,
-        "playable" to item.playable,
-        "hasChildren" to item.hasChildren,
-        "imageUri" to item.imageUri?.raw
-      )
-    } ?: emptyList<Map<String, Any?>>()
-
-    return mapOf(
-      "items" to items,
-      "total" to listItems.total,
-      "offset" to listItems.offset,
-      "limit" to listItems.limit
-    )
-  }
-
   private fun subscribeToPlayerStateInternal() {
     try {
       playerStateSubscription?.cancel()

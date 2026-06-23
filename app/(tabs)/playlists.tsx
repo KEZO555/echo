@@ -24,7 +24,6 @@ import {
 import { log, logError } from "@/shared/utils/logger";
 
 const CREATE_NEW_PLAYLIST_ID = "CREATE_NEW_PLAYLIST_ID";
-const BROWSE_ID = "BROWSE_MADE_FOR_YOU_ID";
 
 type PlaylistListItem = WithRateLimitItem<SpotifyPlaylist>;
 
@@ -125,26 +124,9 @@ export default function PlaylistsScreen() {
     router.push("/create-playlist");
   });
 
-  const handleBrowsePress = usePreventDoubleTap(() => {
-    router.push("/browse");
-  });
-
   const handlePlaylistPress = usePreventDoubleTap(
     (item: SpotifyPlaylist, isUncached: boolean) => {
       if (isUncached) {
-        return;
-      }
-
-      if (item.owner.id === "spotify") {
-        router.push({
-          pathname: "/browse",
-          params: {
-            id: item.id,
-            uri: item.uri,
-            title: item.name as string,
-            hasChildren: "1",
-          },
-        } as never);
         return;
       }
 
@@ -161,22 +143,6 @@ export default function PlaylistsScreen() {
   const renderPlaylistItem = ({ item }: { item: PlaylistListItem }) => {
     if (isRateLimitItem(item)) {
       return <RateLimitListMessage message={item.message} />;
-    }
-
-    if (item.id === BROWSE_ID) {
-      return (
-        <MediaListItem
-          disabled={!isOnline}
-          onPress={() => {
-            if (isOnline) {
-              handleBrowsePress();
-            }
-          }}
-          placeholderIcon="auto-awesome"
-          primaryText={item.name}
-          secondaryText="Discover Weekly, Daily Mix & more"
-        />
-      );
     }
 
     if (item.id === CREATE_NEW_PLAYLIST_ID) {
@@ -243,24 +209,11 @@ export default function PlaylistsScreen() {
     uri: "",
     href: "",
   };
-  const browseItem: SpotifyPlaylist = {
-    id: BROWSE_ID,
-    name: "Made for You",
-    images: [],
-    owner: { display_name: "", id: "" },
-    description: "",
-    items: { href: "", total: 0 },
-    public: false,
-    collaborative: false,
-    uri: "",
-    href: "",
-  };
   const withCreate = sortedPlaylists
     ? [createNewPlaylistItem, ...sortedPlaylists]
     : [createNewPlaylistItem];
   const withoutCreate: SpotifyPlaylist[] = sortedPlaylists ?? [];
-  const baseList = hideCreatePlaylist ? withoutCreate : withCreate;
-  const basePlaylists = isOnline ? [browseItem, ...baseList] : baseList;
+  const basePlaylists = hideCreatePlaylist ? withoutCreate : withCreate;
   const displayPlaylists: PlaylistListItem[] = prependRateLimitItem(
     basePlaylists,
     isRateLimited,

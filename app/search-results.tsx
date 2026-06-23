@@ -187,25 +187,13 @@ export default function SearchResultsScreen() {
           },
         } as never);
       } else if (item.type === "playlist") {
-        if (item.data.owner?.id === "spotify") {
-          router.push({
-            pathname: "/browse",
-            params: {
-              id: item.data.id,
-              uri: item.data.uri,
-              title: item.data.name as string,
-              hasChildren: "1",
-            },
-          } as never);
-        } else {
-          router.push({
-            pathname: `/playlist/${item.data.id}`,
-            params: {
-              playlistName: item.data.name as string,
-              playlistString: JSON.stringify(item.data),
-            },
-          } as never);
-        }
+        router.push({
+          pathname: `/playlist/${item.data.id}`,
+          params: {
+            playlistName: item.data.name as string,
+            playlistString: JSON.stringify(item.data),
+          },
+        } as never);
       } else if (item.type === "podcast") {
         router.push({
           pathname: `/podcast/${item.data.id}`,
