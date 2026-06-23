@@ -118,9 +118,8 @@ export const useAlbumsStore = create<AlbumsState>()((set, get) => ({
 
   saveAlbum: async (albumId: string) => {
     try {
-      const uri = encodeURIComponent(`spotify:album:${albumId}`);
       const saved = await apiPut(
-        `https://api.spotify.com/v1/me/library?uris=${uri}`
+        `https://api.spotify.com/v1/me/albums?ids=${albumId}`
       );
       if (!saved) {
         return false;
@@ -151,9 +150,8 @@ export const useAlbumsStore = create<AlbumsState>()((set, get) => ({
 
   removeAlbum: async (albumId: string) => {
     try {
-      const uri = encodeURIComponent(`spotify:album:${albumId}`);
       const removed = await apiDelete(
-        `https://api.spotify.com/v1/me/library?uris=${uri}`
+        `https://api.spotify.com/v1/me/albums?ids=${albumId}`
       );
       if (!removed) {
         return false;
@@ -185,9 +183,8 @@ export const useAlbumsStore = create<AlbumsState>()((set, get) => ({
     } catch (error) {
       logError("Error checking cached albums:", error);
     }
-    const uri = encodeURIComponent(`spotify:album:${albumId}`);
     const data = await apiGet<boolean[]>(
-      `https://api.spotify.com/v1/me/library/contains?uris=${uri}`
+      `https://api.spotify.com/v1/me/albums/contains?ids=${albumId}`
     );
     return data ? (data[0] ?? false) : false;
   },

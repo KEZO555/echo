@@ -327,6 +327,9 @@ export const playUriWithSkipToUri = async (
   }
 };
 
+let cachedArtworkUri: string | null = null;
+let cachedArtworkImages: SpotifyImage[] = [];
+
 export const getPlaybackState =
   async (): Promise<SpotifyCurrentlyPlaying | null> => {
     try {
@@ -339,7 +342,9 @@ export const getPlaybackState =
       let albumImages: SpotifyImage[] = [];
       const albumUri = playerState.track.album?.uri ?? "";
 
-      if (albumUri) {
+      if (albumUri === cachedArtworkUri && cachedArtworkImages.length > 0) {
+        albumImages = cachedArtworkImages;
+      } else if (albumUri) {
         const nativeImageUrl = await spotify.getCurrentTrackImage("LARGE");
         if (nativeImageUrl?.startsWith("data:image/")) {
           albumImages = [
@@ -349,6 +354,8 @@ export const getPlaybackState =
               width: 640,
             },
           ];
+          cachedArtworkUri = albumUri;
+          cachedArtworkImages = albumImages;
         } else {
           throw new Error(
             "Native SDK getCurrentTrackImage did not return valid image data"

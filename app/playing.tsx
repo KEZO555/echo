@@ -14,6 +14,7 @@ import {
 import { useAuth } from "@/features/auth";
 import { usePlayback } from "@/features/playback";
 import { useSettings } from "@/features/settings";
+import { spotify } from "@/modules/spotify-sdk";
 import ContentContainer from "@/shared/components/ContentContainer";
 import { FallbackImage } from "@/shared/components/FallbackImage";
 import { HapticPressable } from "@/shared/components/HapticPressable";
@@ -576,11 +577,20 @@ export default function PlayingScreen() {
 
       fetchAll();
 
+      // Push: refresh immediately when the SDK reports a state change
+      // (track change, play/pause, seek). The interval below only keeps the
+      // progress bar advancing between events and is cheap now that artwork
+      // is cached.
+      const unsubscribe = spotify.onPlayerStateChanged(() => {
+        fetchAll();
+      });
+
       const intervalId = setInterval(fetchAll, 1000);
 
       return () => {
         isFocusedRef.current = false;
         clearInterval(intervalId);
+        unsubscribe();
         log("PlayingScreen unfocused, cleared interval.");
       };
     }, [fetchAndUpdatePlaybackState])
