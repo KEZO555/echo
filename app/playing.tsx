@@ -1,7 +1,13 @@
 import { MaterialCommunityIcons, MaterialIcons } from "@expo/vector-icons";
 import AutoScroll from "@homielab/react-native-auto-scroll";
 import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import {
   Animated,
   type GestureResponderEvent,
@@ -177,36 +183,40 @@ export default function PlayingScreen() {
     sourceContext?: string;
   }>();
 
-  const paramsState = params.trackName
-    ? ({
-        is_playing: true,
-        progress_ms: 0,
-        item: {
-          name: params.trackName,
-          artists: params.artistName
-            ? [
-                {
-                  name: params.artistName,
-                  id: "",
-                  uri: "",
-                  href: "",
-                  type: "artist",
-                  external_urls: { spotify: "" },
-                },
-              ]
-            : [],
-          album: params.albumArtUrl
-            ? { images: [{ url: params.albumArtUrl }] }
-            : undefined,
-          duration_ms: params.durationMs
-            ? Number.parseInt(params.durationMs, 10)
-            : 0,
-          id: "",
-          uri: "",
-          type: "track",
-        },
-      } as SpotifyCurrentlyPlaying)
-    : null;
+  const paramsState = useMemo(
+    () =>
+      params.trackName
+        ? ({
+            is_playing: true,
+            progress_ms: 0,
+            item: {
+              name: params.trackName,
+              artists: params.artistName
+                ? [
+                    {
+                      name: params.artistName,
+                      id: "",
+                      uri: "",
+                      href: "",
+                      type: "artist",
+                      external_urls: { spotify: "" },
+                    },
+                  ]
+                : [],
+              album: params.albumArtUrl
+                ? { images: [{ url: params.albumArtUrl }] }
+                : undefined,
+              duration_ms: params.durationMs
+                ? Number.parseInt(params.durationMs, 10)
+                : 0,
+              id: "",
+              uri: "",
+              type: "track",
+            },
+          } as SpotifyCurrentlyPlaying)
+        : null,
+    [params.trackName, params.artistName, params.albumArtUrl, params.durationMs]
+  );
 
   const initialState = paramsState ?? cachedPlaybackState;
 

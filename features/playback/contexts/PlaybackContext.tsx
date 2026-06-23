@@ -34,7 +34,6 @@ import {
   playUriWithSkipToUri as playUriWithSkipToUriService,
   removeFromLibrary as removeFromLibraryService,
   seekToPosition as seekToPositionService,
-  skipToIndex as skipToIndexService,
   skipToNext as skipToNextService,
   skipToPrevious as skipToPreviousService,
   startPlayback as startPlaybackService,
@@ -67,7 +66,6 @@ export interface PlaybackContextType {
   ) => Promise<void>;
   playUriWithSkipToUri: (uri: string, skipToUri: string) => Promise<void>;
   playTracksWithWebApi: (uris: string[]) => Promise<void>;
-  skipToIndex: (sourceContext: SourceContext) => Promise<void>;
   addToQueue: (uri: string) => Promise<void>;
   getQueue: () => Promise<SpotifyQueueResponse | null>;
 
@@ -134,10 +132,6 @@ export const PlaybackProvider = ({ children }: { children: ReactNode }) => {
 
   const playUriWithSkipToUri = useCallback((uri: string, skipToUri: string) => {
     return playUriWithSkipToUriService(uri, skipToUri);
-  }, []);
-
-  const skipToIndex = useCallback((sourceContext: SourceContext) => {
-    return skipToIndexService(sourceContext);
   }, []);
 
   const getPlaybackState = useCallback(
@@ -210,7 +204,6 @@ export const PlaybackProvider = ({ children }: { children: ReactNode }) => {
       playTrackWithContext,
       playContext,
       playUriWithSkipToUri,
-      skipToIndex,
       addToQueue,
       getQueue,
       getPlaybackState,
@@ -234,7 +227,6 @@ export const PlaybackProvider = ({ children }: { children: ReactNode }) => {
       playTrackWithContext,
       playContext,
       playUriWithSkipToUri,
-      skipToIndex,
       addToQueue,
       getQueue,
       getPlaybackState,

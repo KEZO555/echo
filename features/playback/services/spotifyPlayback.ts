@@ -627,31 +627,6 @@ export const playTrackWithContext = async (
   }
 };
 
-export const skipToIndex = async (
-  sourceContext: SourceContext
-): Promise<void> => {
-  log(
-    "Playback: Playing track with context via SkipToIndex:",
-    sourceContext?.type || "none"
-  );
-
-  if (
-    sourceContext?.uri &&
-    sourceContext.currentIndex !== undefined &&
-    sourceContext.currentIndex !== null
-  ) {
-    log("Index:", {
-      currentIndex: sourceContext.currentIndex,
-    });
-    log("URI:", {
-      uri: sourceContext.uri,
-    });
-    await spotify.skipToIndex(sourceContext.uri, sourceContext.currentIndex);
-  }
-  log("Playback: Skipped to index");
-  return;
-};
-
 const getTrackIdFromUri = (uri: string): string =>
   uri.replace("spotify:track:", "");
 
