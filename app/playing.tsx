@@ -228,6 +228,7 @@ export default function PlayingScreen() {
   const appStateRef = useRef(appState);
   const isFocusedRef = useRef(true);
   const lastCheckedTrackUriRef = useRef<string | null>(null);
+  const isPlayingRef = useRef(false);
   const pausePollingUntilRef = useRef<number | null>(null);
   const routePlaybackExpiresAtRef = useRef<number | null>(
     paramsState !== null ? Date.now() + ROUTE_PLAYBACK_TIMEOUT_MS : null
@@ -308,6 +309,7 @@ export default function PlayingScreen() {
     [getLibraryState]
   );
 
+  // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: playback state sync with route-pending handling
   const fetchAndUpdatePlaybackState = useCallback(async () => {
     const state = (await getPlaybackState()) as SpotifyCurrentlyPlaying | null;
     const playbackTrackKey = getPlaybackTrackKey(state);
@@ -325,6 +327,7 @@ export default function PlayingScreen() {
       cachedPlaybackState = state;
     }
     setPlaybackState(state);
+    isPlayingRef.current = state?.is_playing ?? false;
 
     if (state?.item && "duration_ms" in state.item) {
       if (state.progress_ms !== null && state.item.duration_ms) {
@@ -585,7 +588,17 @@ export default function PlayingScreen() {
         fetchAll();
       });
 
-      const intervalId = setInterval(fetchAll, 1000);
+      // Only tick while something is actually advancing: when playing, or
+      // while waiting for route-initiated playback to start. When paused, the
+      // push subscription above wakes us on resume, so we idle.
+      const intervalId = setInterval(() => {
+        if (
+          isPlayingRef.current ||
+          routePlaybackExpiresAtRef.current !== null
+        ) {
+          fetchAll();
+        }
+      }, 1000);
 
       return () => {
         isFocusedRef.current = false;

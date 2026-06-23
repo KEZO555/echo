@@ -345,13 +345,13 @@ export const getPlaybackState =
       if (albumUri === cachedArtworkUri && cachedArtworkImages.length > 0) {
         albumImages = cachedArtworkImages;
       } else if (albumUri) {
-        const nativeImageUrl = await spotify.getCurrentTrackImage("LARGE");
+        const nativeImageUrl = await spotify.getCurrentTrackImage("MEDIUM");
         if (nativeImageUrl?.startsWith("data:image/")) {
           albumImages = [
             {
               url: nativeImageUrl,
-              height: 640,
-              width: 640,
+              height: 300,
+              width: 300,
             },
           ];
           cachedArtworkUri = albumUri;

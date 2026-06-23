@@ -46,6 +46,10 @@ export default function SettingsScreen() {
     router.push("/customise" as never);
   };
 
+  const handleRecentlyPlayed = () => {
+    router.push("/recently-played" as never);
+  };
+
   const handleLogoutConfirmed = useCallback(async () => {
     setIsLoggingOut(true);
     await logout();
@@ -100,6 +104,8 @@ export default function SettingsScreen() {
       hideBackButton={true}
     >
       <StyledButton onPress={handleCustomise} text="Customise" />
+
+      <StyledButton onPress={handleRecentlyPlayed} text="Recently Played" />
 
       <StyledButton onPress={handleClearCache} text="Clear Cache" />
 
