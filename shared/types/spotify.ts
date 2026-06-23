@@ -208,6 +208,11 @@ export interface SpotifyPlaybackContext {
   uri: string;
 }
 
+export interface SpotifyQueueResponse {
+  currently_playing: SpotifyTrackSimple | SpotifyEpisode | null;
+  queue: (SpotifyTrackSimple | SpotifyEpisode)[];
+}
+
 export interface SpotifyAlbumSimple {
   album_type: "album" | "single" | "compilation";
   total_tracks: number;

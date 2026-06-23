@@ -1,7 +1,13 @@
 import { MaterialCommunityIcons, MaterialIcons } from "@expo/vector-icons";
 import AutoScroll from "@homielab/react-native-auto-scroll";
 import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import {
   Animated,
   type GestureResponderEvent,
@@ -14,6 +20,7 @@ import {
 import { useAuth } from "@/features/auth";
 import { usePlayback } from "@/features/playback";
 import { useSettings } from "@/features/settings";
+import { spotify } from "@/modules/spotify-sdk";
 import ContentContainer from "@/shared/components/ContentContainer";
 import { FallbackImage } from "@/shared/components/FallbackImage";
 import { HapticPressable } from "@/shared/components/HapticPressable";
@@ -24,13 +31,17 @@ import type {
   SpotifyEpisode,
   SpotifyTrackSimple,
 } from "@/shared/types/spotify";
+import type { EpisodeChapter } from "@/shared/utils";
 import {
   getArtistNames,
+  getCurrentChapterIndex,
   log,
   logError,
   n,
+  parseEpisodeChapters,
   setAlbumNavigationImage,
 } from "@/shared/utils";
+import { apiGet } from "@/shared/utils/api-client";
 
 function MarqueeText({
   children,
@@ -160,6 +171,7 @@ export default function PlayingScreen() {
     hideDevicesButton,
     hideAddToPlaylistButton,
     hideLyricsButton,
+    hideQueueButton,
     hidePlayingCover,
   } = useSettings();
   const { isOnline } = useNetworkState();
@@ -171,36 +183,40 @@ export default function PlayingScreen() {
     sourceContext?: string;
   }>();
 
-  const paramsState = params.trackName
-    ? ({
-        is_playing: true,
-        progress_ms: 0,
-        item: {
-          name: params.trackName,
-          artists: params.artistName
-            ? [
-                {
-                  name: params.artistName,
-                  id: "",
-                  uri: "",
-                  href: "",
-                  type: "artist",
-                  external_urls: { spotify: "" },
-                },
-              ]
-            : [],
-          album: params.albumArtUrl
-            ? { images: [{ url: params.albumArtUrl }] }
-            : undefined,
-          duration_ms: params.durationMs
-            ? Number.parseInt(params.durationMs, 10)
-            : 0,
-          id: "",
-          uri: "",
-          type: "track",
-        },
-      } as SpotifyCurrentlyPlaying)
-    : null;
+  const paramsState = useMemo(
+    () =>
+      params.trackName
+        ? ({
+            is_playing: true,
+            progress_ms: 0,
+            item: {
+              name: params.trackName,
+              artists: params.artistName
+                ? [
+                    {
+                      name: params.artistName,
+                      id: "",
+                      uri: "",
+                      href: "",
+                      type: "artist",
+                      external_urls: { spotify: "" },
+                    },
+                  ]
+                : [],
+              album: params.albumArtUrl
+                ? { images: [{ url: params.albumArtUrl }] }
+                : undefined,
+              duration_ms: params.durationMs
+                ? Number.parseInt(params.durationMs, 10)
+                : 0,
+              id: "",
+              uri: "",
+              type: "track",
+            },
+          } as SpotifyCurrentlyPlaying)
+        : null,
+    [params.trackName, params.artistName, params.albumArtUrl, params.durationMs]
+  );
 
   const initialState = paramsState ?? cachedPlaybackState;
 
@@ -214,12 +230,21 @@ export default function PlayingScreen() {
   const [optimisticSaveState, setOptimisticSaveState] = useState<
     boolean | null
   >(null);
+  const [episodeChapters, setEpisodeChapters] = useState<EpisodeChapter[]>([]);
+  const chaptersEpisodeIdRef = useRef<string | null>(null);
+  const [displayPositionMs, setDisplayPositionMs] = useState(
+    initialState?.progress_ms ?? 0
+  );
+  const positionBaseMsRef = useRef(initialState?.progress_ms ?? 0);
+  const positionBaseAtRef = useRef(Date.now());
+  const durationMsRef = useRef(0);
 
   const progress = useRef(new Animated.Value(0)).current;
   const progressBarWidthRef = useRef<number | null>(null);
   const appStateRef = useRef(appState);
   const isFocusedRef = useRef(true);
   const lastCheckedTrackUriRef = useRef<string | null>(null);
+  const isPlayingRef = useRef(false);
   const pausePollingUntilRef = useRef<number | null>(null);
   const routePlaybackExpiresAtRef = useRef<number | null>(
     paramsState !== null ? Date.now() + ROUTE_PLAYBACK_TIMEOUT_MS : null
@@ -250,10 +275,28 @@ export default function PlayingScreen() {
     }
 
     progress.setValue(0);
+    positionBaseMsRef.current = 0;
+    positionBaseAtRef.current = Date.now();
+    setDisplayPositionMs(0);
     lastCheckedTrackUriRef.current = null;
     setIsCurrentTrackSaved(isPendingLikedSongPlayback);
     setOptimisticSaveState(null);
   }, [isPendingLikedSongPlayback, isPendingRoutePlayback, progress]);
+
+  const applyPosition = useCallback(
+    (positionMs: number, durationMs: number) => {
+      durationMsRef.current = durationMs;
+      positionBaseMsRef.current = positionMs;
+      positionBaseAtRef.current = Date.now();
+      setDisplayPositionMs(positionMs);
+      if (durationMs > 0 && positionMs > 0) {
+        progress.setValue(Math.min(positionMs / durationMs, 1));
+      } else {
+        progress.setValue(0);
+      }
+    },
+    [progress]
+  );
 
   const checkIfTrackIsSaved = useCallback(
     // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: track save check with multiple conditions
@@ -317,27 +360,23 @@ export default function PlayingScreen() {
       cachedPlaybackState = state;
     }
     setPlaybackState(state);
+    isPlayingRef.current = state?.is_playing ?? false;
 
     if (state?.item && "duration_ms" in state.item) {
-      if (state.progress_ms !== null && state.item.duration_ms) {
-        const progressRatio = state.progress_ms / state.item.duration_ms;
-        progress.setValue(progressRatio > 0 ? progressRatio : 0);
-      } else {
-        progress.setValue(0);
-      }
+      applyPosition(state.progress_ms ?? 0, state.item.duration_ms ?? 0);
     } else {
-      progress.setValue(0);
+      applyPosition(0, 0);
     }
 
     await checkIfTrackIsSaved(state);
 
     return state;
   }, [
+    applyPosition,
     checkIfTrackIsSaved,
     clearPendingRoutePlayback,
     getPlaybackState,
     isRoutePlaybackPending,
-    progress,
     routeTrackKey,
   ]);
 
@@ -388,11 +427,7 @@ export default function PlayingScreen() {
 
     try {
       await seekToPosition(newPosition);
-      const totalDuration = playbackState.item.duration_ms;
-      if (totalDuration) {
-        const progressRatio = newPosition / totalDuration;
-        progress.setValue(progressRatio > 0 ? progressRatio : 0);
-      }
+      applyPosition(newPosition, playbackState.item.duration_ms ?? 0);
       await fetchAndUpdatePlaybackState();
     } catch (error) {
       logError("Error seeking backward:", error);
@@ -414,8 +449,7 @@ export default function PlayingScreen() {
 
     try {
       await seekToPosition(newPosition);
-      const progressRatio = newPosition / totalDuration;
-      progress.setValue(progressRatio > 0 ? progressRatio : 0);
+      applyPosition(newPosition, totalDuration);
       await fetchAndUpdatePlaybackState();
     } catch (error) {
       logError("Error seeking forward:", error);
@@ -468,8 +502,7 @@ export default function PlayingScreen() {
 
     try {
       await seekToPosition(seekPositionMs);
-      const progressRatio = seekPositionMs / totalDurationMs;
-      progress.setValue(progressRatio > 0 ? progressRatio : 0);
+      applyPosition(seekPositionMs, totalDurationMs);
       await fetchAndUpdatePlaybackState();
     } catch (error) {
       logError("Error seeking track:", error);
@@ -569,15 +602,94 @@ export default function PlayingScreen() {
 
       fetchAll();
 
-      const intervalId = setInterval(fetchAll, 1000);
+      // Push: sync immediately when the SDK reports a state change (track
+      // change, play/pause, seek). This replaces most of the polling.
+      const unsubscribe = spotify.onPlayerStateChanged(() => {
+        fetchAll();
+      });
+
+      // Local tick: advance the progress bar/time from the last known
+      // position without any native call. Runs only while playing.
+      const tickId = setInterval(() => {
+        if (
+          !isPlayingRef.current ||
+          routePlaybackExpiresAtRef.current !== null
+        ) {
+          return;
+        }
+        const duration = durationMsRef.current;
+        if (duration <= 0) {
+          return;
+        }
+        const elapsed = Date.now() - positionBaseAtRef.current;
+        const positionMs = Math.min(
+          positionBaseMsRef.current + elapsed,
+          duration
+        );
+        setDisplayPositionMs(positionMs);
+        progress.setValue(Math.min(positionMs / duration, 1));
+      }, 1000);
+
+      // Low-frequency native reconcile to correct drift and catch changes the
+      // push subscription may miss.
+      const reconcileId = setInterval(() => {
+        if (
+          isPlayingRef.current ||
+          routePlaybackExpiresAtRef.current !== null
+        ) {
+          fetchAll();
+        }
+      }, 5000);
 
       return () => {
         isFocusedRef.current = false;
-        clearInterval(intervalId);
-        log("PlayingScreen unfocused, cleared interval.");
+        clearInterval(tickId);
+        clearInterval(reconcileId);
+        unsubscribe();
+        log("PlayingScreen unfocused, cleared timers.");
       };
-    }, [fetchAndUpdatePlaybackState])
+    }, [fetchAndUpdatePlaybackState, progress])
   );
+
+  const playingEpisodeId =
+    playbackState?.currently_playing_type === "episode" &&
+    playbackState.item &&
+    "id" in playbackState.item &&
+    playbackState.item.id
+      ? playbackState.item.id
+      : null;
+
+  useEffect(() => {
+    if (!(playingEpisodeId && isOnline)) {
+      chaptersEpisodeIdRef.current = null;
+      setEpisodeChapters([]);
+      return;
+    }
+
+    if (chaptersEpisodeIdRef.current === playingEpisodeId) {
+      return;
+    }
+    chaptersEpisodeIdRef.current = playingEpisodeId;
+
+    let cancelled = false;
+    const fetchChapters = async () => {
+      const data = await apiGet<SpotifyEpisode>(
+        `https://api.spotify.com/v1/episodes/${playingEpisodeId}?market=from_token`
+      );
+      if (cancelled) {
+        return;
+      }
+      setEpisodeChapters(
+        data ? parseEpisodeChapters(data.description, data.duration_ms) : []
+      );
+    };
+
+    fetchChapters();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [playingEpisodeId, isOnline]);
 
   const item = visiblePlaybackState?.item ?? null;
 
@@ -607,14 +719,34 @@ export default function PlayingScreen() {
     : "";
   const displaySubtitle = isEpisode ? episodeSubtitle : trackSubtitle;
   const canNavigateToShow = isEpisode && isOnline && !!currentEpisode?.show?.id;
+  const canViewEpisode = isEpisode && isOnline && !!currentEpisode?.id;
   const canNavigateToAlbum =
     !isEpisode && isOnline && !!currentTrack?.album?.id;
+
+  const episodeDurationMs =
+    isEpisode && item?.duration_ms ? item.duration_ms : 0;
+  const hasChapters =
+    isEpisode &&
+    !isPendingRoutePlayback &&
+    episodeDurationMs > 0 &&
+    episodeChapters.length > 0;
+  const currentChapterIndex = hasChapters
+    ? getCurrentChapterIndex(
+        episodeChapters,
+        visiblePlaybackState?.progress_ms ?? 0
+      )
+    : -1;
+  const currentChapterTitle =
+    currentChapterIndex >= 0
+      ? episodeChapters[currentChapterIndex].title
+      : null;
 
   const visibleButtonCount = [
     !hideLikeButton,
     !hideDevicesButton,
     !hideAddToPlaylistButton,
     !hideLyricsButton,
+    !hideQueueButton,
   ].filter(Boolean).length;
 
   const animatedWidth = progress.interpolate({
@@ -627,12 +759,13 @@ export default function PlayingScreen() {
     if (!isOnline) {
       return;
     }
-    if (isEpisode && currentEpisode?.show?.id) {
+    if (isEpisode && currentEpisode?.id) {
       router.push({
-        pathname: "/podcast/[id]",
+        pathname: "/episode/[id]",
         params: {
-          id: currentEpisode.show.id,
-          showName: currentEpisode.show.name as string,
+          id: currentEpisode.id,
+          episodeName: currentEpisode.name as string,
+          showName: (currentEpisode.show?.name as string) ?? "",
         },
       } as never);
     } else if (currentTrack?.album?.id) {
@@ -667,6 +800,12 @@ export default function PlayingScreen() {
   const handleSelectDevicePress = usePreventDoubleTap(() => {
     if (isOnline) {
       router.push({ pathname: "/select-device" as never });
+    }
+  });
+
+  const handleQueuePress = usePreventDoubleTap(() => {
+    if (isOnline) {
+      router.push({ pathname: "/queue" as never });
     }
   });
 
@@ -748,7 +887,7 @@ export default function PlayingScreen() {
           )}
           <View style={styles.trackInfoContainer}>
             <HapticPressable
-              disabled={!(isEpisode ? canNavigateToShow : canNavigateToAlbum)}
+              disabled={!(isEpisode ? canViewEpisode : canNavigateToAlbum)}
               onPress={handleTitlePress}
             >
               <MarqueeText
@@ -789,16 +928,37 @@ export default function PlayingScreen() {
                     { width: progressBarWidth },
                   ]}
                 />
+                {hasChapters &&
+                  episodeChapters.map((chapter) => (
+                    <View
+                      key={chapter.positionMs}
+                      style={[
+                        styles.chapterTick,
+                        { backgroundColor: invertColors ? "black" : "white" },
+                        {
+                          left: `${Math.min(
+                            (chapter.positionMs / episodeDurationMs) * 100,
+                            100
+                          )}%`,
+                        },
+                      ]}
+                    />
+                  ))}
               </View>
             </HapticPressable>
             <View style={styles.progressBarInfo}>
               <StyledText style={styles.timeText}>
-                {formatTime(visiblePlaybackState.progress_ms)}
+                {formatTime(isPendingRoutePlayback ? 0 : displayPositionMs)}
               </StyledText>
               <StyledText style={styles.timeText}>
                 {formatTime(item.duration_ms)}
               </StyledText>
             </View>
+            {currentChapterTitle ? (
+              <StyledText numberOfLines={1} style={styles.chapterLabel}>
+                {currentChapterTitle}
+              </StyledText>
+            ) : null}
           </View>
           <View style={styles.musicControls}>
             <HapticPressable onPress={handleShuffleToggle}>
@@ -967,6 +1127,23 @@ export default function PlayingScreen() {
               />
             </HapticPressable>
           )}
+          {!hideQueueButton && (
+            <HapticPressable
+              disabled={!isOnline || isPendingRoutePlayback}
+              onPress={() => {
+                if (isOnline && !isPendingRoutePlayback) {
+                  handleQueuePress();
+                }
+              }}
+              style={!isOnline && styles.disabledButton}
+            >
+              <MaterialIcons
+                color={invertColors ? "black" : "white"}
+                name="queue-music"
+                size={n(30)}
+              />
+            </HapticPressable>
+          )}
         </View>
       </View>
     </ContentContainer>
@@ -1048,6 +1225,18 @@ const styles = StyleSheet.create({
     width: "90%",
     alignItems: "center",
     justifyContent: "space-between",
+    marginBottom: n(6),
+  },
+  chapterTick: {
+    position: "absolute",
+    top: n(-4),
+    width: n(2),
+    height: n(10),
+  },
+  chapterLabel: {
+    fontSize: n(12),
+    width: "90%",
+    textAlign: "center",
     marginBottom: n(6),
   },
   musicControls: {

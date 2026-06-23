@@ -56,8 +56,8 @@ export default function PlaylistDetailScreen() {
     playlistName?: string;
   }>();
   const { user } = useAuth();
-  const { skipToIndex } = usePlayback();
-  const { showPlaylistTrackCovers } = useSettings();
+  const { playContext, addToQueue } = usePlayback();
+  const { showPlaylistTrackCovers, triggerHaptic } = useSettings();
   const router = useRouter();
   const { isOnline } = useNetworkState();
 
@@ -293,10 +293,8 @@ export default function PlaylistDetailScreen() {
       track?.album?.images?.[0]?.url ?? playlist?.images?.[0]?.url ?? "";
 
     try {
-      await skipToIndex({
-        type: "playlist",
-        uri: `spotify:playlist:${id}`,
-        currentIndex: trackIndex,
+      await playContext(`spotify:playlist:${id}`, {
+        offsetPosition: trackIndex,
       });
       router.push({
         pathname: "/playing",
@@ -321,6 +319,21 @@ export default function PlaylistDetailScreen() {
     }
   });
 
+  const handleAddTrackToQueue = useCallback(
+    async (track?: SpotifyTrackSimple | null) => {
+      if (!track?.uri) {
+        return;
+      }
+      triggerHaptic();
+      try {
+        await addToQueue(track.uri);
+      } catch (queueError) {
+        logError("Error adding track to queue:", queueError);
+      }
+    },
+    [addToQueue, triggerHaptic]
+  );
+
   const renderTrackItem = ({
     item,
     index,
@@ -343,6 +356,7 @@ export default function PlaylistDetailScreen() {
         <MediaListItem
           forceShowImage
           imageUri={track.album?.images?.[0]?.url}
+          onLongPress={() => handleAddTrackToQueue(track)}
           onPress={() => handleTrackPress(index)}
           placeholderIcon="music-note"
           primaryText={track.name}
@@ -357,6 +371,7 @@ export default function PlaylistDetailScreen() {
         durationMs={track.duration_ms}
         imageUri={track.album?.images?.[0]?.url}
         name={track.name}
+        onLongPress={() => handleAddTrackToQueue(track)}
         onPress={() => handleTrackPress(index)}
         trackNumber={(loadedPlaylist?.items.offset || 0) + index + 1}
       />

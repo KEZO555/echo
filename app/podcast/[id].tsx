@@ -30,7 +30,7 @@ export default function PodcastDetailScreen() {
   }>();
 
   const { accessToken } = useAuth();
-  const { playTrackWithContext } = usePlayback();
+  const { playContext } = usePlayback();
   const followPodcast = usePodcastsStore((s) => s.followPodcast);
   const unfollowPodcast = usePodcastsStore((s) => s.unfollowPodcast);
   const checkIfFollowing = usePodcastsStore((s) => s.checkIfFollowing);
@@ -169,40 +169,49 @@ export default function PodcastDetailScreen() {
     [show?.episodes?.items]
   );
 
-  const handleEpisodePress = usePreventDoubleTap(
+  const handleEpisodePlay = usePreventDoubleTap(
     async (episode: SpotifyEpisode, index: number) => {
       const albumArtUrl =
         getLargestImage(episode.images) ?? getLargestImage(show?.images) ?? "";
+      const resumePoint = episode.resume_point;
+      const resumeMs =
+        resumePoint && !resumePoint.fully_played
+          ? resumePoint.resume_position_ms
+          : undefined;
+      const playingParams = {
+        trackName: episode.name ?? "",
+        artistName: show?.name ?? "",
+        albumArtUrl,
+        durationMs: episode.duration_ms?.toString() ?? "0",
+      };
 
       try {
-        await playTrackWithContext(episode.uri, {
-          type: "podcast",
-          uri: `spotify:show:${id}`,
-          currentIndex: index,
-        });
-        router.push({
-          pathname: "/playing",
-          params: {
-            trackName: episode.name ?? "",
-            artistName: show?.name ?? "",
-            albumArtUrl,
-            durationMs: episode.duration_ms?.toString() ?? "0",
-          },
+        await playContext(`spotify:show:${id}`, {
+          offsetUri: episode.uri,
+          offsetPosition: index,
+          positionMs: resumeMs,
         });
       } catch (playError) {
         logError("Error playing episode:", playError);
-        router.push({
-          pathname: "/playing",
-          params: {
-            trackName: episode.name ?? "",
-            artistName: show?.name ?? "",
-            albumArtUrl,
-            durationMs: episode.duration_ms?.toString() ?? "0",
-          },
-        });
       }
+      router.push({ pathname: "/playing", params: playingParams });
     }
   );
+
+  const handleEpisodeInfo = usePreventDoubleTap((episode: SpotifyEpisode) => {
+    const episodeWithShow: SpotifyEpisode = episode.show
+      ? episode
+      : { ...episode, show: show ?? undefined };
+    router.push({
+      pathname: "/episode/[id]",
+      params: {
+        id: episode.id,
+        episodeString: JSON.stringify(episodeWithShow),
+        episodeName: episode.name,
+        showName: show?.name ?? "",
+      },
+    });
+  });
 
   const renderEpisodeItem = ({
     item: episode,
@@ -212,7 +221,8 @@ export default function PodcastDetailScreen() {
     index: number;
   }) => (
     <HapticPressable
-      onPress={() => handleEpisodePress(episode, index)}
+      onLongPress={() => handleEpisodeInfo(episode)}
+      onPress={() => handleEpisodePlay(episode, index)}
       style={styles.episodeItemContainer}
     >
       <View style={styles.episodeInfoContainer}>

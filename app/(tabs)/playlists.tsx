@@ -51,16 +51,11 @@ export default function PlaylistsScreen() {
 
   const playlistSource = playlists ?? offlinePlaylists;
 
-  const ownedPlaylists = useMemo(() => {
-    if (!(playlistSource && user?.id)) {
-      return null;
-    }
-    return playlistSource.filter((playlist) => playlist.owner.id === user.id);
-  }, [playlistSource, user?.id]);
+  const allPlaylists = useMemo(() => playlistSource ?? null, [playlistSource]);
   const sortedPlaylists = useMemo(
     () =>
-      ownedPlaylists
-        ? [...ownedPlaylists].sort((a, b) => {
+      allPlaylists
+        ? [...allPlaylists].sort((a, b) => {
             const ownerCmp = (
               a.owner.display_name ??
               a.owner.id ??
@@ -72,7 +67,7 @@ export default function PlaylistsScreen() {
             return a.name.localeCompare(b.name);
           })
         : null,
-    [ownedPlaylists]
+    [allPlaylists]
   );
   const playlistRateLimitMessage = useMemo(
     () => getRateLimitMessage("playlists", rateLimitRetryAt),
