@@ -329,29 +329,20 @@ export default function AlbumDetailScreen() {
       emptyMessage="No tracks found in this album."
       error={error}
       headerAccessory={
-        <HapticPressable
-          disabled={!isOnline}
-          onPress={handlePlayAlbum}
-          style={[
-            styles.playButton,
-            { backgroundColor: invertColors ? "black" : "white" },
-            !isOnline && styles.playButtonDisabled,
-          ]}
-        >
-          <MaterialIcons
-            color={invertColors ? "white" : "black"}
-            name="play-arrow"
-            size={n(28)}
-          />
-          <StyledText
-            style={[
-              styles.playLabel,
-              { color: invertColors ? "white" : "black" },
-            ]}
+        <View style={styles.playButtonWrap}>
+          <HapticPressable
+            disabled={!isOnline}
+            onPress={handlePlayAlbum}
+            style={[styles.playButton, !isOnline && styles.playButtonDisabled]}
           >
-            Play
-          </StyledText>
-        </HapticPressable>
+            <MaterialIcons
+              color={invertColors ? "black" : "white"}
+              name="play-arrow"
+              size={n(30)}
+            />
+            <StyledText style={styles.playLabel}>Play</StyledText>
+          </HapticPressable>
+        </View>
       }
       headerIcon={isAlbumSaved ? "remove" : "add"}
       headerIconPress={handleToggleAlbumSave}
@@ -376,16 +367,17 @@ export default function AlbumDetailScreen() {
 }
 
 const styles = StyleSheet.create({
+  playButtonWrap: {
+    width: "100%",
+    alignItems: "center",
+    marginBottom: n(20),
+  },
   playButton: {
     flexDirection: "row",
     alignItems: "center",
-    alignSelf: "center",
     justifyContent: "center",
     gap: n(8),
-    paddingVertical: n(8),
-    paddingHorizontal: n(24),
-    marginBottom: n(20),
-    borderRadius: n(24),
+    paddingVertical: n(6),
   },
   playButtonDisabled: {
     opacity: 0.4,

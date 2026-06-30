@@ -94,17 +94,6 @@ export const Header = React.memo(function Header({
     );
   }
 
-  if (!(actionSlot || nowPlayingSlot)) {
-    actionSlot = <View style={styles.iconContainerRightEmpty} />;
-  }
-
-  const rightSlot = (
-    <View style={styles.rightCluster}>
-      {actionSlot}
-      {nowPlayingSlot}
-    </View>
-  );
-
   return (
     <View
       style={[
@@ -112,10 +101,10 @@ export const Header = React.memo(function Header({
         { backgroundColor: invertColors ? "white" : "black" },
       ]}
     >
-      {leftSlot}
+      <View style={[styles.side, styles.sideLeft]}>{leftSlot}</View>
 
       {onTitlePress ? (
-        <HapticPressable onPress={onTitlePress} style={styles.titlePressable}>
+        <HapticPressable onPress={onTitlePress} style={styles.titleWrap}>
           <StyledText numberOfLines={1} style={styles.titleText}>
             {headerTitle}
           </StyledText>
@@ -123,12 +112,16 @@ export const Header = React.memo(function Header({
       ) : (
         <StyledText
           numberOfLines={1}
-          style={[styles.titleText, styles.titleMaxWidth]}
+          style={[styles.titleText, styles.titleWrap]}
         >
           {headerTitle}
         </StyledText>
       )}
-      {rightSlot}
+
+      <View style={[styles.side, styles.sideRight]}>
+        {actionSlot}
+        {nowPlayingSlot}
+      </View>
     </View>
   );
 });
@@ -137,10 +130,24 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
     paddingHorizontal: n(22),
     paddingVertical: n(5),
     zIndex: 1,
+  },
+  side: {
+    width: n(84),
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  sideLeft: {
+    justifyContent: "flex-start",
+  },
+  sideRight: {
+    justifyContent: "flex-end",
+    gap: n(14),
+  },
+  titleWrap: {
+    flex: 1,
   },
   iconContainerLeft: {
     width: n(32),
@@ -156,27 +163,13 @@ const styles = StyleSheet.create({
     paddingTop: n(6),
     paddingLeft: n(4),
   },
-  iconContainerRightEmpty: {
-    width: n(32),
-    height: n(32),
-  },
-  rightCluster: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: n(14),
-  },
   loadingSpinner: {
     marginTop: n(4),
-  },
-  titlePressable: {
-    maxWidth: "62%",
   },
   titleText: {
     fontSize: n(20),
     fontFamily: "PublicSans-Regular",
     paddingTop: n(2),
-  },
-  titleMaxWidth: {
-    maxWidth: "62%",
+    textAlign: "center",
   },
 });
