@@ -248,7 +248,7 @@ export default function ArtistDetailScreen() {
         },
       },
       {
-        label: "Add to queue",
+        label: "Play later",
         onPress: () => {
           close();
           handleAddToQueue(track);

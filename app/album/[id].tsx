@@ -1,6 +1,7 @@
+import { MaterialIcons } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { View } from "react-native";
+import { StyleSheet, View } from "react-native";
 import { useAuth } from "@/features/auth";
 import {
   followArtist,
@@ -10,14 +11,26 @@ import {
 import { useAlbumsStore } from "@/features/library/stores";
 import { usePlayback } from "@/features/playback";
 import { useSettings } from "@/features/settings";
-import { ContextMenu, DetailScreen, TrackListItem } from "@/shared/components";
+import {
+  ContextMenu,
+  DetailScreen,
+  HapticPressable,
+  StyledText,
+  TrackListItem,
+} from "@/shared/components";
 import {
   useNetworkState,
   usePreventDoubleTap,
   useSaveStatus,
 } from "@/shared/hooks";
 import type { SpotifyAlbum, SpotifyTrackSimple } from "@/shared/types/spotify";
-import { consumeAlbumNavigationImage, log, logError, n } from "@/shared/utils";
+import {
+  consumeAlbumNavigationImage,
+  getArtistNames,
+  log,
+  logError,
+  n,
+} from "@/shared/utils";
 import { apiGet } from "@/shared/utils/api-client";
 
 export default function AlbumDetailScreen() {
@@ -29,7 +42,7 @@ export default function AlbumDetailScreen() {
 
   const { accessToken } = useAuth();
   const { playContext, addToQueue } = usePlayback();
-  const { triggerHaptic } = useSettings();
+  const { triggerHaptic, invertColors } = useSettings();
   const saveAlbum = useAlbumsStore((s) => s.saveAlbum);
   const removeAlbum = useAlbumsStore((s) => s.removeAlbum);
   const checkIfSaved = useAlbumsStore((s) => s.checkIfSaved);
@@ -154,6 +167,24 @@ export default function AlbumDetailScreen() {
     }
   }, [album, isLoadingMoreTracks]);
 
+  const handlePlayAlbum = usePreventDoubleTap(async () => {
+    const firstTrack = album?.tracks?.items?.[0];
+    try {
+      await playContext(`spotify:album:${id}`);
+    } catch (playError) {
+      logError("Error playing album:", playError);
+    }
+    router.push({
+      pathname: "/playing",
+      params: {
+        trackName: firstTrack?.name ?? album?.name ?? "",
+        artistName: getArtistNames(album?.artists ?? firstTrack?.artists ?? []),
+        albumArtUrl: album?.images?.[0]?.url ?? "",
+        durationMs: firstTrack?.duration_ms?.toString() ?? "0",
+      },
+    });
+  });
+
   const handleTrackPress = usePreventDoubleTap(async (trackIndex: number) => {
     const track = album?.tracks?.items[trackIndex];
     const artistName =
@@ -251,7 +282,7 @@ export default function AlbumDetailScreen() {
         },
       },
       {
-        label: "Add to queue",
+        label: "Play later",
         onPress: () => {
           close();
           handleAddTrackToQueue(track);
@@ -343,6 +374,31 @@ export default function AlbumDetailScreen() {
       data={album.tracks?.items || []}
       emptyMessage="No tracks found in this album."
       error={error}
+      headerAccessory={
+        <HapticPressable
+          disabled={!isOnline}
+          onPress={handlePlayAlbum}
+          style={[
+            styles.playButton,
+            { backgroundColor: invertColors ? "black" : "white" },
+            !isOnline && styles.playButtonDisabled,
+          ]}
+        >
+          <MaterialIcons
+            color={invertColors ? "white" : "black"}
+            name="play-arrow"
+            size={n(28)}
+          />
+          <StyledText
+            style={[
+              styles.playLabel,
+              { color: invertColors ? "white" : "black" },
+            ]}
+          >
+            Play
+          </StyledText>
+        </HapticPressable>
+      }
       headerIcon={isAlbumSaved ? "remove" : "add"}
       headerIconPress={handleToggleAlbumSave}
       headerIconShowLength={isCheckingAlbumSaved ? 0 : 1}
@@ -364,3 +420,23 @@ export default function AlbumDetailScreen() {
     </DetailScreen>
   );
 }
+
+const styles = StyleSheet.create({
+  playButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    alignSelf: "center",
+    justifyContent: "center",
+    gap: n(8),
+    paddingVertical: n(8),
+    paddingHorizontal: n(24),
+    marginBottom: n(20),
+    borderRadius: n(24),
+  },
+  playButtonDisabled: {
+    opacity: 0.4,
+  },
+  playLabel: {
+    fontSize: n(20),
+  },
+});

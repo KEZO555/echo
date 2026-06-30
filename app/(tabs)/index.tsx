@@ -206,7 +206,7 @@ export default function LikedSongsScreen() {
     };
     const actions = [
       { label: "Play", onPress: run(handleTrackPress) },
-      { label: "Add to queue", onPress: run(handleAddTrackToQueue) },
+      { label: "Play later", onPress: run(handleAddTrackToQueue) },
       { label: "Add to playlist", onPress: run(handleAddToPlaylist) },
     ];
     if (track.track?.album?.id) {

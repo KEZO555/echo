@@ -29,6 +29,7 @@ interface DetailScreenProps<T> {
   headerIconPress?: () => void;
   headerIconShowLength?: number;
   itemSeparatorComponent?: React.ComponentType<{ leadingItem: T }> | null;
+  headerAccessory?: ReactNode;
   children?: ReactNode;
 }
 
@@ -53,6 +54,7 @@ export function DetailScreen<T>({
   headerIconPress,
   headerIconShowLength,
   itemSeparatorComponent,
+  headerAccessory,
   children,
 }: DetailScreenProps<T>) {
   const { hideDetailCovers: settingsHideCovers } = useSettings();
@@ -103,14 +105,19 @@ export function DetailScreen<T>({
           })()}
           ListFooterComponent={<ListFooter isLoading={isLoadingMore} />}
           ListHeaderComponent={
-            shouldHideCovers ? null : (
-              <View style={detailScreenStyles.imageContainer}>
-                <FallbackImage
-                  placeholderIcon={placeholderIcon}
-                  placeholderText={placeholderText}
-                  style={detailScreenStyles.image}
-                  uri={imageUrl}
-                />
+            shouldHideCovers && !headerAccessory ? null : (
+              <View>
+                {shouldHideCovers ? null : (
+                  <View style={detailScreenStyles.imageContainer}>
+                    <FallbackImage
+                      placeholderIcon={placeholderIcon}
+                      placeholderText={placeholderText}
+                      style={detailScreenStyles.image}
+                      uri={imageUrl}
+                    />
+                  </View>
+                )}
+                {headerAccessory}
               </View>
             )
           }

@@ -424,7 +424,7 @@ export default function PlaylistDetailScreen() {
         },
       },
       {
-        label: "Add to queue",
+        label: "Play later",
         onPress: () => {
           close();
           handleAddTrackToQueue(track);
