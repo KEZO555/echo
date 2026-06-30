@@ -1,6 +1,6 @@
 import { MaterialIcons } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { StyleSheet, View } from "react-native";
 import { useSavedEpisodesStore } from "@/features/library/stores";
 import { usePlayback } from "@/features/playback";
@@ -79,7 +79,7 @@ export default function EpisodeDetailScreen() {
     showName?: string;
   }>();
 
-  const { playContext, addToQueue } = usePlayback();
+  const { playContext } = usePlayback();
   const { triggerHaptic, hideDetailCovers } = useSettings();
   const { isOnline } = useNetworkState();
   const router = useRouter();
@@ -87,6 +87,7 @@ export default function EpisodeDetailScreen() {
   const removeEpisode = useSavedEpisodesStore((s) => s.removeEpisode);
   const checkIfSaved = useSavedEpisodesStore((s) => s.checkIfSaved);
   const [isSaved, setIsSaved] = useState(false);
+  const userToggledSaveRef = useRef(false);
 
   const initialEpisode = useMemo(() => {
     if (!episodeString) {
@@ -176,6 +177,7 @@ export default function EpisodeDetailScreen() {
             getLargestImage(target.show?.images) ??
             "",
           durationMs: target.duration_ms?.toString() ?? "0",
+          mediaType: "episode",
         },
       });
     },
@@ -226,7 +228,7 @@ export default function EpisodeDetailScreen() {
     let cancelled = false;
     checkIfSaved(id)
       .then((saved) => {
-        if (!cancelled) {
+        if (!(cancelled || userToggledSaveRef.current)) {
           setIsSaved(saved);
         }
       })
@@ -243,6 +245,7 @@ export default function EpisodeDetailScreen() {
       return;
     }
     triggerHaptic();
+    userToggledSaveRef.current = true;
     const next = !isSaved;
     setIsSaved(next);
     const ok = next
@@ -252,18 +255,6 @@ export default function EpisodeDetailScreen() {
       setIsSaved(!next);
     }
   });
-
-  const handleAddToQueue = useCallback(async () => {
-    if (!episode?.uri) {
-      return;
-    }
-    triggerHaptic();
-    try {
-      await addToQueue(episode.uri);
-    } catch (queueError) {
-      logError("Error adding episode to queue:", queueError);
-    }
-  }, [addToQueue, episode?.uri, triggerHaptic]);
 
   const handleShowPress = usePreventDoubleTap(() => {
     if (isOnline && episode?.show?.id) {
@@ -314,10 +305,6 @@ export default function EpisodeDetailScreen() {
           <StyledText style={styles.actionLabel}>
             {isSaved ? "Saved" : "Save"}
           </StyledText>
-        </HapticPressable>
-        <HapticPressable onPress={handleAddToQueue} style={styles.actionButton}>
-          <MaterialIcons color="white" name="queue-music" size={n(28)} />
-          <StyledText style={styles.actionLabel}>Queue</StyledText>
         </HapticPressable>
       </View>
 

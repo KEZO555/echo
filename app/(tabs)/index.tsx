@@ -258,11 +258,7 @@ export default function LikedSongsScreen() {
     );
   };
 
-  if (isNetworkLoading || (isLoading && !savedTracks)) {
-    return <View style={styles.centeredMessageContainer} />;
-  }
-
-  if (isFetching && !savedTracks) {
+  if (!savedTracks && (isLoading || isFetching || isNetworkLoading)) {
     return <View style={styles.centeredMessageContainer} />;
   }
 

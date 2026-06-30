@@ -200,6 +200,7 @@ export default function PodcastDetailScreen() {
         artistName: show?.name ?? "",
         albumArtUrl,
         durationMs: episode.duration_ms?.toString() ?? "0",
+        mediaType: "episode",
       };
 
       try {

@@ -53,6 +53,7 @@ interface PlayingRouteParams {
   albumArtUrl?: string;
   durationMs?: string;
   sourceContext?: string;
+  mediaType?: string;
 }
 const ROUTE_PLAYBACK_TIMEOUT_MS = 4000;
 
@@ -134,42 +135,51 @@ export default function PlayingScreen() {
     albumArtUrl?: string;
     durationMs?: string;
     sourceContext?: string;
+    mediaType?: string;
   }>();
 
-  const paramsState = useMemo(
-    () =>
-      params.trackName
-        ? ({
-            is_playing: true,
-            progress_ms: 0,
-            item: {
-              name: params.trackName,
-              artists: params.artistName
-                ? [
-                    {
-                      name: params.artistName,
-                      id: "",
-                      uri: "",
-                      href: "",
-                      type: "artist",
-                      external_urls: { spotify: "" },
-                    },
-                  ]
-                : [],
-              album: params.albumArtUrl
-                ? { images: [{ url: params.albumArtUrl }] }
-                : undefined,
-              duration_ms: params.durationMs
-                ? Number.parseInt(params.durationMs, 10)
-                : 0,
-              id: "",
-              uri: "",
-              type: "track",
-            },
-          } as SpotifyCurrentlyPlaying)
-        : null,
-    [params.trackName, params.artistName, params.albumArtUrl, params.durationMs]
-  );
+  const paramsState = useMemo(() => {
+    if (!params.trackName) {
+      return null;
+    }
+    const isEpisodeParam = params.mediaType === "episode";
+    return {
+      is_playing: true,
+      progress_ms: 0,
+      currently_playing_type: isEpisodeParam ? "episode" : "track",
+      item: {
+        name: params.trackName,
+        artists: params.artistName
+          ? [
+              {
+                name: params.artistName,
+                id: "",
+                uri: "",
+                href: "",
+                type: "artist",
+                external_urls: { spotify: "" },
+              },
+            ]
+          : [],
+        album: params.albumArtUrl
+          ? { images: [{ url: params.albumArtUrl }] }
+          : undefined,
+        images: params.albumArtUrl ? [{ url: params.albumArtUrl }] : undefined,
+        duration_ms: params.durationMs
+          ? Number.parseInt(params.durationMs, 10)
+          : 0,
+        id: "",
+        uri: "",
+        type: isEpisodeParam ? "episode" : "track",
+      },
+    } as unknown as SpotifyCurrentlyPlaying;
+  }, [
+    params.trackName,
+    params.artistName,
+    params.albumArtUrl,
+    params.durationMs,
+    params.mediaType,
+  ]);
 
   const initialState = paramsState ?? cachedPlaybackState;
 
@@ -1154,99 +1164,101 @@ export default function PlayingScreen() {
               </>
             )}
           </View>
-        </View>
-        <View
-          style={[
-            styles.musicControlsExtra,
-            visibleButtonCount === 1 && styles.musicControlsExtraCentered,
-          ]}
-        >
-          {showLikeButton && (
-            <HapticPressable
-              disabled={
-                pendingSaveOperation || !isOnline || isPendingRoutePlayback
-              }
-              onPress={handleToggleSaveTrack}
-              style={
-                (pendingSaveOperation || !isOnline) && styles.disabledButton
-              }
-            >
-              <MaterialIcons
-                color={invertColors ? "black" : "white"}
-                name={(() => {
-                  if (isEpisode) {
-                    return displayedLikeState ? "bookmark" : "bookmark-border";
+          <View
+            style={[
+              styles.musicControlsExtra,
+              visibleButtonCount === 1 && styles.musicControlsExtraCentered,
+            ]}
+          >
+            {showLikeButton && (
+              <HapticPressable
+                disabled={
+                  pendingSaveOperation || !isOnline || isPendingRoutePlayback
+                }
+                onPress={handleToggleSaveTrack}
+                style={
+                  (pendingSaveOperation || !isOnline) && styles.disabledButton
+                }
+              >
+                <MaterialIcons
+                  color={invertColors ? "black" : "white"}
+                  name={(() => {
+                    if (isEpisode) {
+                      return displayedLikeState
+                        ? "bookmark"
+                        : "bookmark-border";
+                    }
+                    return displayedLikeState ? "favorite" : "favorite-outline";
+                  })()}
+                  size={n(30)}
+                />
+              </HapticPressable>
+            )}
+            {showDevicesButton && (
+              <HapticPressable
+                disabled={!isOnline}
+                onPress={handleSelectDevicePress}
+                style={!isOnline && styles.disabledButton}
+              >
+                <MaterialIcons
+                  color={invertColors ? "black" : "white"}
+                  name={"devices"}
+                  size={n(30)}
+                />
+              </HapticPressable>
+            )}
+            {showLyricsButton && (
+              <HapticPressable
+                disabled={!isOnline || isPendingRoutePlayback}
+                onPress={() => {
+                  if (isOnline && !isPendingRoutePlayback) {
+                    handleNavigateToLyrics();
                   }
-                  return displayedLikeState ? "favorite" : "favorite-outline";
-                })()}
-                size={n(30)}
-              />
-            </HapticPressable>
-          )}
-          {showDevicesButton && (
-            <HapticPressable
-              disabled={!isOnline}
-              onPress={handleSelectDevicePress}
-              style={!isOnline && styles.disabledButton}
-            >
-              <MaterialIcons
-                color={invertColors ? "black" : "white"}
-                name={"devices"}
-                size={n(30)}
-              />
-            </HapticPressable>
-          )}
-          {showLyricsButton && (
-            <HapticPressable
-              disabled={!isOnline || isPendingRoutePlayback}
-              onPress={() => {
-                if (isOnline && !isPendingRoutePlayback) {
-                  handleNavigateToLyrics();
-                }
-              }}
-              style={!isOnline && styles.disabledButton}
-            >
-              <MaterialIcons
-                color={invertColors ? "black" : "white"}
-                name="mic-external-on"
-                size={n(30)}
-              />
-            </HapticPressable>
-          )}
-          {showAddButton && (
-            <HapticPressable
-              disabled={!isOnline || isPendingRoutePlayback}
-              onPress={() => {
-                if (isOnline && !isPendingRoutePlayback) {
-                  handleNavigateToAddToPlaylist();
-                }
-              }}
-              style={!isOnline && styles.disabledButton}
-            >
-              <MaterialIcons
-                color={invertColors ? "black" : "white"}
-                name="add"
-                size={n(30)}
-              />
-            </HapticPressable>
-          )}
-          {showQueueButton && (
-            <HapticPressable
-              disabled={!isOnline || isPendingRoutePlayback}
-              onPress={() => {
-                if (isOnline && !isPendingRoutePlayback) {
-                  handleQueuePress();
-                }
-              }}
-              style={!isOnline && styles.disabledButton}
-            >
-              <MaterialIcons
-                color={invertColors ? "black" : "white"}
-                name="queue-music"
-                size={n(30)}
-              />
-            </HapticPressable>
-          )}
+                }}
+                style={!isOnline && styles.disabledButton}
+              >
+                <MaterialIcons
+                  color={invertColors ? "black" : "white"}
+                  name="mic-external-on"
+                  size={n(30)}
+                />
+              </HapticPressable>
+            )}
+            {showAddButton && (
+              <HapticPressable
+                disabled={!isOnline || isPendingRoutePlayback}
+                onPress={() => {
+                  if (isOnline && !isPendingRoutePlayback) {
+                    handleNavigateToAddToPlaylist();
+                  }
+                }}
+                style={!isOnline && styles.disabledButton}
+              >
+                <MaterialIcons
+                  color={invertColors ? "black" : "white"}
+                  name="add"
+                  size={n(30)}
+                />
+              </HapticPressable>
+            )}
+            {showQueueButton && (
+              <HapticPressable
+                disabled={!isOnline || isPendingRoutePlayback}
+                onPress={() => {
+                  if (isOnline && !isPendingRoutePlayback) {
+                    handleQueuePress();
+                  }
+                }}
+                style={!isOnline && styles.disabledButton}
+              >
+                <MaterialIcons
+                  color={invertColors ? "black" : "white"}
+                  name="queue-music"
+                  size={n(30)}
+                />
+              </HapticPressable>
+            )}
+          </View>
         </View>
       </View>
       <ContextMenu
@@ -1277,6 +1289,8 @@ const styles = StyleSheet.create({
     flex: 1,
     width: "100%",
     alignItems: "center",
+    justifyContent: "center",
+    gap: n(8),
   },
   albumArt: {
     width: n(200),

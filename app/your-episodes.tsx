@@ -101,6 +101,7 @@ export default function YourEpisodesScreen() {
           artistName: episode.show?.name ?? "",
           albumArtUrl,
           durationMs: episode.duration_ms?.toString() ?? "0",
+          mediaType: "episode",
         },
       });
     }
