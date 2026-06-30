@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { View } from "react-native";
 import { useAuth } from "@/features/auth";
 import {
+  followArtist,
   getCachedAlbumDetail,
   saveCachedAlbumDetail,
 } from "@/features/library";
@@ -228,6 +229,13 @@ export default function AlbumDetailScreen() {
     [router]
   );
 
+  const handleFollowArtist = useCallback((track: SpotifyTrackSimple) => {
+    const artistId = track.artists?.[0]?.id;
+    if (artistId) {
+      followArtist(artistId);
+    }
+  }, []);
+
   const menuActions = useMemo(() => {
     if (!menuTrack) {
       return [];
@@ -265,6 +273,13 @@ export default function AlbumDetailScreen() {
           handleGoToArtist(track);
         },
       });
+      actions.push({
+        label: "Follow artist",
+        onPress: () => {
+          close();
+          handleFollowArtist(track);
+        },
+      });
     }
     return actions;
   }, [
@@ -273,6 +288,7 @@ export default function AlbumDetailScreen() {
     handleAddTrackToQueue,
     handleAddToPlaylist,
     handleGoToArtist,
+    handleFollowArtist,
   ]);
 
   if (!album) {

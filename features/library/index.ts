@@ -1,4 +1,9 @@
 export {
+  checkIfFollowingArtist,
+  followArtist,
+  unfollowArtist,
+} from "./services/artistFollow";
+export {
   useAlbumsStore,
   usePlaylistsStore,
   usePodcastsStore,

@@ -5,6 +5,7 @@ import { View } from "react-native";
 import { ALBUM_DETAIL_KEY_PREFIX } from "@/constants/spotify";
 import { useAuth } from "@/features/auth";
 import {
+  followArtist,
   refreshSavedAlbumsFromCache,
   useAlbumsStore,
 } from "@/features/library";
@@ -248,6 +249,16 @@ export default function AlbumsScreen() {
         onPress: () => {
           close();
           handleGoToArtist(album);
+        },
+      });
+      actions.push({
+        label: "Follow artist",
+        onPress: () => {
+          close();
+          const artistId = album.album.artists?.[0]?.id;
+          if (artistId) {
+            followArtist(artistId);
+          }
         },
       });
     }

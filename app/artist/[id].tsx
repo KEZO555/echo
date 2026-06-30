@@ -2,6 +2,11 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { StyleSheet } from "react-native";
 import { useAuth } from "@/features/auth";
+import {
+  checkIfFollowingArtist,
+  followArtist,
+  unfollowArtist,
+} from "@/features/library";
 import { usePlayback } from "@/features/playback";
 import { useSettings } from "@/features/settings";
 import {
@@ -11,7 +16,11 @@ import {
   StyledText,
   TrackListItem,
 } from "@/shared/components";
-import { useNetworkState, usePreventDoubleTap } from "@/shared/hooks";
+import {
+  useNetworkState,
+  usePreventDoubleTap,
+  useSaveStatus,
+} from "@/shared/hooks";
 import type {
   SpotifyAlbum,
   SpotifyImage,
@@ -52,7 +61,7 @@ export default function ArtistDetailScreen() {
     artistName?: string;
   }>();
 
-  const { user } = useAuth();
+  const { user, accessToken } = useAuth();
   const { playTracksWithWebApi, addToQueue } = usePlayback();
   const { triggerHaptic } = useSettings();
   const router = useRouter();
@@ -69,6 +78,18 @@ export default function ArtistDetailScreen() {
   } | null>(null);
 
   const market = user?.country ?? "US";
+
+  const {
+    isSaved: isFollowing,
+    isChecking: isCheckingFollow,
+    toggle: toggleFollow,
+  } = useSaveStatus({
+    id,
+    checkFn: checkIfFollowingArtist,
+    saveFn: followArtist,
+    removeFn: unfollowArtist,
+    accessToken,
+  });
 
   useEffect(() => {
     if (!id) {
@@ -301,6 +322,9 @@ export default function ArtistDetailScreen() {
       data={rows}
       emptyMessage="Nothing to show for this artist."
       error={error}
+      headerIcon={isFollowing ? "remove" : "add"}
+      headerIconPress={toggleFollow}
+      headerIconShowLength={isCheckingFollow ? 0 : 1}
       imageUrl={imageUrl}
       isInitialLoading={isInitialLoading}
       keyExtractor={(item) => item.id}

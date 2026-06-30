@@ -14,7 +14,11 @@ import {
   View,
 } from "react-native";
 import { useAuth } from "@/features/auth";
-import { useSavedEpisodesStore } from "@/features/library/stores";
+import { followArtist } from "@/features/library";
+import {
+  useAlbumsStore,
+  useSavedEpisodesStore,
+} from "@/features/library/stores";
 import { usePlayback } from "@/features/playback";
 import { useSettings } from "@/features/settings";
 import { spotify } from "@/modules/spotify-sdk";
@@ -123,6 +127,7 @@ export default function PlayingScreen() {
   const saveEpisodeStore = useSavedEpisodesStore((s) => s.saveEpisode);
   const removeEpisodeStore = useSavedEpisodesStore((s) => s.removeEpisode);
   const checkEpisodeSaved = useSavedEpisodesStore((s) => s.checkIfSaved);
+  const saveAlbum = useAlbumsStore((s) => s.saveAlbum);
   const params = useLocalSearchParams<{
     trackName?: string;
     artistName?: string;
@@ -829,6 +834,26 @@ export default function PlayingScreen() {
             show: isOnline && Boolean(currentTrack?.artists?.[0]?.id),
             label: "Go to artist",
             run: handleGoToArtist,
+          },
+          {
+            show: isOnline && Boolean(currentTrack?.album?.id),
+            label: "Save album",
+            run: () => {
+              const albumId = currentTrack?.album?.id;
+              if (albumId) {
+                saveAlbum(albumId);
+              }
+            },
+          },
+          {
+            show: isOnline && Boolean(currentTrack?.artists?.[0]?.id),
+            label: "Follow artist",
+            run: () => {
+              const artistId = currentTrack?.artists?.[0]?.id;
+              if (artistId) {
+                followArtist(artistId);
+              }
+            },
           },
           {
             show: isOnline,

@@ -2,7 +2,8 @@ import { useRouter } from "expo-router";
 import { useCallback, useMemo, useState } from "react";
 import { View } from "react-native";
 import { useAuth } from "@/features/auth";
-import { useSavedTracksStore } from "@/features/library/stores";
+import { followArtist } from "@/features/library";
+import { useAlbumsStore, useSavedTracksStore } from "@/features/library/stores";
 import { getSavedTrackIdentity } from "@/features/library/utils/savedTracks";
 import { usePlayback } from "@/features/playback";
 import { useSettings } from "@/features/settings";
@@ -43,6 +44,7 @@ export default function LikedSongsScreen() {
   const { playUriWithSkipToUri, playTracksWithWebApi, addToQueue } =
     usePlayback();
   const { triggerHaptic } = useSettings();
+  const saveAlbum = useAlbumsStore((s) => s.saveAlbum);
   const router = useRouter();
   const { isLoading: isNetworkLoading, isOnline } = useNetworkState();
   const [menuTrack, setMenuTrack] = useState<SavedTrackObject | null>(null);
@@ -176,6 +178,23 @@ export default function LikedSongsScreen() {
     [router]
   );
 
+  const handleSaveAlbum = useCallback(
+    (item: SavedTrackObject) => {
+      const albumId = item.track?.album?.id;
+      if (albumId) {
+        saveAlbum(albumId);
+      }
+    },
+    [saveAlbum]
+  );
+
+  const handleFollowArtist = useCallback((item: SavedTrackObject) => {
+    const artistId = item.track?.artists?.[0]?.id;
+    if (artistId) {
+      followArtist(artistId);
+    }
+  }, []);
+
   const menuActions = useMemo(() => {
     if (!menuTrack) {
       return [];
@@ -192,9 +211,14 @@ export default function LikedSongsScreen() {
     ];
     if (track.track?.album?.id) {
       actions.push({ label: "Go to album", onPress: run(handleGoToAlbum) });
+      actions.push({ label: "Save album", onPress: run(handleSaveAlbum) });
     }
     if (track.track?.artists?.[0]?.id) {
       actions.push({ label: "Go to artist", onPress: run(handleGoToArtist) });
+      actions.push({
+        label: "Follow artist",
+        onPress: run(handleFollowArtist),
+      });
     }
     return actions;
   }, [
@@ -204,6 +228,8 @@ export default function LikedSongsScreen() {
     handleAddToPlaylist,
     handleGoToAlbum,
     handleGoToArtist,
+    handleSaveAlbum,
+    handleFollowArtist,
   ]);
 
   const renderTrackItem = ({ item }: { item: LikedSongsListItem }) => {

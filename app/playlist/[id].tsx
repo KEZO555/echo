@@ -2,9 +2,11 @@ import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 import { useCallback, useMemo, useState } from "react";
 import { useAuth } from "@/features/auth";
 import {
+  followArtist,
   getCachedPlaylistDetail,
   saveCachedPlaylistDetail,
 } from "@/features/library";
+import { useAlbumsStore } from "@/features/library/stores";
 import { usePlayback } from "@/features/playback";
 import { useSettings } from "@/features/settings";
 import {
@@ -59,6 +61,7 @@ export default function PlaylistDetailScreen() {
   const { user } = useAuth();
   const { playContext, addToQueue } = usePlayback();
   const { showPlaylistTrackCovers, triggerHaptic } = useSettings();
+  const saveAlbum = useAlbumsStore((s) => s.saveAlbum);
   const router = useRouter();
   const { isOnline } = useNetworkState();
 
@@ -390,6 +393,22 @@ export default function PlaylistDetailScreen() {
     [router]
   );
 
+  const handleSaveAlbum = useCallback(
+    (track: SpotifyTrackSimple) => {
+      if (track.album?.id) {
+        saveAlbum(track.album.id);
+      }
+    },
+    [saveAlbum]
+  );
+
+  const handleFollowArtist = useCallback((track: SpotifyTrackSimple) => {
+    const artistId = track.artists?.[0]?.id;
+    if (artistId) {
+      followArtist(artistId);
+    }
+  }, []);
+
   const menuActions = useMemo(() => {
     if (!menuTrack) {
       return [];
@@ -427,6 +446,13 @@ export default function PlaylistDetailScreen() {
           handleGoToAlbum(track);
         },
       });
+      actions.push({
+        label: "Save album",
+        onPress: () => {
+          close();
+          handleSaveAlbum(track);
+        },
+      });
     }
     if (track.artists?.[0]?.id) {
       actions.push({
@@ -434,6 +460,13 @@ export default function PlaylistDetailScreen() {
         onPress: () => {
           close();
           handleGoToArtist(track);
+        },
+      });
+      actions.push({
+        label: "Follow artist",
+        onPress: () => {
+          close();
+          handleFollowArtist(track);
         },
       });
     }
@@ -445,6 +478,8 @@ export default function PlaylistDetailScreen() {
     handleAddToPlaylist,
     handleGoToAlbum,
     handleGoToArtist,
+    handleSaveAlbum,
+    handleFollowArtist,
   ]);
 
   const renderTrackItem = ({
