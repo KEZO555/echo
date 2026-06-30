@@ -9,6 +9,7 @@ import React, {
 } from "react";
 import {
   Animated,
+  Easing,
   type GestureResponderEvent,
   StyleSheet,
   View,
@@ -54,6 +55,7 @@ interface PlayingRouteParams {
   durationMs?: string;
   sourceContext?: string;
   mediaType?: string;
+  positionMs?: string;
 }
 const ROUTE_PLAYBACK_TIMEOUT_MS = 4000;
 
@@ -136,7 +138,12 @@ export default function PlayingScreen() {
     durationMs?: string;
     sourceContext?: string;
     mediaType?: string;
+    positionMs?: string;
   }>();
+
+  const startPositionMs = params.positionMs
+    ? Number.parseInt(params.positionMs, 10)
+    : 0;
 
   const paramsState = useMemo(() => {
     if (!params.trackName) {
@@ -145,7 +152,9 @@ export default function PlayingScreen() {
     const isEpisodeParam = params.mediaType === "episode";
     return {
       is_playing: true,
-      progress_ms: 0,
+      progress_ms: params.positionMs
+        ? Number.parseInt(params.positionMs, 10)
+        : 0,
       currently_playing_type: isEpisodeParam ? "episode" : "track",
       item: {
         name: params.trackName,
@@ -179,6 +188,7 @@ export default function PlayingScreen() {
     params.albumArtUrl,
     params.durationMs,
     params.mediaType,
+    params.positionMs,
   ]);
 
   const initialState = paramsState ?? cachedPlaybackState;
@@ -239,14 +249,26 @@ export default function PlayingScreen() {
       return;
     }
 
-    progress.setValue(0);
-    positionBaseMsRef.current = 0;
+    const durationMs = paramsState?.item?.duration_ms ?? 0;
+    progress.setValue(
+      durationMs > 0 && startPositionMs > 0
+        ? Math.min(startPositionMs / durationMs, 1)
+        : 0
+    );
+    positionBaseMsRef.current = startPositionMs;
     positionBaseAtRef.current = Date.now();
-    setDisplayPositionMs(0);
+    durationMsRef.current = durationMs;
+    setDisplayPositionMs(startPositionMs);
     lastCheckedTrackUriRef.current = null;
     setIsCurrentTrackSaved(isPendingLikedSongPlayback);
     setOptimisticSaveState(null);
-  }, [isPendingLikedSongPlayback, isPendingRoutePlayback, progress]);
+  }, [
+    isPendingLikedSongPlayback,
+    isPendingRoutePlayback,
+    progress,
+    startPositionMs,
+    paramsState?.item?.duration_ms,
+  ]);
 
   const applyPosition = useCallback(
     (positionMs: number, durationMs: number) => {
@@ -611,7 +633,15 @@ export default function PlayingScreen() {
           duration
         );
         setDisplayPositionMs(positionMs);
-        progress.setValue(Math.min(positionMs / duration, 1));
+        // Glide the bar to where it will be one second from now so motion
+        // is continuous instead of stepping once per second.
+        const target = Math.min((positionMs + 1000) / duration, 1);
+        Animated.timing(progress, {
+          toValue: target,
+          duration: 1000,
+          easing: Easing.linear,
+          useNativeDriver: false,
+        }).start();
       }, 1000);
 
       // Low-frequency native reconcile to correct drift and catch changes the
@@ -742,7 +772,7 @@ export default function PlayingScreen() {
     inputRange: [0, 1],
     outputRange: ["0%", "100%"],
   });
-  const progressBarWidth = isPendingRoutePlayback ? "0%" : animatedWidth;
+  const progressBarWidth = animatedWidth;
 
   const handleTitlePress = usePreventDoubleTap(() => {
     if (!isOnline) {
@@ -1046,7 +1076,7 @@ export default function PlayingScreen() {
             </HapticPressable>
             <View style={styles.progressBarInfo}>
               <StyledText style={styles.timeText}>
-                {formatTime(isPendingRoutePlayback ? 0 : displayPositionMs)}
+                {formatTime(displayPositionMs)}
               </StyledText>
               <StyledText style={styles.timeText}>
                 {formatTime(item.duration_ms)}
@@ -1409,7 +1439,7 @@ const styles = StyleSheet.create({
     overflow: "visible",
   },
   timeText: {
-    fontSize: n(12),
+    fontSize: n(15),
   },
   disabledButton: {
     opacity: 0.3,

@@ -166,7 +166,7 @@ export default function EpisodeDetailScreen() {
   );
 
   const navigateToPlaying = useCallback(
-    (target: SpotifyEpisode) => {
+    (target: SpotifyEpisode, positionMs?: number) => {
       router.push({
         pathname: "/playing",
         params: {
@@ -178,6 +178,7 @@ export default function EpisodeDetailScreen() {
             "",
           durationMs: target.duration_ms?.toString() ?? "0",
           mediaType: "episode",
+          positionMs: positionMs ? Math.floor(positionMs).toString() : "0",
         },
       });
     },
@@ -201,11 +202,12 @@ export default function EpisodeDetailScreen() {
       return;
     }
     try {
-      await playFromPosition(episode, getResumeMs(episode));
-      navigateToPlaying(episode);
+      const resumeMs = getResumeMs(episode);
+      await playFromPosition(episode, resumeMs);
+      navigateToPlaying(episode, resumeMs);
     } catch (playError) {
       logError("Error playing episode:", playError);
-      navigateToPlaying(episode);
+      navigateToPlaying(episode, getResumeMs(episode));
     }
   });
 
@@ -215,7 +217,7 @@ export default function EpisodeDetailScreen() {
     }
     try {
       await playFromPosition(episode, positionMs);
-      navigateToPlaying(episode);
+      navigateToPlaying(episode, positionMs);
     } catch (playError) {
       logError("Error playing chapter:", playError);
     }

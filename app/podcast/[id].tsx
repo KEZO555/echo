@@ -201,6 +201,7 @@ export default function PodcastDetailScreen() {
         albumArtUrl,
         durationMs: episode.duration_ms?.toString() ?? "0",
         mediaType: "episode",
+        positionMs: resumeMs ? Math.floor(resumeMs).toString() : "0",
       };
 
       try {

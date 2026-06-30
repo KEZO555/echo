@@ -92,6 +92,11 @@ export default function YourEpisodesScreen() {
         getLargestImage(episode.images) ??
         getLargestImage(episode.show?.images) ??
         "";
+      const resumePoint = episode.resume_point;
+      const resumeMs =
+        resumePoint && !resumePoint.fully_played
+          ? (resumePoint.resume_position_ms ?? 0)
+          : 0;
 
       await playTrackWithContext(episode.uri);
       router.push({
@@ -102,6 +107,7 @@ export default function YourEpisodesScreen() {
           albumArtUrl,
           durationMs: episode.duration_ms?.toString() ?? "0",
           mediaType: "episode",
+          positionMs: resumeMs ? Math.floor(resumeMs).toString() : "0",
         },
       });
     }
