@@ -26,6 +26,7 @@ const SETTING_KEYS = {
   hideQueueButton: "hideQueueButton",
   hidePlayingCover: "hidePlayingCover",
   hideYourEpisodes: "hideYourEpisodes",
+  hideNowPlayingButton: "hideNowPlayingButton",
   hasSeenGestureHint: "hasSeenGestureHint",
 } as const;
 
@@ -85,6 +86,7 @@ const defaultSettings: BooleanSettings = {
   hideQueueButton: false,
   hidePlayingCover: false,
   hideYourEpisodes: false,
+  hideNowPlayingButton: false,
   hasSeenGestureHint: false,
 };
 
@@ -119,6 +121,8 @@ interface SettingsContextType {
   setHidePlayingCover: (value: boolean) => void;
   hideYourEpisodes: boolean;
   setHideYourEpisodes: (value: boolean) => void;
+  hideNowPlayingButton: boolean;
+  setHideNowPlayingButton: (value: boolean) => void;
   hasSeenGestureHint: boolean;
   setHasSeenGestureHint: (value: boolean) => void;
   albumSortOrder: LibrarySortOption;
@@ -405,6 +409,10 @@ export const SettingsProvider = ({ children }: { children: ReactNode }) => {
     (v: boolean) => setSetting("hideYourEpisodes", v),
     [setSetting]
   );
+  const setHideNowPlayingButton = useCallback(
+    (v: boolean) => setSetting("hideNowPlayingButton", v),
+    [setSetting]
+  );
   const setHasSeenGestureHint = useCallback(
     (v: boolean) => setSetting("hasSeenGestureHint", v),
     [setSetting]
@@ -502,6 +510,8 @@ export const SettingsProvider = ({ children }: { children: ReactNode }) => {
       setHidePlayingCover,
       hideYourEpisodes: settings.hideYourEpisodes,
       setHideYourEpisodes,
+      hideNowPlayingButton: settings.hideNowPlayingButton,
+      setHideNowPlayingButton,
       hasSeenGestureHint: settings.hasSeenGestureHint,
       setHasSeenGestureHint,
       albumSortOrder: sortSettings.albumSortOrder,
@@ -528,6 +538,7 @@ export const SettingsProvider = ({ children }: { children: ReactNode }) => {
       setHideQueueButton,
       setHidePlayingCover,
       setHideYourEpisodes,
+      setHideNowPlayingButton,
       setHasSeenGestureHint,
       sortSettings,
       setAlbumSortOrder,

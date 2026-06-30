@@ -1,11 +1,14 @@
 import { nativeApplicationVersion } from "expo-application";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useCallback, useEffect, useState } from "react";
+import { View } from "react-native";
 import { useAuth } from "@/features/auth";
 import { useCredentials } from "@/features/credentials";
 import { clearCachedData } from "@/features/library";
 import ContentContainer from "@/shared/components/ContentContainer";
+import CustomScrollView from "@/shared/components/CustomScrollView";
 import { StyledButton } from "@/shared/components/StyledButton";
+import { n } from "@/shared/utils";
 
 export default function SettingsScreen() {
   const { logout } = useAuth();
@@ -98,23 +101,33 @@ export default function SettingsScreen() {
     return null;
   }
 
+  const settingsButtons = [
+    { text: "Customise", onPress: handleCustomise },
+    { text: "Recently Played", onPress: handleRecentlyPlayed },
+    { text: "Clear Cache", onPress: handleClearCache },
+    { text: "Reset API Credentials", onPress: handleResetCredentials },
+    { text: "Logout", onPress: handleLogout },
+  ];
+
   return (
     <ContentContainer
       headerTitle={`Settings (v${nativeApplicationVersion})`}
       hideBackButton={true}
+      style={{ paddingHorizontal: n(37), paddingBottom: n(20), gap: 0 }}
     >
-      <StyledButton onPress={handleCustomise} text="Customise" />
-
-      <StyledButton onPress={handleRecentlyPlayed} text="Recently Played" />
-
-      <StyledButton onPress={handleClearCache} text="Clear Cache" />
-
-      <StyledButton
-        onPress={handleResetCredentials}
-        text="Reset API Credentials"
+      <CustomScrollView
+        data={settingsButtons}
+        ItemSeparatorComponent={() => <View style={{ height: n(47) }} />}
+        keyExtractor={(item: { text: string; onPress: () => void }) =>
+          item.text
+        }
+        overScrollMode="never"
+        renderItem={({
+          item,
+        }: {
+          item: { text: string; onPress: () => void };
+        }) => <StyledButton onPress={item.onPress} text={item.text} />}
       />
-
-      <StyledButton onPress={handleLogout} text="Logout" />
     </ContentContainer>
   );
 }

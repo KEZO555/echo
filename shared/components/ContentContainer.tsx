@@ -39,7 +39,7 @@ export default function ContentContainer({
   style,
   onTitlePress,
 }: ContentContainerProps) {
-  const { invertColors } = useSettings();
+  const { invertColors, hideNowPlayingButton } = useSettings();
   const canSwipeBack = Boolean(headerTitle) && !hideBackButton;
   const handleBack = useCallback(() => {
     if (onBackPress) {
@@ -72,7 +72,7 @@ export default function ContentContainer({
             onIconPress={headerIconPress}
             onLeftIconPress={headerLeftIconPress}
             onTitlePress={onTitlePress}
-            showNowPlaying={!hideNowPlaying}
+            showNowPlaying={!(hideNowPlaying || hideNowPlayingButton)}
           />
         )}
         <View style={[styles.content, style]}>{children ?? null}</View>

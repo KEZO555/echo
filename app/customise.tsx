@@ -31,6 +31,8 @@ export default function CustomiseTabsScreen() {
     setHideCreatePlaylist,
     hideYourEpisodes,
     setHideYourEpisodes,
+    hideNowPlayingButton,
+    setHideNowPlayingButton,
   } = useSettings();
   const handleCustomiseTabs = () => {
     router.push("/customise-tabs" as never);
@@ -71,6 +73,12 @@ export default function CustomiseTabsScreen() {
       label: "Hide Your Episodes",
       value: hideYourEpisodes,
       onValueChange: setHideYourEpisodes,
+    },
+    {
+      type: "toggle",
+      label: "Hide Now Playing Button",
+      value: hideNowPlayingButton,
+      onValueChange: setHideNowPlayingButton,
     },
     {
       type: "toggle",
