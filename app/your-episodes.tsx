@@ -41,6 +41,7 @@ export default function YourEpisodesScreen() {
   const fetchEpisodes = useSavedEpisodesStore((s) => s.fetch);
   const fetchMoreEpisodes = useSavedEpisodesStore((s) => s.fetchMore);
   const removeEpisode = useSavedEpisodesStore((s) => s.removeEpisode);
+  const removeEpisodes = useSavedEpisodesStore((s) => s.removeEpisodes);
   const router = useRouter();
   const { isOnline } = useNetworkState();
   const [menuEpisode, setMenuEpisode] = useState<SpotifySavedEpisode | null>(
@@ -56,6 +57,32 @@ export default function YourEpisodesScreen() {
     rateLimitMessage
   );
   const shouldAttachRefreshControl = savedEpisodes !== null || isRateLimited;
+
+  // Automatically drop episodes that are finished or have under three
+  // minutes left, so the list only keeps things worth returning to.
+  useEffect(() => {
+    if (!(savedEpisodes && isOnline)) {
+      return;
+    }
+    const finishedIds = savedEpisodes
+      .filter((entry) => {
+        const resume = entry.episode.resume_point;
+        if (!resume) {
+          return false;
+        }
+        if (resume.fully_played) {
+          return true;
+        }
+        return (
+          resume.resume_position_ms > 0 &&
+          entry.episode.duration_ms - resume.resume_position_ms < 180_000
+        );
+      })
+      .map((entry) => entry.episode.id);
+    if (finishedIds.length > 0) {
+      removeEpisodes(finishedIds);
+    }
+  }, [savedEpisodes, isOnline, removeEpisodes]);
 
   useEffect(() => {
     if (
@@ -108,6 +135,7 @@ export default function YourEpisodesScreen() {
           durationMs: episode.duration_ms?.toString() ?? "0",
           mediaType: "episode",
           positionMs: resumeMs ? Math.floor(resumeMs).toString() : "0",
+          episodeId: episode.id,
         },
       });
     }

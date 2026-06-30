@@ -25,6 +25,7 @@ interface SavedEpisodesState {
   fetchMore: () => Promise<void>;
   saveEpisode: (episode: SpotifyEpisode) => Promise<boolean>;
   removeEpisode: (episodeId: string) => Promise<boolean>;
+  removeEpisodes: (episodeIds: string[]) => Promise<void>;
   checkIfSaved: (episodeId: string) => Promise<boolean>;
   setSavedEpisodes: (savedEpisodes: SpotifySavedEpisode[] | null) => void;
   reset: () => void;
@@ -141,22 +142,51 @@ export const useSavedEpisodesStore = create<SavedEpisodesState>()(
     },
 
     removeEpisode: async (episodeId) => {
+      // Remove optimistically so the list updates instantly, then restore
+      // if the request fails.
+      const previous = get().savedEpisodes;
+      set((state) => ({
+        savedEpisodes: (state.savedEpisodes ?? []).filter(
+          (entry) => entry.episode.id !== episodeId
+        ),
+      }));
       try {
         const removed = await apiDelete(
           `https://api.spotify.com/v1/me/episodes?ids=${episodeId}`
         );
         if (!removed) {
+          set({ savedEpisodes: previous });
           return false;
         }
-        set((state) => ({
-          savedEpisodes: (state.savedEpisodes ?? []).filter(
-            (entry) => entry.episode.id !== episodeId
-          ),
-        }));
         return true;
       } catch (error) {
         logError("Error removing episode:", error);
+        set({ savedEpisodes: previous });
         return false;
+      }
+    },
+
+    removeEpisodes: async (episodeIds) => {
+      if (episodeIds.length === 0) {
+        return;
+      }
+      const idSet = new Set(episodeIds);
+      const previous = get().savedEpisodes;
+      set((state) => ({
+        savedEpisodes: (state.savedEpisodes ?? []).filter(
+          (entry) => !idSet.has(entry.episode.id)
+        ),
+      }));
+      try {
+        const removed = await apiDelete(
+          `https://api.spotify.com/v1/me/episodes?ids=${episodeIds.slice(0, 50).join(",")}`
+        );
+        if (!removed) {
+          set({ savedEpisodes: previous });
+        }
+      } catch (error) {
+        logError("Error removing episodes:", error);
+        set({ savedEpisodes: previous });
       }
     },
 

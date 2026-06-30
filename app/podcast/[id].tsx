@@ -202,6 +202,7 @@ export default function PodcastDetailScreen() {
         durationMs: episode.duration_ms?.toString() ?? "0",
         mediaType: "episode",
         positionMs: resumeMs ? Math.floor(resumeMs).toString() : "0",
+        episodeId: episode.id,
       };
 
       try {

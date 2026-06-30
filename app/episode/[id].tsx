@@ -179,6 +179,7 @@ export default function EpisodeDetailScreen() {
           durationMs: target.duration_ms?.toString() ?? "0",
           mediaType: "episode",
           positionMs: positionMs ? Math.floor(positionMs).toString() : "0",
+          episodeId: target.id,
         },
       });
     },

@@ -55,6 +55,7 @@ interface PlayingRouteParams {
   sourceContext?: string;
   mediaType?: string;
   positionMs?: string;
+  episodeId?: string;
 }
 const ROUTE_PLAYBACK_TIMEOUT_MS = 4000;
 
@@ -138,6 +139,7 @@ export default function PlayingScreen() {
     sourceContext?: string;
     mediaType?: string;
     positionMs?: string;
+    episodeId?: string;
   }>();
 
   const startPositionMs = params.positionMs
@@ -683,7 +685,7 @@ export default function PlayingScreen() {
         ) {
           fetchAll();
         }
-      }, 5000);
+      }, 10_000);
 
       return () => {
         isFocusedRef.current = false;
@@ -703,22 +705,26 @@ export default function PlayingScreen() {
       ? playbackState.item.id
       : null;
 
+  // Use the episode id from the route immediately so chapters can start
+  // loading before the live playback state resolves.
+  const chapterEpisodeId = playingEpisodeId ?? params.episodeId ?? null;
+
   useEffect(() => {
-    if (!(playingEpisodeId && isOnline)) {
+    if (!(chapterEpisodeId && isOnline)) {
       chaptersEpisodeIdRef.current = null;
       setEpisodeChapters([]);
       return;
     }
 
-    if (chaptersEpisodeIdRef.current === playingEpisodeId) {
+    if (chaptersEpisodeIdRef.current === chapterEpisodeId) {
       return;
     }
-    chaptersEpisodeIdRef.current = playingEpisodeId;
+    chaptersEpisodeIdRef.current = chapterEpisodeId;
 
     let cancelled = false;
     const fetchChapters = async () => {
       const data = await apiGet<SpotifyEpisode>(
-        `https://api.spotify.com/v1/episodes/${playingEpisodeId}?market=from_token`
+        `https://api.spotify.com/v1/episodes/${chapterEpisodeId}?market=from_token`
       );
       if (cancelled) {
         return;
@@ -733,7 +739,7 @@ export default function PlayingScreen() {
     return () => {
       cancelled = true;
     };
-  }, [playingEpisodeId, isOnline]);
+  }, [chapterEpisodeId, isOnline]);
 
   const item = visiblePlaybackState?.item ?? null;
 
@@ -770,10 +776,7 @@ export default function PlayingScreen() {
   const episodeDurationMs =
     isEpisode && item?.duration_ms ? item.duration_ms : 0;
   const hasChapters =
-    isEpisode &&
-    !isPendingRoutePlayback &&
-    episodeDurationMs > 0 &&
-    episodeChapters.length > 0;
+    isEpisode && episodeDurationMs > 0 && episodeChapters.length > 0;
   const currentChapterIndex = hasChapters
     ? getCurrentChapterIndex(
         episodeChapters,
@@ -1088,14 +1091,14 @@ export default function PlayingScreen() {
             </View>
             {hasChapters ? (
               <HapticPressable
-                hitSlop={n(8)}
+                hitSlop={n(10)}
                 onPress={() => setChaptersVisible(true)}
                 style={styles.chapterButton}
               >
                 <MaterialIcons
                   color={invertColors ? "black" : "white"}
                   name="list"
-                  size={n(16)}
+                  size={n(20)}
                 />
                 <StyledText numberOfLines={1} style={styles.chapterLabel}>
                   {currentChapterTitle ?? "Chapters"}
@@ -1407,7 +1410,7 @@ const styles = StyleSheet.create({
     marginBottom: n(6),
   },
   chapterLabel: {
-    fontSize: n(12),
+    fontSize: n(16),
     textAlign: "center",
     flexShrink: 1,
   },
