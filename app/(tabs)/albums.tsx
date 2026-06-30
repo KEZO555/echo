@@ -10,6 +10,7 @@ import {
 } from "@/features/library";
 import { type LibrarySortOption, useSettings } from "@/features/settings";
 import {
+  ListFilterBar,
   ListScreen,
   MediaListItem,
   RateLimitListMessage,
@@ -102,6 +103,7 @@ export default function AlbumsScreen() {
     SpotifySavedAlbum[] | null
   >(null);
   const [cachedAlbumIds, setCachedAlbumIds] = useState<Set<string>>(new Set());
+  const [filterQuery, setFilterQuery] = useState("");
 
   const albumSource = albums ?? offlineAlbums;
   const sortedAlbums = useMemo(() => {
@@ -111,6 +113,20 @@ export default function AlbumsScreen() {
 
     return [...albumSource].sort((a, b) => compareAlbums(a, b, albumSortOrder));
   }, [albumSortOrder, albumSource]);
+  const visibleAlbums = useMemo(() => {
+    if (!sortedAlbums) {
+      return null;
+    }
+    const query = filterQuery.trim().toLowerCase();
+    if (!query) {
+      return sortedAlbums;
+    }
+    return sortedAlbums.filter((item) =>
+      `${item.album.name} ${getArtistNames(item.album.artists)}`
+        .toLowerCase()
+        .includes(query)
+    );
+  }, [sortedAlbums, filterQuery]);
   const albumRateLimitMessage = useMemo(
     () => getRateLimitMessage("albums", rateLimitRetryAt),
     [rateLimitRetryAt]
@@ -234,15 +250,27 @@ export default function AlbumsScreen() {
   };
 
   const displayAlbums: AlbumsListItem[] | null = prependRateLimitItem(
-    sortedAlbums,
+    visibleAlbums,
     isRateLimited,
     albumRateLimitMessage
   );
+  const showFilter = (sortedAlbums?.length ?? 0) >= 8;
 
   return (
     <ListScreen
       data={displayAlbums}
-      emptyMessage="No saved albums found."
+      emptyMessage={
+        filterQuery.trim() ? "No matching albums." : "No saved albums found."
+      }
+      headerAccessory={
+        showFilter ? (
+          <ListFilterBar
+            onChangeText={setFilterQuery}
+            placeholder="Filter albums"
+            value={filterQuery}
+          />
+        ) : null
+      }
       headerIconPress={handlePlayingPress}
       headerLeftIcon="sort"
       headerLeftIconPress={handleSortPress}

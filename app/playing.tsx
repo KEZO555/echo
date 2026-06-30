@@ -451,7 +451,7 @@ export default function PlayingScreen() {
     }
   };
 
-  const handleSeekForward = async () => {
+  const handleSeekForward = async (amountMs = 15_000) => {
     if (!playbackState?.item) {
       return;
     }
@@ -462,7 +462,7 @@ export default function PlayingScreen() {
       return;
     }
 
-    const newPosition = Math.min(currentPosition + 15_000, totalDuration);
+    const newPosition = Math.min(currentPosition + amountMs, totalDuration);
 
     try {
       await seekToPosition(newPosition);
@@ -984,7 +984,7 @@ export default function PlayingScreen() {
             ) : null}
           </View>
           <View style={styles.musicControls}>
-            <HapticPressable onPress={handleShuffleToggle}>
+            <HapticPressable hitSlop={n(10)} onPress={handleShuffleToggle}>
               <MaterialIcons
                 color={invertColors ? "black" : "white"}
                 name={"shuffle"}
@@ -1002,14 +1002,17 @@ export default function PlayingScreen() {
             </HapticPressable>
             {isEpisode ? (
               <>
-                <HapticPressable onPress={handleSeekBackward}>
+                <HapticPressable
+                  hitSlop={n(10)}
+                  onPress={() => handleSeekBackward()}
+                >
                   <MaterialCommunityIcons
                     color={invertColors ? "black" : "white"}
                     name="rewind-15"
                     size={n(44)}
                   />
                 </HapticPressable>
-                <HapticPressable onPress={handlePlayPause}>
+                <HapticPressable hitSlop={n(10)} onPress={handlePlayPause}>
                   <MaterialIcons
                     color={invertColors ? "black" : "white"}
                     name={
@@ -1018,24 +1021,27 @@ export default function PlayingScreen() {
                     size={n(52)}
                   />
                 </HapticPressable>
-                <HapticPressable onPress={handleSeekForward}>
+                <HapticPressable
+                  hitSlop={n(10)}
+                  onPress={() => handleSeekForward(30_000)}
+                >
                   <MaterialCommunityIcons
                     color={invertColors ? "black" : "white"}
-                    name="fast-forward-15"
+                    name="fast-forward-30"
                     size={n(44)}
                   />
                 </HapticPressable>
               </>
             ) : (
               <>
-                <HapticPressable onPress={handleSkipToPrevious}>
+                <HapticPressable hitSlop={n(10)} onPress={handleSkipToPrevious}>
                   <MaterialIcons
                     color={invertColors ? "black" : "white"}
                     name={"skip-previous"}
                     size={n(52)}
                   />
                 </HapticPressable>
-                <HapticPressable onPress={handlePlayPause}>
+                <HapticPressable hitSlop={n(10)} onPress={handlePlayPause}>
                   <MaterialIcons
                     color={invertColors ? "black" : "white"}
                     name={
@@ -1044,7 +1050,7 @@ export default function PlayingScreen() {
                     size={n(52)}
                   />
                 </HapticPressable>
-                <HapticPressable onPress={handleSkipToNext}>
+                <HapticPressable hitSlop={n(10)} onPress={handleSkipToNext}>
                   <MaterialIcons
                     color={invertColors ? "black" : "white"}
                     name={"skip-next"}
@@ -1053,7 +1059,7 @@ export default function PlayingScreen() {
                 </HapticPressable>
               </>
             )}
-            <HapticPressable onPress={handleRepeatToggle}>
+            <HapticPressable hitSlop={n(10)} onPress={handleRepeatToggle}>
               <MaterialIcons
                 color={invertColors ? "black" : "white"}
                 name={
@@ -1232,6 +1238,7 @@ const styles = StyleSheet.create({
   },
   progressBarPressable: {
     width: "90%",
+    paddingVertical: n(10),
   },
   progressBarBackground: {
     height: n(2),

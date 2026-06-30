@@ -1,5 +1,5 @@
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { View } from "react-native";
 import { useAuth } from "@/features/auth";
 import {
@@ -9,7 +9,7 @@ import {
 import { useAlbumsStore } from "@/features/library/stores";
 import { usePlayback } from "@/features/playback";
 import { useSettings } from "@/features/settings";
-import { DetailScreen, TrackListItem } from "@/shared/components";
+import { ContextMenu, DetailScreen, TrackListItem } from "@/shared/components";
 import {
   useNetworkState,
   usePreventDoubleTap,
@@ -42,6 +42,10 @@ export default function AlbumDetailScreen() {
 
   const [album, setAlbum] = useState<SpotifyAlbum | null>(initialAlbum);
   const [error, setError] = useState<string | null>(null);
+  const [menuTrack, setMenuTrack] = useState<{
+    track: SpotifyTrackSimple;
+    index: number;
+  } | null>(null);
   const [isLoadingMoreTracks, setIsLoadingMoreTracks] = useState(false);
   const [isInitialLoading, setIsInitialLoading] = useState(
     !initialAlbum?.tracks?.items
@@ -197,6 +201,50 @@ export default function AlbumDetailScreen() {
     [addToQueue, triggerHaptic]
   );
 
+  const handleAddToPlaylist = useCallback(
+    (track: SpotifyTrackSimple) => {
+      if (!track.uri) {
+        return;
+      }
+      router.push({
+        pathname: "/add-to-playlist",
+        params: { trackUri: track.uri },
+      });
+    },
+    [router]
+  );
+
+  const menuActions = useMemo(() => {
+    if (!menuTrack) {
+      return [];
+    }
+    const { track, index } = menuTrack;
+    const close = () => setMenuTrack(null);
+    return [
+      {
+        label: "Play",
+        onPress: () => {
+          close();
+          handleTrackPress(index);
+        },
+      },
+      {
+        label: "Add to queue",
+        onPress: () => {
+          close();
+          handleAddTrackToQueue(track);
+        },
+      },
+      {
+        label: "Add to playlist",
+        onPress: () => {
+          close();
+          handleAddToPlaylist(track);
+        },
+      },
+    ];
+  }, [menuTrack, handleTrackPress, handleAddTrackToQueue, handleAddToPlaylist]);
+
   if (!album) {
     return (
       <DetailScreen
@@ -236,7 +284,7 @@ export default function AlbumDetailScreen() {
           durationMs={track.duration_ms}
           key={track.id || index.toString()}
           name={track.name}
-          onLongPress={() => handleAddTrackToQueue(track)}
+          onLongPress={() => setMenuTrack({ track, index })}
           onPress={() => handleTrackPress(index)}
           trackNumber={track.track_number}
         />
@@ -260,6 +308,13 @@ export default function AlbumDetailScreen() {
       placeholderIcon="album"
       renderItem={renderTrackItem}
       title={album.name}
-    />
+    >
+      <ContextMenu
+        actions={menuActions}
+        onClose={() => setMenuTrack(null)}
+        title={menuTrack?.track.name}
+        visible={menuTrack !== null}
+      />
+    </DetailScreen>
   );
 }

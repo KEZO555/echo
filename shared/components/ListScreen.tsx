@@ -1,5 +1,5 @@
 import type { MaterialIcons } from "@expo/vector-icons";
-import type { ReactElement } from "react";
+import type { ReactElement, ReactNode } from "react";
 import { RefreshControl, View } from "react-native";
 import ContentContainer from "@/shared/components/ContentContainer";
 import CustomScrollView from "@/shared/components/CustomScrollView";
@@ -24,6 +24,8 @@ interface ListScreenProps<T> {
   headerLeftIconPress?: () => void;
   headerIcon?: keyof typeof MaterialIcons.glyphMap;
   headerIconPress?: () => void;
+  headerAccessory?: ReactNode;
+  children?: ReactNode;
 }
 
 export function ListScreen<T>({
@@ -43,6 +45,8 @@ export function ListScreen<T>({
   headerLeftIconPress,
   headerIcon = "multitrack-audio",
   headerIconPress,
+  headerAccessory,
+  children,
 }: ListScreenProps<T>) {
   const shouldAttachRefreshControl = data !== null;
 
@@ -58,6 +62,7 @@ export function ListScreen<T>({
         hideBackButton={true}
         style={{ paddingHorizontal: n(20) }}
       >
+        {headerAccessory}
         <CustomScrollView
           data={data ?? []}
           ItemSeparatorComponent={() => <View style={{ height: n(8) }} />}
@@ -88,6 +93,7 @@ export function ListScreen<T>({
           }
           style={styles.list}
         />
+        {children}
       </ContentContainer>
     );
   }
@@ -110,6 +116,7 @@ export function ListScreen<T>({
       hideBackButton={true}
       style={{ paddingHorizontal: n(20) }}
     >
+      {headerAccessory}
       <CustomScrollView
         contentContainerStyle={styles.listContentContainer}
         data={data}
@@ -139,6 +146,7 @@ export function ListScreen<T>({
         }
         style={styles.list}
       />
+      {children}
     </ContentContainer>
   );
 }

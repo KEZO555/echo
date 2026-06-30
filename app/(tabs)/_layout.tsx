@@ -1,6 +1,7 @@
 import { Tabs } from "expo-router";
 import { useMemo } from "react";
 import { useSettings } from "@/features/settings";
+import { GestureHint, NowPlayingBar } from "@/shared/components";
 import { Navbar, type TabConfigItem } from "@/shared/components/Navbar";
 
 export const TABS_CONFIG: readonly TabConfigItem[] = [
@@ -79,29 +80,35 @@ export default function TabLayout() {
   }, [tabPreferences]);
 
   return (
-    <Tabs
-      tabBar={(props) => {
-        const activeScreenName = props.state.routes[props.state.index].name;
-        return (
-          <Navbar
-            currentScreenName={activeScreenName}
-            navigation={props.navigation}
-            tabsConfig={visibleTabs}
-          />
-        );
-      }}
-    >
-      {visibleTabs.map((tab) => {
-        return (
-          <Tabs.Screen
-            key={tab.screenName}
-            name={tab.screenName}
-            options={{
-              header: () => null,
-            }}
-          />
-        );
-      })}
-    </Tabs>
+    <>
+      <GestureHint />
+      <Tabs
+        tabBar={(props) => {
+          const activeScreenName = props.state.routes[props.state.index].name;
+          return (
+            <>
+              <NowPlayingBar />
+              <Navbar
+                currentScreenName={activeScreenName}
+                navigation={props.navigation}
+                tabsConfig={visibleTabs}
+              />
+            </>
+          );
+        }}
+      >
+        {visibleTabs.map((tab) => {
+          return (
+            <Tabs.Screen
+              key={tab.screenName}
+              name={tab.screenName}
+              options={{
+                header: () => null,
+              }}
+            />
+          );
+        })}
+      </Tabs>
+    </>
   );
 }

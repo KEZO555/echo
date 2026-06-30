@@ -8,6 +8,7 @@ import {
 import { usePlayback } from "@/features/playback";
 import { useSettings } from "@/features/settings";
 import {
+  ContextMenu,
   DetailScreen,
   MediaListItem,
   TrackListItem,
@@ -80,6 +81,10 @@ export default function PlaylistDetailScreen() {
     string | null
   >(null);
   const [isLoadingMoreTracks, setIsLoadingMoreTracks] = useState(false);
+  const [menuTrack, setMenuTrack] = useState<{
+    track: SpotifyTrackSimple;
+    index: number;
+  } | null>(null);
   const [isInitialLoading, setIsInitialLoading] = useState(
     !hasLoadedPlaylistItems(initialPlaylist)
   );
@@ -334,6 +339,50 @@ export default function PlaylistDetailScreen() {
     [addToQueue, triggerHaptic]
   );
 
+  const handleAddToPlaylist = useCallback(
+    (track: SpotifyTrackSimple) => {
+      if (!track.uri) {
+        return;
+      }
+      router.push({
+        pathname: "/add-to-playlist",
+        params: { trackUri: track.uri },
+      });
+    },
+    [router]
+  );
+
+  const menuActions = useMemo(() => {
+    if (!menuTrack) {
+      return [];
+    }
+    const { track, index } = menuTrack;
+    const close = () => setMenuTrack(null);
+    return [
+      {
+        label: "Play",
+        onPress: () => {
+          close();
+          handleTrackPress(index);
+        },
+      },
+      {
+        label: "Add to queue",
+        onPress: () => {
+          close();
+          handleAddTrackToQueue(track);
+        },
+      },
+      {
+        label: "Add to playlist",
+        onPress: () => {
+          close();
+          handleAddToPlaylist(track);
+        },
+      },
+    ];
+  }, [menuTrack, handleTrackPress, handleAddTrackToQueue, handleAddToPlaylist]);
+
   const renderTrackItem = ({
     item,
     index,
@@ -356,7 +405,7 @@ export default function PlaylistDetailScreen() {
         <MediaListItem
           forceShowImage
           imageUri={track.album?.images?.[0]?.url}
-          onLongPress={() => handleAddTrackToQueue(track)}
+          onLongPress={() => setMenuTrack({ track, index })}
           onPress={() => handleTrackPress(index)}
           placeholderIcon="music-note"
           primaryText={track.name}
@@ -371,7 +420,7 @@ export default function PlaylistDetailScreen() {
         durationMs={track.duration_ms}
         imageUri={track.album?.images?.[0]?.url}
         name={track.name}
-        onLongPress={() => handleAddTrackToQueue(track)}
+        onLongPress={() => setMenuTrack({ track, index })}
         onPress={() => handleTrackPress(index)}
         trackNumber={(loadedPlaylist?.items.offset || 0) + index + 1}
       />
@@ -398,6 +447,13 @@ export default function PlaylistDetailScreen() {
       placeholderIcon="music-note"
       renderItem={renderTrackItem}
       title={displayName}
-    />
+    >
+      <ContextMenu
+        actions={menuActions}
+        onClose={() => setMenuTrack(null)}
+        title={menuTrack?.track.name}
+        visible={menuTrack !== null}
+      />
+    </DetailScreen>
   );
 }

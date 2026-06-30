@@ -26,6 +26,7 @@ const SETTING_KEYS = {
   hideQueueButton: "hideQueueButton",
   hidePlayingCover: "hidePlayingCover",
   hideYourEpisodes: "hideYourEpisodes",
+  hasSeenGestureHint: "hasSeenGestureHint",
 } as const;
 
 type SettingKey = keyof typeof SETTING_KEYS;
@@ -84,6 +85,7 @@ const defaultSettings: BooleanSettings = {
   hideQueueButton: false,
   hidePlayingCover: false,
   hideYourEpisodes: false,
+  hasSeenGestureHint: false,
 };
 
 const defaultSortSettings: LibrarySortSettings = {
@@ -117,6 +119,8 @@ interface SettingsContextType {
   setHidePlayingCover: (value: boolean) => void;
   hideYourEpisodes: boolean;
   setHideYourEpisodes: (value: boolean) => void;
+  hasSeenGestureHint: boolean;
+  setHasSeenGestureHint: (value: boolean) => void;
   albumSortOrder: LibrarySortOption;
   setAlbumSortOrder: (value: LibrarySortOption) => Promise<void>;
   podcastSortOrder: LibrarySortOption;
@@ -401,6 +405,10 @@ export const SettingsProvider = ({ children }: { children: ReactNode }) => {
     (v: boolean) => setSetting("hideYourEpisodes", v),
     [setSetting]
   );
+  const setHasSeenGestureHint = useCallback(
+    (v: boolean) => setSetting("hasSeenGestureHint", v),
+    [setSetting]
+  );
   const setSortSetting = useCallback(
     async (key: SortSettingKey, value: LibrarySortOption) => {
       setSortSettings((prev) => ({ ...prev, [key]: value }));
@@ -494,6 +502,8 @@ export const SettingsProvider = ({ children }: { children: ReactNode }) => {
       setHidePlayingCover,
       hideYourEpisodes: settings.hideYourEpisodes,
       setHideYourEpisodes,
+      hasSeenGestureHint: settings.hasSeenGestureHint,
+      setHasSeenGestureHint,
       albumSortOrder: sortSettings.albumSortOrder,
       setAlbumSortOrder,
       podcastSortOrder: sortSettings.podcastSortOrder,
@@ -518,6 +528,7 @@ export const SettingsProvider = ({ children }: { children: ReactNode }) => {
       setHideQueueButton,
       setHidePlayingCover,
       setHideYourEpisodes,
+      setHasSeenGestureHint,
       sortSettings,
       setAlbumSortOrder,
       setPodcastSortOrder,

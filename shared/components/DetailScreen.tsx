@@ -1,5 +1,5 @@
 import type { MaterialIcons } from "@expo/vector-icons";
-import type { ReactElement } from "react";
+import type { ReactElement, ReactNode } from "react";
 import { View } from "react-native";
 import { useSettings } from "@/features/settings";
 import ContentContainer from "@/shared/components/ContentContainer";
@@ -29,6 +29,7 @@ interface DetailScreenProps<T> {
   headerIconPress?: () => void;
   headerIconShowLength?: number;
   itemSeparatorComponent?: React.ComponentType<{ leadingItem: T }> | null;
+  children?: ReactNode;
 }
 
 const DefaultItemSeparator = () => <View style={{ height: n(8) }} />;
@@ -52,6 +53,7 @@ export function DetailScreen<T>({
   headerIconPress,
   headerIconShowLength,
   itemSeparatorComponent,
+  children,
 }: DetailScreenProps<T>) {
   const { hideDetailCovers: settingsHideCovers } = useSettings();
   const shouldHideCovers = hideDetailCovers ?? settingsHideCovers;
@@ -118,6 +120,7 @@ export function DetailScreen<T>({
           renderItem={renderItem}
         />
       </View>
+      {children}
     </ContentContainer>
   );
 }

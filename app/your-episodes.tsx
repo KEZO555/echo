@@ -1,20 +1,13 @@
 import { useRouter } from "expo-router";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import {
-  Modal,
-  Pressable,
-  RefreshControl,
-  StyleSheet,
-  View,
-} from "react-native";
+import { RefreshControl, View } from "react-native";
 import { useAuth } from "@/features/auth";
 import { useSavedEpisodesStore } from "@/features/library/stores";
 import { usePlayback } from "@/features/playback";
-import { useSettings } from "@/features/settings";
 import {
   ContentContainer,
+  ContextMenu,
   CustomScrollView,
-  HapticPressable,
   ListFooter,
   MediaListItem,
   RateLimitListMessage,
@@ -50,7 +43,6 @@ export default function YourEpisodesScreen() {
   const removeEpisode = useSavedEpisodesStore((s) => s.removeEpisode);
   const router = useRouter();
   const { isOnline } = useNetworkState();
-  const { invertColors } = useSettings();
   const [menuEpisode, setMenuEpisode] = useState<SpotifySavedEpisode | null>(
     null
   );
@@ -236,90 +228,23 @@ export default function YourEpisodesScreen() {
         renderItem={renderEpisodeItem}
         style={styles.list}
       />
-      <Modal
-        animationType="none"
-        onRequestClose={() => setMenuEpisode(null)}
-        transparent
+      <ContextMenu
+        actions={
+          menuEpisode
+            ? [
+                { label: "Play", onPress: () => handleMenuPlay(menuEpisode) },
+                { label: "Info", onPress: () => handleMenuInfo(menuEpisode) },
+                {
+                  label: "Remove from my episodes",
+                  onPress: () => handleMenuRemove(menuEpisode),
+                },
+              ]
+            : []
+        }
+        onClose={() => setMenuEpisode(null)}
+        title={menuEpisode?.episode.name}
         visible={menuEpisode !== null}
-      >
-        <Pressable
-          onPress={() => setMenuEpisode(null)}
-          style={menuStyles.backdrop}
-        >
-          <View
-            style={[
-              menuStyles.card,
-              {
-                backgroundColor: invertColors ? "white" : "black",
-                borderColor: invertColors ? "black" : "white",
-              },
-            ]}
-          >
-            <StyledText numberOfLines={1} style={menuStyles.title}>
-              {menuEpisode?.episode.name}
-            </StyledText>
-            <HapticPressable
-              onPress={() => {
-                if (menuEpisode) {
-                  handleMenuPlay(menuEpisode);
-                }
-              }}
-              style={menuStyles.row}
-            >
-              <StyledText style={menuStyles.item}>Play</StyledText>
-            </HapticPressable>
-            <HapticPressable
-              onPress={() => {
-                if (menuEpisode) {
-                  handleMenuInfo(menuEpisode);
-                }
-              }}
-              style={menuStyles.row}
-            >
-              <StyledText style={menuStyles.item}>Info</StyledText>
-            </HapticPressable>
-            <HapticPressable
-              onPress={() => {
-                if (menuEpisode) {
-                  handleMenuRemove(menuEpisode);
-                }
-              }}
-              style={menuStyles.row}
-            >
-              <StyledText style={menuStyles.item}>
-                Remove from my episodes
-              </StyledText>
-            </HapticPressable>
-          </View>
-        </Pressable>
-      </Modal>
+      />
     </ContentContainer>
   );
 }
-
-const menuStyles = StyleSheet.create({
-  backdrop: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    backgroundColor: "rgba(0, 0, 0, 0.6)",
-    paddingHorizontal: n(30),
-  },
-  card: {
-    width: "100%",
-    borderWidth: n(1),
-    paddingVertical: n(12),
-    paddingHorizontal: n(20),
-  },
-  title: {
-    fontSize: n(16),
-    opacity: 0.6,
-    paddingBottom: n(8),
-  },
-  row: {
-    paddingVertical: n(14),
-  },
-  item: {
-    fontSize: n(22),
-  },
-});

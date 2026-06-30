@@ -1,5 +1,5 @@
 import { useRouter } from "expo-router";
-import { useCallback, useMemo } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { View } from "react-native";
 import { useAuth } from "@/features/auth";
 import { useSavedTracksStore } from "@/features/library/stores";
@@ -7,6 +7,8 @@ import { getSavedTrackIdentity } from "@/features/library/utils/savedTracks";
 import { usePlayback } from "@/features/playback";
 import { useSettings } from "@/features/settings";
 import {
+  ContextMenu,
+  ListFilterBar,
   ListScreen,
   MediaListItem,
   RateLimitListMessage,
@@ -44,6 +46,8 @@ export default function LikedSongsScreen() {
   const { triggerHaptic } = useSettings();
   const router = useRouter();
   const { isLoading: isNetworkLoading, isOnline } = useNetworkState();
+  const [filterQuery, setFilterQuery] = useState("");
+  const [menuTrack, setMenuTrack] = useState<SavedTrackObject | null>(null);
 
   const handleRefresh = useCallback(() => {
     log("LikedSongs: Manual refresh triggered", {
@@ -66,6 +70,22 @@ export default function LikedSongsScreen() {
     () => getRateLimitMessage("liked songs", rateLimitRetryAt),
     [rateLimitRetryAt]
   );
+
+  const visibleTracks = useMemo(() => {
+    const query = filterQuery.trim().toLowerCase();
+    if (!query) {
+      return baseTracks;
+    }
+    return baseTracks.filter((item) => {
+      const track = item.track;
+      if (!track) {
+        return false;
+      }
+      const haystack =
+        `${track.name ?? ""} ${getArtistNames(track.artists ?? [])}`.toLowerCase();
+      return haystack.includes(query);
+    });
+  }, [baseTracks, filterQuery]);
 
   const handleTrackPress = usePreventDoubleTap(
     async (item: SavedTrackObject) => {
@@ -123,6 +143,35 @@ export default function LikedSongsScreen() {
     [addToQueue, triggerHaptic]
   );
 
+  const handleAddToPlaylist = useCallback(
+    (item: SavedTrackObject) => {
+      if (!item.track?.uri) {
+        return;
+      }
+      router.push({
+        pathname: "/add-to-playlist",
+        params: { trackUri: item.track.uri },
+      });
+    },
+    [router]
+  );
+
+  const menuActions = useMemo(() => {
+    if (!menuTrack) {
+      return [];
+    }
+    const track = menuTrack;
+    const run = (action: (item: SavedTrackObject) => void) => () => {
+      setMenuTrack(null);
+      action(track);
+    };
+    return [
+      { label: "Play", onPress: run(handleTrackPress) },
+      { label: "Add to queue", onPress: run(handleAddTrackToQueue) },
+      { label: "Add to playlist", onPress: run(handleAddToPlaylist) },
+    ];
+  }, [menuTrack, handleTrackPress, handleAddTrackToQueue, handleAddToPlaylist]);
+
   const renderTrackItem = ({ item }: { item: LikedSongsListItem }) => {
     if (isRateLimitItem(item)) {
       return <RateLimitListMessage message={item.message} />;
@@ -140,7 +189,7 @@ export default function LikedSongsScreen() {
             ? item.track.album.images[0].url
             : undefined
         }
-        onLongPress={() => handleAddTrackToQueue(item)}
+        onLongPress={() => setMenuTrack(item)}
         onPress={() => handleTrackPress(item)}
         placeholderIcon="music-note"
         primaryText={item.track.name}
@@ -171,15 +220,27 @@ export default function LikedSongsScreen() {
   };
 
   const displayTracks: LikedSongsListItem[] = prependRateLimitItem(
-    baseTracks,
+    visibleTracks,
     isRateLimited,
     rateLimitMessage
   );
+  const showFilter = baseTracks.length >= 8;
 
   return (
     <ListScreen
       data={displayTracks}
-      emptyMessage="No saved tracks found."
+      emptyMessage={
+        filterQuery.trim() ? "No matching tracks." : "No saved tracks found."
+      }
+      headerAccessory={
+        showFilter ? (
+          <ListFilterBar
+            onChangeText={setFilterQuery}
+            placeholder="Filter liked songs"
+            value={filterQuery}
+          />
+        ) : null
+      }
       headerIconPress={handlePlayingPress}
       isLoadingMore={isLoadingMore}
       isOnline={isOnline}
@@ -193,6 +254,13 @@ export default function LikedSongsScreen() {
       renderItem={renderTrackItem}
       showLoadMoreFooter={false}
       title="Liked Songs"
-    />
+    >
+      <ContextMenu
+        actions={menuActions}
+        onClose={() => setMenuTrack(null)}
+        title={menuTrack?.track?.name}
+        visible={menuTrack !== null}
+      />
+    </ListScreen>
   );
 }
