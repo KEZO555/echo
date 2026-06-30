@@ -4,9 +4,18 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { StyleSheet, View } from "react-native";
 import { useAuth } from "@/features/auth";
 import { getCachedShowDetail, saveCachedShowDetail } from "@/features/library";
-import { usePodcastsStore } from "@/features/library/stores";
+import {
+  usePodcastsStore,
+  useSavedEpisodesStore,
+} from "@/features/library/stores";
 import { usePlayback } from "@/features/playback";
-import { DetailScreen, HapticPressable, StyledText } from "@/shared/components";
+import {
+  ContextMenu,
+  DetailScreen,
+  HapticPressable,
+  MarqueeText,
+  StyledText,
+} from "@/shared/components";
 import {
   useNetworkState,
   usePreventDoubleTap,
@@ -34,8 +43,16 @@ export default function PodcastDetailScreen() {
   const followPodcast = usePodcastsStore((s) => s.followPodcast);
   const unfollowPodcast = usePodcastsStore((s) => s.unfollowPodcast);
   const checkIfFollowing = usePodcastsStore((s) => s.checkIfFollowing);
+  const saveEpisode = useSavedEpisodesStore((s) => s.saveEpisode);
+  const removeEpisode = useSavedEpisodesStore((s) => s.removeEpisode);
+  const checkEpisodeSaved = useSavedEpisodesStore((s) => s.checkIfSaved);
   const router = useRouter();
   const { isOnline } = useNetworkState();
+  const [menuEpisode, setMenuEpisode] = useState<{
+    episode: SpotifyEpisode;
+    index: number;
+  } | null>(null);
+  const [isMenuEpisodeSaved, setIsMenuEpisodeSaved] = useState(false);
 
   const initialShow = useMemo(() => {
     if (!showString) {
@@ -213,6 +230,60 @@ export default function PodcastDetailScreen() {
     });
   });
 
+  const handleOpenEpisodeMenu = async (
+    episode: SpotifyEpisode,
+    index: number
+  ) => {
+    setMenuEpisode({ episode, index });
+    setIsMenuEpisodeSaved(false);
+    const saved = await checkEpisodeSaved(episode.id);
+    setIsMenuEpisodeSaved(saved);
+  };
+
+  const menuActions = useMemo(() => {
+    if (!menuEpisode) {
+      return [];
+    }
+    const { episode, index } = menuEpisode;
+    const close = () => setMenuEpisode(null);
+    return [
+      {
+        label: "Play",
+        onPress: () => {
+          close();
+          handleEpisodePlay(episode, index);
+        },
+      },
+      {
+        label: "Info",
+        onPress: () => {
+          close();
+          handleEpisodeInfo(episode);
+        },
+      },
+      {
+        label: isMenuEpisodeSaved
+          ? "Remove from my episodes"
+          : "Add to my episodes",
+        onPress: () => {
+          close();
+          if (isMenuEpisodeSaved) {
+            removeEpisode(episode.id);
+          } else {
+            saveEpisode(episode);
+          }
+        },
+      },
+    ];
+  }, [
+    menuEpisode,
+    isMenuEpisodeSaved,
+    handleEpisodePlay,
+    handleEpisodeInfo,
+    removeEpisode,
+    saveEpisode,
+  ]);
+
   const renderEpisodeItem = ({
     item: episode,
     index,
@@ -221,8 +292,8 @@ export default function PodcastDetailScreen() {
     index: number;
   }) => (
     <HapticPressable
-      onLongPress={() => handleEpisodePlay(episode, index)}
-      onPress={() => handleEpisodeInfo(episode)}
+      onLongPress={() => handleOpenEpisodeMenu(episode, index)}
+      onPress={() => handleEpisodePlay(episode, index)}
       style={styles.episodeItemContainer}
     >
       <View style={styles.episodeInfoContainer}>
@@ -235,9 +306,9 @@ export default function PodcastDetailScreen() {
               style={{ marginTop: n(6) }}
             />
           )}
-          <StyledText numberOfLines={1} style={styles.episodeName}>
-            {episode.name}
-          </StyledText>
+          <View style={styles.episodeNameWrap}>
+            <MarqueeText style={styles.episodeName}>{episode.name}</MarqueeText>
+          </View>
         </View>
         {(() => {
           const resumePoint = episode.resume_point;
@@ -283,7 +354,14 @@ export default function PodcastDetailScreen() {
       placeholderText={displayName.charAt(0)}
       renderItem={renderEpisodeItem}
       title={displayName}
-    />
+    >
+      <ContextMenu
+        actions={menuActions}
+        onClose={() => setMenuEpisode(null)}
+        title={menuEpisode?.episode.name}
+        visible={menuEpisode !== null}
+      />
+    </DetailScreen>
   );
 }
 
@@ -294,10 +372,12 @@ const styles = StyleSheet.create({
     alignItems: "flex-start",
     width: "100%",
   },
-  episodeName: {
+  episodeNameWrap: {
     flex: 1,
-    fontSize: n(26),
     paddingRight: n(10),
+  },
+  episodeName: {
+    fontSize: n(26),
   },
   episodeMeta: {
     fontSize: n(16),

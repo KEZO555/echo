@@ -1,4 +1,4 @@
-import { Modal, Pressable, StyleSheet, View } from "react-native";
+import { Modal, Pressable, ScrollView, StyleSheet, View } from "react-native";
 import { useSettings } from "@/features/settings";
 import { n } from "@/shared/utils";
 import { HapticPressable } from "./HapticPressable";
@@ -46,15 +46,23 @@ export function ContextMenu({
               {title}
             </StyledText>
           ) : null}
-          {actions.map((action) => (
-            <HapticPressable
-              key={action.label}
-              onPress={action.onPress}
-              style={styles.row}
-            >
-              <StyledText style={styles.item}>{action.label}</StyledText>
-            </HapticPressable>
-          ))}
+          <ScrollView
+            bounces={false}
+            overScrollMode="never"
+            style={styles.scroll}
+          >
+            {actions.map((action) => (
+              <HapticPressable
+                key={action.label}
+                onPress={action.onPress}
+                style={styles.row}
+              >
+                <StyledText numberOfLines={2} style={styles.item}>
+                  {action.label}
+                </StyledText>
+              </HapticPressable>
+            ))}
+          </ScrollView>
         </View>
       </Pressable>
     </Modal>
@@ -71,9 +79,13 @@ const styles = StyleSheet.create({
   },
   card: {
     width: "100%",
+    maxHeight: "70%",
     borderWidth: n(1),
     paddingVertical: n(12),
     paddingHorizontal: n(20),
+  },
+  scroll: {
+    flexGrow: 0,
   },
   title: {
     fontSize: n(16),

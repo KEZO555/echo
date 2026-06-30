@@ -163,6 +163,7 @@ const styles = StyleSheet.create({
   rightCluster: {
     flexDirection: "row",
     alignItems: "center",
+    gap: n(14),
   },
   loadingSpinner: {
     marginTop: n(4),

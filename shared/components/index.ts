@@ -8,6 +8,7 @@ export { HapticPressable } from "./HapticPressable";
 export { Header } from "./Header";
 export { ListFooter } from "./ListFooter";
 export { ListScreen } from "./ListScreen";
+export { MarqueeText } from "./MarqueeText";
 export { MediaListItem } from "./MediaListItem";
 export { Navbar } from "./Navbar";
 export { RateLimitListMessage } from "./RateLimitListMessage";

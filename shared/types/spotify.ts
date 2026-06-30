@@ -16,6 +16,7 @@ export interface SpotifyUser {
   uri: string;
   href: string;
   type: "user";
+  country?: string;
 }
 
 export interface SpotifyPaginatedResponse<T> {

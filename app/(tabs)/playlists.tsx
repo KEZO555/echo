@@ -51,7 +51,18 @@ export default function PlaylistsScreen() {
 
   const playlistSource = playlists ?? offlinePlaylists;
 
-  const allPlaylists = useMemo(() => playlistSource ?? null, [playlistSource]);
+  const allPlaylists = useMemo(() => {
+    if (!playlistSource) {
+      return null;
+    }
+    // Spotify only returns tracks for playlists the user owns or
+    // collaborates on, so hide the rest to avoid empty detail screens.
+    return playlistSource.filter(
+      (playlist) =>
+        playlist.collaborative ||
+        (user?.id ? playlist.owner.id === user.id : true)
+    );
+  }, [playlistSource, user?.id]);
   const sortedPlaylists = useMemo(
     () =>
       allPlaylists

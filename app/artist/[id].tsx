@@ -1,11 +1,23 @@
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { StyleSheet } from "react-native";
+import { useAuth } from "@/features/auth";
 import { usePlayback } from "@/features/playback";
 import { useSettings } from "@/features/settings";
-import { ContextMenu, DetailScreen, TrackListItem } from "@/shared/components";
+import {
+  ContextMenu,
+  DetailScreen,
+  MediaListItem,
+  StyledText,
+  TrackListItem,
+} from "@/shared/components";
 import { useNetworkState, usePreventDoubleTap } from "@/shared/hooks";
-import type { SpotifyImage, SpotifyTrackSimple } from "@/shared/types/spotify";
-import { getArtistNames, getLargestImage, logError } from "@/shared/utils";
+import type {
+  SpotifyAlbum,
+  SpotifyImage,
+  SpotifyTrackSimple,
+} from "@/shared/types/spotify";
+import { getArtistNames, getLargestImage, logError, n } from "@/shared/utils";
 import { apiGet } from "@/shared/utils/api-client";
 
 interface SpotifyArtistFull {
@@ -14,25 +26,49 @@ interface SpotifyArtistFull {
   images: SpotifyImage[];
 }
 
+type ArtistRow =
+  | { kind: "header"; id: string; title: string }
+  | { kind: "track"; id: string; track: SpotifyTrackSimple; index: number }
+  | { kind: "album"; id: string; album: SpotifyAlbum };
+
+const dedupeAlbums = (albums: SpotifyAlbum[]): SpotifyAlbum[] => {
+  const seen = new Set<string>();
+  const result: SpotifyAlbum[] = [];
+  for (const album of albums) {
+    const key = album.name.toLowerCase();
+    if (!seen.has(key)) {
+      seen.add(key);
+      result.push(album);
+    }
+  }
+  return result.sort((a, b) =>
+    (b.release_date ?? "").localeCompare(a.release_date ?? "")
+  );
+};
+
 export default function ArtistDetailScreen() {
   const { id, artistName } = useLocalSearchParams<{
     id: string;
     artistName?: string;
   }>();
 
+  const { user } = useAuth();
   const { playTracksWithWebApi, addToQueue } = usePlayback();
   const { triggerHaptic } = useSettings();
   const router = useRouter();
   const { isOnline } = useNetworkState();
 
   const [artist, setArtist] = useState<SpotifyArtistFull | null>(null);
-  const [topTracks, setTopTracks] = useState<SpotifyTrackSimple[] | null>(null);
+  const [topTracks, setTopTracks] = useState<SpotifyTrackSimple[]>([]);
+  const [albums, setAlbums] = useState<SpotifyAlbum[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [isInitialLoading, setIsInitialLoading] = useState(true);
   const [menuTrack, setMenuTrack] = useState<{
     track: SpotifyTrackSimple;
     index: number;
   } | null>(null);
+
+  const market = user?.country ?? "US";
 
   useEffect(() => {
     if (!id) {
@@ -49,10 +85,13 @@ export default function ArtistDetailScreen() {
     let cancelled = false;
     const fetchArtist = async () => {
       try {
-        const [artistData, topTracksData] = await Promise.all([
+        const [artistData, topTracksData, albumsData] = await Promise.all([
           apiGet<SpotifyArtistFull>(`https://api.spotify.com/v1/artists/${id}`),
           apiGet<{ tracks: SpotifyTrackSimple[] }>(
-            `https://api.spotify.com/v1/artists/${id}/top-tracks?market=from_token`
+            `https://api.spotify.com/v1/artists/${id}/top-tracks?market=${market}`
+          ),
+          apiGet<{ items: SpotifyAlbum[] }>(
+            `https://api.spotify.com/v1/artists/${id}/albums?include_groups=album,single&limit=50`
           ),
         ]);
         if (cancelled) {
@@ -62,6 +101,7 @@ export default function ArtistDetailScreen() {
           setArtist(artistData);
         }
         setTopTracks(topTracksData?.tracks ?? []);
+        setAlbums(dedupeAlbums(albumsData?.items ?? []));
       } catch (e: unknown) {
         if (!cancelled) {
           logError("Error fetching artist:", e);
@@ -78,18 +118,34 @@ export default function ArtistDetailScreen() {
     return () => {
       cancelled = true;
     };
-  }, [id, isOnline]);
+  }, [id, isOnline, market]);
 
   const displayName = artist?.name ?? artistName ?? "Artist";
   const imageUrl = getLargestImage(artist?.images);
 
+  const rows = useMemo<ArtistRow[]>(() => {
+    const result: ArtistRow[] = [];
+    if (topTracks.length > 0) {
+      result.push({ kind: "header", id: "h-top", title: "Top tracks" });
+      topTracks.forEach((track, index) => {
+        result.push({ kind: "track", id: `t-${track.id}`, track, index });
+      });
+    }
+    if (albums.length > 0) {
+      result.push({ kind: "header", id: "h-disc", title: "Discography" });
+      for (const album of albums) {
+        result.push({ kind: "album", id: `a-${album.id}`, album });
+      }
+    }
+    return result;
+  }, [topTracks, albums]);
+
   const handleTrackPress = usePreventDoubleTap(async (index: number) => {
-    const tracks = topTracks ?? [];
-    const track = tracks[index];
+    const track = topTracks[index];
     if (!track) {
       return;
     }
-    const orderedUris = tracks
+    const orderedUris = topTracks
       .slice(index)
       .map((item) => item.uri)
       .filter((uri): uri is string => Boolean(uri))
@@ -111,6 +167,23 @@ export default function ArtistDetailScreen() {
     });
   });
 
+  const handleAlbumPress = usePreventDoubleTap((album: SpotifyAlbum) => {
+    router.push({
+      pathname: "/album/[id]",
+      params: {
+        id: album.id,
+        albumName: album.name,
+        albumString: JSON.stringify({
+          id: album.id,
+          name: album.name,
+          images: album.images,
+          artists: album.artists,
+          uri: album.uri,
+        }),
+      },
+    });
+  });
+
   const handleAddToQueue = useCallback(
     async (track: SpotifyTrackSimple) => {
       if (!track.uri) {
@@ -124,30 +197,6 @@ export default function ArtistDetailScreen() {
       }
     },
     [addToQueue, triggerHaptic]
-  );
-
-  const handleGoToAlbum = useCallback(
-    (track: SpotifyTrackSimple) => {
-      const album = track.album;
-      if (!album?.id) {
-        return;
-      }
-      router.push({
-        pathname: "/album/[id]",
-        params: {
-          id: album.id,
-          albumName: album.name,
-          albumString: JSON.stringify({
-            id: album.id,
-            name: album.name,
-            images: album.images,
-            artists: album.artists,
-            uri: album.uri,
-          }),
-        },
-      });
-    },
-    [router]
   );
 
   const handleAddToPlaylist = useCallback(
@@ -197,7 +246,7 @@ export default function ArtistDetailScreen() {
         label: "Go to album",
         onPress: () => {
           close();
-          handleGoToAlbum(track);
+          handleAlbumPress(track.album as SpotifyAlbum);
         },
       });
     }
@@ -207,38 +256,56 @@ export default function ArtistDetailScreen() {
     handleTrackPress,
     handleAddToQueue,
     handleAddToPlaylist,
-    handleGoToAlbum,
+    handleAlbumPress,
   ]);
 
-  const renderTrackItem = ({
-    item: track,
-    index,
-  }: {
-    item: SpotifyTrackSimple;
-    index: number;
-  }) => (
-    <TrackListItem
-      artists={track.artists}
-      durationMs={track.duration_ms}
-      imageUri={track.album?.images?.[0]?.url}
-      name={track.name}
-      onLongPress={() => setMenuTrack({ track, index })}
-      onPress={() => handleTrackPress(index)}
-      showImage
-      trackNumber={index + 1}
-    />
-  );
+  const renderRow = ({ item }: { item: ArtistRow }) => {
+    if (item.kind === "header") {
+      return <StyledText style={styles.sectionHeader}>{item.title}</StyledText>;
+    }
+    if (item.kind === "track") {
+      return (
+        <TrackListItem
+          artists={item.track.artists}
+          durationMs={item.track.duration_ms}
+          imageUri={item.track.album?.images?.[0]?.url}
+          name={item.track.name}
+          onLongPress={() =>
+            setMenuTrack({ track: item.track, index: item.index })
+          }
+          onPress={() => handleTrackPress(item.index)}
+          showImage
+          trackNumber={item.index + 1}
+        />
+      );
+    }
+    return (
+      <MediaListItem
+        forceShowImage
+        imageUri={item.album.images?.[0]?.url}
+        onPress={() => handleAlbumPress(item.album)}
+        placeholderIcon="album"
+        primaryText={item.album.name}
+        secondaryText={[
+          item.album.album_type === "single" ? "Single" : "Album",
+          item.album.release_date?.slice(0, 4),
+        ]
+          .filter(Boolean)
+          .join(" · ")}
+      />
+    );
+  };
 
   return (
     <DetailScreen
-      data={topTracks ?? []}
-      emptyMessage="No popular tracks found for this artist."
+      data={rows}
+      emptyMessage="Nothing to show for this artist."
       error={error}
       imageUrl={imageUrl}
       isInitialLoading={isInitialLoading}
-      keyExtractor={(item, index) => item.id || index.toString()}
+      keyExtractor={(item) => item.id}
       placeholderIcon="person"
-      renderItem={renderTrackItem}
+      renderItem={renderRow}
       title={displayName}
     >
       <ContextMenu
@@ -250,3 +317,12 @@ export default function ArtistDetailScreen() {
     </DetailScreen>
   );
 }
+
+const styles = StyleSheet.create({
+  sectionHeader: {
+    fontSize: n(18),
+    opacity: 0.6,
+    paddingTop: n(12),
+    paddingBottom: n(4),
+  },
+});

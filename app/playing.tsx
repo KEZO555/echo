@@ -1,5 +1,4 @@
 import { MaterialCommunityIcons, MaterialIcons } from "@expo/vector-icons";
-import AutoScroll from "@homielab/react-native-auto-scroll";
 import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
 import React, {
   useCallback,
@@ -11,10 +10,7 @@ import React, {
 import {
   Animated,
   type GestureResponderEvent,
-  type LayoutChangeEvent,
-  type StyleProp,
   StyleSheet,
-  type TextStyle,
   View,
 } from "react-native";
 import { useAuth } from "@/features/auth";
@@ -23,8 +19,10 @@ import { usePlayback } from "@/features/playback";
 import { useSettings } from "@/features/settings";
 import { spotify } from "@/modules/spotify-sdk";
 import ContentContainer from "@/shared/components/ContentContainer";
+import { ContextMenu } from "@/shared/components/ContextMenu";
 import { FallbackImage } from "@/shared/components/FallbackImage";
 import { HapticPressable } from "@/shared/components/HapticPressable";
+import { MarqueeText } from "@/shared/components/MarqueeText";
 import { StyledText } from "@/shared/components/StyledText";
 import { useNetworkState, usePreventDoubleTap } from "@/shared/hooks";
 import type {
@@ -43,60 +41,6 @@ import {
   setAlbumNavigationImage,
 } from "@/shared/utils";
 import { apiGet } from "@/shared/utils/api-client";
-
-function MarqueeText({
-  children,
-  style,
-  msPerChar = 380,
-  delay = 1800,
-  isActive = true,
-}: {
-  children: string;
-  style?: StyleProp<TextStyle>;
-  msPerChar?: number;
-  delay?: number;
-  isActive?: boolean;
-}) {
-  const [containerWidth, setContainerWidth] = useState(0);
-  const [textWidth, setTextWidth] = useState(0);
-
-  const handleContainerLayout = useCallback((event: LayoutChangeEvent) => {
-    setContainerWidth(event.nativeEvent.layout.width);
-  }, []);
-
-  const handleTextLayout = useCallback((event: LayoutChangeEvent) => {
-    setTextWidth(event.nativeEvent.layout.width);
-  }, []);
-
-  const shouldScroll =
-    isActive && textWidth > containerWidth + 5 && containerWidth > 0;
-  const duration = children.length * msPerChar;
-
-  return (
-    <View onLayout={handleContainerLayout} style={styles.marqueeContainer}>
-      <View pointerEvents="none" style={styles.marqueeMeasuringContainer}>
-        <StyledText onLayout={handleTextLayout} style={style}>
-          {children}
-        </StyledText>
-      </View>
-
-      {shouldScroll ? (
-        <AutoScroll
-          delay={delay}
-          duration={duration}
-          endPaddingWidth={n(25)}
-          style={styles.marqueeScrollContainer}
-        >
-          <StyledText style={style}>{children}</StyledText>
-        </AutoScroll>
-      ) : (
-        <StyledText numberOfLines={1} style={style}>
-          {children}
-        </StyledText>
-      )}
-    </View>
-  );
-}
 
 let cachedPlaybackState: SpotifyCurrentlyPlaying | null = null;
 interface PlayingRouteParams {
@@ -235,6 +179,8 @@ export default function PlayingScreen() {
     boolean | null
   >(null);
   const [episodeChapters, setEpisodeChapters] = useState<EpisodeChapter[]>([]);
+  const [nowPlayingMenuVisible, setNowPlayingMenuVisible] = useState(false);
+  const [chaptersVisible, setChaptersVisible] = useState(false);
   const chaptersEpisodeIdRef = useRef<string | null>(null);
   const [displayPositionMs, setDisplayPositionMs] = useState(
     initialState?.progress_ms ?? 0
@@ -825,6 +771,17 @@ export default function PlayingScreen() {
     }
   });
 
+  const handleGoToArtist = usePreventDoubleTap(() => {
+    const artist = currentTrack?.artists?.[0];
+    if (!(isOnline && artist?.id)) {
+      return;
+    }
+    router.push({
+      pathname: "/artist/[id]",
+      params: { id: artist.id, artistName: artist.name },
+    });
+  });
+
   const handleSelectDevicePress = usePreventDoubleTap(() => {
     if (isOnline) {
       router.push({ pathname: "/select-device" as never });
@@ -836,6 +793,68 @@ export default function PlayingScreen() {
       router.push({ pathname: "/queue" as never });
     }
   });
+
+  const buildNowPlayingMenuActions = () => {
+    const wrap = (run: () => void) => () => {
+      setNowPlayingMenuVisible(false);
+      run();
+    };
+    const candidates = isEpisode
+      ? [
+          {
+            show: canViewEpisode,
+            label: "Episode info",
+            run: handleTitlePress,
+          },
+          {
+            show: canNavigateToShow,
+            label: "Go to show",
+            run: handleSubtitlePress,
+          },
+          {
+            show: isOnline,
+            label: displayedLikeState
+              ? "Remove from my episodes"
+              : "Add to my episodes",
+            run: handleToggleSaveTrack,
+          },
+        ]
+      : [
+          {
+            show: canNavigateToAlbum,
+            label: "Go to album",
+            run: handleTitlePress,
+          },
+          {
+            show: isOnline && Boolean(currentTrack?.artists?.[0]?.id),
+            label: "Go to artist",
+            run: handleGoToArtist,
+          },
+          {
+            show: isOnline,
+            label: "Add to playlist",
+            run: handleNavigateToAddToPlaylist,
+          },
+          { show: isOnline, label: "View queue", run: handleQueuePress },
+        ];
+    return candidates
+      .filter((candidate) => candidate.show)
+      .map((candidate) => ({
+        label: candidate.label,
+        onPress: wrap(candidate.run),
+      }));
+  };
+
+  const chapterActions = episodeChapters.map((chapter) => ({
+    label: `${formatTime(chapter.positionMs)}   ${chapter.title}`,
+    onPress: () => {
+      setChaptersVisible(false);
+      seekToPosition(chapter.positionMs).catch((seekError) =>
+        logError("Error seeking to chapter:", seekError)
+      );
+      applyPosition(chapter.positionMs, durationMsRef.current);
+    },
+  }));
 
   if (!(visiblePlaybackState && item)) {
     return (
@@ -914,12 +933,17 @@ export default function PlayingScreen() {
       <View style={styles.content}>
         <View style={styles.mainContent}>
           {!hidePlayingCover && (
-            <FallbackImage
-              placeholderIcon={isEpisode ? "mic" : "music-note"}
-              placeholderIconColor={invertColors ? "black" : "white"}
-              style={styles.albumArt}
-              uri={artworkUrl}
-            />
+            <HapticPressable
+              disabled={isPendingRoutePlayback}
+              onLongPress={() => setNowPlayingMenuVisible(true)}
+            >
+              <FallbackImage
+                placeholderIcon={isEpisode ? "mic" : "music-note"}
+                placeholderIconColor={invertColors ? "black" : "white"}
+                style={styles.albumArt}
+                uri={artworkUrl}
+              />
+            </HapticPressable>
           )}
           <View style={styles.trackInfoContainer}>
             <HapticPressable
@@ -993,10 +1017,21 @@ export default function PlayingScreen() {
                 {formatTime(item.duration_ms)}
               </StyledText>
             </View>
-            {currentChapterTitle ? (
-              <StyledText numberOfLines={1} style={styles.chapterLabel}>
-                {currentChapterTitle}
-              </StyledText>
+            {hasChapters ? (
+              <HapticPressable
+                hitSlop={n(8)}
+                onPress={() => setChaptersVisible(true)}
+                style={styles.chapterButton}
+              >
+                <MaterialIcons
+                  color={invertColors ? "black" : "white"}
+                  name="list"
+                  size={n(16)}
+                />
+                <StyledText numberOfLines={1} style={styles.chapterLabel}>
+                  {currentChapterTitle ?? "Chapters"}
+                </StyledText>
+              </HapticPressable>
             ) : null}
           </View>
           <View
@@ -1053,11 +1088,11 @@ export default function PlayingScreen() {
             {isEpisode ? (
               <HapticPressable
                 hitSlop={n(12)}
-                onPress={() => handleSeekForward(30_000)}
+                onPress={() => handleSeekForward()}
               >
                 <MaterialCommunityIcons
                   color={invertColors ? "black" : "white"}
-                  name="fast-forward-30"
+                  name="fast-forward-15"
                   size={n(44)}
                 />
               </HapticPressable>
@@ -1189,6 +1224,18 @@ export default function PlayingScreen() {
           )}
         </View>
       </View>
+      <ContextMenu
+        actions={buildNowPlayingMenuActions()}
+        onClose={() => setNowPlayingMenuVisible(false)}
+        title={displayTitle}
+        visible={nowPlayingMenuVisible}
+      />
+      <ContextMenu
+        actions={chapterActions}
+        onClose={() => setChaptersVisible(false)}
+        title="Chapters"
+        visible={chaptersVisible}
+      />
     </ContentContainer>
   );
 }
@@ -1199,6 +1246,7 @@ const styles = StyleSheet.create({
     width: "100%",
     justifyContent: "space-between",
     alignItems: "center",
+    paddingBottom: n(28),
   },
   mainContent: {
     flex: 1,
@@ -1277,11 +1325,18 @@ const styles = StyleSheet.create({
     width: n(2),
     height: n(10),
   },
+  chapterButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: n(6),
+    width: "90%",
+    marginBottom: n(6),
+  },
   chapterLabel: {
     fontSize: n(12),
-    width: "90%",
     textAlign: "center",
-    marginBottom: n(6),
+    flexShrink: 1,
   },
   musicControls: {
     flexDirection: "row",
@@ -1319,18 +1374,5 @@ const styles = StyleSheet.create({
   },
   disabledButton: {
     opacity: 0.3,
-  },
-  marqueeContainer: {
-    width: "100%",
-    overflow: "hidden",
-  },
-  marqueeMeasuringContainer: {
-    position: "absolute",
-    top: 0,
-    left: 0,
-    opacity: 0,
-  },
-  marqueeScrollContainer: {
-    width: "100%",
   },
 });

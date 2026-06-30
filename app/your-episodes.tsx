@@ -177,6 +177,7 @@ export default function YourEpisodesScreen() {
         onPress={() => handleEpisodePress(item)}
         placeholderIcon="mic"
         primaryText={episode.name}
+        scrollPrimary
         secondaryText={metaParts.join(" · ")}
       />
     );
