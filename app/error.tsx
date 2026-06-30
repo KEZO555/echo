@@ -28,6 +28,7 @@ export default function ErrorScreen() {
     <ContentContainer
       headerTitle={params.title || "Error"}
       hideBackButton={true}
+      hideNowPlaying
     >
       <StyledText style={styles.messageText}>{params.message}</StyledText>
 

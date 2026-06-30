@@ -8,7 +8,6 @@ import { usePlayback } from "@/features/playback";
 import { useSettings } from "@/features/settings";
 import {
   ContextMenu,
-  ListFilterBar,
   ListScreen,
   MediaListItem,
   RateLimitListMessage,
@@ -46,7 +45,6 @@ export default function LikedSongsScreen() {
   const { triggerHaptic } = useSettings();
   const router = useRouter();
   const { isLoading: isNetworkLoading, isOnline } = useNetworkState();
-  const [filterQuery, setFilterQuery] = useState("");
   const [menuTrack, setMenuTrack] = useState<SavedTrackObject | null>(null);
 
   const handleRefresh = useCallback(() => {
@@ -70,22 +68,6 @@ export default function LikedSongsScreen() {
     () => getRateLimitMessage("liked songs", rateLimitRetryAt),
     [rateLimitRetryAt]
   );
-
-  const visibleTracks = useMemo(() => {
-    const query = filterQuery.trim().toLowerCase();
-    if (!query) {
-      return baseTracks;
-    }
-    return baseTracks.filter((item) => {
-      const track = item.track;
-      if (!track) {
-        return false;
-      }
-      const haystack =
-        `${track.name ?? ""} ${getArtistNames(track.artists ?? [])}`.toLowerCase();
-      return haystack.includes(query);
-    });
-  }, [baseTracks, filterQuery]);
 
   const handleTrackPress = usePreventDoubleTap(
     async (item: SavedTrackObject) => {
@@ -156,6 +138,44 @@ export default function LikedSongsScreen() {
     [router]
   );
 
+  const handleGoToAlbum = useCallback(
+    (item: SavedTrackObject) => {
+      const album = item.track?.album;
+      if (!album?.id) {
+        return;
+      }
+      router.push({
+        pathname: "/album/[id]",
+        params: {
+          id: album.id,
+          albumName: album.name,
+          albumString: JSON.stringify({
+            id: album.id,
+            name: album.name,
+            images: album.images,
+            artists: album.artists,
+            uri: album.uri,
+          }),
+        },
+      });
+    },
+    [router]
+  );
+
+  const handleGoToArtist = useCallback(
+    (item: SavedTrackObject) => {
+      const artist = item.track?.artists?.[0];
+      if (!artist?.id) {
+        return;
+      }
+      router.push({
+        pathname: "/artist/[id]",
+        params: { id: artist.id, artistName: artist.name },
+      });
+    },
+    [router]
+  );
+
   const menuActions = useMemo(() => {
     if (!menuTrack) {
       return [];
@@ -165,12 +185,26 @@ export default function LikedSongsScreen() {
       setMenuTrack(null);
       action(track);
     };
-    return [
+    const actions = [
       { label: "Play", onPress: run(handleTrackPress) },
       { label: "Add to queue", onPress: run(handleAddTrackToQueue) },
       { label: "Add to playlist", onPress: run(handleAddToPlaylist) },
     ];
-  }, [menuTrack, handleTrackPress, handleAddTrackToQueue, handleAddToPlaylist]);
+    if (track.track?.album?.id) {
+      actions.push({ label: "Go to album", onPress: run(handleGoToAlbum) });
+    }
+    if (track.track?.artists?.[0]?.id) {
+      actions.push({ label: "Go to artist", onPress: run(handleGoToArtist) });
+    }
+    return actions;
+  }, [
+    menuTrack,
+    handleTrackPress,
+    handleAddTrackToQueue,
+    handleAddToPlaylist,
+    handleGoToAlbum,
+    handleGoToArtist,
+  ]);
 
   const renderTrackItem = ({ item }: { item: LikedSongsListItem }) => {
     if (isRateLimitItem(item)) {
@@ -198,10 +232,6 @@ export default function LikedSongsScreen() {
     );
   };
 
-  const handlePlayingPress = usePreventDoubleTap(() => {
-    router.push("/playing");
-  });
-
   if (isNetworkLoading || (isLoading && !savedTracks)) {
     return <View style={styles.centeredMessageContainer} />;
   }
@@ -220,28 +250,15 @@ export default function LikedSongsScreen() {
   };
 
   const displayTracks: LikedSongsListItem[] = prependRateLimitItem(
-    visibleTracks,
+    baseTracks,
     isRateLimited,
     rateLimitMessage
   );
-  const showFilter = baseTracks.length >= 8;
 
   return (
     <ListScreen
       data={displayTracks}
-      emptyMessage={
-        filterQuery.trim() ? "No matching tracks." : "No saved tracks found."
-      }
-      headerAccessory={
-        showFilter ? (
-          <ListFilterBar
-            onChangeText={setFilterQuery}
-            placeholder="Filter liked songs"
-            value={filterQuery}
-          />
-        ) : null
-      }
-      headerIconPress={handlePlayingPress}
+      emptyMessage="No saved tracks found."
       isLoadingMore={isLoadingMore}
       isOnline={isOnline}
       isRefreshing={isRefreshing}

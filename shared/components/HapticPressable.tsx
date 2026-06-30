@@ -11,6 +11,14 @@ export const HapticPressable = React.memo(function HapticPressable(
     <Pressable
       {...props}
       android_disableSound={true}
+      onLongPress={
+        props.onLongPress
+          ? (event) => {
+              triggerHaptic();
+              props.onLongPress?.(event);
+            }
+          : undefined
+      }
       onPress={(event) => {
         triggerHaptic();
         props.onPress?.(event);

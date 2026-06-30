@@ -8,9 +8,10 @@ import {
   refreshSavedAlbumsFromCache,
   useAlbumsStore,
 } from "@/features/library";
+import { usePlayback } from "@/features/playback";
 import { type LibrarySortOption, useSettings } from "@/features/settings";
 import {
-  ListFilterBar,
+  ContextMenu,
   ListScreen,
   MediaListItem,
   RateLimitListMessage,
@@ -96,6 +97,7 @@ export default function AlbumsScreen() {
   const rateLimitRetryAt = useAlbumsStore((s) => s.rateLimitRetryAt);
   const nextUrl = useAlbumsStore((s) => s.nextUrl);
   const router = useRouter();
+  const { playContext } = usePlayback();
 
   const { isOnline } = useNetworkState();
   const { albumSortOrder } = useSettings();
@@ -103,7 +105,7 @@ export default function AlbumsScreen() {
     SpotifySavedAlbum[] | null
   >(null);
   const [cachedAlbumIds, setCachedAlbumIds] = useState<Set<string>>(new Set());
-  const [filterQuery, setFilterQuery] = useState("");
+  const [menuAlbum, setMenuAlbum] = useState<SpotifySavedAlbum | null>(null);
 
   const albumSource = albums ?? offlineAlbums;
   const sortedAlbums = useMemo(() => {
@@ -113,20 +115,6 @@ export default function AlbumsScreen() {
 
     return [...albumSource].sort((a, b) => compareAlbums(a, b, albumSortOrder));
   }, [albumSortOrder, albumSource]);
-  const visibleAlbums = useMemo(() => {
-    if (!sortedAlbums) {
-      return null;
-    }
-    const query = filterQuery.trim().toLowerCase();
-    if (!query) {
-      return sortedAlbums;
-    }
-    return sortedAlbums.filter((item) =>
-      `${item.album.name} ${getArtistNames(item.album.artists)}`
-        .toLowerCase()
-        .includes(query)
-    );
-  }, [sortedAlbums, filterQuery]);
   const albumRateLimitMessage = useMemo(
     () => getRateLimitMessage("albums", rateLimitRetryAt),
     [rateLimitRetryAt]
@@ -207,9 +195,64 @@ export default function AlbumsScreen() {
   const handleSortPress = usePreventDoubleTap(() => {
     router.push("/albums-sort" as never);
   });
-  const handlePlayingPress = usePreventDoubleTap(() => {
-    router.push("/playing");
-  });
+
+  const handlePlayAlbum = useCallback(
+    (item: SpotifySavedAlbum) => {
+      playContext(`spotify:album:${item.album.id}`).catch((error) =>
+        logError("Error playing album:", error)
+      );
+      router.push({
+        pathname: "/playing",
+        params: {
+          trackName: item.album.name,
+          artistName: getArtistNames(item.album.artists),
+          albumArtUrl: item.album.images?.[0]?.url ?? "",
+        },
+      });
+    },
+    [playContext, router]
+  );
+
+  const handleGoToArtist = useCallback(
+    (item: SpotifySavedAlbum) => {
+      const artist = item.album.artists?.[0];
+      if (!artist?.id) {
+        return;
+      }
+      router.push({
+        pathname: "/artist/[id]",
+        params: { id: artist.id, artistName: artist.name },
+      });
+    },
+    [router]
+  );
+
+  const menuActions = useMemo(() => {
+    if (!menuAlbum) {
+      return [];
+    }
+    const album = menuAlbum;
+    const close = () => setMenuAlbum(null);
+    const actions = [
+      {
+        label: "Play",
+        onPress: () => {
+          close();
+          handlePlayAlbum(album);
+        },
+      },
+    ];
+    if (album.album.artists?.[0]?.id) {
+      actions.push({
+        label: "Go to artist",
+        onPress: () => {
+          close();
+          handleGoToArtist(album);
+        },
+      });
+    }
+    return actions;
+  }, [menuAlbum, handlePlayAlbum, handleGoToArtist]);
 
   const renderAlbumItem = ({ item }: { item: AlbumsListItem }) => {
     if (isRateLimitItem(item)) {
@@ -227,6 +270,7 @@ export default function AlbumsScreen() {
             ? item.album.images[0].url
             : undefined
         }
+        onLongPress={isOnline ? () => setMenuAlbum(item) : undefined}
         onPress={() => handleAlbumPress(item, isUncached)}
         placeholderIcon="album"
         primaryText={item.album.name}
@@ -250,28 +294,15 @@ export default function AlbumsScreen() {
   };
 
   const displayAlbums: AlbumsListItem[] | null = prependRateLimitItem(
-    visibleAlbums,
+    sortedAlbums,
     isRateLimited,
     albumRateLimitMessage
   );
-  const showFilter = (sortedAlbums?.length ?? 0) >= 8;
 
   return (
     <ListScreen
       data={displayAlbums}
-      emptyMessage={
-        filterQuery.trim() ? "No matching albums." : "No saved albums found."
-      }
-      headerAccessory={
-        showFilter ? (
-          <ListFilterBar
-            onChangeText={setFilterQuery}
-            placeholder="Filter albums"
-            value={filterQuery}
-          />
-        ) : null
-      }
-      headerIconPress={handlePlayingPress}
+      emptyMessage="No saved albums found."
       headerLeftIcon="sort"
       headerLeftIconPress={handleSortPress}
       isLoadingMore={isLoadingMore}
@@ -282,6 +313,13 @@ export default function AlbumsScreen() {
       onRefresh={handleRefresh}
       renderItem={renderAlbumItem}
       title="Albums"
-    />
+    >
+      <ContextMenu
+        actions={menuActions}
+        onClose={() => setMenuAlbum(null)}
+        title={menuAlbum?.album.name}
+        visible={menuAlbum !== null}
+      />
+    </ListScreen>
   );
 }

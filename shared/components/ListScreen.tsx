@@ -24,7 +24,6 @@ interface ListScreenProps<T> {
   headerLeftIconPress?: () => void;
   headerIcon?: keyof typeof MaterialIcons.glyphMap;
   headerIconPress?: () => void;
-  headerAccessory?: ReactNode;
   children?: ReactNode;
 }
 
@@ -43,9 +42,8 @@ export function ListScreen<T>({
   refreshEnabled = true,
   headerLeftIcon,
   headerLeftIconPress,
-  headerIcon = "multitrack-audio",
+  headerIcon,
   headerIconPress,
-  headerAccessory,
   children,
 }: ListScreenProps<T>) {
   const shouldAttachRefreshControl = data !== null;
@@ -62,7 +60,6 @@ export function ListScreen<T>({
         hideBackButton={true}
         style={{ paddingHorizontal: n(20) }}
       >
-        {headerAccessory}
         <CustomScrollView
           data={data ?? []}
           ItemSeparatorComponent={() => <View style={{ height: n(8) }} />}
@@ -116,7 +113,6 @@ export function ListScreen<T>({
       hideBackButton={true}
       style={{ paddingHorizontal: n(20) }}
     >
-      {headerAccessory}
       <CustomScrollView
         contentContainerStyle={styles.listContentContainer}
         data={data}

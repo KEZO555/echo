@@ -33,6 +33,7 @@ export default function ConfirmScreen() {
     <ContentContainer
       headerTitle={params.title || "Confirm"}
       hideBackButton={false}
+      hideNowPlaying
       onBackPress={handleCancel}
     >
       <StyledText style={styles.messageText}>{params.message}</StyledText>

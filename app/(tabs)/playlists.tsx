@@ -8,7 +8,6 @@ import { refreshPlaylistsFromCache } from "@/features/library";
 import { usePlaylistsStore } from "@/features/library/stores";
 import { useSettings } from "@/features/settings";
 import {
-  ListFilterBar,
   ListScreen,
   MediaListItem,
   RateLimitListMessage,
@@ -49,7 +48,6 @@ export default function PlaylistsScreen() {
   const [cachedPlaylistIds, setCachedPlaylistIds] = useState<Set<string>>(
     new Set()
   );
-  const [filterQuery, setFilterQuery] = useState("");
 
   const playlistSource = playlists ?? offlinePlaylists;
 
@@ -71,20 +69,6 @@ export default function PlaylistsScreen() {
         : null,
     [allPlaylists]
   );
-  const visiblePlaylists = useMemo(() => {
-    if (!sortedPlaylists) {
-      return null;
-    }
-    const query = filterQuery.trim().toLowerCase();
-    if (!query) {
-      return sortedPlaylists;
-    }
-    return sortedPlaylists.filter((item) =>
-      `${item.name} ${item.owner.display_name ?? item.owner.id ?? ""}`
-        .toLowerCase()
-        .includes(query)
-    );
-  }, [sortedPlaylists, filterQuery]);
   const playlistRateLimitMessage = useMemo(
     () => getRateLimitMessage("playlists", rateLimitRetryAt),
     [rateLimitRetryAt]
@@ -199,10 +183,6 @@ export default function PlaylistsScreen() {
     );
   };
 
-  const handlePlayingPress = usePreventDoubleTap(() => {
-    router.push("/playing");
-  });
-
   const isUserPending = Boolean(accessToken) && !user?.id;
 
   if ((isLoading || isUserPending) && !sortedPlaylists) {
@@ -225,19 +205,16 @@ export default function PlaylistsScreen() {
     uri: "",
     href: "",
   };
-  const isFiltering = filterQuery.trim().length > 0;
-  const withCreate = visiblePlaylists
-    ? [createNewPlaylistItem, ...visiblePlaylists]
+  const withCreate = sortedPlaylists
+    ? [createNewPlaylistItem, ...sortedPlaylists]
     : [createNewPlaylistItem];
-  const withoutCreate: SpotifyPlaylist[] = visiblePlaylists ?? [];
-  const basePlaylists =
-    hideCreatePlaylist || isFiltering ? withoutCreate : withCreate;
+  const withoutCreate: SpotifyPlaylist[] = sortedPlaylists ?? [];
+  const basePlaylists = hideCreatePlaylist ? withoutCreate : withCreate;
   const displayPlaylists: PlaylistListItem[] = prependRateLimitItem(
     basePlaylists,
     isRateLimited,
     playlistRateLimitMessage
   );
-  const showFilter = (sortedPlaylists?.length ?? 0) >= 8;
 
   const handleLoadMore = () => {
     if (isOnline && nextUrl && !isLoadingMore) {
@@ -248,19 +225,7 @@ export default function PlaylistsScreen() {
   return (
     <ListScreen
       data={displayPlaylists}
-      emptyMessage={
-        isFiltering ? "No matching playlists." : "No playlists found."
-      }
-      headerAccessory={
-        showFilter ? (
-          <ListFilterBar
-            onChangeText={setFilterQuery}
-            placeholder="Filter playlists"
-            value={filterQuery}
-          />
-        ) : null
-      }
-      headerIconPress={handlePlayingPress}
+      emptyMessage="No playlists found."
       isLoadingMore={isLoadingMore}
       isOnline={isOnline}
       isRefreshing={isRefreshing}

@@ -19,6 +19,7 @@ interface ContentContainerProps {
   headerIconPress?: () => void;
   headerIconShowLength?: number;
   headerIconLoading?: boolean;
+  hideNowPlaying?: boolean;
   style?: StyleProp<ViewStyle>;
   onTitlePress?: () => void;
 }
@@ -34,6 +35,7 @@ export default function ContentContainer({
   headerIconPress,
   headerIconShowLength = 1,
   headerIconLoading = false,
+  hideNowPlaying = false,
   style,
   onTitlePress,
 }: ContentContainerProps) {
@@ -70,6 +72,7 @@ export default function ContentContainer({
             onIconPress={headerIconPress}
             onLeftIconPress={headerLeftIconPress}
             onTitlePress={onTitlePress}
+            showNowPlaying={!hideNowPlaying}
           />
         )}
         <View style={[styles.content, style]}>{children ?? null}</View>

@@ -47,8 +47,8 @@ import { apiGet } from "@/shared/utils/api-client";
 function MarqueeText({
   children,
   style,
-  msPerChar = 250,
-  delay = 1250,
+  msPerChar = 380,
+  delay = 1800,
   isActive = true,
 }: {
   children: string;
@@ -764,12 +764,17 @@ export default function PlayingScreen() {
       ? episodeChapters[currentChapterIndex].title
       : null;
 
+  const showLikeButton = !hideLikeButton;
+  const showDevicesButton = !hideDevicesButton;
+  const showLyricsButton = !(hideLyricsButton || isEpisode);
+  const showAddButton = !(hideAddToPlaylistButton || isEpisode);
+  const showQueueButton = !hideQueueButton;
   const visibleButtonCount = [
-    !hideLikeButton,
-    !hideDevicesButton,
-    !hideAddToPlaylistButton,
-    !hideLyricsButton,
-    !hideQueueButton,
+    showLikeButton,
+    showDevicesButton,
+    showLyricsButton,
+    showAddButton,
+    showQueueButton,
   ].filter(Boolean).length;
 
   const animatedWidth = progress.interpolate({
@@ -834,7 +839,11 @@ export default function PlayingScreen() {
 
   if (!(visiblePlaybackState && item)) {
     return (
-      <ContentContainer headerTitle=" " style={{ paddingHorizontal: n(20) }}>
+      <ContentContainer
+        headerTitle=" "
+        hideNowPlaying
+        style={{ paddingHorizontal: n(20) }}
+      >
         <View style={styles.content}>
           <View style={styles.mainContent}>
             {!hidePlayingCover && (
@@ -897,7 +906,11 @@ export default function PlayingScreen() {
   }
 
   return (
-    <ContentContainer headerTitle=" " style={{ paddingHorizontal: n(20) }}>
+    <ContentContainer
+      headerTitle=" "
+      hideNowPlaying
+      style={{ paddingHorizontal: n(20) }}
+    >
       <View style={styles.content}>
         <View style={styles.mainContent}>
           {!hidePlayingCover && (
@@ -924,9 +937,12 @@ export default function PlayingScreen() {
               disabled={!canNavigateToShow}
               onPress={handleSubtitlePress}
             >
-              <StyledText numberOfLines={1} style={styles.artistName}>
+              <MarqueeText
+                isActive={isFocusedRef.current}
+                style={styles.artistName}
+              >
                 {displaySubtitle}
-              </StyledText>
+              </MarqueeText>
             </HapticPressable>
           </View>
 
@@ -941,7 +957,7 @@ export default function PlayingScreen() {
                 }}
                 style={[
                   styles.progressBarBackground,
-                  { backgroundColor: invertColors ? "black" : "white" },
+                  { backgroundColor: invertColors ? "#C1C1C1" : "#4A4A4A" },
                 ]}
               >
                 <Animated.View
@@ -983,57 +999,41 @@ export default function PlayingScreen() {
               </StyledText>
             ) : null}
           </View>
-          <View style={styles.musicControls}>
-            <HapticPressable hitSlop={n(10)} onPress={handleShuffleToggle}>
-              <MaterialIcons
-                color={invertColors ? "black" : "white"}
-                name={"shuffle"}
-                size={n(30)}
-              />
-              <View
-                style={[
-                  styles.shuffleIndicator,
-                  playbackState?.shuffle_state && [
-                    styles.activeShuffleIndicator,
-                    { backgroundColor: invertColors ? "black" : "white" },
-                  ],
-                ]}
-              />
-            </HapticPressable>
+          <View
+            style={[
+              styles.musicControls,
+              isEpisode && styles.musicControlsCentered,
+            ]}
+          >
             {isEpisode ? (
-              <>
-                <HapticPressable
-                  hitSlop={n(10)}
-                  onPress={() => handleSeekBackward()}
-                >
-                  <MaterialCommunityIcons
-                    color={invertColors ? "black" : "white"}
-                    name="rewind-15"
-                    size={n(44)}
-                  />
-                </HapticPressable>
-                <HapticPressable hitSlop={n(10)} onPress={handlePlayPause}>
-                  <MaterialIcons
-                    color={invertColors ? "black" : "white"}
-                    name={
-                      visiblePlaybackState.is_playing ? "pause" : "play-arrow"
-                    }
-                    size={n(52)}
-                  />
-                </HapticPressable>
-                <HapticPressable
-                  hitSlop={n(10)}
-                  onPress={() => handleSeekForward(30_000)}
-                >
-                  <MaterialCommunityIcons
-                    color={invertColors ? "black" : "white"}
-                    name="fast-forward-30"
-                    size={n(44)}
-                  />
-                </HapticPressable>
-              </>
+              <HapticPressable
+                hitSlop={n(12)}
+                onPress={() => handleSeekBackward()}
+              >
+                <MaterialCommunityIcons
+                  color={invertColors ? "black" : "white"}
+                  name="rewind-15"
+                  size={n(44)}
+                />
+              </HapticPressable>
             ) : (
               <>
+                <HapticPressable hitSlop={n(10)} onPress={handleShuffleToggle}>
+                  <MaterialIcons
+                    color={invertColors ? "black" : "white"}
+                    name={"shuffle"}
+                    size={n(30)}
+                  />
+                  <View
+                    style={[
+                      styles.shuffleIndicator,
+                      playbackState?.shuffle_state && [
+                        styles.activeShuffleIndicator,
+                        { backgroundColor: invertColors ? "black" : "white" },
+                      ],
+                    ]}
+                  />
+                </HapticPressable>
                 <HapticPressable hitSlop={n(10)} onPress={handleSkipToPrevious}>
                   <MaterialIcons
                     color={invertColors ? "black" : "white"}
@@ -1041,15 +1041,28 @@ export default function PlayingScreen() {
                     size={n(52)}
                   />
                 </HapticPressable>
-                <HapticPressable hitSlop={n(10)} onPress={handlePlayPause}>
-                  <MaterialIcons
-                    color={invertColors ? "black" : "white"}
-                    name={
-                      visiblePlaybackState.is_playing ? "pause" : "play-arrow"
-                    }
-                    size={n(52)}
-                  />
-                </HapticPressable>
+              </>
+            )}
+            <HapticPressable hitSlop={n(12)} onPress={handlePlayPause}>
+              <MaterialIcons
+                color={invertColors ? "black" : "white"}
+                name={visiblePlaybackState.is_playing ? "pause" : "play-arrow"}
+                size={n(52)}
+              />
+            </HapticPressable>
+            {isEpisode ? (
+              <HapticPressable
+                hitSlop={n(12)}
+                onPress={() => handleSeekForward(30_000)}
+              >
+                <MaterialCommunityIcons
+                  color={invertColors ? "black" : "white"}
+                  name="fast-forward-30"
+                  size={n(44)}
+                />
+              </HapticPressable>
+            ) : (
+              <>
                 <HapticPressable hitSlop={n(10)} onPress={handleSkipToNext}>
                   <MaterialIcons
                     color={invertColors ? "black" : "white"}
@@ -1057,29 +1070,29 @@ export default function PlayingScreen() {
                     size={n(52)}
                   />
                 </HapticPressable>
+                <HapticPressable hitSlop={n(10)} onPress={handleRepeatToggle}>
+                  <MaterialIcons
+                    color={invertColors ? "black" : "white"}
+                    name={
+                      playbackState?.repeat_state === "track"
+                        ? "repeat-one"
+                        : "repeat"
+                    }
+                    size={n(30)}
+                  />
+                  <View
+                    style={[
+                      styles.shuffleIndicator,
+                      (playbackState?.repeat_state === "context" ||
+                        playbackState?.repeat_state === "track") && [
+                        styles.activeShuffleIndicator,
+                        { backgroundColor: invertColors ? "black" : "white" },
+                      ],
+                    ]}
+                  />
+                </HapticPressable>
               </>
             )}
-            <HapticPressable hitSlop={n(10)} onPress={handleRepeatToggle}>
-              <MaterialIcons
-                color={invertColors ? "black" : "white"}
-                name={
-                  playbackState?.repeat_state === "track"
-                    ? "repeat-one"
-                    : "repeat"
-                }
-                size={n(30)}
-              />
-              <View
-                style={[
-                  styles.shuffleIndicator,
-                  (playbackState?.repeat_state === "context" ||
-                    playbackState?.repeat_state === "track") && [
-                    styles.activeShuffleIndicator,
-                    { backgroundColor: invertColors ? "black" : "white" },
-                  ],
-                ]}
-              />
-            </HapticPressable>
           </View>
         </View>
         <View
@@ -1088,7 +1101,7 @@ export default function PlayingScreen() {
             visibleButtonCount === 1 && styles.musicControlsExtraCentered,
           ]}
         >
-          {!hideLikeButton && (
+          {showLikeButton && (
             <HapticPressable
               disabled={
                 pendingSaveOperation || !isOnline || isPendingRoutePlayback
@@ -1110,7 +1123,7 @@ export default function PlayingScreen() {
               />
             </HapticPressable>
           )}
-          {!hideDevicesButton && (
+          {showDevicesButton && (
             <HapticPressable
               disabled={!isOnline}
               onPress={handleSelectDevicePress}
@@ -1123,15 +1136,15 @@ export default function PlayingScreen() {
               />
             </HapticPressable>
           )}
-          {!hideLyricsButton && (
+          {showLyricsButton && (
             <HapticPressable
-              disabled={!isOnline || isEpisode || isPendingRoutePlayback}
+              disabled={!isOnline || isPendingRoutePlayback}
               onPress={() => {
-                if (isOnline && !isEpisode && !isPendingRoutePlayback) {
+                if (isOnline && !isPendingRoutePlayback) {
                   handleNavigateToLyrics();
                 }
               }}
-              style={(!isOnline || isEpisode) && styles.disabledButton}
+              style={!isOnline && styles.disabledButton}
             >
               <MaterialIcons
                 color={invertColors ? "black" : "white"}
@@ -1140,15 +1153,15 @@ export default function PlayingScreen() {
               />
             </HapticPressable>
           )}
-          {!hideAddToPlaylistButton && (
+          {showAddButton && (
             <HapticPressable
-              disabled={!isOnline || isEpisode || isPendingRoutePlayback}
+              disabled={!isOnline || isPendingRoutePlayback}
               onPress={() => {
-                if (isOnline && !isEpisode && !isPendingRoutePlayback) {
+                if (isOnline && !isPendingRoutePlayback) {
                   handleNavigateToAddToPlaylist();
                 }
               }}
-              style={(!isOnline || isEpisode) && styles.disabledButton}
+              style={!isOnline && styles.disabledButton}
             >
               <MaterialIcons
                 color={invertColors ? "black" : "white"}
@@ -1157,7 +1170,7 @@ export default function PlayingScreen() {
               />
             </HapticPressable>
           )}
-          {!hideQueueButton && (
+          {showQueueButton && (
             <HapticPressable
               disabled={!isOnline || isPendingRoutePlayback}
               onPress={() => {
@@ -1241,15 +1254,15 @@ const styles = StyleSheet.create({
     paddingVertical: n(10),
   },
   progressBarBackground: {
-    height: n(2),
+    height: n(3),
     width: "100%",
     overflow: "visible",
     marginBottom: n(3),
   },
   progressBarForeground: {
-    height: n(6),
+    height: n(3),
     position: "absolute",
-    top: n(-2),
+    top: 0,
   },
   progressBarInfo: {
     flexDirection: "row",
@@ -1276,6 +1289,10 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-between",
     paddingBottom: n(20),
+  },
+  musicControlsCentered: {
+    justifyContent: "center",
+    gap: n(48),
   },
   musicControlsExtra: {
     flexDirection: "row",

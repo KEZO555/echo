@@ -352,13 +352,51 @@ export default function PlaylistDetailScreen() {
     [router]
   );
 
+  const handleGoToAlbum = useCallback(
+    (track: SpotifyTrackSimple) => {
+      const album = track.album;
+      if (!album?.id) {
+        return;
+      }
+      router.push({
+        pathname: "/album/[id]",
+        params: {
+          id: album.id,
+          albumName: album.name,
+          albumString: JSON.stringify({
+            id: album.id,
+            name: album.name,
+            images: album.images,
+            artists: album.artists,
+            uri: album.uri,
+          }),
+        },
+      });
+    },
+    [router]
+  );
+
+  const handleGoToArtist = useCallback(
+    (track: SpotifyTrackSimple) => {
+      const artist = track.artists?.[0];
+      if (!artist?.id) {
+        return;
+      }
+      router.push({
+        pathname: "/artist/[id]",
+        params: { id: artist.id, artistName: artist.name },
+      });
+    },
+    [router]
+  );
+
   const menuActions = useMemo(() => {
     if (!menuTrack) {
       return [];
     }
     const { track, index } = menuTrack;
     const close = () => setMenuTrack(null);
-    return [
+    const actions = [
       {
         label: "Play",
         onPress: () => {
@@ -381,7 +419,33 @@ export default function PlaylistDetailScreen() {
         },
       },
     ];
-  }, [menuTrack, handleTrackPress, handleAddTrackToQueue, handleAddToPlaylist]);
+    if (track.album?.id) {
+      actions.push({
+        label: "Go to album",
+        onPress: () => {
+          close();
+          handleGoToAlbum(track);
+        },
+      });
+    }
+    if (track.artists?.[0]?.id) {
+      actions.push({
+        label: "Go to artist",
+        onPress: () => {
+          close();
+          handleGoToArtist(track);
+        },
+      });
+    }
+    return actions;
+  }, [
+    menuTrack,
+    handleTrackPress,
+    handleAddTrackToQueue,
+    handleAddToPlaylist,
+    handleGoToAlbum,
+    handleGoToArtist,
+  ]);
 
   const renderTrackItem = ({
     item,

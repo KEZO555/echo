@@ -220,9 +220,6 @@ export default function PodcastsScreen() {
   const handleSortPress = usePreventDoubleTap(() => {
     router.push("/podcasts-sort" as never);
   });
-  const handlePlayingPress = usePreventDoubleTap(() => {
-    router.push("/playing");
-  });
 
   if (isFetching && !sortedPodcasts) {
     return <View style={styles.centeredMessageContainer} />;
@@ -233,7 +230,6 @@ export default function PodcastsScreen() {
       <ListScreen
         data={displayPodcasts}
         emptyMessage="No followed podcasts yet."
-        headerIconPress={handlePlayingPress}
         headerLeftIcon="sort"
         headerLeftIconPress={handleSortPress}
         isRefreshing={isRefreshing}
@@ -251,7 +247,6 @@ export default function PodcastsScreen() {
     <ListScreen
       data={displayPodcasts}
       emptyMessage="No followed podcasts yet."
-      headerIconPress={handlePlayingPress}
       headerLeftIcon="sort"
       headerLeftIconPress={handleSortPress}
       isLoadingMore={isLoadingMore}

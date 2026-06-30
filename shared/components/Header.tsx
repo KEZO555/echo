@@ -18,6 +18,7 @@ interface HeaderProps {
   backEvent?: () => void;
   hideBackButton?: boolean;
   onTitlePress?: () => void;
+  showNowPlaying?: boolean;
 }
 
 export const Header = React.memo(function Header({
@@ -31,6 +32,7 @@ export const Header = React.memo(function Header({
   backEvent,
   hideBackButton = false,
   onTitlePress,
+  showNowPlaying = false,
 }: HeaderProps) {
   const { invertColors } = useSettings();
   const handleBack = backEvent
@@ -43,7 +45,14 @@ export const Header = React.memo(function Header({
 
   const iconColor = invertColors ? "black" : "white";
   let leftSlot = <View style={styles.iconContainerLeft} />;
-  let rightSlot = <View style={styles.iconContainerRightEmpty} />;
+  let actionSlot: React.ReactNode = null;
+  const nowPlayingSlot = showNowPlaying ? (
+    <HapticPressable onPress={() => router.push("/playing")}>
+      <View style={styles.iconContainerRightIcon}>
+        <MaterialIcons color={iconColor} name="graphic-eq" size={n(28)} />
+      </View>
+    </HapticPressable>
+  ) : null;
 
   if (hideBackButton) {
     if (leftIconName) {
@@ -66,7 +75,7 @@ export const Header = React.memo(function Header({
   }
 
   if (iconLoading) {
-    rightSlot = (
+    actionSlot = (
       <View style={styles.iconContainerRightIcon}>
         <ActivityIndicator
           color={iconColor}
@@ -76,7 +85,7 @@ export const Header = React.memo(function Header({
       </View>
     );
   } else if (iconShowLength > 0 && iconName) {
-    rightSlot = (
+    actionSlot = (
       <HapticPressable onPress={onIconPress}>
         <View style={styles.iconContainerRightIcon}>
           <MaterialIcons color={iconColor} name={iconName} size={n(28)} />
@@ -84,6 +93,17 @@ export const Header = React.memo(function Header({
       </HapticPressable>
     );
   }
+
+  if (!(actionSlot || nowPlayingSlot)) {
+    actionSlot = <View style={styles.iconContainerRightEmpty} />;
+  }
+
+  const rightSlot = (
+    <View style={styles.rightCluster}>
+      {actionSlot}
+      {nowPlayingSlot}
+    </View>
+  );
 
   return (
     <View
@@ -140,11 +160,15 @@ const styles = StyleSheet.create({
     width: n(32),
     height: n(32),
   },
+  rightCluster: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
   loadingSpinner: {
     marginTop: n(4),
   },
   titlePressable: {
-    maxWidth: "75%",
+    maxWidth: "62%",
   },
   titleText: {
     fontSize: n(20),
@@ -152,6 +176,6 @@ const styles = StyleSheet.create({
     paddingTop: n(2),
   },
   titleMaxWidth: {
-    maxWidth: "75%",
+    maxWidth: "62%",
   },
 });

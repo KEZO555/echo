@@ -62,6 +62,7 @@ export default function LoginScreen() {
           headerIconShowLength={clientId.trim().length}
           headerTitle="Client ID"
           hideBackButton={true}
+          hideNowPlaying
         >
           <View
             style={[styles.inputContainer, { borderBottomColor: borderColor }]}
@@ -102,6 +103,7 @@ export default function LoginScreen() {
         headerIconShowLength={clientSecret.trim().length}
         headerTitle="Client Secret"
         hideBackButton={false}
+        hideNowPlaying
         onBackPress={() => setStep("clientId")}
       >
         <View
@@ -140,6 +142,7 @@ export default function LoginScreen() {
     <ContentContainer
       headerTitle="Login"
       hideBackButton={false}
+      hideNowPlaying
       onBackPress={handleBackToSetup}
     >
       <StyledText style={styles.informationText}>
