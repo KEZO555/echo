@@ -219,6 +219,8 @@ export default function PlayingScreen() {
   const isFocusedRef = useRef(true);
   const lastCheckedTrackUriRef = useRef<string | null>(null);
   const isPlayingRef = useRef(false);
+  const isEpisodeRef = useRef(false);
+  const episodeEndStoppedRef = useRef(false);
   const pausePollingUntilRef = useRef<number | null>(null);
   const routePlaybackExpiresAtRef = useRef<number | null>(
     paramsState !== null ? Date.now() + ROUTE_PLAYBACK_TIMEOUT_MS : null
@@ -360,6 +362,17 @@ export default function PlayingScreen() {
     }
     setPlaybackState(state);
     isPlayingRef.current = state?.is_playing ?? false;
+    isEpisodeRef.current =
+      state?.currently_playing_type === "episode" ||
+      state?.item?.type === "episode";
+    // Re-arm the end-of-episode stop unless we are already at the very end.
+    const stateDuration = state?.item?.duration_ms ?? 0;
+    if (
+      stateDuration <= 0 ||
+      (state?.progress_ms ?? 0) < stateDuration - 2000
+    ) {
+      episodeEndStoppedRef.current = false;
+    }
 
     if (state?.item && "duration_ms" in state.item) {
       applyPosition(state.progress_ms ?? 0, state.item.duration_ms ?? 0);
@@ -632,6 +645,24 @@ export default function PlayingScreen() {
           duration
         );
         setDisplayPositionMs(positionMs);
+
+        // Stop at the end of an episode instead of letting Spotify roll on to
+        // the next one. Pause just before the end to beat the auto-advance.
+        if (
+          isEpisodeRef.current &&
+          !episodeEndStoppedRef.current &&
+          positionMs >= duration - 1500
+        ) {
+          episodeEndStoppedRef.current = true;
+          isPlayingRef.current = false;
+          progress.setValue(1);
+          setDisplayPositionMs(duration);
+          pausePlayback().catch((pauseError) =>
+            logError("Error stopping finished episode:", pauseError)
+          );
+          return;
+        }
+
         // Glide the bar to where it will be one second from now so motion
         // is continuous instead of stepping once per second.
         const target = Math.min((positionMs + 1000) / duration, 1);
@@ -661,7 +692,7 @@ export default function PlayingScreen() {
         unsubscribe();
         log("PlayingScreen unfocused, cleared timers.");
       };
-    }, [fetchAndUpdatePlaybackState, progress])
+    }, [fetchAndUpdatePlaybackState, progress, pausePlayback])
   );
 
   const playingEpisodeId =

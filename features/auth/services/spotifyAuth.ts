@@ -128,32 +128,33 @@ export const loadStoredAuth = async (): Promise<{
   tokenExpiry: number | null;
 }> => {
   try {
-    const storedToken = await getItemAsync(AUTH_TOKEN_KEY);
-    const storedRefreshToken = await getItemAsync(REFRESH_TOKEN_KEY);
-    const storedUser = await getItemAsync(USER_INFO_KEY);
-    const storedExpiry = await getItemAsync(TOKEN_EXPIRY_KEY);
+    const [storedToken, storedRefreshToken, storedUser, storedExpiry] =
+      await Promise.all([
+        getItemAsync(AUTH_TOKEN_KEY),
+        getItemAsync(REFRESH_TOKEN_KEY),
+        getItemAsync(USER_INFO_KEY),
+        getItemAsync(TOKEN_EXPIRY_KEY),
+      ]);
 
     if (storedToken && storedRefreshToken) {
       log("Auth: Found stored tokens, enabling auto-connect");
 
-      const credentials = await getStoredCredentials();
-      if (credentials) {
-        try {
-          log("Auth: Establishing App Remote connection for stored tokens...");
-          const connectionResult = await SpotifySdk.connect(
-            credentials.clientId,
-            REDIRECT_URI
-          );
-          if (connectionResult.connected) {
-            log("Auth: App Remote connected successfully for stored tokens");
+      // Establish the App Remote connection in the background so it does not
+      // block app startup. Playback reconnects on demand if this is slow.
+      getStoredCredentials()
+        .then((credentials) => {
+          if (credentials) {
+            log("Auth: Establishing App Remote connection in background...");
+            return SpotifySdk.connect(credentials.clientId, REDIRECT_URI);
           }
-        } catch (connectionError) {
+          return null;
+        })
+        .catch((connectionError) => {
           console.warn(
             "Auth: App Remote connection error for stored tokens:",
             connectionError
           );
-        }
-      }
+        });
     }
 
     return {
