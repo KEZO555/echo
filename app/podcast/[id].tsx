@@ -221,8 +221,8 @@ export default function PodcastDetailScreen() {
     index: number;
   }) => (
     <HapticPressable
-      onLongPress={() => handleEpisodeInfo(episode)}
-      onPress={() => handleEpisodePlay(episode, index)}
+      onLongPress={() => handleEpisodePlay(episode, index)}
+      onPress={() => handleEpisodeInfo(episode)}
       style={styles.episodeItemContainer}
     >
       <View style={styles.episodeInfoContainer}>

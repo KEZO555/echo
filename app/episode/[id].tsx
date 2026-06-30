@@ -2,6 +2,7 @@ import { MaterialIcons } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { StyleSheet, View } from "react-native";
+import { useSavedEpisodesStore } from "@/features/library/stores";
 import { usePlayback } from "@/features/playback";
 import { useSettings } from "@/features/settings";
 import {
@@ -82,6 +83,10 @@ export default function EpisodeDetailScreen() {
   const { triggerHaptic, hideDetailCovers } = useSettings();
   const { isOnline } = useNetworkState();
   const router = useRouter();
+  const saveEpisode = useSavedEpisodesStore((s) => s.saveEpisode);
+  const removeEpisode = useSavedEpisodesStore((s) => s.removeEpisode);
+  const checkIfSaved = useSavedEpisodesStore((s) => s.checkIfSaved);
+  const [isSaved, setIsSaved] = useState(false);
 
   const initialEpisode = useMemo(() => {
     if (!episodeString) {
@@ -214,6 +219,40 @@ export default function EpisodeDetailScreen() {
     }
   });
 
+  useEffect(() => {
+    if (!(id && isOnline)) {
+      return;
+    }
+    let cancelled = false;
+    checkIfSaved(id)
+      .then((saved) => {
+        if (!cancelled) {
+          setIsSaved(saved);
+        }
+      })
+      .catch(() => {
+        // ignore; leave default
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [id, isOnline, checkIfSaved]);
+
+  const handleToggleSave = usePreventDoubleTap(async () => {
+    if (!episode) {
+      return;
+    }
+    triggerHaptic();
+    const next = !isSaved;
+    setIsSaved(next);
+    const ok = next
+      ? await saveEpisode(episode)
+      : await removeEpisode(episode.id);
+    if (!ok) {
+      setIsSaved(!next);
+    }
+  });
+
   const handleAddToQueue = useCallback(async () => {
     if (!episode?.uri) {
       return;
@@ -265,6 +304,16 @@ export default function EpisodeDetailScreen() {
         <HapticPressable onPress={handlePlay} style={styles.actionButton}>
           <MaterialIcons color="white" name="play-arrow" size={n(32)} />
           <StyledText style={styles.actionLabel}>Play</StyledText>
+        </HapticPressable>
+        <HapticPressable onPress={handleToggleSave} style={styles.actionButton}>
+          <MaterialIcons
+            color="white"
+            name={isSaved ? "bookmark" : "bookmark-border"}
+            size={n(28)}
+          />
+          <StyledText style={styles.actionLabel}>
+            {isSaved ? "Saved" : "Save"}
+          </StyledText>
         </HapticPressable>
         <HapticPressable onPress={handleAddToQueue} style={styles.actionButton}>
           <MaterialIcons color="white" name="queue-music" size={n(28)} />

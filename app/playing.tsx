@@ -18,6 +18,7 @@ import {
   View,
 } from "react-native";
 import { useAuth } from "@/features/auth";
+import { useSavedEpisodesStore } from "@/features/library/stores";
 import { usePlayback } from "@/features/playback";
 import { useSettings } from "@/features/settings";
 import { spotify } from "@/modules/spotify-sdk";
@@ -175,6 +176,9 @@ export default function PlayingScreen() {
     hidePlayingCover,
   } = useSettings();
   const { isOnline } = useNetworkState();
+  const saveEpisodeStore = useSavedEpisodesStore((s) => s.saveEpisode);
+  const removeEpisodeStore = useSavedEpisodesStore((s) => s.removeEpisode);
+  const checkEpisodeSaved = useSavedEpisodesStore((s) => s.checkIfSaved);
   const params = useLocalSearchParams<{
     trackName?: string;
     artistName?: string;
@@ -313,16 +317,29 @@ export default function PlayingScreen() {
         item && "id" in item ? (item as { id?: string }).id : null;
       const trackUri =
         item && "uri" in item ? (item as { uri?: string }).uri : null;
-      const normalizedTrackUri =
-        trackUri || (trackId ? `spotify:track:${trackId}` : null);
       const isEpisode =
         state?.currently_playing_type === "episode" || item?.type === "episode";
 
-      if (
-        !normalizedTrackUri ||
-        state?.currently_playing_type !== "track" ||
-        isEpisode
-      ) {
+      if (isEpisode) {
+        const episodeUri =
+          trackUri || (trackId ? `spotify:episode:${trackId}` : null);
+        if (!(episodeUri && trackId)) {
+          lastCheckedTrackUriRef.current = null;
+          setIsCurrentTrackSaved(false);
+          return;
+        }
+        if (lastCheckedTrackUriRef.current === episodeUri) {
+          return;
+        }
+        const saved = await checkEpisodeSaved(trackId);
+        lastCheckedTrackUriRef.current = episodeUri;
+        setIsCurrentTrackSaved(saved);
+        return;
+      }
+
+      const normalizedTrackUri =
+        trackUri || (trackId ? `spotify:track:${trackId}` : null);
+      if (!normalizedTrackUri || state?.currently_playing_type !== "track") {
         lastCheckedTrackUriRef.current = null;
         setIsCurrentTrackSaved(false);
         return;
@@ -340,7 +357,7 @@ export default function PlayingScreen() {
         lastCheckedTrackUriRef.current = null;
       }
     },
-    [getLibraryState]
+    [getLibraryState, checkEpisodeSaved]
   );
 
   const fetchAndUpdatePlaybackState = useCallback(async () => {
@@ -510,26 +527,32 @@ export default function PlayingScreen() {
   };
 
   const handleToggleSaveTrack = async () => {
-    if (
-      !playbackState?.item?.id ||
-      playbackState.currently_playing_type !== "track" ||
-      playbackState.item.type === "episode"
-    ) {
+    const item = playbackState?.item;
+    if (!item?.id) {
       return;
     }
 
-    const trackId = playbackState.item.id;
+    const isEpisodeItem =
+      playbackState?.currently_playing_type === "episode" ||
+      item.type === "episode";
     const currentlySaved = isCurrentTrackSaved;
-    const trackUri = `spotify:track:${trackId}`;
 
     setPendingSaveOperation(true);
     setOptimisticSaveState(!currentlySaved);
     setIsCurrentTrackSaved(!currentlySaved);
     pausePollingUntilRef.current = Date.now() + 3000;
 
-    const success = currentlySaved
-      ? await removeFromLibrary(trackUri)
-      : await addToLibrary(trackUri);
+    let success: boolean;
+    if (isEpisodeItem) {
+      success = currentlySaved
+        ? await removeEpisodeStore(item.id)
+        : await saveEpisodeStore(item as SpotifyEpisode);
+    } else {
+      const trackUri = `spotify:track:${item.id}`;
+      success = currentlySaved
+        ? await removeFromLibrary(trackUri)
+        : await addToLibrary(trackUri);
+    }
 
     if (success) {
       setTimeout(() => {
@@ -1062,20 +1085,21 @@ export default function PlayingScreen() {
           {!hideLikeButton && (
             <HapticPressable
               disabled={
-                pendingSaveOperation ||
-                isEpisode ||
-                !isOnline ||
-                isPendingRoutePlayback
+                pendingSaveOperation || !isOnline || isPendingRoutePlayback
               }
               onPress={handleToggleSaveTrack}
               style={
-                (isEpisode || pendingSaveOperation || !isOnline) &&
-                styles.disabledButton
+                (pendingSaveOperation || !isOnline) && styles.disabledButton
               }
             >
               <MaterialIcons
                 color={invertColors ? "black" : "white"}
-                name={displayedLikeState ? "favorite" : "favorite-outline"}
+                name={(() => {
+                  if (isEpisode) {
+                    return displayedLikeState ? "bookmark" : "bookmark-border";
+                  }
+                  return displayedLikeState ? "favorite" : "favorite-outline";
+                })()}
                 size={n(30)}
               />
             </HapticPressable>
