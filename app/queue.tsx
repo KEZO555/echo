@@ -77,8 +77,23 @@ export default function QueueScreen() {
     setIsLoading(true);
     try {
       const data = await getQueue();
-      setCurrentlyPlaying(data?.currently_playing ?? null);
-      setQueue(data?.queue ?? []);
+      const playing = data?.currently_playing ?? null;
+      setCurrentlyPlaying(playing);
+      // Spotify's queue endpoint can echo the playing context (e.g. the whole
+      // album repeated), so drop duplicates and the currently-playing item.
+      const seen = new Set<string>();
+      if (playing?.uri) {
+        seen.add(playing.uri);
+      }
+      const deduped = (data?.queue ?? []).filter((entry) => {
+        const key = entry.uri || entry.id;
+        if (!key || seen.has(key)) {
+          return false;
+        }
+        seen.add(key);
+        return true;
+      });
+      setQueue(deduped);
     } catch (error) {
       logError("Error fetching queue:", error);
     } finally {

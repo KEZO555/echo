@@ -3,8 +3,11 @@ import {
   type ReactNode,
   useCallback,
   useContext,
+  useEffect,
   useMemo,
+  useRef,
 } from "react";
+import { AppState } from "react-native";
 import { useAuth } from "@/features/auth";
 import { useSpotifyConnection } from "@/modules/spotify-sdk";
 
@@ -152,6 +155,21 @@ export const PlaybackProvider = ({ children }: { children: ReactNode }) => {
 
   const pausePlayback = useCallback(async () => {
     return await pausePlaybackService();
+  }, []);
+
+  // Pause playback when Echo leaves the foreground (backgrounded or closed)
+  // so music/podcasts don't keep playing after you exit the app.
+  const appStateRef = useRef(AppState.currentState);
+  useEffect(() => {
+    const subscription = AppState.addEventListener("change", (nextState) => {
+      if (appStateRef.current === "active" && nextState === "background") {
+        pausePlaybackService().catch(() => {
+          // ignore — nothing playing or not connected
+        });
+      }
+      appStateRef.current = nextState;
+    });
+    return () => subscription.remove();
   }, []);
 
   const skipToNext = useCallback(async () => {

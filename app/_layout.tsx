@@ -5,14 +5,13 @@ import { Stack, useRouter } from "expo-router";
 import { setStatusBarHidden } from "expo-status-bar";
 import { setBackgroundColorAsync } from "expo-system-ui";
 import { useCallback, useEffect, useRef } from "react";
-import { View } from "react-native";
+import { ActivityIndicator, View } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { AuthProvider, useAuth } from "@/features/auth";
-import { CredentialsProvider, useCredentials } from "@/features/credentials";
+import { CredentialsProvider } from "@/features/credentials";
 import { useLibraryInit } from "@/features/library";
 import { PlaybackProvider } from "@/features/playback";
 import { SettingsProvider, useSettings } from "@/features/settings";
-import { StyledText } from "@/shared/components/StyledText";
 import "@/shared/utils/logger";
 
 function RootNavigation() {
@@ -29,16 +28,12 @@ function RootNavigation() {
     isLoading: preferencesLoading,
     invertColors,
   } = useSettings();
-  const { isLoading: credentialsLoading } = useCredentials();
   const [fontsLoaded, fontError] = useFonts({
     "PublicSans-Regular": require("../assets/fonts/PublicSans-Regular.ttf"),
     ...MaterialIcons.font,
   });
   const isLoading =
-    authLoading ||
-    preferencesLoading ||
-    credentialsLoading ||
-    !(fontsLoaded || fontError);
+    authLoading || preferencesLoading || !(fontsLoaded || fontError);
   const hasDoneInitialRouting = useRef(false);
   const previousAccessToken = useRef<string | null>(null);
 
@@ -112,7 +107,7 @@ function RootNavigation() {
           alignItems: "center",
         }}
       >
-        {fontsLoaded && <StyledText>Loading data...</StyledText>}
+        <ActivityIndicator color={invertColors ? "black" : "white"} />
       </View>
     );
   }
