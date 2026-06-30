@@ -1043,6 +1043,24 @@ export default function PlayingScreen() {
           </View>
 
           <View style={styles.timeIndicatorContainer}>
+            <View style={styles.chapterSlot}>
+              {hasChapters ? (
+                <HapticPressable
+                  hitSlop={n(10)}
+                  onPress={() => setChaptersVisible(true)}
+                  style={styles.chapterButton}
+                >
+                  <MaterialIcons
+                    color={invertColors ? "black" : "white"}
+                    name="list"
+                    size={n(18)}
+                  />
+                  <StyledText numberOfLines={1} style={styles.chapterLabel}>
+                    {currentChapterTitle ?? "Chapters"}
+                  </StyledText>
+                </HapticPressable>
+              ) : null}
+            </View>
             <HapticPressable
               onPress={handleProgressBarSeek}
               style={styles.progressBarPressable}
@@ -1089,22 +1107,6 @@ export default function PlayingScreen() {
                 {formatTime(item.duration_ms)}
               </StyledText>
             </View>
-            {hasChapters ? (
-              <HapticPressable
-                hitSlop={n(10)}
-                onPress={() => setChaptersVisible(true)}
-                style={styles.chapterButton}
-              >
-                <MaterialIcons
-                  color={invertColors ? "black" : "white"}
-                  name="list"
-                  size={n(20)}
-                />
-                <StyledText numberOfLines={1} style={styles.chapterLabel}>
-                  {currentChapterTitle ?? "Chapters"}
-                </StyledText>
-              </HapticPressable>
-            ) : null}
           </View>
           <View
             style={[
@@ -1320,14 +1322,13 @@ const styles = StyleSheet.create({
     width: "100%",
     justifyContent: "space-between",
     alignItems: "center",
-    paddingBottom: n(28),
+    paddingBottom: n(18),
   },
   mainContent: {
     flex: 1,
     width: "100%",
     alignItems: "center",
     justifyContent: "center",
-    gap: n(8),
   },
   albumArt: {
     width: n(200),
@@ -1401,13 +1402,18 @@ const styles = StyleSheet.create({
     width: n(2),
     height: n(10),
   },
+  chapterSlot: {
+    height: n(28),
+    width: "90%",
+    justifyContent: "center",
+    marginBottom: n(4),
+  },
   chapterButton: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
     gap: n(6),
-    width: "90%",
-    marginBottom: n(6),
+    width: "100%",
   },
   chapterLabel: {
     fontSize: n(16),
