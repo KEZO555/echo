@@ -4,7 +4,6 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { StyleSheet, View } from "react-native";
 import { useAuth } from "@/features/auth";
 import {
-  followArtist,
   getCachedAlbumDetail,
   saveCachedAlbumDetail,
 } from "@/features/library";
@@ -246,34 +245,13 @@ export default function AlbumDetailScreen() {
     [router]
   );
 
-  const handleGoToArtist = useCallback(
-    (track: SpotifyTrackSimple) => {
-      const artist = track.artists?.[0];
-      if (!artist?.id) {
-        return;
-      }
-      router.push({
-        pathname: "/artist/[id]",
-        params: { id: artist.id, artistName: artist.name },
-      });
-    },
-    [router]
-  );
-
-  const handleFollowArtist = useCallback((track: SpotifyTrackSimple) => {
-    const artistId = track.artists?.[0]?.id;
-    if (artistId) {
-      followArtist(artistId);
-    }
-  }, []);
-
   const menuActions = useMemo(() => {
     if (!menuTrack) {
       return [];
     }
     const { track, index } = menuTrack;
     const close = () => setMenuTrack(null);
-    const actions = [
+    return [
       {
         label: "Play",
         onPress: () => {
@@ -296,31 +274,7 @@ export default function AlbumDetailScreen() {
         },
       },
     ];
-    if (track.artists?.[0]?.id) {
-      actions.push({
-        label: "Go to artist",
-        onPress: () => {
-          close();
-          handleGoToArtist(track);
-        },
-      });
-      actions.push({
-        label: "Follow artist",
-        onPress: () => {
-          close();
-          handleFollowArtist(track);
-        },
-      });
-    }
-    return actions;
-  }, [
-    menuTrack,
-    handleTrackPress,
-    handleAddTrackToQueue,
-    handleAddToPlaylist,
-    handleGoToArtist,
-    handleFollowArtist,
-  ]);
+  }, [menuTrack, handleTrackPress, handleAddTrackToQueue, handleAddToPlaylist]);
 
   if (!album) {
     return (

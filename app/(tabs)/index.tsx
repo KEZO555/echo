@@ -2,7 +2,6 @@ import { useRouter } from "expo-router";
 import { useCallback, useMemo, useState } from "react";
 import { View } from "react-native";
 import { useAuth } from "@/features/auth";
-import { followArtist } from "@/features/library";
 import { useAlbumsStore, useSavedTracksStore } from "@/features/library/stores";
 import { getSavedTrackIdentity } from "@/features/library/utils/savedTracks";
 import { usePlayback } from "@/features/playback";
@@ -164,20 +163,6 @@ export default function LikedSongsScreen() {
     [router]
   );
 
-  const handleGoToArtist = useCallback(
-    (item: SavedTrackObject) => {
-      const artist = item.track?.artists?.[0];
-      if (!artist?.id) {
-        return;
-      }
-      router.push({
-        pathname: "/artist/[id]",
-        params: { id: artist.id, artistName: artist.name },
-      });
-    },
-    [router]
-  );
-
   const handleSaveAlbum = useCallback(
     (item: SavedTrackObject) => {
       const albumId = item.track?.album?.id;
@@ -187,13 +172,6 @@ export default function LikedSongsScreen() {
     },
     [saveAlbum]
   );
-
-  const handleFollowArtist = useCallback((item: SavedTrackObject) => {
-    const artistId = item.track?.artists?.[0]?.id;
-    if (artistId) {
-      followArtist(artistId);
-    }
-  }, []);
 
   const menuActions = useMemo(() => {
     if (!menuTrack) {
@@ -213,13 +191,6 @@ export default function LikedSongsScreen() {
       actions.push({ label: "Go to album", onPress: run(handleGoToAlbum) });
       actions.push({ label: "Save album", onPress: run(handleSaveAlbum) });
     }
-    if (track.track?.artists?.[0]?.id) {
-      actions.push({ label: "Go to artist", onPress: run(handleGoToArtist) });
-      actions.push({
-        label: "Follow artist",
-        onPress: run(handleFollowArtist),
-      });
-    }
     return actions;
   }, [
     menuTrack,
@@ -227,9 +198,7 @@ export default function LikedSongsScreen() {
     handleAddTrackToQueue,
     handleAddToPlaylist,
     handleGoToAlbum,
-    handleGoToArtist,
     handleSaveAlbum,
-    handleFollowArtist,
   ]);
 
   const renderTrackItem = ({ item }: { item: LikedSongsListItem }) => {

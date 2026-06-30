@@ -15,7 +15,6 @@ import {
   View,
 } from "react-native";
 import { useAuth } from "@/features/auth";
-import { followArtist } from "@/features/library";
 import {
   useAlbumsStore,
   useSavedEpisodesStore,
@@ -816,17 +815,6 @@ export default function PlayingScreen() {
     }
   });
 
-  const handleGoToArtist = usePreventDoubleTap(() => {
-    const artist = currentTrack?.artists?.[0];
-    if (!(isOnline && artist?.id)) {
-      return;
-    }
-    router.push({
-      pathname: "/artist/[id]",
-      params: { id: artist.id, artistName: artist.name },
-    });
-  });
-
   const handleSelectDevicePress = usePreventDoubleTap(() => {
     if (isOnline) {
       router.push({ pathname: "/select-device" as never });
@@ -871,27 +859,12 @@ export default function PlayingScreen() {
             run: handleTitlePress,
           },
           {
-            show: isOnline && Boolean(currentTrack?.artists?.[0]?.id),
-            label: "Go to artist",
-            run: handleGoToArtist,
-          },
-          {
             show: isOnline && Boolean(currentTrack?.album?.id),
             label: "Save album",
             run: () => {
               const albumId = currentTrack?.album?.id;
               if (albumId) {
                 saveAlbum(albumId);
-              }
-            },
-          },
-          {
-            show: isOnline && Boolean(currentTrack?.artists?.[0]?.id),
-            label: "Follow artist",
-            run: () => {
-              const artistId = currentTrack?.artists?.[0]?.id;
-              if (artistId) {
-                followArtist(artistId);
               }
             },
           },

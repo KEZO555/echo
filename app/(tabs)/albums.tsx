@@ -5,7 +5,6 @@ import { View } from "react-native";
 import { ALBUM_DETAIL_KEY_PREFIX } from "@/constants/spotify";
 import { useAuth } from "@/features/auth";
 import {
-  followArtist,
   refreshSavedAlbumsFromCache,
   useAlbumsStore,
 } from "@/features/library";
@@ -214,56 +213,21 @@ export default function AlbumsScreen() {
     [playContext, router]
   );
 
-  const handleGoToArtist = useCallback(
-    (item: SpotifySavedAlbum) => {
-      const artist = item.album.artists?.[0];
-      if (!artist?.id) {
-        return;
-      }
-      router.push({
-        pathname: "/artist/[id]",
-        params: { id: artist.id, artistName: artist.name },
-      });
-    },
-    [router]
-  );
-
   const menuActions = useMemo(() => {
     if (!menuAlbum) {
       return [];
     }
     const album = menuAlbum;
-    const close = () => setMenuAlbum(null);
-    const actions = [
+    return [
       {
         label: "Play",
         onPress: () => {
-          close();
+          setMenuAlbum(null);
           handlePlayAlbum(album);
         },
       },
     ];
-    if (album.album.artists?.[0]?.id) {
-      actions.push({
-        label: "Go to artist",
-        onPress: () => {
-          close();
-          handleGoToArtist(album);
-        },
-      });
-      actions.push({
-        label: "Follow artist",
-        onPress: () => {
-          close();
-          const artistId = album.album.artists?.[0]?.id;
-          if (artistId) {
-            followArtist(artistId);
-          }
-        },
-      });
-    }
-    return actions;
-  }, [menuAlbum, handlePlayAlbum, handleGoToArtist]);
+  }, [menuAlbum, handlePlayAlbum]);
 
   const renderAlbumItem = ({ item }: { item: AlbumsListItem }) => {
     if (isRateLimitItem(item)) {

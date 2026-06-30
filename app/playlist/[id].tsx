@@ -2,7 +2,6 @@ import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 import { useCallback, useMemo, useState } from "react";
 import { useAuth } from "@/features/auth";
 import {
-  followArtist,
   getCachedPlaylistDetail,
   saveCachedPlaylistDetail,
 } from "@/features/library";
@@ -379,20 +378,6 @@ export default function PlaylistDetailScreen() {
     [router]
   );
 
-  const handleGoToArtist = useCallback(
-    (track: SpotifyTrackSimple) => {
-      const artist = track.artists?.[0];
-      if (!artist?.id) {
-        return;
-      }
-      router.push({
-        pathname: "/artist/[id]",
-        params: { id: artist.id, artistName: artist.name },
-      });
-    },
-    [router]
-  );
-
   const handleSaveAlbum = useCallback(
     (track: SpotifyTrackSimple) => {
       if (track.album?.id) {
@@ -401,13 +386,6 @@ export default function PlaylistDetailScreen() {
     },
     [saveAlbum]
   );
-
-  const handleFollowArtist = useCallback((track: SpotifyTrackSimple) => {
-    const artistId = track.artists?.[0]?.id;
-    if (artistId) {
-      followArtist(artistId);
-    }
-  }, []);
 
   const menuActions = useMemo(() => {
     if (!menuTrack) {
@@ -454,22 +432,6 @@ export default function PlaylistDetailScreen() {
         },
       });
     }
-    if (track.artists?.[0]?.id) {
-      actions.push({
-        label: "Go to artist",
-        onPress: () => {
-          close();
-          handleGoToArtist(track);
-        },
-      });
-      actions.push({
-        label: "Follow artist",
-        onPress: () => {
-          close();
-          handleFollowArtist(track);
-        },
-      });
-    }
     return actions;
   }, [
     menuTrack,
@@ -477,9 +439,7 @@ export default function PlaylistDetailScreen() {
     handleAddTrackToQueue,
     handleAddToPlaylist,
     handleGoToAlbum,
-    handleGoToArtist,
     handleSaveAlbum,
-    handleFollowArtist,
   ]);
 
   const renderTrackItem = ({
