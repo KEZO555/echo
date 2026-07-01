@@ -1,5 +1,5 @@
 import { useFocusEffect, useRouter } from "expo-router";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { RefreshControl, View } from "react-native";
 import { useAuth } from "@/features/auth";
 import { useSavedEpisodesStore } from "@/features/library/stores";
@@ -41,7 +41,6 @@ export default function YourEpisodesScreen() {
   const fetchEpisodes = useSavedEpisodesStore((s) => s.fetch);
   const fetchMoreEpisodes = useSavedEpisodesStore((s) => s.fetchMore);
   const removeEpisode = useSavedEpisodesStore((s) => s.removeEpisode);
-  const removeEpisodes = useSavedEpisodesStore((s) => s.removeEpisodes);
   const router = useRouter();
   const { isOnline } = useNetworkState();
   const [menuEpisode, setMenuEpisode] = useState<SpotifySavedEpisode | null>(
@@ -58,59 +57,22 @@ export default function YourEpisodesScreen() {
   );
   const shouldAttachRefreshControl = savedEpisodes !== null || isRateLimited;
 
-  // Automatically drop episodes that are finished or have under five
-  // minutes left, so the list only keeps things worth returning to.
-  useEffect(() => {
-    if (!(savedEpisodes && isOnline)) {
-      return;
-    }
-    const finishedIds = savedEpisodes
-      .filter((entry) => {
-        const resume = entry.episode.resume_point;
-        if (!resume) {
-          return false;
-        }
-        if (resume.fully_played) {
-          return true;
-        }
-        return (
-          resume.resume_position_ms > 0 &&
-          entry.episode.duration_ms - resume.resume_position_ms < 300_000
-        );
-      })
-      .map((entry) => entry.episode.id);
-    if (finishedIds.length > 0) {
-      removeEpisodes(finishedIds);
-    }
-  }, [savedEpisodes, isOnline, removeEpisodes]);
-
-  useEffect(() => {
-    if (
-      accessToken &&
-      user &&
-      !savedEpisodes &&
-      !isAuthLoading &&
-      !isRefreshing
-    ) {
-      fetchEpisodes({ showRefreshing: false });
-    }
-  }, [
-    accessToken,
-    user,
-    savedEpisodes,
-    isAuthLoading,
-    isRefreshing,
-    fetchEpisodes,
-  ]);
-
-  // Refetch whenever the screen regains focus so resume points (and the
-  // "time left" they drive) reflect the latest listening progress at once.
+  // Fetches on the initial mount and again on every subsequent focus, so
+  // resume points (and the "time left" they drive) are always current
+  // without a second, redundant request racing the first one.
   useFocusEffect(
     useCallback(() => {
-      if (accessToken && user && isOnline && !isRefreshing) {
+      if (accessToken && user && !isAuthLoading && isOnline && !isRefreshing) {
         fetchEpisodes({ showRefreshing: false });
       }
-    }, [accessToken, user, isOnline, isRefreshing, fetchEpisodes])
+    }, [
+      accessToken,
+      user,
+      isAuthLoading,
+      isOnline,
+      isRefreshing,
+      fetchEpisodes,
+    ])
   );
 
   const handleRefresh = useCallback(() => {

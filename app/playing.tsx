@@ -1,8 +1,11 @@
 import { MaterialCommunityIcons, MaterialIcons } from "@expo/vector-icons";
 import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
 import React, {
+  forwardRef,
+  memo,
   useCallback,
   useEffect,
+  useImperativeHandle,
   useMemo,
   useRef,
   useState,
@@ -68,6 +71,23 @@ const formatTime = (ms: number | null | undefined): string => {
   const seconds = totalSeconds % 60;
   return `${minutes}:${seconds < 10 ? "0" : ""}${seconds}`;
 };
+
+interface PositionTextHandle {
+  setPositionMs: (ms: number) => void;
+}
+
+// Owns its own state so the once-a-second position tick re-renders only
+// this text node instead of the whole Now Playing screen.
+const PositionText = memo(
+  forwardRef<PositionTextHandle, { initialMs: number }>(
+    ({ initialMs }, ref) => {
+      const [ms, setMs] = useState(initialMs);
+      useImperativeHandle(ref, () => ({ setPositionMs: setMs }), []);
+      return <StyledText style={styles.timeText}>{formatTime(ms)}</StyledText>;
+    }
+  )
+);
+PositionText.displayName = "PositionText";
 
 const getRouteTrackKey = (params: PlayingRouteParams): string | null => {
   if (!params.trackName) {
@@ -208,9 +228,7 @@ export default function PlayingScreen() {
   const [nowPlayingMenuVisible, setNowPlayingMenuVisible] = useState(false);
   const [chaptersVisible, setChaptersVisible] = useState(false);
   const chaptersEpisodeIdRef = useRef<string | null>(null);
-  const [displayPositionMs, setDisplayPositionMs] = useState(
-    initialState?.progress_ms ?? 0
-  );
+  const positionTextRef = useRef<PositionTextHandle>(null);
   const positionBaseMsRef = useRef(initialState?.progress_ms ?? 0);
   const positionBaseAtRef = useRef(Date.now());
   const durationMsRef = useRef(0);
@@ -261,7 +279,7 @@ export default function PlayingScreen() {
     positionBaseMsRef.current = startPositionMs;
     positionBaseAtRef.current = Date.now();
     durationMsRef.current = durationMs;
-    setDisplayPositionMs(startPositionMs);
+    positionTextRef.current?.setPositionMs(startPositionMs);
     lastCheckedTrackUriRef.current = null;
     setIsCurrentTrackSaved(isPendingLikedSongPlayback);
     setOptimisticSaveState(null);
@@ -278,7 +296,7 @@ export default function PlayingScreen() {
       durationMsRef.current = durationMs;
       positionBaseMsRef.current = positionMs;
       positionBaseAtRef.current = Date.now();
-      setDisplayPositionMs(positionMs);
+      positionTextRef.current?.setPositionMs(positionMs);
       if (durationMs > 0 && positionMs > 0) {
         progress.setValue(Math.min(positionMs / durationMs, 1));
       } else {
@@ -646,7 +664,7 @@ export default function PlayingScreen() {
           positionBaseMsRef.current + elapsed,
           duration
         );
-        setDisplayPositionMs(positionMs);
+        positionTextRef.current?.setPositionMs(positionMs);
 
         // Stop at the end of an episode instead of letting Spotify roll on to
         // the next one. Pause just before the end to beat the auto-advance.
@@ -658,7 +676,7 @@ export default function PlayingScreen() {
           episodeEndStoppedRef.current = true;
           isPlayingRef.current = false;
           progress.setValue(1);
-          setDisplayPositionMs(duration);
+          positionTextRef.current?.setPositionMs(duration);
           pausePlayback().catch((pauseError) =>
             logError("Error stopping finished episode:", pauseError)
           );
@@ -1098,9 +1116,10 @@ export default function PlayingScreen() {
               </View>
             </HapticPressable>
             <View style={styles.progressBarInfo}>
-              <StyledText style={styles.timeText}>
-                {formatTime(displayPositionMs)}
-              </StyledText>
+              <PositionText
+                initialMs={positionBaseMsRef.current}
+                ref={positionTextRef}
+              />
               <StyledText style={styles.timeText}>
                 {formatTime(item.duration_ms)}
               </StyledText>

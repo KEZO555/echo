@@ -13,6 +13,31 @@ import {
 import { logError } from "@/shared/utils/logger";
 import { saveCachedData } from "../utils/cache";
 
+const STALE_REMAINING_MS = 300_000;
+
+const isEpisodeStale = (entry: SpotifySavedEpisode): boolean => {
+  const resume = entry.episode.resume_point;
+  if (!resume) {
+    return false;
+  }
+  if (resume.fully_played) {
+    return true;
+  }
+  return (
+    resume.resume_position_ms > 0 &&
+    entry.episode.duration_ms - resume.resume_position_ms <= STALE_REMAINING_MS
+  );
+};
+
+const pruneStaleRemote = (episodeIds: string[]) => {
+  if (episodeIds.length === 0) {
+    return;
+  }
+  apiDelete(
+    `https://api.spotify.com/v1/me/episodes?ids=${episodeIds.slice(0, 50).join(",")}`
+  ).catch((error) => logError("Error pruning stale episodes:", error));
+};
+
 interface SavedEpisodesState {
   savedEpisodes: SpotifySavedEpisode[] | null;
   nextUrl: string | null;
@@ -25,7 +50,6 @@ interface SavedEpisodesState {
   fetchMore: () => Promise<void>;
   saveEpisode: (episode: SpotifyEpisode) => Promise<boolean>;
   removeEpisode: (episodeId: string) => Promise<boolean>;
-  removeEpisodes: (episodeIds: string[]) => Promise<void>;
   checkIfSaved: (episodeId: string) => Promise<boolean>;
   setSavedEpisodes: (savedEpisodes: SpotifySavedEpisode[] | null) => void;
   reset: () => void;
@@ -54,13 +78,23 @@ export const useSavedEpisodesStore = create<SavedEpisodesState>()(
         );
         const data = result.data;
         if (data) {
+          const fresh: SpotifySavedEpisode[] = [];
+          const staleIds: string[] = [];
+          for (const entry of data.items) {
+            if (isEpisodeStale(entry)) {
+              staleIds.push(entry.episode.id);
+            } else {
+              fresh.push(entry);
+            }
+          }
           set({
-            savedEpisodes: data.items,
+            savedEpisodes: fresh,
             nextUrl: data.next,
             isRateLimited: false,
             rateLimitRetryAt: null,
           });
-          await saveCachedData({ savedEpisodes: data.items });
+          await saveCachedData({ savedEpisodes: fresh });
+          pruneStaleRemote(staleIds);
         } else if (result.status === 429) {
           set({
             isRateLimited: true,
@@ -96,12 +130,22 @@ export const useSavedEpisodesStore = create<SavedEpisodesState>()(
         await apiGetWithStatus<SpotifySavedEpisodesResponse>(nextUrl);
       const data = result.data;
       if (data) {
+        const fresh: SpotifySavedEpisode[] = [];
+        const staleIds: string[] = [];
+        for (const entry of data.items) {
+          if (isEpisodeStale(entry)) {
+            staleIds.push(entry.episode.id);
+          } else {
+            fresh.push(entry);
+          }
+        }
         set((state) => ({
-          savedEpisodes: [...(state.savedEpisodes || []), ...data.items],
+          savedEpisodes: [...(state.savedEpisodes || []), ...fresh],
           nextUrl: data.next,
           isRateLimited: false,
           rateLimitRetryAt: null,
         }));
+        pruneStaleRemote(staleIds);
       } else if (result.status === 429) {
         set({
           isRateLimited: true,
@@ -163,30 +207,6 @@ export const useSavedEpisodesStore = create<SavedEpisodesState>()(
         logError("Error removing episode:", error);
         set({ savedEpisodes: previous });
         return false;
-      }
-    },
-
-    removeEpisodes: async (episodeIds) => {
-      if (episodeIds.length === 0) {
-        return;
-      }
-      const idSet = new Set(episodeIds);
-      const previous = get().savedEpisodes;
-      set((state) => ({
-        savedEpisodes: (state.savedEpisodes ?? []).filter(
-          (entry) => !idSet.has(entry.episode.id)
-        ),
-      }));
-      try {
-        const removed = await apiDelete(
-          `https://api.spotify.com/v1/me/episodes?ids=${episodeIds.slice(0, 50).join(",")}`
-        );
-        if (!removed) {
-          set({ savedEpisodes: previous });
-        }
-      } catch (error) {
-        logError("Error removing episodes:", error);
-        set({ savedEpisodes: previous });
       }
     },
 
