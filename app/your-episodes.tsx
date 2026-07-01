@@ -1,4 +1,4 @@
-import { useRouter } from "expo-router";
+import { useFocusEffect, useRouter } from "expo-router";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { RefreshControl, View } from "react-native";
 import { useAuth } from "@/features/auth";
@@ -58,7 +58,7 @@ export default function YourEpisodesScreen() {
   );
   const shouldAttachRefreshControl = savedEpisodes !== null || isRateLimited;
 
-  // Automatically drop episodes that are finished or have under three
+  // Automatically drop episodes that are finished or have under five
   // minutes left, so the list only keeps things worth returning to.
   useEffect(() => {
     if (!(savedEpisodes && isOnline)) {
@@ -75,7 +75,7 @@ export default function YourEpisodesScreen() {
         }
         return (
           resume.resume_position_ms > 0 &&
-          entry.episode.duration_ms - resume.resume_position_ms < 180_000
+          entry.episode.duration_ms - resume.resume_position_ms < 300_000
         );
       })
       .map((entry) => entry.episode.id);
@@ -102,6 +102,16 @@ export default function YourEpisodesScreen() {
     isRefreshing,
     fetchEpisodes,
   ]);
+
+  // Refetch whenever the screen regains focus so resume points (and the
+  // "time left" they drive) reflect the latest listening progress at once.
+  useFocusEffect(
+    useCallback(() => {
+      if (accessToken && user && isOnline && !isRefreshing) {
+        fetchEpisodes({ showRefreshing: false });
+      }
+    }, [accessToken, user, isOnline, isRefreshing, fetchEpisodes])
+  );
 
   const handleRefresh = useCallback(() => {
     if (isRefreshing) {

@@ -5,7 +5,7 @@ import { Stack, useRouter } from "expo-router";
 import { setStatusBarHidden } from "expo-status-bar";
 import { setBackgroundColorAsync } from "expo-system-ui";
 import { useCallback, useEffect, useRef } from "react";
-import { ActivityIndicator, View } from "react-native";
+import { Text, View } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { AuthProvider, useAuth } from "@/features/auth";
 import { CredentialsProvider } from "@/features/credentials";
@@ -107,7 +107,15 @@ function RootNavigation() {
           alignItems: "center",
         }}
       >
-        <ActivityIndicator color={invertColors ? "black" : "white"} />
+        <Text
+          style={{
+            color: invertColors ? "black" : "white",
+            fontSize: 40,
+            fontFamily: fontsLoaded ? "PublicSans-Regular" : undefined,
+          }}
+        >
+          Echo
+        </Text>
       </View>
     );
   }
