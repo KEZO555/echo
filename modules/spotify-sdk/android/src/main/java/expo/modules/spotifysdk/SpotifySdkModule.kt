@@ -2,7 +2,6 @@ package expo.modules.spotifysdk
 
 import android.app.Activity
 import android.content.Intent
-import android.media.AudioManager
 import android.os.Handler
 import android.os.Looper
 import expo.modules.kotlin.modules.Module
@@ -494,11 +493,6 @@ class SpotifySdkModule : Module() {
 
       isActivityInForeground = true
       cancelPendingBackgroundDisconnect()
-
-      // Route hardware volume keys to the media stream while the app is
-      // foregrounded, since playback happens in the separate Spotify app
-      // rather than through our own AudioTrack/MediaPlayer.
-      (appContext.currentActivity)?.setVolumeControlStream(AudioManager.STREAM_MUSIC)
 
       if (
         !isAuthenticating &&

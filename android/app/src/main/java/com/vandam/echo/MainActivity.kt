@@ -1,6 +1,7 @@
 package com.vandam.echo
 import android.util.Log
 import android.provider.Settings
+import android.media.AudioManager
 import expo.modules.splashscreen.SplashScreenManager
 
 import android.os.Build
@@ -28,6 +29,12 @@ class MainActivity : ReactActivity() {
     SplashScreenManager.registerOnActivity(this)
     // @generated end expo-splashscreen
     super.onCreate(null)
+
+    // Echo never plays audio itself (playback happens in the separate
+    // Spotify app), so without this the hardware volume keys would fall
+    // back to whatever stream Android considers "active" - usually ringer/
+    // notification - even while Echo is the app in the foreground.
+    setVolumeControlStream(AudioManager.STREAM_MUSIC)
   }
 
   /**
