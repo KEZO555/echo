@@ -177,6 +177,46 @@ const shouldClearRoutePlayback = (
   playbackTrackKey === routeTrackKey ||
   (expiresAt !== null && Date.now() >= expiresAt);
 
+type SaveTarget =
+  | { kind: "episode"; episode: SpotifyEpisode }
+  | { kind: "track"; trackUri: string }
+  | null;
+
+// Prefer the state the user is looking at - the live playback state can lag
+// behind route params (whose item carries an empty id), which used to make
+// taps on the episode save button silently do nothing. Route params carry
+// the real episode id, so fall back to it.
+const resolveSaveTarget = (
+  visibleState: SpotifyCurrentlyPlaying | null,
+  liveState: SpotifyCurrentlyPlaying | null,
+  routeEpisodeId: string | undefined
+): SaveTarget => {
+  const item = visibleState?.item ?? liveState?.item;
+  const isEpisodeItem =
+    visibleState?.currently_playing_type === "episode" ||
+    item?.type === "episode";
+
+  if (isEpisodeItem) {
+    const episodeId = (item?.id ?? "") || (routeEpisodeId ?? "");
+    if (!episodeId) {
+      return null;
+    }
+    return {
+      kind: "episode",
+      episode: {
+        ...(item as SpotifyEpisode),
+        id: episodeId,
+        uri: (item as SpotifyEpisode).uri || `spotify:episode:${episodeId}`,
+      },
+    };
+  }
+
+  if (!item?.id) {
+    return null;
+  }
+  return { kind: "track", trackUri: `spotify:track:${item.id}` };
+};
+
 // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: large screen component with playback controls
 export default function PlayingScreen() {
   const {
@@ -608,14 +648,15 @@ export default function PlayingScreen() {
   };
 
   const handleToggleSaveTrack = async () => {
-    const item = playbackState?.item;
-    if (!item?.id) {
+    const target = resolveSaveTarget(
+      visiblePlaybackState,
+      playbackState,
+      params.episodeId
+    );
+    if (!target) {
       return;
     }
 
-    const isEpisodeItem =
-      playbackState?.currently_playing_type === "episode" ||
-      item.type === "episode";
     const currentlySaved = isCurrentTrackSaved;
 
     setPendingSaveOperation(true);
@@ -624,15 +665,19 @@ export default function PlayingScreen() {
     pausePollingUntilRef.current = Date.now() + 3000;
 
     let success: boolean;
-    if (isEpisodeItem) {
-      success = currentlySaved
-        ? await removeEpisodeStore(item.id)
-        : await saveEpisodeStore(item as SpotifyEpisode);
-    } else {
-      const trackUri = `spotify:track:${item.id}`;
-      success = currentlySaved
-        ? await removeFromLibrary(trackUri)
-        : await addToLibrary(trackUri);
+    try {
+      if (target.kind === "episode") {
+        success = currentlySaved
+          ? await removeEpisodeStore(target.episode.id)
+          : await saveEpisodeStore(target.episode);
+      } else {
+        success = currentlySaved
+          ? await removeFromLibrary(target.trackUri)
+          : await addToLibrary(target.trackUri);
+      }
+    } catch (saveError) {
+      logError("Error toggling save state:", saveError);
+      success = false;
     }
 
     if (success) {
@@ -1295,7 +1340,9 @@ export default function PlayingScreen() {
             {showLikeButton && (
               <HapticPressable
                 disabled={
-                  pendingSaveOperation || !isOnline || isPendingRoutePlayback
+                  pendingSaveOperation ||
+                  !isOnline ||
+                  (isPendingRoutePlayback && !isEpisode)
                 }
                 onPress={handleToggleSaveTrack}
                 style={
