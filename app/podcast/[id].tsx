@@ -4,10 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { StyleSheet, View } from "react-native";
 import { useAuth } from "@/features/auth";
 import { getCachedShowDetail, saveCachedShowDetail } from "@/features/library";
-import {
-  usePodcastsStore,
-  useSavedEpisodesStore,
-} from "@/features/library/stores";
+import { usePodcastsStore } from "@/features/library/stores";
 import { usePlayback } from "@/features/playback";
 import {
   ContextMenu,
@@ -43,16 +40,12 @@ export default function PodcastDetailScreen() {
   const followPodcast = usePodcastsStore((s) => s.followPodcast);
   const unfollowPodcast = usePodcastsStore((s) => s.unfollowPodcast);
   const checkIfFollowing = usePodcastsStore((s) => s.checkIfFollowing);
-  const saveEpisode = useSavedEpisodesStore((s) => s.saveEpisode);
-  const removeEpisode = useSavedEpisodesStore((s) => s.removeEpisode);
-  const checkEpisodeSaved = useSavedEpisodesStore((s) => s.checkIfSaved);
   const router = useRouter();
   const { isOnline } = useNetworkState();
   const [menuEpisode, setMenuEpisode] = useState<{
     episode: SpotifyEpisode;
     index: number;
   } | null>(null);
-  const [isMenuEpisodeSaved, setIsMenuEpisodeSaved] = useState(false);
 
   const initialShow = useMemo(() => {
     if (!showString) {
@@ -233,14 +226,8 @@ export default function PodcastDetailScreen() {
     });
   });
 
-  const handleOpenEpisodeMenu = async (
-    episode: SpotifyEpisode,
-    index: number
-  ) => {
+  const handleOpenEpisodeMenu = (episode: SpotifyEpisode, index: number) => {
     setMenuEpisode({ episode, index });
-    setIsMenuEpisodeSaved(false);
-    const saved = await checkEpisodeSaved(episode.id);
-    setIsMenuEpisodeSaved(saved);
   };
 
   const menuActions = useMemo(() => {
@@ -264,28 +251,8 @@ export default function PodcastDetailScreen() {
           handleEpisodeInfo(episode);
         },
       },
-      {
-        label: isMenuEpisodeSaved
-          ? "Remove from my episodes"
-          : "Add to my episodes",
-        onPress: () => {
-          close();
-          if (isMenuEpisodeSaved) {
-            removeEpisode(episode.id);
-          } else {
-            saveEpisode(episode);
-          }
-        },
-      },
     ];
-  }, [
-    menuEpisode,
-    isMenuEpisodeSaved,
-    handleEpisodePlay,
-    handleEpisodeInfo,
-    removeEpisode,
-    saveEpisode,
-  ]);
+  }, [menuEpisode, handleEpisodePlay, handleEpisodeInfo]);
 
   const renderEpisodeItem = ({
     item: episode,

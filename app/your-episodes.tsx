@@ -41,7 +41,6 @@ export default function YourEpisodesScreen() {
   const rateLimitRetryAt = useSavedEpisodesStore((s) => s.rateLimitRetryAt);
   const fetchEpisodes = useSavedEpisodesStore((s) => s.fetch);
   const fetchMoreEpisodes = useSavedEpisodesStore((s) => s.fetchMore);
-  const removeEpisode = useSavedEpisodesStore((s) => s.removeEpisode);
   const router = useRouter();
   const { isOnline } = useNetworkState();
   const [menuEpisode, setMenuEpisode] = useState<SpotifySavedEpisode | null>(
@@ -131,11 +130,6 @@ export default function YourEpisodesScreen() {
         showName: episode.show?.name ?? "",
       },
     });
-  };
-
-  const handleMenuRemove = async (savedEpisode: SpotifySavedEpisode) => {
-    setMenuEpisode(null);
-    await removeEpisode(savedEpisode.episode.id);
   };
 
   const formatReleaseDate = (dateString: string): string => {
@@ -244,10 +238,6 @@ export default function YourEpisodesScreen() {
             ? [
                 { label: "Play", onPress: () => handleMenuPlay(menuEpisode) },
                 { label: "Info", onPress: () => handleMenuInfo(menuEpisode) },
-                {
-                  label: "Remove from my episodes",
-                  onPress: () => handleMenuRemove(menuEpisode),
-                },
               ]
             : []
         }

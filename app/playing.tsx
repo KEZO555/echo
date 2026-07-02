@@ -18,10 +18,7 @@ import {
   StyleSheet,
   View,
 } from "react-native";
-import {
-  useAlbumsStore,
-  useSavedEpisodesStore,
-} from "@/features/library/stores";
+import { useAlbumsStore } from "@/features/library/stores";
 import { usePlayback } from "@/features/playback";
 import { useSettings } from "@/features/settings";
 import { spotify } from "@/modules/spotify-sdk";
@@ -61,20 +58,6 @@ interface PlayingRouteParams {
   episodeId?: string;
 }
 const ROUTE_PLAYBACK_TIMEOUT_MS = 4000;
-const SPOTIFY_ID_PATTERN = /^[0-9A-Za-z]{22}$/;
-
-// The native player state derives ids by splitting the track uri, which is
-// not always a real Spotify id. The route params carry the authoritative
-// episode id, so prefer the derived id only when it actually looks like one.
-const resolveEpisodeId = (
-  itemId: string | null | undefined,
-  routeEpisodeId: string | undefined
-): string => {
-  if (itemId && SPOTIFY_ID_PATTERN.test(itemId)) {
-    return itemId;
-  }
-  return routeEpisodeId || itemId || "";
-};
 
 const formatTime = (ms: number | null | undefined): string => {
   if (ms === null || ms === undefined) {
@@ -191,44 +174,21 @@ const shouldClearRoutePlayback = (
   playbackTrackKey === routeTrackKey ||
   (expiresAt !== null && Date.now() >= expiresAt);
 
-type SaveTarget =
-  | { kind: "episode"; episode: SpotifyEpisode }
-  | { kind: "track"; trackUri: string }
-  | null;
-
-// Prefer the state the user is looking at - the live playback state can lag
-// behind route params (whose item carries an empty id), which used to make
-// taps on the episode save button silently do nothing. Route params carry
-// the real episode id, so fall back to it.
-const resolveSaveTarget = (
+// Spotify rejects the save/remove episode endpoints for this app (403), so
+// saving only exists for tracks - episodes are read-only.
+const resolveSaveTrackUri = (
   visibleState: SpotifyCurrentlyPlaying | null,
-  liveState: SpotifyCurrentlyPlaying | null,
-  routeEpisodeId: string | undefined
-): SaveTarget => {
+  liveState: SpotifyCurrentlyPlaying | null
+): string | null => {
   const item = visibleState?.item ?? liveState?.item;
   const isEpisodeItem =
     visibleState?.currently_playing_type === "episode" ||
     item?.type === "episode";
 
-  if (isEpisodeItem) {
-    const episodeId = resolveEpisodeId(item?.id, routeEpisodeId);
-    if (!episodeId) {
-      return null;
-    }
-    return {
-      kind: "episode",
-      episode: {
-        ...(item as SpotifyEpisode),
-        id: episodeId,
-        uri: `spotify:episode:${episodeId}`,
-      },
-    };
-  }
-
-  if (!item?.id) {
+  if (isEpisodeItem || !item?.id) {
     return null;
   }
-  return { kind: "track", trackUri: `spotify:track:${item.id}` };
+  return `spotify:track:${item.id}`;
 };
 
 // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: large screen component with playback controls
@@ -256,9 +216,6 @@ export default function PlayingScreen() {
     hidePlayingCover,
   } = useSettings();
   const { isOnline } = useNetworkState();
-  const saveEpisodeStore = useSavedEpisodesStore((s) => s.saveEpisode);
-  const removeEpisodeStore = useSavedEpisodesStore((s) => s.removeEpisode);
-  const checkEpisodeSaved = useSavedEpisodesStore((s) => s.checkIfSaved);
   const saveAlbum = useAlbumsStore((s) => s.saveAlbum);
   const params = useLocalSearchParams<{
     trackName?: string;
@@ -369,7 +326,6 @@ export default function PlayingScreen() {
   }, []);
 
   const routeTrackKey = getRouteTrackKey(params);
-  const routeEpisodeId = params.episodeId;
   const isPendingRoutePlayback = isRoutePlaybackPending && paramsState !== null;
   const isPendingLikedSongPlayback =
     isPendingRoutePlayback && params.sourceContext === "liked";
@@ -439,19 +395,10 @@ export default function PlayingScreen() {
         state?.currently_playing_type === "episode" || item?.type === "episode";
 
       if (isEpisode) {
-        const episodeId = resolveEpisodeId(trackId, routeEpisodeId);
-        if (!episodeId) {
-          lastCheckedTrackUriRef.current = null;
-          setIsCurrentTrackSaved(false);
-          return;
-        }
-        const episodeUri = `spotify:episode:${episodeId}`;
-        if (lastCheckedTrackUriRef.current === episodeUri) {
-          return;
-        }
-        const saved = await checkEpisodeSaved(episodeId);
-        lastCheckedTrackUriRef.current = episodeUri;
-        setIsCurrentTrackSaved(saved);
+        // Episode saving is unavailable (Spotify rejects it for this app),
+        // so there is no saved state to track for episodes.
+        lastCheckedTrackUriRef.current = null;
+        setIsCurrentTrackSaved(false);
         return;
       }
 
@@ -475,7 +422,7 @@ export default function PlayingScreen() {
         lastCheckedTrackUriRef.current = null;
       }
     },
-    [getLibraryState, checkEpisodeSaved, routeEpisodeId]
+    [getLibraryState]
   );
 
   const fetchAndUpdatePlaybackState = useCallback(async () => {
@@ -663,12 +610,8 @@ export default function PlayingScreen() {
   };
 
   const handleToggleSaveTrack = async () => {
-    const target = resolveSaveTarget(
-      visiblePlaybackState,
-      playbackState,
-      params.episodeId
-    );
-    if (!target) {
+    const trackUri = resolveSaveTrackUri(visiblePlaybackState, playbackState);
+    if (!trackUri) {
       return;
     }
 
@@ -681,15 +624,9 @@ export default function PlayingScreen() {
 
     let success: boolean;
     try {
-      if (target.kind === "episode") {
-        success = currentlySaved
-          ? await removeEpisodeStore(target.episode.id)
-          : await saveEpisodeStore(target.episode);
-      } else {
-        success = currentlySaved
-          ? await removeFromLibrary(target.trackUri)
-          : await addToLibrary(target.trackUri);
-      }
+      success = currentlySaved
+        ? await removeFromLibrary(trackUri)
+        : await addToLibrary(trackUri);
     } catch (saveError) {
       logError("Error toggling save state:", saveError);
       success = false;
@@ -932,7 +869,7 @@ export default function PlayingScreen() {
       ? episodeChapters[currentChapterIndex].title
       : null;
 
-  const showLikeButton = !hideLikeButton;
+  const showLikeButton = !(hideLikeButton || isEpisode);
   const showDevicesButton = !hideDevicesButton;
   const showLyricsButton = !(hideLyricsButton || isEpisode);
   const showAddButton = !(hideAddToPlaylistButton || isEpisode);
@@ -1021,13 +958,6 @@ export default function PlayingScreen() {
             show: canNavigateToShow,
             label: "Go to show",
             run: handleSubtitlePress,
-          },
-          {
-            show: isOnline,
-            label: displayedLikeState
-              ? "Remove from my episodes"
-              : "Add to my episodes",
-            run: handleToggleSaveTrack,
           },
         ]
       : [
@@ -1355,9 +1285,7 @@ export default function PlayingScreen() {
             {showLikeButton && (
               <HapticPressable
                 disabled={
-                  pendingSaveOperation ||
-                  !isOnline ||
-                  (isPendingRoutePlayback && !isEpisode)
+                  pendingSaveOperation || !isOnline || isPendingRoutePlayback
                 }
                 onPress={handleToggleSaveTrack}
                 style={
@@ -1366,14 +1294,7 @@ export default function PlayingScreen() {
               >
                 <MaterialIcons
                   color={invertColors ? "black" : "white"}
-                  name={(() => {
-                    if (isEpisode) {
-                      return displayedLikeState
-                        ? "bookmark"
-                        : "bookmark-border";
-                    }
-                    return displayedLikeState ? "favorite" : "favorite-outline";
-                  })()}
+                  name={displayedLikeState ? "favorite" : "favorite-outline"}
                   size={n(30)}
                 />
               </HapticPressable>

@@ -1,40 +1,16 @@
-import { ToastAndroid } from "react-native";
 import { create } from "zustand";
 import type {
-  SpotifyEpisode,
   SpotifySavedEpisode,
   SpotifySavedEpisodesResponse,
 } from "@/shared/types/spotify";
-import {
-  apiDelete,
-  apiGet,
-  apiGetWithStatus,
-  apiPutWithStatus,
-} from "@/shared/utils/api-client";
-import { logError } from "@/shared/utils/logger";
+import { apiGetWithStatus } from "@/shared/utils/api-client";
 import { saveCachedData } from "../utils/cache";
 
 const STALE_REMAINING_MS = 300_000;
 
-// Saving an episode the user previously finished (a re-listen) would
-// otherwise be undone straight away: the server's resume point still says
-// "played", so the next fetch would strip it and delete the save. Protect
-// fresh saves from the auto-cleanup for a grace period.
-const SAVE_PROTECTION_MS = 30 * 60_000;
-const recentlySavedAt = new Map<string, number>();
-
-const isRecentlySaved = (episodeId: string): boolean => {
-  const savedAt = recentlySavedAt.get(episodeId);
-  if (savedAt === undefined) {
-    return false;
-  }
-  if (Date.now() - savedAt > SAVE_PROTECTION_MS) {
-    recentlySavedAt.delete(episodeId);
-    return false;
-  }
-  return true;
-};
-
+// Spotify rejects the save/remove episode endpoints for this app (403), so
+// this store is read-only: episodes are saved and removed in the official
+// Spotify app, and finished or nearly finished ones are only hidden here.
 const isEpisodeStale = (entry: SpotifySavedEpisode): boolean => {
   const resume = entry.episode.resume_point;
   if (!resume) {
@@ -49,15 +25,6 @@ const isEpisodeStale = (entry: SpotifySavedEpisode): boolean => {
   );
 };
 
-const pruneStaleRemote = (episodeIds: string[]) => {
-  if (episodeIds.length === 0) {
-    return;
-  }
-  apiDelete(
-    `https://api.spotify.com/v1/me/episodes?ids=${episodeIds.slice(0, 50).join(",")}`
-  ).catch((error) => logError("Error pruning stale episodes:", error));
-};
-
 interface SavedEpisodesState {
   savedEpisodes: SpotifySavedEpisode[] | null;
   nextUrl: string | null;
@@ -68,9 +35,6 @@ interface SavedEpisodesState {
   rateLimitRetryAt: number | null;
   fetch: (options?: { showRefreshing?: boolean }) => Promise<void>;
   fetchMore: () => Promise<void>;
-  saveEpisode: (episode: SpotifyEpisode) => Promise<boolean>;
-  removeEpisode: (episodeId: string) => Promise<boolean>;
-  checkIfSaved: (episodeId: string) => Promise<boolean>;
   setSavedEpisodes: (savedEpisodes: SpotifySavedEpisode[] | null) => void;
   reset: () => void;
 }
@@ -98,15 +62,7 @@ export const useSavedEpisodesStore = create<SavedEpisodesState>()(
         );
         const data = result.data;
         if (data) {
-          const fresh: SpotifySavedEpisode[] = [];
-          const staleIds: string[] = [];
-          for (const entry of data.items) {
-            if (isEpisodeStale(entry) && !isRecentlySaved(entry.episode.id)) {
-              staleIds.push(entry.episode.id);
-            } else {
-              fresh.push(entry);
-            }
-          }
+          const fresh = data.items.filter((entry) => !isEpisodeStale(entry));
           set({
             savedEpisodes: fresh,
             nextUrl: data.next,
@@ -114,7 +70,6 @@ export const useSavedEpisodesStore = create<SavedEpisodesState>()(
             rateLimitRetryAt: null,
           });
           await saveCachedData({ savedEpisodes: fresh });
-          pruneStaleRemote(staleIds);
         } else if (result.status === 429) {
           set({
             isRateLimited: true,
@@ -150,22 +105,13 @@ export const useSavedEpisodesStore = create<SavedEpisodesState>()(
         await apiGetWithStatus<SpotifySavedEpisodesResponse>(nextUrl);
       const data = result.data;
       if (data) {
-        const fresh: SpotifySavedEpisode[] = [];
-        const staleIds: string[] = [];
-        for (const entry of data.items) {
-          if (isEpisodeStale(entry) && !isRecentlySaved(entry.episode.id)) {
-            staleIds.push(entry.episode.id);
-          } else {
-            fresh.push(entry);
-          }
-        }
+        const fresh = data.items.filter((entry) => !isEpisodeStale(entry));
         set((state) => ({
           savedEpisodes: [...(state.savedEpisodes || []), ...fresh],
           nextUrl: data.next,
           isRateLimited: false,
           rateLimitRetryAt: null,
         }));
-        pruneStaleRemote(staleIds);
       } else if (result.status === 429) {
         set({
           isRateLimited: true,
@@ -176,79 +122,6 @@ export const useSavedEpisodesStore = create<SavedEpisodesState>()(
         });
       }
       set({ isLoadingMore: false });
-    },
-
-    saveEpisode: async (episode) => {
-      try {
-        // Spotify's docs specify the ids for this endpoint in the JSON body.
-        const result = await apiPutWithStatus(
-          "https://api.spotify.com/v1/me/episodes",
-          { ids: [episode.id] }
-        );
-        const saved =
-          result.status !== null && result.status >= 200 && result.status < 300;
-        if (!saved) {
-          ToastAndroid.show(
-            `Couldn't save episode (${result.status ?? "network error"})`,
-            ToastAndroid.LONG
-          );
-          return false;
-        }
-        recentlySavedAt.set(episode.id, Date.now());
-        set((state) => {
-          const list = state.savedEpisodes ?? [];
-          if (list.some((entry) => entry.episode.id === episode.id)) {
-            return {};
-          }
-          return {
-            savedEpisodes: [
-              { added_at: new Date().toISOString(), episode },
-              ...list,
-            ],
-          };
-        });
-        return true;
-      } catch (error) {
-        logError("Error saving episode:", error);
-        return false;
-      }
-    },
-
-    removeEpisode: async (episodeId) => {
-      // Remove optimistically so the list updates instantly, then restore
-      // if the request fails.
-      recentlySavedAt.delete(episodeId);
-      const previous = get().savedEpisodes;
-      set((state) => ({
-        savedEpisodes: (state.savedEpisodes ?? []).filter(
-          (entry) => entry.episode.id !== episodeId
-        ),
-      }));
-      try {
-        const removed = await apiDelete(
-          `https://api.spotify.com/v1/me/episodes?ids=${episodeId}`
-        );
-        if (!removed) {
-          set({ savedEpisodes: previous });
-          return false;
-        }
-        return true;
-      } catch (error) {
-        logError("Error removing episode:", error);
-        set({ savedEpisodes: previous });
-        return false;
-      }
-    },
-
-    checkIfSaved: async (episodeId) => {
-      const local = get().savedEpisodes;
-      if (local?.some((entry) => entry.episode.id === episodeId)) {
-        return true;
-      }
-      const data = await apiGet<boolean[]>(
-        `https://api.spotify.com/v1/me/episodes/contains?ids=${episodeId}`
-      );
-      return data ? (data[0] ?? false) : false;
     },
 
     setSavedEpisodes: (savedEpisodes) => set({ savedEpisodes }),
