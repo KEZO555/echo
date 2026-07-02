@@ -14,6 +14,7 @@ interface TabConfig {
 }
 
 const TAB_CONFIGS: Record<TabId, TabConfig> = {
+  home: { id: "home", label: "Home", preferenceKey: "showHome" },
   index: { id: "index", label: "Liked Songs", preferenceKey: "showLikedSongs" },
   albums: { id: "albums", label: "Albums", preferenceKey: "showAlbums" },
   podcasts: {

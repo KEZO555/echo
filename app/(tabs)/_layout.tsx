@@ -6,6 +6,11 @@ import { Navbar, type TabConfigItem } from "@/shared/components/Navbar";
 
 export const TABS_CONFIG: readonly TabConfigItem[] = [
   {
+    name: "Home",
+    screenName: "home",
+    iconName: "home",
+  },
+  {
     name: "Liked Songs",
     screenName: "index",
     iconName: "favorite",
@@ -43,6 +48,8 @@ export default function TabLayout() {
   const visibleTabs = useMemo(() => {
     const filtered = TABS_CONFIG.filter((tab) => {
       switch (tab.screenName) {
+        case "home":
+          return tabPreferences.showHome;
         case "index":
           return tabPreferences.showLikedSongs;
         case "albums":

@@ -3,16 +3,16 @@ import {
   type ReactNode,
   useCallback,
   useContext,
+  useEffect,
   useMemo,
 } from "react";
 import { useAuth } from "@/features/auth";
 import { useSpotifyConnection } from "@/modules/spotify-sdk";
-
 import type {
   SpotifyCurrentlyPlaying,
   SpotifyQueueResponse,
 } from "@/shared/types/spotify";
-
+import { logError } from "@/shared/utils/logger";
 import type {
   PlayContextOptions,
   SourceContext,
@@ -40,6 +40,7 @@ import {
   toggleRepeat as toggleRepeatService,
   toggleShuffle as toggleShuffleService,
 } from "../services/spotifyPlayback";
+import { useSleepTimerStore } from "../stores/useSleepTimerStore";
 
 export interface PlaybackContextType {
   isConnectedToAppRemote: boolean;
@@ -85,6 +86,24 @@ const PlaybackContext = createContext<PlaybackContextType | undefined>(
 export const PlaybackProvider = ({ children }: { children: ReactNode }) => {
   const { accessToken, ensureValidToken } = useAuth();
   const { isConnected: isConnectedToAppRemote } = useSpotifyConnection();
+  const sleepTimerEndAt = useSleepTimerStore((s) => s.endAt);
+  const clearSleepTimer = useSleepTimerStore((s) => s.clear);
+
+  // Pause playback when the sleep timer elapses. Lives here (mounted for
+  // the whole app session) so the timer survives leaving the player screen.
+  useEffect(() => {
+    if (sleepTimerEndAt === null) {
+      return;
+    }
+    const delayMs = Math.max(sleepTimerEndAt - Date.now(), 0);
+    const timeoutId = setTimeout(() => {
+      clearSleepTimer();
+      pausePlaybackService().catch((pauseError) =>
+        logError("Sleep timer: failed to pause playback", pauseError)
+      );
+    }, delayMs);
+    return () => clearTimeout(timeoutId);
+  }, [sleepTimerEndAt, clearSleepTimer]);
 
   const playTracksWithWebApi = useCallback(
     (uris: string[]) => {

@@ -51,6 +51,9 @@ function RootNavigation() {
   }, [authError, clearAuthError, router]);
 
   const getFirstAvailableTab = useCallback(() => {
+    if (tabPreferences.showHome) {
+      return "/(tabs)/home";
+    }
     if (tabPreferences.showLikedSongs) {
       return "/(tabs)";
     }
@@ -140,6 +143,7 @@ function RootNavigation() {
       <Stack.Screen name="playing" />
       <Stack.Screen name="queue" />
       <Stack.Screen name="recently-played" />
+      <Stack.Screen name="top-tracks" />
       <Stack.Screen name="login" />
       <Stack.Screen name="select-device" />
       <Stack.Screen name="add-to-playlist" />

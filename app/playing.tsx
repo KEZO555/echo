@@ -19,7 +19,7 @@ import {
   View,
 } from "react-native";
 import { useAlbumsStore } from "@/features/library/stores";
-import { usePlayback } from "@/features/playback";
+import { usePlayback, useSleepTimerStore } from "@/features/playback";
 import { useSettings } from "@/features/settings";
 import { spotify } from "@/modules/spotify-sdk";
 import ContentContainer from "@/shared/components/ContentContainer";
@@ -293,6 +293,10 @@ export default function PlayingScreen() {
   const [episodeChapters, setEpisodeChapters] = useState<EpisodeChapter[]>([]);
   const [nowPlayingMenuVisible, setNowPlayingMenuVisible] = useState(false);
   const [chaptersVisible, setChaptersVisible] = useState(false);
+  const [sleepTimerVisible, setSleepTimerVisible] = useState(false);
+  const sleepTimerEndAt = useSleepTimerStore((s) => s.endAt);
+  const startSleepTimer = useSleepTimerStore((s) => s.start);
+  const clearSleepTimer = useSleepTimerStore((s) => s.clear);
   const chaptersEpisodeIdRef = useRef<string | null>(null);
   const positionTextRef = useRef<PositionTextHandle>(null);
   const renderSignatureRef = useRef<string | null>(null);
@@ -947,6 +951,10 @@ export default function PlayingScreen() {
       setNowPlayingMenuVisible(false);
       run();
     };
+    const sleepTimerLabel =
+      sleepTimerEndAt !== null
+        ? `Sleep timer · ${Math.max(Math.ceil((sleepTimerEndAt - Date.now()) / 60_000), 1)} min left`
+        : "Sleep timer";
     const candidates = isEpisode
       ? [
           {
@@ -958,6 +966,11 @@ export default function PlayingScreen() {
             show: canNavigateToShow,
             label: "Go to show",
             run: handleSubtitlePress,
+          },
+          {
+            show: true,
+            label: sleepTimerLabel,
+            run: () => setSleepTimerVisible(true),
           },
         ]
       : [
@@ -982,6 +995,11 @@ export default function PlayingScreen() {
             run: handleNavigateToAddToPlaylist,
           },
           { show: isOnline, label: "View queue", run: handleQueuePress },
+          {
+            show: true,
+            label: sleepTimerLabel,
+            run: () => setSleepTimerVisible(true),
+          },
         ];
     return candidates
       .filter((candidate) => candidate.show)
@@ -990,6 +1008,27 @@ export default function PlayingScreen() {
         onPress: wrap(candidate.run),
       }));
   };
+
+  const sleepTimerActions = [
+    ...(sleepTimerEndAt !== null
+      ? [
+          {
+            label: "Turn off",
+            onPress: () => {
+              setSleepTimerVisible(false);
+              clearSleepTimer();
+            },
+          },
+        ]
+      : []),
+    ...[15, 30, 60].map((minutes) => ({
+      label: `${minutes} minutes`,
+      onPress: () => {
+        setSleepTimerVisible(false);
+        startSleepTimer(minutes);
+      },
+    })),
+  ];
 
   const chapterActions = episodeChapters.map((chapter) => ({
     label: `${formatTime(chapter.positionMs)}   ${chapter.title}`,
@@ -1377,6 +1416,12 @@ export default function PlayingScreen() {
         onClose={() => setChaptersVisible(false)}
         title="Chapters"
         visible={chaptersVisible}
+      />
+      <ContextMenu
+        actions={sleepTimerActions}
+        onClose={() => setSleepTimerVisible(false)}
+        title="Sleep Timer"
+        visible={sleepTimerVisible}
       />
     </ContentContainer>
   );

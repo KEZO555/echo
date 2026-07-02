@@ -28,7 +28,7 @@ import {
   log,
   logError,
 } from "@/shared/utils";
-import { apiGet, apiGetWithStatus } from "@/shared/utils/api-client";
+import { apiDelete, apiGet, apiGetWithStatus } from "@/shared/utils/api-client";
 import {
   parsePlaylist,
   parsePlaylistItems,
@@ -393,6 +393,35 @@ export default function PlaylistDetailScreen() {
     [saveAlbum]
   );
 
+  const handleRemoveFromPlaylist = useCallback(
+    async (track: SpotifyTrackSimple) => {
+      if (!(id && track.uri)) {
+        return;
+      }
+      const currentLoaded = loadedPlaylist;
+      const removed = await apiDelete(
+        `https://api.spotify.com/v1/playlists/${id}/tracks`,
+        { tracks: [{ uri: track.uri }] }
+      );
+      if (!removed) {
+        logError("Error removing track from playlist");
+        return;
+      }
+      if (currentLoaded) {
+        setPlaylist({
+          ...currentLoaded,
+          items: {
+            ...currentLoaded.items,
+            items: currentLoaded.items.items.filter(
+              (entry) => entry.item?.uri !== track.uri
+            ),
+          },
+        });
+      }
+    },
+    [id, loadedPlaylist]
+  );
+
   const menuActions = useMemo(() => {
     if (!menuTrack) {
       return [];
@@ -438,6 +467,15 @@ export default function PlaylistDetailScreen() {
         },
       });
     }
+    if (canEditPlaylist) {
+      actions.push({
+        label: "Remove from playlist",
+        onPress: () => {
+          close();
+          handleRemoveFromPlaylist(track);
+        },
+      });
+    }
     return actions;
   }, [
     menuTrack,
@@ -446,6 +484,8 @@ export default function PlaylistDetailScreen() {
     handleAddToPlaylist,
     handleGoToAlbum,
     handleSaveAlbum,
+    canEditPlaylist,
+    handleRemoveFromPlaylist,
   ]);
 
   const renderTrackItem = ({

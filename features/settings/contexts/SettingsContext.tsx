@@ -44,9 +44,16 @@ const SORT_SETTING_KEYS = {
 type SortSettingKey = keyof typeof SORT_SETTING_KEYS;
 type LibrarySortSettings = Record<SortSettingKey, LibrarySortOption>;
 
-export type TabId = "index" | "albums" | "podcasts" | "playlists" | "search";
+export type TabId =
+  | "home"
+  | "index"
+  | "albums"
+  | "podcasts"
+  | "playlists"
+  | "search";
 
 export const DEFAULT_TAB_ORDER: TabId[] = [
+  "home",
   "index",
   "albums",
   "podcasts",
@@ -56,6 +63,7 @@ export const DEFAULT_TAB_ORDER: TabId[] = [
 const DEFAULT_TAB_ORDER_SET = new Set<TabId>(DEFAULT_TAB_ORDER);
 
 export interface TabPreferences {
+  showHome: boolean;
   showLikedSongs: boolean;
   showAlbums: boolean;
   showPodcasts: boolean;
@@ -65,6 +73,7 @@ export interface TabPreferences {
 }
 
 const defaultTabPreferences: TabPreferences = {
+  showHome: true,
   showLikedSongs: true,
   showAlbums: true,
   showPodcasts: true,
@@ -139,6 +148,7 @@ interface SettingsContextType {
 }
 
 interface StoredTabPreferences {
+  showHome?: boolean;
   showLikedSongs?: boolean;
   showAlbums?: boolean;
   showPodcasts?: boolean;
@@ -206,6 +216,10 @@ const parseStoredTabPreferences = (
   try {
     const stored = JSON.parse(value) as StoredTabPreferences;
     const parsed: TabPreferences = {
+      showHome: getBooleanValue(
+        stored.showHome,
+        defaultTabPreferences.showHome
+      ),
       showLikedSongs: getBooleanValue(
         stored.showLikedSongs,
         defaultTabPreferences.showLikedSongs

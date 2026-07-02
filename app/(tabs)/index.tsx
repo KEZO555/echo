@@ -71,6 +71,25 @@ export default function LikedSongsScreen() {
     [rateLimitRetryAt]
   );
 
+  const handleShufflePlay = usePreventDoubleTap(async () => {
+    const uris = baseTracks
+      .map((saved) => saved.track?.uri)
+      .filter((uri): uri is string => Boolean(uri));
+    if (uris.length === 0 || !isOnline) {
+      return;
+    }
+    for (let i = uris.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [uris[i], uris[j]] = [uris[j], uris[i]];
+    }
+    try {
+      await playTracksWithWebApi(uris.slice(0, 50));
+      router.push("/playing" as never);
+    } catch (error) {
+      logError("Error shuffle playing liked songs:", error);
+    }
+  });
+
   const handleTrackPress = usePreventDoubleTap(
     async (item: SavedTrackObject) => {
       const likedSongsUri = "spotify:collection:tracks";
@@ -247,6 +266,8 @@ export default function LikedSongsScreen() {
     <ListScreen
       data={displayTracks}
       emptyMessage="No saved tracks found."
+      headerIcon="shuffle"
+      headerIconPress={handleShufflePlay}
       isLoadingMore={isLoadingMore}
       isOnline={isOnline}
       isRefreshing={isRefreshing}
