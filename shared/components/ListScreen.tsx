@@ -7,6 +7,11 @@ import { StyledText } from "@/shared/components/StyledText";
 import { tabScreenStyles as styles } from "@/shared/styles/detailScreen";
 import { n } from "@/shared/utils";
 
+// Hoisted so the separator keeps a stable component identity - an inline
+// arrow would be a new component type per render, forcing React to unmount
+// and remount every separator whenever the screen re-renders.
+const ItemSeparator = () => <View style={{ height: n(8) }} />;
+
 interface ListScreenProps<T> {
   title: string;
   data: T[] | null;
@@ -62,7 +67,7 @@ export function ListScreen<T>({
       >
         <CustomScrollView
           data={data ?? []}
-          ItemSeparatorComponent={() => <View style={{ height: n(8) }} />}
+          ItemSeparatorComponent={ItemSeparator}
           keyExtractor={keyExtractor as (item: unknown) => string}
           ListHeaderComponent={
             data && data.length === 0 ? (
@@ -116,7 +121,7 @@ export function ListScreen<T>({
       <CustomScrollView
         contentContainerStyle={styles.listContentContainer}
         data={data}
-        ItemSeparatorComponent={() => <View style={{ height: n(8) }} />}
+        ItemSeparatorComponent={ItemSeparator}
         keyExtractor={keyExtractor as (item: unknown) => string}
         ListFooterComponent={renderFooter}
         onEndReached={onLoadMore}

@@ -56,3 +56,40 @@ export const getLargestImage = (
 
   return largest.url;
 };
+
+// List thumbnails render at ~50px, so the smallest variant Spotify offers
+// (usually 64px) is enough - the largest (640px) wastes ~97% of the bytes
+// and the decode memory on every row.
+export const getThumbnailImage = (
+  images: { url: string; height?: number; width?: number }[] | undefined,
+  minPx = 64
+): string | undefined => {
+  if (!images || images.length === 0) {
+    return undefined;
+  }
+  if (images.length === 1) {
+    return images[0].url;
+  }
+
+  const withDimensions = images.filter(
+    (img) => img.height !== undefined && img.width !== undefined
+  );
+
+  if (withDimensions.length === 0) {
+    return images.at(-1)?.url;
+  }
+
+  const bigEnough = withDimensions.filter(
+    (img) => (img.height ?? 0) >= minPx && (img.width ?? 0) >= minPx
+  );
+
+  const candidates = bigEnough.length > 0 ? bigEnough : withDimensions;
+  const smallest = candidates.reduce((prev, curr) =>
+    (curr.height ?? 0) * (curr.width ?? 0) <
+    (prev.height ?? 0) * (prev.width ?? 0)
+      ? curr
+      : prev
+  );
+
+  return smallest.url;
+};

@@ -13,8 +13,10 @@ import { RateLimitListMessage } from "@/shared/components/RateLimitListMessage";
 import { StyledText } from "@/shared/components/StyledText";
 import { usePreventDoubleTap } from "@/shared/hooks/usePreventDoubleTap";
 import type { SpotifyPlaylist } from "@/shared/types/spotify";
-import { getRateLimitMessage, n } from "@/shared/utils";
+import { getRateLimitMessage, getThumbnailImage, n } from "@/shared/utils";
 import { log, logError } from "@/shared/utils/logger";
+
+const ItemSeparator = () => <View style={{ height: n(8) }} />;
 
 export default function AddToPlaylistScreen() {
   const { isLoading, accessToken, user } = useAuth();
@@ -135,11 +137,7 @@ export default function AddToPlaylistScreen() {
             placeholderIcon="music-note"
             placeholderIconSize={24}
             style={styles.playlistImage}
-            uri={
-              item.images && item.images.length > 0
-                ? item.images[0].url
-                : undefined
-            }
+            uri={getThumbnailImage(item.images)}
           />
         )}
         <View style={styles.textContainer}>
@@ -203,7 +201,7 @@ export default function AddToPlaylistScreen() {
       <CustomScrollView
         contentContainerStyle={styles.listContentContainer}
         data={sortedPlaylists}
-        ItemSeparatorComponent={() => <View style={{ height: n(8) }} />}
+        ItemSeparatorComponent={ItemSeparator}
         keyExtractor={(item) => item.id}
         ListHeaderComponent={
           isRateLimited || !hideCreatePlaylist ? (

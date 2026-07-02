@@ -24,6 +24,7 @@ import {
   getAddedAtTimestamp,
   getArtistNames,
   getRateLimitMessage,
+  getThumbnailImage,
   isRateLimitItem,
   log,
   logError,
@@ -240,11 +241,7 @@ export default function AlbumsScreen() {
     return (
       <MediaListItem
         disabled={isUncached}
-        imageUri={
-          item.album.images && item.album.images.length > 0
-            ? item.album.images[0].url
-            : undefined
-        }
+        imageUri={getThumbnailImage(item.album.images)}
         onLongPress={isOnline ? () => setMenuAlbum(item) : undefined}
         onPress={() => handleAlbumPress(item, isUncached)}
         placeholderIcon="album"

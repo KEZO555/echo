@@ -12,12 +12,12 @@ import React, {
 } from "react";
 import {
   Animated,
+  AppState,
   Easing,
   type GestureResponderEvent,
   StyleSheet,
   View,
 } from "react-native";
-import { useAuth } from "@/features/auth";
 import {
   useAlbumsStore,
   useSavedEpisodesStore,
@@ -121,9 +121,51 @@ const getPlaybackTrackKey = (
   ].join("::");
 };
 
+// Everything the screen renders for a TRACK, other than position (which
+// flows through refs), collapses into this signature. Episodes are excluded
+// because their chapter label and seek handlers read progress_ms from state.
+const getTrackRenderSignature = (
+  state: SpotifyCurrentlyPlaying | null
+): string | null => {
+  const item = state?.item;
+  if (
+    !item ||
+    state?.currently_playing_type !== "track" ||
+    item.type === "episode"
+  ) {
+    return null;
+  }
+  return [
+    item.id ?? "",
+    item.uri ?? "",
+    item.name ?? "",
+    state.is_playing ? "1" : "0",
+    state.shuffle_state ? "1" : "0",
+    state.repeat_state ?? "off",
+    item.duration_ms ?? 0,
+  ].join("|");
+};
+
+const isRedundantStateSet = (
+  state: SpotifyCurrentlyPlaying | null,
+  signatureRef: { current: string | null }
+): boolean => {
+  const signature = getTrackRenderSignature(state);
+  const isRedundant = signature !== null && signature === signatureRef.current;
+  signatureRef.current = signature;
+  return isRedundant;
+};
+
+const shouldClearRoutePlayback = (
+  playbackTrackKey: string | null,
+  routeTrackKey: string | null,
+  expiresAt: number | null
+): boolean =>
+  playbackTrackKey === routeTrackKey ||
+  (expiresAt !== null && Date.now() >= expiresAt);
+
 // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: large screen component with playback controls
 export default function PlayingScreen() {
-  const { appState } = useAuth();
   const {
     startPlayback,
     pausePlayback,
@@ -229,13 +271,14 @@ export default function PlayingScreen() {
   const [chaptersVisible, setChaptersVisible] = useState(false);
   const chaptersEpisodeIdRef = useRef<string | null>(null);
   const positionTextRef = useRef<PositionTextHandle>(null);
+  const renderSignatureRef = useRef<string | null>(null);
   const positionBaseMsRef = useRef(initialState?.progress_ms ?? 0);
   const positionBaseAtRef = useRef(Date.now());
   const durationMsRef = useRef(0);
 
   const progress = useRef(new Animated.Value(0)).current;
   const progressBarWidthRef = useRef<number | null>(null);
-  const appStateRef = useRef(appState);
+  const appStateRef = useRef(AppState.currentState);
   const isFocusedRef = useRef(true);
   const lastCheckedTrackUriRef = useRef<string | null>(null);
   const isPlayingRef = useRef(false);
@@ -247,8 +290,11 @@ export default function PlayingScreen() {
   );
 
   useEffect(() => {
-    appStateRef.current = appState;
-  }, [appState]);
+    const subscription = AppState.addEventListener("change", (nextState) => {
+      appStateRef.current = nextState;
+    });
+    return () => subscription.remove();
+  }, []);
 
   const clearPendingRoutePlayback = useCallback(() => {
     routePlaybackExpiresAtRef.current = null;
@@ -370,9 +416,11 @@ export default function PlayingScreen() {
 
     if (
       isRoutePlaybackPending &&
-      (playbackTrackKey === routeTrackKey ||
-        (routePlaybackExpiresAtRef.current !== null &&
-          Date.now() >= routePlaybackExpiresAtRef.current))
+      shouldClearRoutePlayback(
+        playbackTrackKey,
+        routeTrackKey,
+        routePlaybackExpiresAtRef.current
+      )
     ) {
       clearPendingRoutePlayback();
     }
@@ -380,7 +428,12 @@ export default function PlayingScreen() {
     if (state) {
       cachedPlaybackState = state;
     }
-    setPlaybackState(state);
+    // Skip the state set (and the full-screen re-render it causes) when a
+    // track's rendered output hasn't changed - reconciles fire every 10s
+    // with a fresh object identity even when nothing moved but position.
+    if (!isRedundantStateSet(state, renderSignatureRef)) {
+      setPlaybackState(state);
+    }
     isPlayingRef.current = state?.is_playing ?? false;
     isEpisodeRef.current =
       state?.currently_playing_type === "episode" ||

@@ -19,6 +19,7 @@ import type { WithRateLimitItem } from "@/shared/utils";
 import {
   getArtistNames,
   getRateLimitMessage,
+  getThumbnailImage,
   isRateLimitItem,
   log,
   logError,
@@ -213,11 +214,7 @@ export default function LikedSongsScreen() {
 
     return (
       <MediaListItem
-        imageUri={
-          item.track.album?.images && item.track.album.images.length > 0
-            ? item.track.album.images[0].url
-            : undefined
-        }
+        imageUri={getThumbnailImage(item.track.album?.images)}
         onLongPress={() => setMenuTrack(item)}
         onPress={() => handleTrackPress(item)}
         placeholderIcon="music-note"

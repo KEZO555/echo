@@ -21,7 +21,7 @@ import {
   isRateLimitItem,
   prependRateLimitItem,
 } from "@/shared/utils";
-import { getLargestImage } from "@/shared/utils/formatters";
+import { getThumbnailImage } from "@/shared/utils/formatters";
 import { log, logError } from "@/shared/utils/logger";
 
 const YOUR_EPISODES_ID = "YOUR_EPISODES_ID";
@@ -208,7 +208,7 @@ export default function PodcastsScreen() {
     return (
       <MediaListItem
         disabled={isUncached}
-        imageUri={getLargestImage(item.show.images)}
+        imageUri={getThumbnailImage(item.show.images)}
         onPress={() => handleShowPress(item, isUncached)}
         placeholderIcon="mic"
         primaryText={item.show.name}

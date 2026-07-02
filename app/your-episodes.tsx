@@ -21,6 +21,7 @@ import {
   formatDuration,
   getLargestImage,
   getRateLimitMessage,
+  getThumbnailImage,
   isRateLimitItem,
   n,
   prependRateLimitItem,
@@ -173,7 +174,8 @@ export default function YourEpisodesScreen() {
     }
 
     const imageUri =
-      getLargestImage(episode.images) ?? getLargestImage(episode.show?.images);
+      getThumbnailImage(episode.images) ??
+      getThumbnailImage(episode.show?.images);
     const isDisabled = !isOnline;
 
     return (

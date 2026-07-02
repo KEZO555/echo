@@ -4,13 +4,11 @@ import { AppState } from "react-native";
 
 const APP_STATE_PATTERN = /inactive|background/;
 
+// Rely on the OS's own connectivity signal instead of polling an HTTP
+// endpoint every 30 seconds (and every 2 seconds while flapping), which
+// kept the radio awake for the app's entire lifetime.
 NetInfo.configure({
-  reachabilityUrl: "https://clients3.google.com/generate_204",
-  reachabilityTest: async (response) => response.status === 204,
-  reachabilityLongTimeout: 30 * 1000,
-  reachabilityShortTimeout: 2 * 1000,
-  reachabilityRequestTimeout: 5 * 1000,
-  useNativeReachability: false,
+  useNativeReachability: true,
 });
 
 type Listener = (isOnline: boolean | null) => void;

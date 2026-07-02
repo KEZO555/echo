@@ -37,6 +37,67 @@ const LEGACY_ARTISTS_KEY = "spotifyArtists";
 const SAVED_TRACKS_CACHE_VERSION = 2;
 const SAVED_TRACKS_PAGE_SIZE = 50;
 
+// Raw Spotify payloads carry fields the app never reads but that dominate
+// the cached JSON size - available_markets alone lists ~185 country codes
+// per album AND per track. Stripping them before caching keeps the
+// boot-time JSON.parse an order of magnitude smaller.
+type WithMarkets<T> = T & { available_markets?: string[] };
+
+const stripAlbum = (album: SpotifyAlbum): SpotifyAlbum => {
+  const {
+    tracks: _tracks,
+    available_markets: _markets,
+    ...slim
+  } = album as WithMarkets<SpotifyAlbum>;
+  return slim;
+};
+
+const stripShow = (show: SpotifyShow): SpotifyShow => {
+  const {
+    html_description: _html,
+    episodes: _episodes,
+    available_markets: _markets,
+    ...slim
+  } = show as WithMarkets<SpotifyShow>;
+  return slim;
+};
+
+const stripSavedAlbum = (entry: SpotifySavedAlbum): SpotifySavedAlbum => ({
+  ...entry,
+  album: stripAlbum(entry.album),
+});
+
+const stripSavedShow = (entry: SpotifySavedShow): SpotifySavedShow => ({
+  ...entry,
+  show: stripShow(entry.show),
+});
+
+const stripSavedEpisode = (entry: SpotifySavedEpisode): SpotifySavedEpisode => {
+  const { html_description: _html, show, ...episodeRest } = entry.episode;
+  return {
+    ...entry,
+    episode: {
+      ...episodeRest,
+      show: show ? stripShow(show) : undefined,
+    },
+  };
+};
+
+const stripSavedTrack = (entry: SavedTrackObject): SavedTrackObject => {
+  const {
+    album,
+    available_markets: _markets,
+    ...trackRest
+  } = entry.track as WithMarkets<SavedTrackObject["track"]>;
+  return {
+    ...entry,
+    track: {
+      ...trackRest,
+      album: album ? stripAlbum(album) : undefined,
+    },
+  };
+};
+
 interface SavedTracksCacheMetadata {
   version: typeof SAVED_TRACKS_CACHE_VERSION;
   pageSize: typeof SAVED_TRACKS_PAGE_SIZE;
@@ -166,10 +227,10 @@ const persistSavedTracksCacheState = async (
     [SAVED_TRACKS_META_KEY, JSON.stringify(metadata)],
     ...pages.map(
       (page, pageIndex) =>
-        [getSavedTracksPageKey(pageIndex), JSON.stringify(page)] as [
-          string,
-          string,
-        ]
+        [
+          getSavedTracksPageKey(pageIndex),
+          JSON.stringify(page.map(stripSavedTrack)),
+        ] as [string, string]
     ),
   ];
 
@@ -545,13 +606,22 @@ export const saveCachedData = async (options: SaveCachedDataOptions) => {
       ]);
     }
     if (options.albums) {
-      pairs.push([ALBUMS_KEY, JSON.stringify(options.albums)]);
+      pairs.push([
+        ALBUMS_KEY,
+        JSON.stringify(options.albums.map(stripSavedAlbum)),
+      ]);
     }
     if (options.podcasts) {
-      pairs.push([PODCASTS_KEY, JSON.stringify(options.podcasts)]);
+      pairs.push([
+        PODCASTS_KEY,
+        JSON.stringify(options.podcasts.map(stripSavedShow)),
+      ]);
     }
     if (options.savedEpisodes) {
-      pairs.push([SAVED_EPISODES_KEY, JSON.stringify(options.savedEpisodes)]);
+      pairs.push([
+        SAVED_EPISODES_KEY,
+        JSON.stringify(options.savedEpisodes.map(stripSavedEpisode)),
+      ]);
     }
     if (pairs.length > 0) {
       await AsyncStorage.multiSet(pairs);

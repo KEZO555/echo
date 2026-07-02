@@ -46,7 +46,6 @@ export interface AuthContextType {
   tokenExpiry: number | null;
   isLoading: boolean;
   isAuthenticated: boolean;
-  appState: AppStateStatus;
   authError: AuthError | null;
   clearAuthError: () => void;
   login: () => Promise<void>;
@@ -64,7 +63,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [isLoading, setIsLoading] = useState(true);
   const [isAuthenticating, setIsAuthenticating] = useState(false);
   const [initialAuthProcessed, setInitialAuthProcessed] = useState(false);
-  const [appState, setAppState] = useState(AppState.currentState);
   const appStateRef = useRef(AppState.currentState);
   const [authError, setAuthError] = useState<AuthError | null>(null);
 
@@ -254,8 +252,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       ) {
         logInfo("AuthContext: App resumed");
       }
+      // Kept in a ref only - putting this in state (and the context value)
+      // re-rendered every useAuth consumer on each screen wake/sleep.
       appStateRef.current = nextAppState;
-      setAppState(nextAppState);
     };
 
     const appStateSubscription = AppState.addEventListener(
@@ -311,7 +310,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       tokenExpiry,
       isLoading,
       isAuthenticated,
-      appState,
       authError,
       clearAuthError,
       login,
@@ -325,7 +323,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       tokenExpiry,
       isLoading,
       isAuthenticated,
-      appState,
       authError,
       clearAuthError,
       login,

@@ -21,7 +21,13 @@ import type {
   SpotifyPlaylistTrack,
   SpotifyTrackSimple,
 } from "@/shared/types/spotify";
-import { formatDuration, getArtistNames, log, logError } from "@/shared/utils";
+import {
+  formatDuration,
+  getArtistNames,
+  getThumbnailImage,
+  log,
+  logError,
+} from "@/shared/utils";
 import { apiGet, apiGetWithStatus } from "@/shared/utils/api-client";
 import {
   parsePlaylist,
@@ -463,7 +469,7 @@ export default function PlaylistDetailScreen() {
       return (
         <MediaListItem
           forceShowImage
-          imageUri={track.album?.images?.[0]?.url}
+          imageUri={getThumbnailImage(track.album?.images)}
           onLongPress={() => setMenuTrack({ track, index })}
           onPress={() => handleTrackPress(index)}
           placeholderIcon="music-note"
@@ -477,7 +483,7 @@ export default function PlaylistDetailScreen() {
       <TrackListItem
         artists={track.artists}
         durationMs={track.duration_ms}
-        imageUri={track.album?.images?.[0]?.url}
+        imageUri={getThumbnailImage(track.album?.images)}
         name={track.name}
         onLongPress={() => setMenuTrack({ track, index })}
         onPress={() => handleTrackPress(index)}

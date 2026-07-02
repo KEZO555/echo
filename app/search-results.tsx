@@ -20,7 +20,7 @@ import type {
   SpotifyShow,
   SpotifyTrack,
 } from "@/shared/types/spotify";
-import { getArtistNames, logError, n } from "@/shared/utils";
+import { getArtistNames, getThumbnailImage, logError, n } from "@/shared/utils";
 
 const ItemSeparator = () => <View style={{ height: n(8) }} />;
 
@@ -251,7 +251,7 @@ export default function SearchResultsScreen() {
             placeholderIconSize={n(24)}
             placeholderText="?"
             style={styles.itemImage}
-            uri={images && images.length > 0 ? images[0].url : undefined}
+            uri={getThumbnailImage(images)}
           />
         )}
         <View style={styles.textContainer}>

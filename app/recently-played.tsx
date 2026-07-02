@@ -11,8 +11,10 @@ import {
 import { usePreventDoubleTap } from "@/shared/hooks";
 import { detailScreenStyles } from "@/shared/styles/detailScreen";
 import type { SpotifyTrack } from "@/shared/types/spotify";
-import { getArtistNames, logError, n } from "@/shared/utils";
+import { getArtistNames, getThumbnailImage, logError, n } from "@/shared/utils";
 import { apiGet } from "@/shared/utils/api-client";
+
+const ItemSeparator = () => <View style={{ height: n(8) }} />;
 
 interface RecentlyPlayedItem {
   track: SpotifyTrack;
@@ -86,7 +88,7 @@ export default function RecentlyPlayedScreen() {
         <CustomScrollView
           contentContainerStyle={detailScreenStyles.listContentContainer}
           data={tracks}
-          ItemSeparatorComponent={() => <View style={{ height: n(8) }} />}
+          ItemSeparatorComponent={ItemSeparator}
           keyExtractor={(item: SpotifyTrack, index: number) =>
             `${item.id}-${index}`
           }
@@ -98,7 +100,7 @@ export default function RecentlyPlayedScreen() {
           overScrollMode="never"
           renderItem={({ item }: { item: SpotifyTrack }) => (
             <MediaListItem
-              imageUri={item.album?.images?.[0]?.url}
+              imageUri={getThumbnailImage(item.album?.images)}
               onPress={() => handlePress(item)}
               placeholderIcon="music-note"
               primaryText={item.name}

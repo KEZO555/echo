@@ -13,7 +13,9 @@ import type {
   SpotifyEpisode,
   SpotifyTrackSimple,
 } from "@/shared/types/spotify";
-import { getArtistNames, logError, n } from "@/shared/utils";
+import { getArtistNames, getThumbnailImage, logError, n } from "@/shared/utils";
+
+const ItemSeparator = () => <View style={{ height: n(8) }} />;
 
 type QueueItem = SpotifyTrackSimple | SpotifyEpisode;
 
@@ -22,9 +24,11 @@ const isEpisode = (item: QueueItem): item is SpotifyEpisode =>
 
 const getItemImage = (item: QueueItem): string | undefined => {
   if (isEpisode(item)) {
-    return item.images?.[0]?.url ?? item.show?.images?.[0]?.url;
+    return (
+      getThumbnailImage(item.images) ?? getThumbnailImage(item.show?.images)
+    );
   }
-  return item.album?.images?.[0]?.url;
+  return getThumbnailImage(item.album?.images);
 };
 
 const getItemSubtitle = (item: QueueItem): string => {
@@ -130,7 +134,7 @@ export default function QueueScreen() {
         <CustomScrollView
           contentContainerStyle={detailScreenStyles.listContentContainer}
           data={queue}
-          ItemSeparatorComponent={() => <View style={{ height: n(8) }} />}
+          ItemSeparatorComponent={ItemSeparator}
           keyExtractor={(item: QueueItem, index: number) =>
             `${item.id || "queue"}-${index}`
           }

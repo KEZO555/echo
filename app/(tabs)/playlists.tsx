@@ -18,6 +18,7 @@ import type { SpotifyPlaylist } from "@/shared/types/spotify";
 import type { WithRateLimitItem } from "@/shared/utils";
 import {
   getRateLimitMessage,
+  getThumbnailImage,
   isRateLimitItem,
   prependRateLimitItem,
 } from "@/shared/utils";
@@ -183,9 +184,7 @@ export default function PlaylistsScreen() {
     return (
       <MediaListItem
         disabled={isUncached}
-        imageUri={
-          item.images && item.images.length > 0 ? item.images[0].url : undefined
-        }
+        imageUri={getThumbnailImage(item.images)}
         onPress={() => handlePlaylistPress(item, isUncached)}
         placeholderIcon="music-note"
         primaryText={item.name}
