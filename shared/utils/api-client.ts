@@ -294,6 +294,16 @@ export const apiPut = (url: string, body?: unknown): Promise<boolean> =>
     body: body ? JSON.stringify(body) : undefined,
   });
 
+export const apiPutWithStatus = <T>(
+  url: string,
+  body?: unknown
+): Promise<ApiRequestResult<T>> =>
+  apiFetchWithStatus<T>(url, {
+    method: "PUT",
+    headers: body ? { "Content-Type": "application/json" } : undefined,
+    body: body ? JSON.stringify(body) : undefined,
+  });
+
 export const apiDelete = (url: string, body?: unknown): Promise<boolean> =>
   apiFetchOk(url, {
     method: "DELETE",

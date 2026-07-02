@@ -1,3 +1,4 @@
+import { ToastAndroid } from "react-native";
 import { create } from "zustand";
 import type {
   SpotifyEpisode,
@@ -8,7 +9,7 @@ import {
   apiDelete,
   apiGet,
   apiGetWithStatus,
-  apiPut,
+  apiPutWithStatus,
 } from "@/shared/utils/api-client";
 import { logError } from "@/shared/utils/logger";
 import { saveCachedData } from "../utils/cache";
@@ -179,10 +180,18 @@ export const useSavedEpisodesStore = create<SavedEpisodesState>()(
 
     saveEpisode: async (episode) => {
       try {
-        const saved = await apiPut(
-          `https://api.spotify.com/v1/me/episodes?ids=${episode.id}`
+        // Spotify's docs specify the ids for this endpoint in the JSON body.
+        const result = await apiPutWithStatus(
+          "https://api.spotify.com/v1/me/episodes",
+          { ids: [episode.id] }
         );
+        const saved =
+          result.status !== null && result.status >= 200 && result.status < 300;
         if (!saved) {
+          ToastAndroid.show(
+            `Couldn't save episode (${result.status ?? "network error"})`,
+            ToastAndroid.LONG
+          );
           return false;
         }
         recentlySavedAt.set(episode.id, Date.now());
