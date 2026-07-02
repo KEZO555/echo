@@ -1,7 +1,6 @@
 package com.vandam.echo
 import android.util.Log
 import android.provider.Settings
-import android.media.AudioManager
 import expo.modules.splashscreen.SplashScreenManager
 
 import android.os.Build
@@ -74,13 +73,6 @@ class MainActivity : ReactActivity() {
     override fun onResume() {
         super.onResume()
         disableDaltonizer()
-
-        // Echo never plays audio itself (playback happens in the separate
-        // Spotify app), so without this the hardware volume keys fall back
-        // to ringer/notification volume whenever nothing is actively
-        // playing. Must be set on every resume, not just onCreate, per
-        // https://developer.android.com/training/managing-audio/volume-playback
-        setVolumeControlStream(AudioManager.STREAM_MUSIC)
     }
 
     override fun onPause() {
