@@ -1,6 +1,7 @@
 import React from "react";
-import { Text as DefaultText, StyleSheet, type TextProps } from "react-native";
+import { Text as DefaultText, type TextProps } from "react-native";
 import { useSettings } from "@/features/settings";
+import { getAppFontFamily } from "@/shared/utils/appFont";
 
 interface StyledTextProps extends TextProps {
   children: React.ReactNode;
@@ -13,14 +14,16 @@ export const StyledText = React.memo(function StyledText({
   const { invertColors } = useSettings();
   return (
     <DefaultText
-      style={[styles.text, { color: invertColors ? "black" : "white" }, style]}
+      style={[
+        // Resolved at render time: the system Akkurat font (matching the
+        // built-in LightOS tools) is only known after startup detection.
+        {
+          fontFamily: getAppFontFamily(),
+          color: invertColors ? "black" : "white",
+        },
+        style,
+      ]}
       {...rest}
     />
   );
-});
-
-const styles = StyleSheet.create({
-  text: {
-    fontFamily: "PublicSans-Regular",
-  },
 });

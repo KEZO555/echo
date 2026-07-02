@@ -10,6 +10,7 @@ import ContentContainer from "@/shared/components/ContentContainer";
 import { HapticPressable } from "@/shared/components/HapticPressable";
 import { n } from "@/shared/utils";
 import { apiPost, apiPut } from "@/shared/utils/api-client";
+import { getAppFontFamily } from "@/shared/utils/appFont";
 import { log, logError } from "@/shared/utils/logger";
 
 const navigateBack = (router: ReturnType<typeof useRouter>) => {
@@ -110,7 +111,11 @@ export default function PlaylistFormScreen() {
           placeholder="Name your playlist"
           placeholderTextColor="#888"
           selectionColor={invertColors ? "black" : "white"}
-          style={[styles.input, { color: invertColors ? "black" : "white" }]}
+          style={[
+            styles.input,
+            { color: invertColors ? "black" : "white" },
+            { fontFamily: getAppFontFamily() },
+          ]}
           value={playlistName}
         />
         {playlistName.length > 0 && (
@@ -143,7 +148,6 @@ const styles = StyleSheet.create({
   input: {
     flex: 1,
     fontSize: n(24),
-    fontFamily: "PublicSans-Regular",
     paddingVertical: n(2),
     textAlign: "left",
     paddingBottom: n(6),

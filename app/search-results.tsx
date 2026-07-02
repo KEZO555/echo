@@ -369,13 +369,12 @@ const styles = StyleSheet.create({
     gap: 0,
   },
   itemName: {
-    fontSize: n(22),
-    lineHeight: n(24),
-    fontFamily: "PublicSans-Regular",
+    fontSize: n(25),
+    lineHeight: n(28),
+    letterSpacing: n(0.5),
   },
   itemSubtitle: {
-    fontSize: n(16),
-    lineHeight: n(18),
-    fontFamily: "PublicSans-Regular",
+    fontSize: n(20),
+    lineHeight: n(23),
   },
 });

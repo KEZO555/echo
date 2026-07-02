@@ -18,6 +18,7 @@ import {
 } from "@/shared/components";
 import { useNetworkState, usePreventDoubleTap } from "@/shared/hooks";
 import { tabScreenStyles as styles } from "@/shared/styles/detailScreen";
+import { getSecondaryContentColor } from "@/shared/styles/lightTokens";
 import type {
   SpotifyEpisode,
   SpotifySavedEpisode,
@@ -70,7 +71,8 @@ export default function HomeScreen() {
   const { accessToken, user, isLoading: isAuthLoading } = useAuth();
   const { playTrackWithContext, playContext, playTracksWithWebApi } =
     usePlayback();
-  const { hideYourEpisodes } = useSettings();
+  const { hideYourEpisodes, invertColors } = useSettings();
+  const secondaryColor = getSecondaryContentColor(invertColors);
   const { isOnline } = useNetworkState();
   const router = useRouter();
 
@@ -314,7 +316,11 @@ export default function HomeScreen() {
     switch (item.type) {
       case "section":
         return (
-          <StyledText style={homeStyles.sectionLabel}>{item.label}</StyledText>
+          <StyledText
+            style={[homeStyles.sectionLabel, { color: secondaryColor }]}
+          >
+            {item.label}
+          </StyledText>
         );
       case "resume": {
         const episode = item.entry.episode;
@@ -370,7 +376,11 @@ export default function HomeScreen() {
             style={homeStyles.linkRow}
           >
             <StyledText style={homeStyles.linkLabel}>{item.label}</StyledText>
-            <MaterialIcons color="#888888" name="chevron-right" size={n(24)} />
+            <MaterialIcons
+              color={secondaryColor}
+              name="chevron-right"
+              size={n(24)}
+            />
           </HapticPressable>
         );
       default:
@@ -399,10 +409,9 @@ export default function HomeScreen() {
 
 const homeStyles = StyleSheet.create({
   sectionLabel: {
-    fontSize: n(16),
+    fontSize: n(20),
     marginTop: n(10),
     marginBottom: n(2),
-    color: "#888888",
   },
   linkRow: {
     minHeight: n(44),

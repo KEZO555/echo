@@ -166,9 +166,10 @@ const styles = StyleSheet.create({
   loadingSpinner: {
     marginTop: n(4),
   },
+  // LightOS "Fine" (top bar) metrics: 25 units with 3% letter spacing.
   titleText: {
-    fontSize: n(20),
-    fontFamily: "PublicSans-Regular",
+    fontSize: n(25),
+    letterSpacing: n(0.75),
     paddingTop: n(2),
     textAlign: "center",
   },

@@ -194,11 +194,12 @@ const styles = StyleSheet.create({
     paddingRight: n(10),
   },
   primaryText: {
-    fontSize: n(22),
-    lineHeight: n(24),
+    fontSize: n(25),
+    lineHeight: n(28),
+    letterSpacing: n(0.5),
   },
   secondaryText: {
-    fontSize: n(16),
-    lineHeight: n(18),
+    fontSize: n(20),
+    lineHeight: n(23),
   },
 });

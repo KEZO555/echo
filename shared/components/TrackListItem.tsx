@@ -1,5 +1,7 @@
 import React from "react";
 import { StyleSheet, View } from "react-native";
+import { useSettings } from "@/features/settings";
+import { getSecondaryContentColor } from "@/shared/styles/lightTokens";
 import { formatDuration, getArtistNames, n } from "@/shared/utils";
 import { FallbackImage } from "./FallbackImage";
 import { HapticPressable } from "./HapticPressable";
@@ -30,6 +32,7 @@ export const TrackListItem = React.memo(function TrackListItem({
   onPress,
   onLongPress,
 }: TrackListItemProps) {
+  const { invertColors } = useSettings();
   const subtitle = durationMs
     ? `${getArtistNames(artists)} · ${formatDuration(durationMs)}`
     : getArtistNames(artists);
@@ -55,7 +58,14 @@ export const TrackListItem = React.memo(function TrackListItem({
         <StyledText numberOfLines={1} style={styles.trackName}>
           {name}
         </StyledText>
-        <StyledText style={styles.subtitle}>{subtitle}</StyledText>
+        <StyledText
+          style={[
+            styles.subtitle,
+            { color: getSecondaryContentColor(invertColors) },
+          ]}
+        >
+          {subtitle}
+        </StyledText>
       </View>
     </HapticPressable>
   );
@@ -94,8 +104,8 @@ const styles = StyleSheet.create({
     fontSize: n(26),
   },
   subtitle: {
-    fontSize: n(16),
-    lineHeight: n(18),
+    fontSize: n(20),
+    lineHeight: n(23),
     paddingBottom: n(6),
   },
 });

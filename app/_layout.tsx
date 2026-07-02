@@ -4,7 +4,7 @@ import { setVisibilityAsync } from "expo-navigation-bar";
 import { Stack, useRouter } from "expo-router";
 import { setStatusBarHidden } from "expo-status-bar";
 import { setBackgroundColorAsync } from "expo-system-ui";
-import { useCallback, useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Text, View } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { AuthProvider, useAuth } from "@/features/auth";
@@ -12,6 +12,7 @@ import { CredentialsProvider } from "@/features/credentials";
 import { useLibraryInit } from "@/features/library";
 import { PlaybackProvider } from "@/features/playback";
 import { SettingsProvider, useSettings } from "@/features/settings";
+import { getAppFontFamily, loadSystemFont } from "@/shared/utils/appFont";
 import "@/shared/utils/logger";
 
 function RootNavigation() {
@@ -32,8 +33,15 @@ function RootNavigation() {
     "PublicSans-Regular": require("../assets/fonts/PublicSans-Regular.ttf"),
     ...MaterialIcons.font,
   });
+  const [systemFontChecked, setSystemFontChecked] = useState(false);
+  useEffect(() => {
+    loadSystemFont().finally(() => setSystemFontChecked(true));
+  }, []);
   const isLoading =
-    authLoading || preferencesLoading || !(fontsLoaded || fontError);
+    authLoading ||
+    preferencesLoading ||
+    !systemFontChecked ||
+    !(fontsLoaded || fontError);
   const hasDoneInitialRouting = useRef(false);
   const previousAccessToken = useRef<string | null>(null);
 
@@ -114,7 +122,7 @@ function RootNavigation() {
           style={{
             color: invertColors ? "black" : "white",
             fontSize: 40,
-            fontFamily: fontsLoaded ? "PublicSans-Regular" : undefined,
+            fontFamily: fontsLoaded ? getAppFontFamily() : undefined,
           }}
         >
           Echo

@@ -8,6 +8,7 @@ import ContentContainer from "@/shared/components/ContentContainer";
 import { HapticPressable } from "@/shared/components/HapticPressable";
 import { usePreventDoubleTap } from "@/shared/hooks/usePreventDoubleTap";
 import { n } from "@/shared/utils";
+import { getAppFontFamily } from "@/shared/utils/appFont";
 
 export default function SearchScreen() {
   const [searchQuery, setSearchQuery] = useState("");
@@ -43,7 +44,11 @@ export default function SearchScreen() {
           placeholder="Search for something!"
           placeholderTextColor="#888"
           selectionColor={invertColors ? "black" : "white"}
-          style={[styles.input, { color: invertColors ? "black" : "white" }]}
+          style={[
+            styles.input,
+            { color: invertColors ? "black" : "white" },
+            { fontFamily: getAppFontFamily() },
+          ]}
           value={searchQuery}
         />
         {searchQuery.length > 0 && (
@@ -76,7 +81,6 @@ const styles = StyleSheet.create({
   input: {
     flex: 1,
     fontSize: n(24),
-    fontFamily: "PublicSans-Regular",
     paddingVertical: n(2),
     textAlign: "left",
     paddingBottom: n(6),

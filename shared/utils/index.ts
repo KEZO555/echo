@@ -1,4 +1,5 @@
 export * from "./api-client";
+export * from "./appFont";
 export * from "./chapters";
 export * from "./date";
 export * from "./formatters";

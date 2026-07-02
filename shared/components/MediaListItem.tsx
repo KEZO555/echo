@@ -6,6 +6,7 @@ import { useSettings } from "@/features/settings";
 import { HapticPressable } from "@/shared/components/HapticPressable";
 import { MarqueeText } from "@/shared/components/MarqueeText";
 import { StyledText } from "@/shared/components/StyledText";
+import { getSecondaryContentColor } from "@/shared/styles/lightTokens";
 import { n } from "@/shared/utils";
 
 interface MediaListItemProps {
@@ -35,7 +36,7 @@ export const MediaListItem = React.memo(function MediaListItem({
   imageStyle,
   style,
 }: MediaListItemProps) {
-  const { hideAlbumCovers } = useSettings();
+  const { hideAlbumCovers, invertColors } = useSettings();
   const [imageError, setImageError] = useState(false);
 
   const showPlaceholder = !imageUri || imageError;
@@ -80,7 +81,13 @@ export const MediaListItem = React.memo(function MediaListItem({
           </StyledText>
         )}
         {secondaryText && (
-          <StyledText numberOfLines={1} style={styles.secondaryText}>
+          <StyledText
+            numberOfLines={1}
+            style={[
+              styles.secondaryText,
+              { color: getSecondaryContentColor(invertColors) },
+            ]}
+          >
             {secondaryText}
           </StyledText>
         )}
@@ -119,13 +126,16 @@ const styles = StyleSheet.create({
     gap: 0,
     paddingRight: n(10),
   },
+  // LightOS list metrics: "ParagraphWide" (25, 2% spacing) for primary,
+  // "Detail" (20) for secondary.
   primaryText: {
-    fontSize: n(22),
-    lineHeight: n(24),
+    fontSize: n(25),
+    lineHeight: n(28),
+    letterSpacing: n(0.5),
   },
   secondaryText: {
-    fontSize: n(16),
-    lineHeight: n(18),
+    fontSize: n(20),
+    lineHeight: n(23),
   },
   disabledContainer: {
     opacity: 0.3,

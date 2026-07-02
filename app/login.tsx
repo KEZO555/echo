@@ -9,6 +9,7 @@ import ContentContainer from "@/shared/components/ContentContainer";
 import { HapticPressable } from "@/shared/components/HapticPressable";
 import { StyledText } from "@/shared/components/StyledText";
 import { n } from "@/shared/utils";
+import { getAppFontFamily } from "@/shared/utils/appFont";
 
 type SetupStep = "clientId" | "clientSecret";
 
@@ -77,7 +78,10 @@ export default function LoginScreen() {
               placeholder="Enter your Client ID"
               placeholderTextColor="#888"
               selectionColor={textColor}
-              style={[styles.input, { color: textColor }]}
+              style={[
+                styles.input,
+                { color: textColor, fontFamily: getAppFontFamily() },
+              ]}
               value={clientId}
             />
             {clientId.length > 0 && (
@@ -119,7 +123,10 @@ export default function LoginScreen() {
             placeholder="Enter your Client Secret"
             placeholderTextColor="#888"
             selectionColor={textColor}
-            style={[styles.input, { color: textColor }]}
+            style={[
+              styles.input,
+              { color: textColor, fontFamily: getAppFontFamily() },
+            ]}
             value={clientSecret}
           />
           {clientSecret.length > 0 && (
@@ -191,7 +198,6 @@ const styles = StyleSheet.create({
   input: {
     flex: 1,
     fontSize: n(24),
-    fontFamily: "PublicSans-Regular",
     paddingVertical: n(2),
     textAlign: "left",
     paddingBottom: n(6),

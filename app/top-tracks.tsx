@@ -2,6 +2,7 @@ import { useRouter } from "expo-router";
 import { useCallback, useEffect, useState } from "react";
 import { StyleSheet, View } from "react-native";
 import { usePlayback } from "@/features/playback";
+import { useSettings } from "@/features/settings";
 import {
   ContentContainer,
   CustomScrollView,
@@ -11,6 +12,7 @@ import {
 } from "@/shared/components";
 import { useNetworkState, usePreventDoubleTap } from "@/shared/hooks";
 import { tabScreenStyles as styles } from "@/shared/styles/detailScreen";
+import { getSecondaryContentColor } from "@/shared/styles/lightTokens";
 import type { SpotifyTrack } from "@/shared/types/spotify";
 import { getArtistNames, getThumbnailImage, logError, n } from "@/shared/utils";
 import { apiGet } from "@/shared/utils/api-client";
@@ -27,6 +29,7 @@ const TIME_RANGES: { id: TimeRange; label: string }[] = [
 
 export default function TopTracksScreen() {
   const { playTracksWithWebApi } = usePlayback();
+  const { invertColors } = useSettings();
   const { isOnline } = useNetworkState();
   const router = useRouter();
   const [timeRange, setTimeRange] = useState<TimeRange>("medium_term");
@@ -80,7 +83,9 @@ export default function TopTracksScreen() {
           <StyledText
             style={[
               topStyles.rangeLabel,
-              timeRange !== range.id && topStyles.rangeLabelInactive,
+              timeRange !== range.id && {
+                color: getSecondaryContentColor(invertColors),
+              },
             ]}
           >
             {range.label}
@@ -144,9 +149,6 @@ const topStyles = StyleSheet.create({
     paddingVertical: n(4),
   },
   rangeLabel: {
-    fontSize: n(16),
-  },
-  rangeLabelInactive: {
-    color: "#888888",
+    fontSize: n(20),
   },
 });
