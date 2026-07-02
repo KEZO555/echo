@@ -29,12 +29,6 @@ class MainActivity : ReactActivity() {
     SplashScreenManager.registerOnActivity(this)
     // @generated end expo-splashscreen
     super.onCreate(null)
-
-    // Echo never plays audio itself (playback happens in the separate
-    // Spotify app), so without this the hardware volume keys would fall
-    // back to whatever stream Android considers "active" - usually ringer/
-    // notification - even while Echo is the app in the foreground.
-    setVolumeControlStream(AudioManager.STREAM_MUSIC)
   }
 
   /**
@@ -80,6 +74,13 @@ class MainActivity : ReactActivity() {
     override fun onResume() {
         super.onResume()
         disableDaltonizer()
+
+        // Echo never plays audio itself (playback happens in the separate
+        // Spotify app), so without this the hardware volume keys fall back
+        // to ringer/notification volume whenever nothing is actively
+        // playing. Must be set on every resume, not just onCreate, per
+        // https://developer.android.com/training/managing-audio/volume-playback
+        setVolumeControlStream(AudioManager.STREAM_MUSIC)
     }
 
     override fun onPause() {
