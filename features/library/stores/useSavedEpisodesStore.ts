@@ -15,6 +15,25 @@ import { saveCachedData } from "../utils/cache";
 
 const STALE_REMAINING_MS = 300_000;
 
+// Saving an episode the user previously finished (a re-listen) would
+// otherwise be undone straight away: the server's resume point still says
+// "played", so the next fetch would strip it and delete the save. Protect
+// fresh saves from the auto-cleanup for a grace period.
+const SAVE_PROTECTION_MS = 30 * 60_000;
+const recentlySavedAt = new Map<string, number>();
+
+const isRecentlySaved = (episodeId: string): boolean => {
+  const savedAt = recentlySavedAt.get(episodeId);
+  if (savedAt === undefined) {
+    return false;
+  }
+  if (Date.now() - savedAt > SAVE_PROTECTION_MS) {
+    recentlySavedAt.delete(episodeId);
+    return false;
+  }
+  return true;
+};
+
 const isEpisodeStale = (entry: SpotifySavedEpisode): boolean => {
   const resume = entry.episode.resume_point;
   if (!resume) {
@@ -81,7 +100,7 @@ export const useSavedEpisodesStore = create<SavedEpisodesState>()(
           const fresh: SpotifySavedEpisode[] = [];
           const staleIds: string[] = [];
           for (const entry of data.items) {
-            if (isEpisodeStale(entry)) {
+            if (isEpisodeStale(entry) && !isRecentlySaved(entry.episode.id)) {
               staleIds.push(entry.episode.id);
             } else {
               fresh.push(entry);
@@ -133,7 +152,7 @@ export const useSavedEpisodesStore = create<SavedEpisodesState>()(
         const fresh: SpotifySavedEpisode[] = [];
         const staleIds: string[] = [];
         for (const entry of data.items) {
-          if (isEpisodeStale(entry)) {
+          if (isEpisodeStale(entry) && !isRecentlySaved(entry.episode.id)) {
             staleIds.push(entry.episode.id);
           } else {
             fresh.push(entry);
@@ -166,6 +185,7 @@ export const useSavedEpisodesStore = create<SavedEpisodesState>()(
         if (!saved) {
           return false;
         }
+        recentlySavedAt.set(episode.id, Date.now());
         set((state) => {
           const list = state.savedEpisodes ?? [];
           if (list.some((entry) => entry.episode.id === episode.id)) {
@@ -188,6 +208,7 @@ export const useSavedEpisodesStore = create<SavedEpisodesState>()(
     removeEpisode: async (episodeId) => {
       // Remove optimistically so the list updates instantly, then restore
       // if the request fails.
+      recentlySavedAt.delete(episodeId);
       const previous = get().savedEpisodes;
       set((state) => ({
         savedEpisodes: (state.savedEpisodes ?? []).filter(

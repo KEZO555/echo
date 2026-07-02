@@ -61,6 +61,20 @@ interface PlayingRouteParams {
   episodeId?: string;
 }
 const ROUTE_PLAYBACK_TIMEOUT_MS = 4000;
+const SPOTIFY_ID_PATTERN = /^[0-9A-Za-z]{22}$/;
+
+// The native player state derives ids by splitting the track uri, which is
+// not always a real Spotify id. The route params carry the authoritative
+// episode id, so prefer the derived id only when it actually looks like one.
+const resolveEpisodeId = (
+  itemId: string | null | undefined,
+  routeEpisodeId: string | undefined
+): string => {
+  if (itemId && SPOTIFY_ID_PATTERN.test(itemId)) {
+    return itemId;
+  }
+  return routeEpisodeId || itemId || "";
+};
 
 const formatTime = (ms: number | null | undefined): string => {
   if (ms === null || ms === undefined) {
@@ -197,7 +211,7 @@ const resolveSaveTarget = (
     item?.type === "episode";
 
   if (isEpisodeItem) {
-    const episodeId = (item?.id ?? "") || (routeEpisodeId ?? "");
+    const episodeId = resolveEpisodeId(item?.id, routeEpisodeId);
     if (!episodeId) {
       return null;
     }
@@ -206,7 +220,7 @@ const resolveSaveTarget = (
       episode: {
         ...(item as SpotifyEpisode),
         id: episodeId,
-        uri: (item as SpotifyEpisode).uri || `spotify:episode:${episodeId}`,
+        uri: `spotify:episode:${episodeId}`,
       },
     };
   }
@@ -355,6 +369,7 @@ export default function PlayingScreen() {
   }, []);
 
   const routeTrackKey = getRouteTrackKey(params);
+  const routeEpisodeId = params.episodeId;
   const isPendingRoutePlayback = isRoutePlaybackPending && paramsState !== null;
   const isPendingLikedSongPlayback =
     isPendingRoutePlayback && params.sourceContext === "liked";
@@ -424,17 +439,17 @@ export default function PlayingScreen() {
         state?.currently_playing_type === "episode" || item?.type === "episode";
 
       if (isEpisode) {
-        const episodeUri =
-          trackUri || (trackId ? `spotify:episode:${trackId}` : null);
-        if (!(episodeUri && trackId)) {
+        const episodeId = resolveEpisodeId(trackId, routeEpisodeId);
+        if (!episodeId) {
           lastCheckedTrackUriRef.current = null;
           setIsCurrentTrackSaved(false);
           return;
         }
+        const episodeUri = `spotify:episode:${episodeId}`;
         if (lastCheckedTrackUriRef.current === episodeUri) {
           return;
         }
-        const saved = await checkEpisodeSaved(trackId);
+        const saved = await checkEpisodeSaved(episodeId);
         lastCheckedTrackUriRef.current = episodeUri;
         setIsCurrentTrackSaved(saved);
         return;
@@ -460,7 +475,7 @@ export default function PlayingScreen() {
         lastCheckedTrackUriRef.current = null;
       }
     },
-    [getLibraryState, checkEpisodeSaved]
+    [getLibraryState, checkEpisodeSaved, routeEpisodeId]
   );
 
   const fetchAndUpdatePlaybackState = useCallback(async () => {
