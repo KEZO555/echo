@@ -94,6 +94,13 @@ const getRouteTrackKey = (params: PlayingRouteParams): string | null => {
     return null;
   }
 
+  // Episodes carry a stable id, so match on that - name/artist keys never
+  // line up for episodes (the "artist" is the show), which used to leave
+  // the screen stuck in pending mode with the save button disabled.
+  if (params.mediaType === "episode" && params.episodeId) {
+    return `episode::${params.episodeId}`;
+  }
+
   return [
     params.trackName,
     params.artistName ?? "",
@@ -105,11 +112,17 @@ const getPlaybackTrackKey = (
   state: SpotifyCurrentlyPlaying | null
 ): string | null => {
   const item = state?.item;
-  if (
-    !item ||
-    state?.currently_playing_type !== "track" ||
-    item.type === "episode"
-  ) {
+  if (!item) {
+    return null;
+  }
+
+  const isEpisodeState =
+    state?.currently_playing_type === "episode" || item.type === "episode";
+  if (isEpisodeState) {
+    return item.id ? `episode::${item.id}` : null;
+  }
+
+  if (state?.currently_playing_type !== "track") {
     return null;
   }
 
