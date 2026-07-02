@@ -71,11 +71,18 @@ const getCachedDeviceId = async (
 
     if (devicesResponse.ok) {
       const devicesData = await devicesResponse.json();
+      // Prefer this phone over any other Spotify Connect device (e.g. a
+      // desktop app left open), even if Spotify's backend still considers
+      // that other device "active" from a previous session.
+      const thisDevice = devicesData.devices?.find(
+        (d: { type: string }) => d.type === "Smartphone"
+      );
       const activeDevice = devicesData.devices?.find(
         (d: { is_active: boolean }) => d.is_active
       );
       const availableDevice = devicesData.devices?.[0];
-      cachedDeviceId = activeDevice?.id || availableDevice?.id;
+      cachedDeviceId =
+        thisDevice?.id || activeDevice?.id || availableDevice?.id;
       lastDeviceFetch = now;
       return cachedDeviceId;
     }
