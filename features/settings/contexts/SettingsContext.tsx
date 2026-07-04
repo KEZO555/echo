@@ -199,7 +199,13 @@ const sanitiseTabOrder = (value: unknown): TabId[] => {
 
   for (const tabId of DEFAULT_TAB_ORDER) {
     if (!validOrder.includes(tabId)) {
-      validOrder.push(tabId);
+      // Home belongs at the front of the bar; other newly introduced tabs
+      // are appended so existing orders stay familiar.
+      if (tabId === "home") {
+        validOrder.unshift(tabId);
+      } else {
+        validOrder.push(tabId);
+      }
     }
   }
 
@@ -242,6 +248,15 @@ const parseStoredTabPreferences = (
       ),
       tabOrder: sanitiseTabOrder(stored.tabOrder),
     };
+
+    // Migration: earlier builds appended the new Home tab to the end of
+    // stored orders; it belongs at the front of the bar.
+    if (parsed.tabOrder.at(-1) === "home") {
+      parsed.tabOrder = [
+        "home",
+        ...parsed.tabOrder.filter((tabId) => tabId !== "home"),
+      ];
+    }
 
     return {
       tabPrefs: parsed,

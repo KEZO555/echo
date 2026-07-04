@@ -1,4 +1,5 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { ToastAndroid } from "react-native";
 import { create } from "zustand";
 import { ALBUMS_KEY } from "@/constants/spotify";
 import type {
@@ -10,7 +11,7 @@ import {
   apiDelete,
   apiGet,
   apiGetWithStatus,
-  apiPut,
+  apiPutWithStatus,
 } from "@/shared/utils/api-client";
 import { log, logError } from "@/shared/utils/logger";
 import { saveCachedData } from "../utils/cache";
@@ -118,10 +119,20 @@ export const useAlbumsStore = create<AlbumsState>()((set, get) => ({
 
   saveAlbum: async (albumId: string) => {
     try {
-      const saved = await apiPut(
-        `https://api.spotify.com/v1/me/albums?ids=${albumId}`
+      // Spotify's docs specify the ids for this endpoint in the JSON body.
+      const result = await apiPutWithStatus(
+        "https://api.spotify.com/v1/me/albums",
+        {
+          ids: [albumId],
+        }
       );
+      const saved =
+        result.status !== null && result.status >= 200 && result.status < 300;
       if (!saved) {
+        ToastAndroid.show(
+          `Couldn't save album (${result.status ?? "network error"})`,
+          ToastAndroid.LONG
+        );
         return false;
       }
       const albumData = await apiGet<SpotifyAlbum>(

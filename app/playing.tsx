@@ -306,6 +306,7 @@ export default function PlayingScreen() {
 
   const progress = useRef(new Animated.Value(0)).current;
   const progressBarWidthRef = useRef<number | null>(null);
+  const [progressBarWidth, setProgressBarWidth] = useState(0);
   const appStateRef = useRef(AppState.currentState);
   const isFocusedRef = useRef(true);
   const lastCheckedTrackUriRef = useRef<string | null>(null);
@@ -751,13 +752,14 @@ export default function PlayingScreen() {
         }
 
         // Glide the bar to where it will be one second from now so motion
-        // is continuous instead of stepping once per second.
+        // is continuous instead of stepping once per second. Runs on the
+        // native driver (as a transform) so it costs no JS-thread time.
         const target = Math.min((positionMs + 1000) / duration, 1);
         Animated.timing(progress, {
           toValue: target,
           duration: 1000,
           easing: Easing.linear,
-          useNativeDriver: false,
+          useNativeDriver: true,
         }).start();
       }, 1000);
 
@@ -886,11 +888,15 @@ export default function PlayingScreen() {
     showQueueButton,
   ].filter(Boolean).length;
 
-  const animatedWidth = progress.interpolate({
-    inputRange: [0, 1],
-    outputRange: ["0%", "100%"],
-  });
-  const progressBarWidth = animatedWidth;
+  // Native-driver transform: the full-width bar slides right from fully
+  // off-screen (-width) to fully on (0).
+  const progressTranslateX =
+    progressBarWidth > 0
+      ? progress.interpolate({
+          inputRange: [0, 1],
+          outputRange: [-progressBarWidth, 0],
+        })
+      : null;
 
   const handleTitlePress = usePreventDoubleTap(() => {
     if (!isOnline) {
@@ -1179,19 +1185,27 @@ export default function PlayingScreen() {
               <View
                 onLayout={(event) => {
                   progressBarWidthRef.current = event.nativeEvent.layout.width;
+                  setProgressBarWidth(event.nativeEvent.layout.width);
                 }}
                 style={[
                   styles.progressBarBackground,
                   { backgroundColor: invertColors ? "#C1C1C1" : "#4A4A4A" },
                 ]}
               >
-                <Animated.View
-                  style={[
-                    styles.progressBarForeground,
-                    { backgroundColor: invertColors ? "black" : "white" },
-                    { width: progressBarWidth },
-                  ]}
-                />
+                <View style={styles.progressBarClip}>
+                  {progressTranslateX !== null && (
+                    <Animated.View
+                      style={[
+                        styles.progressBarForeground,
+                        { backgroundColor: invertColors ? "black" : "white" },
+                        {
+                          width: progressBarWidth,
+                          transform: [{ translateX: progressTranslateX }],
+                        },
+                      ]}
+                    />
+                  )}
+                </View>
                 {hasChapters &&
                   episodeChapters.map((chapter) => (
                     <View
@@ -1495,10 +1509,19 @@ const styles = StyleSheet.create({
     overflow: "visible",
     marginBottom: n(3),
   },
+  progressBarClip: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    height: n(3),
+    overflow: "hidden",
+  },
   progressBarForeground: {
     height: n(3),
     position: "absolute",
     top: 0,
+    left: 0,
   },
   progressBarInfo: {
     flexDirection: "row",

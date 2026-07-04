@@ -1,6 +1,7 @@
 import { MaterialIcons } from "@expo/vector-icons";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useFocusEffect, useRouter } from "expo-router";
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { StyleSheet, View } from "react-native";
 import { useAuth } from "@/features/auth";
 import {
@@ -54,6 +55,37 @@ interface NewEpisodeEntry {
 let newEpisodesCache: { entries: NewEpisodeEntry[]; fetchedAt: number } | null =
   null;
 
+// Disk snapshot so the screen paints instantly on cold start while fresh
+// data loads in the background.
+const HOME_CACHE_KEY = "homeScreenCache";
+
+interface HomeCacheData {
+  recentTracks: SpotifyTrack[];
+  newEpisodes: NewEpisodeEntry[];
+  fetchedAt: number;
+}
+
+let homeCacheWriteState: HomeCacheData = {
+  recentTracks: [],
+  newEpisodes: [],
+  fetchedAt: 0,
+};
+
+const stripMarkets = (_key: string, value: unknown) =>
+  _key === "available_markets" ? undefined : value;
+
+const persistHomeCache = (partial: Partial<HomeCacheData>) => {
+  homeCacheWriteState = {
+    ...homeCacheWriteState,
+    ...partial,
+    fetchedAt: Date.now(),
+  };
+  AsyncStorage.setItem(
+    HOME_CACHE_KEY,
+    JSON.stringify(homeCacheWriteState, stripMarkets)
+  ).catch((error) => logError("Home: failed to persist cache", error));
+};
+
 type HomeListItem =
   | { key: string; type: "section"; label: string }
   | { key: string; type: "resume"; entry: SpotifySavedEpisode }
@@ -100,9 +132,39 @@ export default function HomeScreen() {
     newEpisodesCache?.entries ?? []
   );
 
+  // Paint from the disk snapshot immediately; fresh data replaces it when
+  // the focus fetches land.
+  useEffect(() => {
+    let cancelled = false;
+    AsyncStorage.getItem(HOME_CACHE_KEY)
+      .then((raw) => {
+        if (cancelled || !raw) {
+          return;
+        }
+        const cache = JSON.parse(raw) as HomeCacheData;
+        homeCacheWriteState = { ...homeCacheWriteState, ...cache };
+        setRecentTracks((current) =>
+          current.length > 0 ? current : (cache.recentTracks ?? [])
+        );
+        setNewEpisodes((current) =>
+          current.length > 0 ? current : (cache.newEpisodes ?? [])
+        );
+        if (!newEpisodesCache && cache.newEpisodes?.length) {
+          newEpisodesCache = {
+            entries: cache.newEpisodes,
+            fetchedAt: cache.fetchedAt ?? 0,
+          };
+        }
+      })
+      .catch((error) => logError("Home: failed to load cache", error));
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   const fetchRecent = useCallback(async () => {
     const data = await apiGet<{ items: { track: SpotifyTrack }[] }>(
-      "https://api.spotify.com/v1/me/player/recently-played?limit=20"
+      "https://api.spotify.com/v1/me/player/recently-played?limit=10"
     );
     const seen = new Set<string>();
     const deduped: SpotifyTrack[] = [];
@@ -117,6 +179,7 @@ export default function HomeScreen() {
       }
     }
     setRecentTracks(deduped);
+    persistHomeCache({ recentTracks: deduped });
   }, []);
 
   const fetchNewEpisodes = useCallback(async (showList: typeof podcasts) => {
@@ -160,6 +223,7 @@ export default function HomeScreen() {
 
     newEpisodesCache = { entries, fetchedAt: Date.now() };
     setNewEpisodes(entries);
+    persistHomeCache({ newEpisodes: entries });
   }, []);
 
   useFocusEffect(

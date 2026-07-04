@@ -10,18 +10,33 @@ import { usePreventDoubleTap } from "@/shared/hooks/usePreventDoubleTap";
 import { n } from "@/shared/utils";
 import { getAppFontFamily } from "@/shared/utils/appFont";
 
+const NEWLINE_PATTERN = /\n/g;
+
 export default function SearchScreen() {
   const [searchQuery, setSearchQuery] = useState("");
   const { invertColors } = useSettings();
 
-  const handleSubmit = usePreventDoubleTap(() => {
-    if (searchQuery.length > 0) {
+  const handleSubmit = usePreventDoubleTap((query?: string) => {
+    const finalQuery = (query ?? searchQuery).trim();
+    if (finalQuery.length > 0) {
       router.push({
         pathname: "/search-results",
-        params: { query: searchQuery },
+        params: { query: finalQuery },
       });
     }
   });
+
+  // Some keyboards (including the LightOS one) insert a newline instead of
+  // firing onSubmitEditing, so treat a newline as pressing search.
+  const handleChangeText = (text: string) => {
+    if (text.includes("\n")) {
+      const clean = text.replace(NEWLINE_PATTERN, "");
+      setSearchQuery(clean);
+      handleSubmit(clean);
+      return;
+    }
+    setSearchQuery(text);
+  };
 
   return (
     <ContentContainer
@@ -39,16 +54,19 @@ export default function SearchScreen() {
       >
         <TextInput
           cursorColor={invertColors ? "black" : "white"}
-          onChangeText={setSearchQuery}
-          onSubmitEditing={handleSubmit}
+          enterKeyHint="search"
+          onChangeText={handleChangeText}
+          onSubmitEditing={() => handleSubmit()}
           placeholder="Search for something!"
           placeholderTextColor="#888"
+          returnKeyType="search"
           selectionColor={invertColors ? "black" : "white"}
           style={[
             styles.input,
             { color: invertColors ? "black" : "white" },
             { fontFamily: getAppFontFamily() },
           ]}
+          submitBehavior="blurAndSubmit"
           value={searchQuery}
         />
         {searchQuery.length > 0 && (
