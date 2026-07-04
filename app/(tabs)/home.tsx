@@ -4,6 +4,7 @@ import { useCallback, useMemo, useState } from "react";
 import { StyleSheet, View } from "react-native";
 import { useAuth } from "@/features/auth";
 import {
+  useAlbumsStore,
   usePodcastsStore,
   useSavedEpisodesStore,
 } from "@/features/library/stores";
@@ -11,6 +12,7 @@ import { usePlayback } from "@/features/playback";
 import { useSettings } from "@/features/settings";
 import {
   ContentContainer,
+  ContextMenu,
   CustomScrollView,
   HapticPressable,
   MediaListItem,
@@ -59,6 +61,11 @@ type HomeListItem =
   | { key: string; type: "track"; track: SpotifyTrack }
   | { key: string; type: "link"; label: string; route: string };
 
+type HomeMenuItem = Extract<
+  HomeListItem,
+  { type: "resume" | "newEpisode" | "track" }
+>;
+
 const getResumeMs = (episode: SpotifyEpisode): number => {
   const resume = episode.resume_point;
   if (!resume || resume.fully_played) {
@@ -69,8 +76,14 @@ const getResumeMs = (episode: SpotifyEpisode): number => {
 
 export default function HomeScreen() {
   const { accessToken, user, isLoading: isAuthLoading } = useAuth();
-  const { playTrackWithContext, playContext, playTracksWithWebApi } =
-    usePlayback();
+  const {
+    playTrackWithContext,
+    playContext,
+    playTracksWithWebApi,
+    addToQueue,
+  } = usePlayback();
+  const saveAlbum = useAlbumsStore((s) => s.saveAlbum);
+  const [menuItem, setMenuItem] = useState<HomeMenuItem | null>(null);
   const { hideYourEpisodes, invertColors } = useSettings();
   const secondaryColor = getSecondaryContentColor(invertColors);
   const { isOnline } = useNetworkState();
@@ -312,6 +325,152 @@ export default function HomeScreen() {
     });
   });
 
+  const handleEpisodeInfo = useCallback(
+    (episode: SpotifyEpisode, showName: string) => {
+      router.push({
+        pathname: "/episode/[id]",
+        params: {
+          id: episode.id,
+          episodeString: JSON.stringify(episode),
+          episodeName: episode.name,
+          showName,
+        },
+      });
+    },
+    [router]
+  );
+
+  const handleGoToShow = useCallback(
+    (showId: string, showName: string) => {
+      router.push({
+        pathname: "/podcast/[id]",
+        params: { id: showId, showName },
+      });
+    },
+    [router]
+  );
+
+  const buildEpisodeMenuActions = (
+    item: Extract<HomeMenuItem, { type: "resume" | "newEpisode" }>,
+    close: () => void
+  ) => {
+    const episode = item.entry.episode;
+    const showId =
+      item.type === "newEpisode" ? item.entry.showId : episode.show?.id;
+    const showName =
+      item.type === "newEpisode"
+        ? item.entry.showName
+        : (episode.show?.name ?? "");
+    const play = () =>
+      item.type === "resume"
+        ? handleResumePress(item.entry)
+        : handleNewEpisodePress(item.entry);
+    return [
+      {
+        label: "Play",
+        onPress: () => {
+          close();
+          play();
+        },
+      },
+      {
+        label: "Info",
+        onPress: () => {
+          close();
+          handleEpisodeInfo(episode, showName);
+        },
+      },
+      ...(showId
+        ? [
+            {
+              label: "Go to show",
+              onPress: () => {
+                close();
+                handleGoToShow(showId, showName);
+              },
+            },
+          ]
+        : []),
+    ];
+  };
+
+  const buildTrackMenuActions = (track: SpotifyTrack, close: () => void) => {
+    const album = track.album;
+    return [
+      {
+        label: "Play",
+        onPress: () => {
+          close();
+          handleTrackPress(track);
+        },
+      },
+      {
+        label: "Play later",
+        onPress: () => {
+          close();
+          addToQueue(track.uri).catch((error) =>
+            logError("Home: error adding to queue", error)
+          );
+        },
+      },
+      {
+        label: "Add to playlist",
+        onPress: () => {
+          close();
+          router.push({
+            pathname: "/add-to-playlist",
+            params: { trackUri: track.uri },
+          });
+        },
+      },
+      ...(album?.id
+        ? [
+            {
+              label: "Go to album",
+              onPress: () => {
+                close();
+                router.push({
+                  pathname: "/album/[id]",
+                  params: {
+                    id: album.id,
+                    albumName: album.name,
+                    albumString: JSON.stringify({
+                      id: album.id,
+                      name: album.name,
+                      images: album.images,
+                      artists: album.artists,
+                      uri: album.uri,
+                    }),
+                  },
+                });
+              },
+            },
+            {
+              label: "Save album",
+              onPress: () => {
+                close();
+                saveAlbum(album.id);
+              },
+            },
+          ]
+        : []),
+    ];
+  };
+
+  const closeMenu = () => setMenuItem(null);
+  let menuActions: { label: string; onPress: () => void }[] = [];
+  if (menuItem) {
+    menuActions =
+      menuItem.type === "track"
+        ? buildTrackMenuActions(menuItem.track, closeMenu)
+        : buildEpisodeMenuActions(menuItem, closeMenu);
+  }
+
+  const menuTitle =
+    menuItem?.type === "track"
+      ? menuItem.track.name
+      : menuItem?.entry.episode.name;
+
   const renderItem = ({ item }: { item: HomeListItem }) => {
     switch (item.type) {
       case "section":
@@ -335,6 +494,7 @@ export default function HomeScreen() {
               getThumbnailImage(episode.images) ??
               getThumbnailImage(episode.show?.images)
             }
+            onLongPress={() => setMenuItem(item)}
             onPress={() => handleResumePress(item.entry)}
             placeholderIcon="mic"
             primaryText={episode.name}
@@ -349,6 +509,7 @@ export default function HomeScreen() {
           <MediaListItem
             disabled={!isOnline}
             imageUri={getThumbnailImage(episode.images)}
+            onLongPress={() => setMenuItem(item)}
             onPress={() => handleNewEpisodePress(item.entry)}
             placeholderIcon="mic"
             primaryText={episode.name}
@@ -362,6 +523,7 @@ export default function HomeScreen() {
           <MediaListItem
             disabled={!isOnline}
             imageUri={getThumbnailImage(item.track.album?.images)}
+            onLongPress={() => setMenuItem(item)}
             onPress={() => handleTrackPress(item.track)}
             placeholderIcon="music-note"
             primaryText={item.track.name}
@@ -402,6 +564,12 @@ export default function HomeScreen() {
         overScrollMode="never"
         renderItem={renderItem}
         style={styles.list}
+      />
+      <ContextMenu
+        actions={menuActions}
+        onClose={() => setMenuItem(null)}
+        title={menuTitle}
+        visible={menuItem !== null}
       />
     </ContentContainer>
   );
