@@ -10,7 +10,7 @@ import type {
   SpotifyImage,
   SpotifyQueueResponse,
 } from "@/shared/types/spotify";
-import { apiDelete, apiGet, apiPut } from "@/shared/utils/api-client";
+import { apiGet } from "@/shared/utils/api-client";
 import { log, logError } from "@/shared/utils/logger";
 import { getValidToken } from "@/shared/utils/token-helper";
 import { normalisePlayerState } from "./playerState";
@@ -637,18 +637,18 @@ export const playTrackWithContext = async (
 const getTrackIdFromUri = (uri: string): string =>
   uri.replace("spotify:track:", "");
 
+// Library WRITES go through the Spotify app itself (App Remote user API) -
+// the Web API's library-modify endpoints return 403 for this app. Reads
+// (contains/list) still work over the Web API.
 export const addToLibrary = async (
   uri: string,
   accessToken?: string | null
 ): Promise<boolean> => {
   try {
-    const trackId = getTrackIdFromUri(uri);
-    const added = await apiPut(
-      `https://api.spotify.com/v1/me/tracks?ids=${trackId}`
-    );
+    const added = await spotify.addToLibrary(uri);
     log(`Playback: Added to library: ${uri}`, { added });
 
-    if (added) {
+    if (added && uri.startsWith("spotify:track:")) {
       await addTrackToSavedCache(uri, accessToken ?? null);
     }
 
@@ -664,14 +664,11 @@ export const removeFromLibrary = async (
   _accessToken?: string | null
 ): Promise<boolean> => {
   try {
-    const trackId = getTrackIdFromUri(uri);
-    const removed = await apiDelete(
-      `https://api.spotify.com/v1/me/tracks?ids=${trackId}`
-    );
+    const removed = await spotify.removeFromLibrary(uri);
     log(`Playback: Removed from library: ${uri}`, { removed });
 
-    if (removed) {
-      await removeTrackFromSavedCache(trackId);
+    if (removed && uri.startsWith("spotify:track:")) {
+      await removeTrackFromSavedCache(getTrackIdFromUri(uri));
     }
 
     return removed;

@@ -2,17 +2,13 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { ToastAndroid } from "react-native";
 import { create } from "zustand";
 import { ALBUMS_KEY } from "@/constants/spotify";
+import { spotify } from "@/modules/spotify-sdk";
 import type {
   SpotifyAlbum,
   SpotifyPaginatedResponse,
   SpotifySavedAlbum,
 } from "@/shared/types/spotify";
-import {
-  apiDelete,
-  apiGet,
-  apiGetWithStatus,
-  apiPutWithStatus,
-} from "@/shared/utils/api-client";
+import { apiGet, apiGetWithStatus } from "@/shared/utils/api-client";
 import { log, logError } from "@/shared/utils/logger";
 import { saveCachedData } from "../utils/cache";
 
@@ -119,18 +115,14 @@ export const useAlbumsStore = create<AlbumsState>()((set, get) => ({
 
   saveAlbum: async (albumId: string) => {
     try {
-      // Spotify's docs specify the ids for this endpoint in the JSON body.
-      const result = await apiPutWithStatus(
-        "https://api.spotify.com/v1/me/albums",
-        {
-          ids: [albumId],
-        }
-      );
-      const saved =
-        result.status !== null && result.status >= 200 && result.status < 300;
+      // The Web API's library writes return 403 for this app, so save
+      // through the Spotify app itself (App Remote user API).
+      const saved = await spotify
+        .addToLibrary(`spotify:album:${albumId}`)
+        .catch(() => false);
       if (!saved) {
         ToastAndroid.show(
-          `Couldn't save album (${result.status ?? "network error"})`,
+          "Couldn't save album - is Spotify connected?",
           ToastAndroid.LONG
         );
         return false;
@@ -161,10 +153,14 @@ export const useAlbumsStore = create<AlbumsState>()((set, get) => ({
 
   removeAlbum: async (albumId: string) => {
     try {
-      const removed = await apiDelete(
-        `https://api.spotify.com/v1/me/albums?ids=${albumId}`
-      );
+      const removed = await spotify
+        .removeFromLibrary(`spotify:album:${albumId}`)
+        .catch(() => false);
       if (!removed) {
+        ToastAndroid.show(
+          "Couldn't remove album - is Spotify connected?",
+          ToastAndroid.LONG
+        );
         return false;
       }
       const cachedAlbums = await AsyncStorage.getItem(ALBUMS_KEY);
