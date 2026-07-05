@@ -558,6 +558,25 @@ export default function HomeScreen() {
     ];
   };
 
+  const buildGoToArtistAction = (track: SpotifyTrack, close: () => void) => {
+    const artist = track.artists?.find((entry) => entry.id);
+    if (!artist) {
+      return [];
+    }
+    return [
+      {
+        label: "Go to artist",
+        onPress: () => {
+          close();
+          router.push({
+            pathname: "/artist/[id]",
+            params: { id: artist.id, artistName: artist.name },
+          });
+        },
+      },
+    ];
+  };
+
   const buildTrackMenuActions = (track: SpotifyTrack, close: () => void) => {
     const album = track.album;
     return [
@@ -618,6 +637,7 @@ export default function HomeScreen() {
             },
           ]
         : []),
+      ...buildGoToArtistAction(track, close),
     ];
   };
 

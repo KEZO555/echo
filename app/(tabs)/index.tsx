@@ -193,6 +193,20 @@ export default function LikedSongsScreen() {
     [saveAlbum]
   );
 
+  const handleGoToArtist = useCallback(
+    (item: SavedTrackObject) => {
+      const artist = item.track?.artists?.find((entry) => entry.id);
+      if (!artist) {
+        return;
+      }
+      router.push({
+        pathname: "/artist/[id]",
+        params: { id: artist.id, artistName: artist.name },
+      });
+    },
+    [router]
+  );
+
   const menuActions = useMemo(() => {
     if (!menuTrack) {
       return [];
@@ -211,6 +225,9 @@ export default function LikedSongsScreen() {
       actions.push({ label: "Go to album", onPress: run(handleGoToAlbum) });
       actions.push({ label: "Save album", onPress: run(handleSaveAlbum) });
     }
+    if (track.track?.artists?.some((entry) => entry.id)) {
+      actions.push({ label: "Go to artist", onPress: run(handleGoToArtist) });
+    }
     return actions;
   }, [
     menuTrack,
@@ -219,6 +236,7 @@ export default function LikedSongsScreen() {
     handleAddToPlaylist,
     handleGoToAlbum,
     handleSaveAlbum,
+    handleGoToArtist,
   ]);
 
   const renderTrackItem = ({ item }: { item: LikedSongsListItem }) => {

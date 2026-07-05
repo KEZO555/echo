@@ -57,6 +57,17 @@ export interface SpotifyArtistSimple {
   uri: string;
 }
 
+export interface SpotifyArtist {
+  id: string;
+  name: string;
+  images?: SpotifyImage[];
+  genres?: string[];
+  followers?: { total: number };
+  popularity?: number;
+  uri?: string;
+  type?: "artist";
+}
+
 export interface SpotifyAlbum {
   album_type: "album" | "single" | "compilation";
   total_tracks: number;
@@ -295,6 +306,7 @@ export interface SpotifyPlaylistFull extends SpotifyPlaylist {
 export interface SpotifySearchResults {
   tracks?: SpotifyPaginatedResponse<SpotifyTrack>;
   albums?: SpotifyPaginatedResponse<SpotifyAlbumSimple>;
+  artists?: SpotifyPaginatedResponse<SpotifyArtist>;
   playlists?: SpotifyPaginatedResponse<SpotifyPlaylistSimple>;
   shows?: SpotifyPaginatedResponse<SpotifyShow>;
 }

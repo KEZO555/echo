@@ -395,6 +395,20 @@ export default function PlaylistDetailScreen() {
     [saveAlbum]
   );
 
+  const handleGoToArtist = useCallback(
+    (track: SpotifyTrackSimple) => {
+      const artist = track.artists?.find((entry) => entry.id);
+      if (!artist) {
+        return;
+      }
+      router.push({
+        pathname: "/artist/[id]",
+        params: { id: artist.id, artistName: artist.name },
+      });
+    },
+    [router]
+  );
+
   const handleRemoveFromPlaylist = useCallback(
     async (track: SpotifyTrackSimple) => {
       if (!(id && track.uri)) {
@@ -469,6 +483,15 @@ export default function PlaylistDetailScreen() {
         },
       });
     }
+    if (track.artists?.some((entry) => entry.id)) {
+      actions.push({
+        label: "Go to artist",
+        onPress: () => {
+          close();
+          handleGoToArtist(track);
+        },
+      });
+    }
     if (canEditPlaylist) {
       actions.push({
         label: "Remove from playlist",
@@ -486,6 +509,7 @@ export default function PlaylistDetailScreen() {
     handleAddToPlaylist,
     handleGoToAlbum,
     handleSaveAlbum,
+    handleGoToArtist,
     canEditPlaylist,
     handleRemoveFromPlaylist,
   ]);
