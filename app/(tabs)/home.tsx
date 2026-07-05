@@ -130,6 +130,13 @@ const newEpisodeRows = (entries: NewEpisodeEntry[]): HomeListItem[] =>
     entry,
   }));
 
+const NEW_EPISODES_LINK: HomeListItem = {
+  key: "link-new",
+  type: "link",
+  label: "See all new episodes",
+  route: "/new-episodes",
+};
+
 const RECENT_LINK: HomeListItem = {
   key: "link-recent",
   type: "link",
@@ -369,13 +376,17 @@ export default function HomeScreen() {
             resumeRows(continueListening)
           )
         : [],
-      newEpisodes: showNewEpisodes
-        ? homeSection(
-            "section-new",
-            "New Episodes",
-            newEpisodeRows(newEpisodes)
-          )
-        : [],
+      newEpisodes:
+        showNewEpisodes && newEpisodes.length > 0
+          ? [
+              ...homeSection(
+                "section-new",
+                "New Episodes",
+                newEpisodeRows(newEpisodes)
+              ),
+              NEW_EPISODES_LINK,
+            ]
+          : [],
       recentlyPlayed:
         showRecentlyPlayed && recentTracks.length > 0
           ? [

@@ -898,8 +898,14 @@ export default function PlayingScreen() {
     showLyricsButton,
     showAddButton,
     showQueueButton,
-    true, // sleep timer button is always shown
   ].filter(Boolean).length;
+
+  const sleepTimerSlot = (
+    <SleepTimerButton
+      invertColors={invertColors}
+      onPress={() => setSleepTimerVisible(true)}
+    />
+  );
 
   // Native-driver transform: the full-width bar slides right from fully
   // off-screen (-width) to fully on (0).
@@ -1095,6 +1101,7 @@ export default function PlayingScreen() {
 
   return (
     <ContentContainer
+      headerRightSlot={sleepTimerSlot}
       headerTitle=" "
       hideNowPlaying
       style={{ paddingHorizontal: n(20) }}
@@ -1394,10 +1401,6 @@ export default function PlayingScreen() {
                 />
               </HapticPressable>
             )}
-            <SleepTimerButton
-              invertColors={invertColors}
-              onPress={() => setSleepTimerVisible(true)}
-            />
           </View>
         </View>
       </View>

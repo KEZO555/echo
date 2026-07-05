@@ -20,6 +20,7 @@ interface ContentContainerProps {
   headerIconShowLength?: number;
   headerIconLoading?: boolean;
   hideNowPlaying?: boolean;
+  headerRightSlot?: ReactNode;
   style?: StyleProp<ViewStyle>;
   onTitlePress?: () => void;
 }
@@ -36,6 +37,7 @@ export default function ContentContainer({
   headerIconShowLength = 1,
   headerIconLoading = false,
   hideNowPlaying = false,
+  headerRightSlot,
   style,
   onTitlePress,
 }: ContentContainerProps) {
@@ -72,6 +74,7 @@ export default function ContentContainer({
             onIconPress={headerIconPress}
             onLeftIconPress={headerLeftIconPress}
             onTitlePress={onTitlePress}
+            rightSlot={headerRightSlot}
             showNowPlaying={!(hideNowPlaying || hideNowPlayingButton)}
           />
         )}

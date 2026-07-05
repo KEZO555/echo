@@ -19,6 +19,7 @@ interface HeaderProps {
   hideBackButton?: boolean;
   onTitlePress?: () => void;
   showNowPlaying?: boolean;
+  rightSlot?: React.ReactNode;
 }
 
 export const Header = React.memo(function Header({
@@ -33,6 +34,7 @@ export const Header = React.memo(function Header({
   hideBackButton = false,
   onTitlePress,
   showNowPlaying = false,
+  rightSlot,
 }: HeaderProps) {
   const { invertColors } = useSettings();
   const handleBack = backEvent
@@ -120,6 +122,7 @@ export const Header = React.memo(function Header({
 
       <View style={[styles.side, styles.sideRight]}>
         {actionSlot}
+        {rightSlot}
         {nowPlayingSlot}
       </View>
     </View>

@@ -5,16 +5,17 @@ import { useSleepTimerStore } from "@/features/playback";
 import { n } from "@/shared/utils";
 import { HapticPressable } from "./HapticPressable";
 
-const SIZE = n(30);
+const SIZE = n(28);
 
 interface SleepTimerButtonProps {
   invertColors: boolean;
   onPress: () => void;
 }
 
-// A sleep icon that, while a timer is running, sits inside a circle that
-// drains from full to empty as the countdown elapses. Owns its own ticking
-// state so only this button re-renders each second.
+// The moon (sleep) icon itself represents the countdown: while a timer runs it
+// starts as a full bright moon and drains from the top down to a faint outline
+// as the time elapses. Owns its own ticking state so only this button
+// re-renders each second.
 export function SleepTimerButton({
   invertColors,
   onPress,
@@ -38,22 +39,34 @@ export function SleepTimerButton({
 
   const color = invertColors ? "black" : "white";
   const isActive = endAt !== null;
+
+  if (!isActive) {
+    return (
+      <HapticPressable hitSlop={n(8)} onPress={onPress}>
+        <View style={styles.container}>
+          <MaterialIcons color={color} name="bedtime" size={SIZE} />
+        </View>
+      </HapticPressable>
+    );
+  }
+
   const fillHeight = Math.round(SIZE * fraction);
 
   return (
-    <HapticPressable onPress={onPress}>
+    <HapticPressable hitSlop={n(8)} onPress={onPress}>
       <View style={styles.container}>
-        {isActive && (
-          <View style={[styles.track, { borderColor: color }]}>
-            <View
-              style={[
-                styles.fill,
-                { backgroundColor: color, height: fillHeight },
-              ]}
-            />
+        {/* Drained portion: a faint moon that shows once the bright fill has
+            receded past it. */}
+        <View style={styles.faintLayer}>
+          <MaterialIcons color={color} name="bedtime" size={SIZE} />
+        </View>
+        {/* Remaining time: a bright moon clipped from the bottom, shrinking
+            from full height to nothing as the countdown elapses. */}
+        <View style={[styles.fillClip, { height: fillHeight }]}>
+          <View style={styles.fillInner}>
+            <MaterialIcons color={color} name="bedtime" size={SIZE} />
           </View>
-        )}
-        <MaterialIcons color={color} name="bedtime" size={n(20)} />
+        </View>
       </View>
     </HapticPressable>
   );
@@ -66,16 +79,24 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  track: {
+  faintLayer: {
     ...StyleSheet.absoluteFillObject,
-    borderRadius: SIZE / 2,
-    borderWidth: n(1),
-    overflow: "hidden",
-    justifyContent: "flex-end",
-    opacity: 0.5,
+    alignItems: "center",
+    justifyContent: "center",
+    opacity: 0.25,
   },
-  fill: {
-    width: "100%",
-    opacity: 0.35,
+  fillClip: {
+    position: "absolute",
+    bottom: 0,
+    left: 0,
+    right: 0,
+    overflow: "hidden",
+    alignItems: "center",
+    justifyContent: "flex-end",
+  },
+  fillInner: {
+    height: SIZE,
+    alignItems: "center",
+    justifyContent: "center",
   },
 });

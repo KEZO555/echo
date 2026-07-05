@@ -25,6 +25,7 @@ import { getThumbnailImage } from "@/shared/utils/formatters";
 import { log, logError } from "@/shared/utils/logger";
 
 const YOUR_EPISODES_ID = "YOUR_EPISODES_ID";
+const NEW_EPISODES_NAV_ID = "NEW_EPISODES_NAV_ID";
 
 type PodcastListItem = WithRateLimitItem<SpotifySavedShow>;
 
@@ -133,6 +134,10 @@ export default function PodcastsScreen() {
     router.push("/your-episodes" as never);
   });
 
+  const handleNewEpisodesPress = usePreventDoubleTap(() => {
+    router.push("/new-episodes" as never);
+  });
+
   const handleShowPress = usePreventDoubleTap(
     (item: SpotifySavedShow, isUncached: boolean) => {
       if (isUncached) {
@@ -170,11 +175,33 @@ export default function PodcastsScreen() {
     []
   );
 
-  const withEpisodes = sortedPodcasts
-    ? [yourEpisodesItem, ...sortedPodcasts]
-    : [yourEpisodesItem];
-  const withoutEpisodes: SpotifySavedShow[] = sortedPodcasts ?? [];
-  const basePodcasts = hideYourEpisodes ? withoutEpisodes : withEpisodes;
+  const newEpisodesItem: SpotifySavedShow = useMemo(
+    () => ({
+      added_at: "",
+      show: {
+        id: NEW_EPISODES_NAV_ID,
+        name: "New Episodes",
+        description: "",
+        publisher: "",
+        images: [],
+        total_episodes: 0,
+        uri: "",
+        href: "",
+        media_type: "",
+        explicit: false,
+        type: "show",
+        languages: [],
+      },
+    }),
+    []
+  );
+
+  const specialItems = hideYourEpisodes
+    ? [newEpisodesItem]
+    : [yourEpisodesItem, newEpisodesItem];
+  const basePodcasts = sortedPodcasts
+    ? [...specialItems, ...sortedPodcasts]
+    : specialItems;
   const displayPodcasts: PodcastListItem[] = prependRateLimitItem(
     basePodcasts,
     isRateLimited,
@@ -190,13 +217,22 @@ export default function PodcastsScreen() {
       if (hideYourEpisodes) {
         return null;
       }
-      const isDisabled = !isOnline;
-
       return (
         <MediaListItem
-          disabled={isDisabled}
+          disabled={!isOnline}
           onPress={handleYourEpisodesPress}
           placeholderIcon="bookmark"
+          primaryText={item.show.name}
+        />
+      );
+    }
+
+    if (item.show.id === NEW_EPISODES_NAV_ID) {
+      return (
+        <MediaListItem
+          disabled={!isOnline}
+          onPress={handleNewEpisodesPress}
+          placeholderIcon="fiber-new"
           primaryText={item.show.name}
         />
       );

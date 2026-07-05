@@ -1,3 +1,4 @@
+import { useRouter } from "expo-router";
 import { useCallback, useEffect, useState } from "react";
 import { StyleSheet, View } from "react-native";
 import { usePlayback } from "@/features/playback";
@@ -6,8 +7,10 @@ import {
   ContentContainer,
   CustomScrollView,
   FallbackImage,
+  HapticPressable,
   StyledText,
 } from "@/shared/components";
+import { usePreventDoubleTap } from "@/shared/hooks";
 import { detailScreenStyles } from "@/shared/styles/detailScreen";
 import type {
   SpotifyEpisode,
@@ -41,12 +44,20 @@ const getItemSubtitle = (item: QueueItem): string => {
 function QueueRow({
   item,
   hideCover,
+  onPress,
+  disabled,
 }: {
   item: QueueItem;
   hideCover: boolean;
+  onPress?: () => void;
+  disabled?: boolean;
 }) {
   return (
-    <View style={styles.row}>
+    <HapticPressable
+      disabled={disabled || !onPress}
+      onPress={onPress}
+      style={styles.row}
+    >
       {!hideCover && (
         <FallbackImage
           containerStyle={styles.imageContainer}
@@ -64,13 +75,23 @@ function QueueRow({
           {getItemSubtitle(item)}
         </StyledText>
       </View>
-    </View>
+    </HapticPressable>
   );
 }
 
+const buildPlayingParams = (item: QueueItem) => ({
+  trackName: item.name ?? "",
+  artistName: getItemSubtitle(item),
+  albumArtUrl: getItemImage(item) ?? "",
+  durationMs: item.duration_ms?.toString() ?? "0",
+  mediaType: isEpisode(item) ? "episode" : "track",
+  episodeId: isEpisode(item) ? item.id : undefined,
+});
+
 export default function QueueScreen() {
-  const { getQueue } = usePlayback();
+  const { getQueue, playTracksWithWebApi } = usePlayback();
   const { hideAlbumCovers } = useSettings();
+  const router = useRouter();
   const [currentlyPlaying, setCurrentlyPlaying] = useState<QueueItem | null>(
     null
   );
@@ -109,6 +130,30 @@ export default function QueueScreen() {
     fetchQueue();
   }, [fetchQueue]);
 
+  const handlePlayQueueItem = usePreventDoubleTap(async (index: number) => {
+    // Play the tapped item and keep everything after it queued behind it.
+    const uris = queue
+      .slice(index)
+      .map((entry) => entry.uri)
+      .filter((uri): uri is string => Boolean(uri));
+    if (uris.length === 0) {
+      return;
+    }
+    try {
+      await playTracksWithWebApi(uris);
+    } catch (error) {
+      logError("Error playing queued item:", error);
+    }
+    router.push({
+      pathname: "/playing",
+      params: buildPlayingParams(queue[index]),
+    });
+  });
+
+  const handleOpenCurrent = usePreventDoubleTap(() => {
+    router.push({ pathname: "/playing" });
+  });
+
   if (isLoading) {
     return <ContentContainer headerTitle="Queue" />;
   }
@@ -142,7 +187,11 @@ export default function QueueScreen() {
             currentlyPlaying ? (
               <View style={styles.headerSection}>
                 <StyledText style={styles.sectionLabel}>Now Playing</StyledText>
-                <QueueRow hideCover={hideAlbumCovers} item={currentlyPlaying} />
+                <QueueRow
+                  hideCover={hideAlbumCovers}
+                  item={currentlyPlaying}
+                  onPress={handleOpenCurrent}
+                />
                 {queue.length > 0 && (
                   <StyledText style={[styles.sectionLabel, styles.nextLabel]}>
                     Next Up
@@ -152,8 +201,12 @@ export default function QueueScreen() {
             ) : null
           }
           overScrollMode="never"
-          renderItem={({ item }: { item: QueueItem }) => (
-            <QueueRow hideCover={hideAlbumCovers} item={item} />
+          renderItem={({ item, index }: { item: QueueItem; index: number }) => (
+            <QueueRow
+              hideCover={hideAlbumCovers}
+              item={item}
+              onPress={() => handlePlayQueueItem(index)}
+            />
           )}
         />
       </View>

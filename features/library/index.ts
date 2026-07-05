@@ -1,4 +1,8 @@
 export {
+  fetchNewEpisodesForShows,
+  type NewEpisodeEntry,
+} from "./services/newEpisodes";
+export {
   useAlbumsStore,
   usePlaylistsStore,
   usePodcastsStore,
