@@ -1,4 +1,4 @@
-import { MaterialIcons } from "@expo/vector-icons";
+import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import type { BottomTabBarProps } from "@react-navigation/bottom-tabs";
 import { StyleSheet, View } from "react-native";
 import { usePlayback } from "@/features/playback";

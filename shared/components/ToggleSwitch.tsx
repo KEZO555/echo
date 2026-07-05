@@ -1,4 +1,4 @@
-import { MaterialIcons } from "@expo/vector-icons";
+import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import { StyleSheet, View } from "react-native";
 import { useSettings } from "@/features/settings";
 import { n } from "@/shared/utils";

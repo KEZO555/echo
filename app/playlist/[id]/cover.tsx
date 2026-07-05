@@ -1,4 +1,4 @@
-import { MaterialIcons } from "@expo/vector-icons";
+import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import { Image } from "expo-image";
 import { manipulateAsync, SaveFormat } from "expo-image-manipulator";
 import {

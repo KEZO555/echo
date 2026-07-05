@@ -61,7 +61,7 @@ const CustomScrollView = <T,>({
     >
       <Animated.FlatList
         {...(rest as FlatListProps<unknown>)}
-        contentContainerStyle={[{ flexGrow: 1 }, contentContainerStyle]}
+        contentContainerStyle={[styles.listContent, contentContainerStyle]}
         onContentSizeChange={(width: number, height: number) => {
           setContentHeight(height);
           onContentSizeChangeProp?.(width, height);
@@ -71,7 +71,7 @@ const CustomScrollView = <T,>({
         overScrollMode="never"
         scrollEventThrottle={16}
         showsVerticalScrollIndicator={false}
-        style={[{ width: "100%" }, style]}
+        style={[styles.list, style]}
       />
       {scrollIndicatorHeight > 0 && (
         <View
@@ -106,6 +106,12 @@ const styles = StyleSheet.create({
     flex: 1,
     flexDirection: "row",
     width: "100%",
+  },
+  list: {
+    width: "100%",
+  },
+  listContent: {
+    flexGrow: 1,
   },
   scrollIndicatorTrack: {
     width: n(1),

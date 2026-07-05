@@ -1,4 +1,4 @@
-import { MaterialIcons } from "@expo/vector-icons";
+import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import { Image, type ImageStyle } from "expo-image";
 import React, { useState } from "react";
 import { type StyleProp, StyleSheet, View, type ViewStyle } from "react-native";

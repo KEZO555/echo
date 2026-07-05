@@ -1,4 +1,4 @@
-import { MaterialIcons } from "@expo/vector-icons";
+import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useFocusEffect, useRouter } from "expo-router";
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -41,6 +41,9 @@ const RECENTLY_PLAYED_LIMIT = 5;
 const NEW_EPISODES_LIMIT = 5;
 const NEW_EPISODES_SHOW_LIMIT = 10;
 const NEW_EPISODES_TTL_MS = 15 * 60_000;
+// Short TTL just to dedupe the burst of refetches from rapid tab switching;
+// a just-played track still surfaces within this window.
+const RECENT_TRACKS_TTL_MS = 60_000;
 
 const ItemSeparator = () => <View style={{ height: n(8) }} />;
 
@@ -53,6 +56,8 @@ interface NewEpisodeEntry {
 // Latest-episode lookups fan out one request per followed show, so keep the
 // result for a while instead of refetching on every focus.
 let newEpisodesCache: { entries: NewEpisodeEntry[]; fetchedAt: number } | null =
+  null;
+let recentTracksCache: { tracks: SpotifyTrack[]; fetchedAt: number } | null =
   null;
 
 // Disk snapshot so the screen paints instantly on cold start while fresh
@@ -163,6 +168,13 @@ export default function HomeScreen() {
   }, []);
 
   const fetchRecent = useCallback(async () => {
+    if (
+      recentTracksCache &&
+      Date.now() - recentTracksCache.fetchedAt < RECENT_TRACKS_TTL_MS
+    ) {
+      setRecentTracks(recentTracksCache.tracks);
+      return;
+    }
     const data = await apiGet<{ items: { track: SpotifyTrack }[] }>(
       "https://api.spotify.com/v1/me/player/recently-played?limit=10"
     );
@@ -178,6 +190,7 @@ export default function HomeScreen() {
         break;
       }
     }
+    recentTracksCache = { tracks: deduped, fetchedAt: Date.now() };
     setRecentTracks(deduped);
     persistHomeCache({ recentTracks: deduped });
   }, []);
@@ -621,7 +634,7 @@ export default function HomeScreen() {
       style={{ paddingHorizontal: n(20), paddingBottom: n(20) }}
     >
       <CustomScrollView
-        contentContainerStyle={{ ...styles.listContentContainer }}
+        contentContainerStyle={styles.listContentContainer}
         data={listItems}
         ItemSeparatorComponent={ItemSeparator}
         keyExtractor={(item: HomeListItem) => item.key}

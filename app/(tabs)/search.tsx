@@ -1,4 +1,4 @@
-import { MaterialIcons } from "@expo/vector-icons";
+import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import { ImpactFeedbackStyle, impactAsync } from "expo-haptics";
 import { router } from "expo-router";
 import { useState } from "react";

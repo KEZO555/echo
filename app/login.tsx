@@ -1,4 +1,4 @@
-import { MaterialIcons } from "@expo/vector-icons";
+import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import { ImpactFeedbackStyle, impactAsync } from "expo-haptics";
 import { useState } from "react";
 import { StyleSheet, TextInput, View } from "react-native";
