@@ -7,6 +7,7 @@ import com.lightphone.spotify.NativeInit
 import com.lightphone.spotify.ffi.LibrespotEngine
 import com.lightphone.spotify.ffi.PlayerEventListener
 import com.lightphone.spotify.ffi.RepeatMode
+import com.lightphone.spotify.ffi.StreamingQuality
 import expo.modules.kotlin.Promise
 import expo.modules.kotlin.modules.Module
 import expo.modules.kotlin.modules.ModuleDefinition
@@ -41,9 +42,32 @@ class SpotifyEngineModule : Module() {
     }
     val created = LibrespotEngine(cacheDir.absolutePath)
     created.setListener(EventForwarder())
+    // Default to the highest fidelity librespot can request: 320 kbps Vorbis
+    // plus gapless. (Spotify lossless is not available through librespot.)
+    // Persisted in the engine's settings.json, so this also survives restarts.
+    try {
+      created.setStreamingQuality(StreamingQuality.HIGH)
+      created.setGaplessEnabled(true)
+    } catch (error: Exception) {
+      Log.w(TAG, "Failed to apply high-quality audio defaults", error)
+    }
     engine = created
     return created
   }
+
+  private fun streamingQualityToString(quality: StreamingQuality): String =
+    when (quality) {
+      StreamingQuality.LOW -> "low"
+      StreamingQuality.NORMAL -> "normal"
+      StreamingQuality.HIGH -> "high"
+    }
+
+  private fun streamingQualityFromString(value: String): StreamingQuality =
+    when (value) {
+      "low" -> StreamingQuality.LOW
+      "high" -> StreamingQuality.HIGH
+      else -> StreamingQuality.NORMAL
+    }
 
   private inner class EventForwarder : PlayerEventListener {
     private fun emit(type: String, extras: Map<String, Any?> = emptyMap()) {
@@ -206,6 +230,20 @@ class SpotifyEngineModule : Module() {
 
     AsyncFunction("setVolume") { percent: Int ->
       requireEngine().setVolume(percent.toUByte())
+    }
+
+    AsyncFunction("getStreamingQuality") {
+      streamingQualityToString(requireEngine().getStreamingQuality())
+    }
+
+    AsyncFunction("setStreamingQuality") { value: String ->
+      requireEngine().setStreamingQuality(streamingQualityFromString(value))
+    }
+
+    AsyncFunction("getGaplessEnabled") { requireEngine().getGaplessEnabled() }
+
+    AsyncFunction("setGaplessEnabled") { enabled: Boolean ->
+      requireEngine().setGaplessEnabled(enabled)
     }
 
     AsyncFunction("isSessionConnected") {
