@@ -19,12 +19,9 @@ import {
   View,
 } from "react-native";
 import { useAlbumsStore } from "@/features/library/stores";
-import {
-  subscribeToPlaybackChanges,
-  usePlayback,
-  useSleepTimerStore,
-} from "@/features/playback";
+import { usePlayback, useSleepTimerStore } from "@/features/playback";
 import { useSettings } from "@/features/settings";
+import { spotify } from "@/modules/spotify-sdk";
 import ContentContainer from "@/shared/components/ContentContainer";
 import { ContextMenu } from "@/shared/components/ContextMenu";
 import { FallbackImage } from "@/shared/components/FallbackImage";
@@ -711,9 +708,9 @@ export default function PlayingScreen() {
 
       fetchAll();
 
-      // Push: sync immediately when the active engine reports a state
-      // change (track change, play/pause, seek). Replaces most polling.
-      const unsubscribe = subscribeToPlaybackChanges(() => {
+      // Push: sync immediately when the SDK reports a state change (track
+      // change, play/pause, seek). This replaces most of the polling.
+      const unsubscribe = spotify.onPlayerStateChanged(() => {
         fetchAll();
       });
 

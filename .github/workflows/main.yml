@@ -36,33 +36,6 @@ jobs:
       - name: Install dependencies
         run: bun install --frozen-lockfile
 
-      - name: Cache Rust build
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-            ~/.cargo/bin/cargo-ndk
-            rust/spotify-core/target
-          key: rust-${{ runner.os }}-${{ hashFiles('rust/spotify-core/Cargo.lock') }}
-          restore-keys: rust-${{ runner.os }}-
-
-      - name: Set up Rust for Android
-        run: |
-          rustup target add aarch64-linux-android
-          if ! command -v cargo-ndk >/dev/null; then cargo install cargo-ndk; fi
-
-      - name: Build Rust playback engine
-        env:
-          ANDROID_ABIS: arm64-v8a
-        run: |
-          # The host-side build (UniFFI bindgen metadata) links librespot's
-          # default Linux audio backend, which needs the ALSA headers.
-          sudo apt-get update -qq && sudo apt-get install -y -qq libasound2-dev pkg-config
-          export ANDROID_NDK_HOME="${ANDROID_NDK_HOME:-$ANDROID_NDK_LATEST_HOME}"
-          chmod +x rust/build-rust.sh
-          ./rust/build-rust.sh
-
       - name: Build Android app
         run: |
           chmod +x android/gradlew

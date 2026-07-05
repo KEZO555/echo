@@ -28,7 +28,6 @@ const SETTING_KEYS = {
   hideYourEpisodes: "hideYourEpisodes",
   hideNowPlayingButton: "hideNowPlayingButton",
   hasSeenGestureHint: "hasSeenGestureHint",
-  useBuiltInEngine: "useBuiltInEngine",
 } as const;
 
 type SettingKey = keyof typeof SETTING_KEYS;
@@ -98,7 +97,6 @@ const defaultSettings: BooleanSettings = {
   hideYourEpisodes: false,
   hideNowPlayingButton: false,
   hasSeenGestureHint: false,
-  useBuiltInEngine: false,
 };
 
 const defaultSortSettings: LibrarySortSettings = {
@@ -136,8 +134,6 @@ interface SettingsContextType {
   setHideNowPlayingButton: (value: boolean) => void;
   hasSeenGestureHint: boolean;
   setHasSeenGestureHint: (value: boolean) => void;
-  useBuiltInEngine: boolean;
-  setUseBuiltInEngine: (value: boolean) => void;
   albumSortOrder: LibrarySortOption;
   setAlbumSortOrder: (value: LibrarySortOption) => Promise<void>;
   podcastSortOrder: LibrarySortOption;
@@ -322,10 +318,6 @@ const parseStoredSettings = (
       settings[key as SettingKey] = value === "true";
     }
   }
-  // The built-in (librespot) engine is shelved: Spotify refuses decryption
-  // keys to it, so playback always uses the Spotify app. Force the setting
-  // off regardless of any previously stored value so it can never activate.
-  settings.useBuiltInEngine = false;
   return {
     settings,
     sortSettings,
@@ -454,10 +446,6 @@ export const SettingsProvider = ({ children }: { children: ReactNode }) => {
     (v: boolean) => setSetting("hasSeenGestureHint", v),
     [setSetting]
   );
-  const setUseBuiltInEngine = useCallback(
-    (v: boolean) => setSetting("useBuiltInEngine", v),
-    [setSetting]
-  );
   const setSortSetting = useCallback(
     async (key: SortSettingKey, value: LibrarySortOption) => {
       setSortSettings((prev) => ({ ...prev, [key]: value }));
@@ -555,8 +543,6 @@ export const SettingsProvider = ({ children }: { children: ReactNode }) => {
       setHideNowPlayingButton,
       hasSeenGestureHint: settings.hasSeenGestureHint,
       setHasSeenGestureHint,
-      useBuiltInEngine: settings.useBuiltInEngine,
-      setUseBuiltInEngine,
       albumSortOrder: sortSettings.albumSortOrder,
       setAlbumSortOrder,
       podcastSortOrder: sortSettings.podcastSortOrder,
@@ -583,7 +569,6 @@ export const SettingsProvider = ({ children }: { children: ReactNode }) => {
       setHideYourEpisodes,
       setHideNowPlayingButton,
       setHasSeenGestureHint,
-      setUseBuiltInEngine,
       sortSettings,
       setAlbumSortOrder,
       setPodcastSortOrder,
