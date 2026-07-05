@@ -262,7 +262,7 @@ export default function AlbumDetailScreen() {
         },
       },
       {
-        label: "Play later",
+        label: "Add to queue",
         onPress: () => {
           close();
           handleAddTrackToQueue(track);

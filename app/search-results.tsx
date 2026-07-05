@@ -150,7 +150,7 @@ export default function SearchResultsScreen() {
     const close = () => setMenuTrack(null);
     const actions = [
       {
-        label: "Play later",
+        label: "Add to queue",
         onPress: () => {
           close();
           handleAddToQueue(track);

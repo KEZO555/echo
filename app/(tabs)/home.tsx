@@ -569,7 +569,7 @@ export default function HomeScreen() {
         },
       },
       {
-        label: "Play later",
+        label: "Add to queue",
         onPress: () => {
           close();
           addToQueue(track.uri).catch((error) =>
