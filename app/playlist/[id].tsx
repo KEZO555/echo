@@ -6,7 +6,7 @@ import {
   saveCachedPlaylistDetail,
 } from "@/features/library";
 import { useAlbumsStore } from "@/features/library/stores";
-import { usePlayback } from "@/features/playback";
+import { useLivePlaybackState, usePlayback } from "@/features/playback";
 import { useSettings } from "@/features/settings";
 import {
   ContextMenu,
@@ -65,6 +65,8 @@ export default function PlaylistDetailScreen() {
   }>();
   const { user } = useAuth();
   const { playContext, addToQueue } = usePlayback();
+  const { snapshot: playbackSnapshot } = useLivePlaybackState();
+  const playingTrackUri = playbackSnapshot?.track?.uri;
   const { showPlaylistTrackCovers, triggerHaptic } = useSettings();
   const saveAlbum = useAlbumsStore((s) => s.saveAlbum);
   const router = useRouter();
@@ -524,6 +526,7 @@ export default function PlaylistDetailScreen() {
         artists={track.artists}
         durationMs={track.duration_ms}
         imageUri={getThumbnailImage(track.album?.images)}
+        isPlaying={Boolean(track.uri) && track.uri === playingTrackUri}
         name={track.name}
         onLongPress={() => setMenuTrack({ track, index })}
         onPress={() => handleTrackPress(index)}

@@ -1,3 +1,4 @@
+import { MaterialIcons } from "@expo/vector-icons";
 import React from "react";
 import { StyleSheet, View } from "react-native";
 import { useSettings } from "@/features/settings";
@@ -18,6 +19,7 @@ interface TrackListItemProps {
   durationMs?: number;
   imageUri?: string;
   showImage?: boolean;
+  isPlaying?: boolean;
   onPress: () => void;
   onLongPress?: () => void;
 }
@@ -29,6 +31,7 @@ export const TrackListItem = React.memo(function TrackListItem({
   durationMs,
   imageUri,
   showImage = false,
+  isPlaying = false,
   onPress,
   onLongPress,
 }: TrackListItemProps) {
@@ -37,23 +40,38 @@ export const TrackListItem = React.memo(function TrackListItem({
     ? `${getArtistNames(artists)} · ${formatDuration(durationMs)}`
     : getArtistNames(artists);
 
+  let leadingSlot = (
+    <StyledText style={styles.trackNumber}>{trackNumber}.</StyledText>
+  );
+  if (showImage) {
+    leadingSlot = (
+      <FallbackImage
+        containerStyle={styles.imageContainer}
+        placeholderIcon="album"
+        placeholderIconSize={n(24)}
+        style={styles.image}
+        uri={imageUri}
+      />
+    );
+  } else if (isPlaying) {
+    leadingSlot = (
+      <View style={styles.playingIcon}>
+        <MaterialIcons
+          color={invertColors ? "black" : "white"}
+          name="graphic-eq"
+          size={n(24)}
+        />
+      </View>
+    );
+  }
+
   return (
     <HapticPressable
       onLongPress={onLongPress}
       onPress={onPress}
       style={styles.container}
     >
-      {showImage ? (
-        <FallbackImage
-          containerStyle={styles.imageContainer}
-          placeholderIcon="album"
-          placeholderIconSize={n(24)}
-          style={styles.image}
-          uri={imageUri}
-        />
-      ) : (
-        <StyledText style={styles.trackNumber}>{trackNumber}.</StyledText>
-      )}
+      {leadingSlot}
       <View style={styles.textContainer}>
         <StyledText numberOfLines={1} style={styles.trackName}>
           {name}
@@ -83,6 +101,12 @@ const styles = StyleSheet.create({
     paddingRight: n(8),
     textAlign: "center",
     width: n(56),
+  },
+  playingIcon: {
+    width: n(56),
+    paddingRight: n(8),
+    alignItems: "center",
+    paddingTop: n(4),
   },
   textContainer: {
     flex: 1,

@@ -8,7 +8,7 @@ import {
   saveCachedAlbumDetail,
 } from "@/features/library";
 import { useAlbumsStore } from "@/features/library/stores";
-import { usePlayback } from "@/features/playback";
+import { useLivePlaybackState, usePlayback } from "@/features/playback";
 import { useSettings } from "@/features/settings";
 import {
   ContextMenu,
@@ -41,6 +41,8 @@ export default function AlbumDetailScreen() {
 
   const { accessToken } = useAuth();
   const { playContext, addToQueue } = usePlayback();
+  const { snapshot: playbackSnapshot } = useLivePlaybackState();
+  const playingTrackUri = playbackSnapshot?.track?.uri;
   const { triggerHaptic, invertColors } = useSettings();
   const saveAlbum = useAlbumsStore((s) => s.saveAlbum);
   const removeAlbum = useAlbumsStore((s) => s.removeAlbum);
@@ -313,6 +315,7 @@ export default function AlbumDetailScreen() {
         <TrackListItem
           artists={track.artists}
           durationMs={track.duration_ms}
+          isPlaying={Boolean(track.uri) && track.uri === playingTrackUri}
           key={track.id || index.toString()}
           name={track.name}
           onLongPress={() => setMenuTrack({ track, index })}
