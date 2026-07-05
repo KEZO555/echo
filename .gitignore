@@ -69,4 +69,6 @@ app-example
 rust/spotify-core/target/
 rust/librespot-*-patched/target/
 modules/spotify-engine/android/src/main/jniLibs/
-modules/spotify-engine/android/src/main/java/com/
+# Only the UniFFI-generated bindings are ignored; NativeInit + the AudioTrack
+# sink under com/lightphone/spotify are hand-written and must be committed.
+modules/spotify-engine/android/src/main/java/com/lightphone/spotify/ffi/

@@ -3,6 +3,7 @@ package expo.modules.spotifyengine
 import android.app.Activity
 import android.content.Intent
 import android.util.Log
+import com.lightphone.spotify.NativeInit
 import com.lightphone.spotify.ffi.LibrespotEngine
 import com.lightphone.spotify.ffi.PlayerEventListener
 import com.lightphone.spotify.ffi.RepeatMode
@@ -30,6 +31,10 @@ class SpotifyEngineModule : Module() {
     engine?.let { return it }
     val context = appContext.reactContext
       ?: throw IllegalStateException("React context unavailable")
+    // Load the native lib for JNI, stash the JavaVM/Context, and register the
+    // AudioTrack sink before the engine is built - without this the engine
+    // decodes audio but has nowhere to send PCM, so playback is silent.
+    NativeInit.ensure(context)
     val cacheDir = File(context.filesDir, "spotify-engine")
     if (!cacheDir.exists()) {
       cacheDir.mkdirs()
