@@ -64,3 +64,9 @@ yarn-error.*
 app-example
 .cursor
 .codex
+
+# Rust playback engine build artifacts
+rust/spotify-core/target/
+rust/librespot-*-patched/target/
+modules/spotify-engine/android/src/main/jniLibs/
+modules/spotify-engine/android/src/main/java/com/
