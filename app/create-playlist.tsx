@@ -32,7 +32,7 @@ export default function PlaylistFormScreen() {
     isRename ? (currentName ?? "") : ""
   );
   const router = useRouter();
-  const { ensureValidToken } = useAuth();
+  const { ensureValidToken, user } = useAuth();
   const fetchPlaylists = usePlaylistsStore((s) => s.fetch);
 
   useFocusEffect(
@@ -66,8 +66,14 @@ export default function PlaylistFormScreen() {
           }
         );
       } else {
+        if (!user?.id) {
+          logError("Create Playlist Error: No user id available");
+          return;
+        }
+        // Spotify creates playlists under the user path; POST /me/playlists
+        // (GET-only) silently no-ops.
         const result = await apiPost(
-          "https://api.spotify.com/v1/me/playlists",
+          `https://api.spotify.com/v1/users/${user.id}/playlists`,
           { name: playlistName, public: false }
         );
         ok = result !== null;

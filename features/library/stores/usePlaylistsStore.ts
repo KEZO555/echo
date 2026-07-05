@@ -107,7 +107,7 @@ export const usePlaylistsStore = create<PlaylistsState>()((set, get) => ({
   addTrackToPlaylist: async (playlistId: string, trackUri: string) => {
     try {
       const result = await apiPost(
-        `https://api.spotify.com/v1/playlists/${playlistId}/items`,
+        `https://api.spotify.com/v1/playlists/${playlistId}/tracks`,
         { uris: [trackUri] }
       );
       return result !== null;

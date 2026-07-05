@@ -312,6 +312,7 @@ export default function PlayingScreen() {
   const isFocusedRef = useRef(true);
   const lastCheckedTrackUriRef = useRef<string | null>(null);
   const isPlayingRef = useRef(false);
+  const hasVisibleTrackRef = useRef(false);
   const isEpisodeRef = useRef(false);
   const episodeEndStoppedRef = useRef(false);
   const pausePollingUntilRef = useRef<number | null>(null);
@@ -456,6 +457,7 @@ export default function PlayingScreen() {
       setPlaybackState(state);
     }
     isPlayingRef.current = state?.is_playing ?? false;
+    hasVisibleTrackRef.current = state?.item != null;
     isEpisodeRef.current =
       state?.currently_playing_type === "episode" ||
       state?.item?.type === "episode";
@@ -765,10 +767,13 @@ export default function PlayingScreen() {
       }, 1000);
 
       // Low-frequency native reconcile to correct drift and catch changes the
-      // push subscription may miss.
+      // push subscription may miss. Also runs while no track is shown, so a
+      // transient empty fetch (or playback started elsewhere) recovers within
+      // 10s instead of staying stuck on "No song playing".
       const reconcileId = setInterval(() => {
         if (
           isPlayingRef.current ||
+          !hasVisibleTrackRef.current ||
           routePlaybackExpiresAtRef.current !== null
         ) {
           fetchAll();

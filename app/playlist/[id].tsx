@@ -186,7 +186,7 @@ export default function PlaylistDetailScreen() {
 
           if (!hasLoadedPlaylistItems(playlistData)) {
             const itemsResult = await apiGetWithStatus<unknown>(
-              `https://api.spotify.com/v1/playlists/${id}/items?limit=50`
+              `https://api.spotify.com/v1/playlists/${id}/tracks?limit=50`
             );
 
             if (itemsResult.data) {

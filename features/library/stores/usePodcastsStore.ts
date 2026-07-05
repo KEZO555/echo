@@ -115,9 +115,8 @@ export const usePodcastsStore = create<PodcastsState>()((set, get) => ({
 
   followPodcast: async (showId: string) => {
     try {
-      const uri = encodeURIComponent(`spotify:show:${showId}`);
       const followed = await apiPut(
-        `https://api.spotify.com/v1/me/library?uris=${uri}`
+        `https://api.spotify.com/v1/me/shows?ids=${showId}`
       );
       if (!followed) {
         return false;
@@ -151,9 +150,8 @@ export const usePodcastsStore = create<PodcastsState>()((set, get) => ({
 
   unfollowPodcast: async (showId: string) => {
     try {
-      const uri = encodeURIComponent(`spotify:show:${showId}`);
       const unfollowed = await apiDelete(
-        `https://api.spotify.com/v1/me/library?uris=${uri}`
+        `https://api.spotify.com/v1/me/shows?ids=${showId}`
       );
       if (!unfollowed) {
         return false;
@@ -185,9 +183,8 @@ export const usePodcastsStore = create<PodcastsState>()((set, get) => ({
     } catch (error) {
       logError("Error checking cached podcasts:", error);
     }
-    const uri = encodeURIComponent(`spotify:show:${showId}`);
     const data = await apiGet<boolean[]>(
-      `https://api.spotify.com/v1/me/library/contains?uris=${uri}`
+      `https://api.spotify.com/v1/me/shows/contains?ids=${showId}`
     );
     return data ? (data[0] ?? false) : false;
   },
