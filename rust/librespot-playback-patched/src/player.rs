@@ -1031,33 +1031,39 @@ impl PlayerTrackLoader {
             audio_item.name, audio_item.uri
         );
 
-        // (Most) podcasts seem to support only 96 kbps Ogg Vorbis, so fall back to it
+        // (Most) podcasts seem to support only 96 kbps Ogg Vorbis, so fall back to it.
+        //
+        // Echo patch: prefer ALL Ogg Vorbis formats before any MP3. librespot's
+        // Ogg path is the well-tested one; the MP3 path (and, in practice, MP3
+        // audio-key requests) is unreliable, so picking e.g. MP3_320 ahead of
+        // OGG_VORBIS_160 caused tracks to fail to decrypt/decode. MP3 stays a
+        // last-resort fallback for tracks that genuinely have no Ogg file.
         let formats = match self.config.bitrate {
             Bitrate::Bitrate96 => [
                 AudioFileFormat::OGG_VORBIS_96,
-                AudioFileFormat::MP3_96,
                 AudioFileFormat::OGG_VORBIS_160,
+                AudioFileFormat::OGG_VORBIS_320,
+                AudioFileFormat::MP3_96,
                 AudioFileFormat::MP3_160,
                 AudioFileFormat::MP3_256,
-                AudioFileFormat::OGG_VORBIS_320,
                 AudioFileFormat::MP3_320,
             ],
             Bitrate::Bitrate160 => [
                 AudioFileFormat::OGG_VORBIS_160,
-                AudioFileFormat::MP3_160,
-                AudioFileFormat::OGG_VORBIS_96,
-                AudioFileFormat::MP3_96,
-                AudioFileFormat::MP3_256,
                 AudioFileFormat::OGG_VORBIS_320,
+                AudioFileFormat::OGG_VORBIS_96,
+                AudioFileFormat::MP3_160,
+                AudioFileFormat::MP3_256,
                 AudioFileFormat::MP3_320,
+                AudioFileFormat::MP3_96,
             ],
             Bitrate::Bitrate320 => [
                 AudioFileFormat::OGG_VORBIS_320,
+                AudioFileFormat::OGG_VORBIS_160,
+                AudioFileFormat::OGG_VORBIS_96,
                 AudioFileFormat::MP3_320,
                 AudioFileFormat::MP3_256,
-                AudioFileFormat::OGG_VORBIS_160,
                 AudioFileFormat::MP3_160,
-                AudioFileFormat::OGG_VORBIS_96,
                 AudioFileFormat::MP3_96,
             ],
         };

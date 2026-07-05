@@ -36,7 +36,17 @@ fn capture_log(record: &log::Record) {
     if !keep {
         return;
     }
-    let line = format!("{}: {}", record.level(), record.args());
+    let msg = format!("{}", record.args());
+    // The MP3/Ogg resync warnings can fire thousands of times for a single
+    // undecodable track and would otherwise evict the real cause (e.g. the
+    // audio-key failure) from the ring before it can be read. Drop that spam.
+    if msg.contains("skipping junk")
+        || msg.contains("invalid mpeg audio header")
+        || msg.contains("invalid main_data")
+    {
+        return;
+    }
+    let line = format!("{}: {}", record.level(), msg);
     if let Ok(mut ring) = LOG_RING.lock() {
         if ring.len() >= LOG_RING_CAP {
             ring.remove(0);
