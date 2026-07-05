@@ -1,4 +1,5 @@
 export type {
+  EngineDebugMetrics,
   EnginePlayerEvent,
   EnginePlayerEventType,
   EngineQueueSnapshot,

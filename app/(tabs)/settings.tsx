@@ -1,7 +1,7 @@
 import { nativeApplicationVersion } from "expo-application";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useCallback, useEffect, useState } from "react";
-import { ToastAndroid, View } from "react-native";
+import { Alert, ToastAndroid, View } from "react-native";
 import { useAuth } from "@/features/auth";
 import { useCredentials } from "@/features/credentials";
 import { clearCachedData } from "@/features/library";
@@ -75,6 +75,33 @@ export default function SettingsScreen() {
     },
     [isEngineLoginBusy, setUseBuiltInEngine]
   );
+
+  const handleEngineDiagnostics = useCallback(async () => {
+    try {
+      const [metrics, loggedIn, sessionConnected] = await Promise.all([
+        spotifyEngine.getDebugMetrics(),
+        spotifyEngine.isLoggedIn(),
+        spotifyEngine.isSessionConnected(),
+      ]);
+      const lines = [
+        `logged in: ${loggedIn}`,
+        `session connected: ${sessionConnected}`,
+        `sink backend: ${metrics.sinkBackend}`,
+        `audio write errors: ${metrics.audiotrackWriteErrors}`,
+        `ring occupancy: ${metrics.ringOccupancyMs} ms`,
+        `pending output: ${metrics.pendingOutputMs} ms`,
+        `stall events: ${metrics.stallEvents}`,
+        `sink recreate: ${metrics.sinkRecreate}`,
+        `routing events: ${metrics.audiotrackRoutingEvents}`,
+        `transport reconnect: ${metrics.transportReconnect}`,
+        `full rebuild: ${metrics.fullRebuild}`,
+      ];
+      Alert.alert("Engine Diagnostics", lines.join("\n"));
+    } catch (error) {
+      logError("Engine diagnostics failed:", error);
+      ToastAndroid.show("Couldn't read engine diagnostics", ToastAndroid.SHORT);
+    }
+  }, []);
 
   const handleLogout = () => {
     router.push({
@@ -170,6 +197,15 @@ export default function SettingsScreen() {
       value: useBuiltInEngine,
       onValueChange: handleBuiltInEngineToggle,
     },
+    ...(useBuiltInEngine
+      ? [
+          {
+            type: "button" as const,
+            text: "Engine Diagnostics",
+            onPress: handleEngineDiagnostics,
+          },
+        ]
+      : []),
     { type: "button", text: "Clear Cache", onPress: handleClearCache },
     {
       type: "button",

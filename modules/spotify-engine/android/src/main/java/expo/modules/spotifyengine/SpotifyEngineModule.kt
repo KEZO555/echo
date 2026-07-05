@@ -246,6 +246,23 @@ class SpotifyEngineModule : Module() {
       requireEngine().setGaplessEnabled(enabled)
     }
 
+    AsyncFunction("getDebugMetrics") {
+      val m = requireEngine().playbackDebugMetrics()
+      mapOf(
+        "transportReconnect" to m.transportReconnect.toInt(),
+        "fullRebuild" to m.fullRebuild.toInt(),
+        "stallEvents" to m.stallEvents.toInt(),
+        "sinkRecreate" to m.sinkRecreate.toInt(),
+        "audiotrackWriteErrors" to m.audiotrackWriteErrors.toInt(),
+        "audiotrackRoutingEvents" to m.audiotrackRoutingEvents.toInt(),
+        "sinkBackend" to m.sinkBackend,
+        "ringOccupancyMs" to m.ringOccupancyMs.toInt(),
+        "pendingOutputMs" to m.pendingOutputMs.toInt(),
+        "producerBlockMs" to m.producerBlockMs.toInt(),
+        "drainPartialWrites" to m.drainPartialWrites.toInt(),
+      )
+    }
+
     AsyncFunction("isSessionConnected") {
       requireEngine().isSessionConnected()
     }

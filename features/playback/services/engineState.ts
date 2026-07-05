@@ -1,3 +1,4 @@
+import { ToastAndroid } from "react-native";
 import {
   type EnginePlayerEvent,
   spotifyEngine,
@@ -141,6 +142,22 @@ export const fetchEngineItems = async (
   return items;
 };
 
+// Beta diagnostics: the engine otherwise skips failed tracks silently, which
+// is indistinguishable from a stall. Surface the actual failure event so it is
+// diagnosable on-device without a logcat. Debounced so a burst of skips does
+// not spam toasts.
+const DIAGNOSTIC_DEBOUNCE_MS = 4000;
+let lastDiagnosticAt = 0;
+
+const surfaceDiagnostic = (message: string): void => {
+  const now = Date.now();
+  if (now - lastDiagnosticAt < DIAGNOSTIC_DEBOUNCE_MS) {
+    return;
+  }
+  lastDiagnosticAt = now;
+  ToastAndroid.show(message, ToastAndroid.LONG);
+};
+
 const applyPositionEvent = (event: EnginePlayerEvent): void => {
   if (typeof event.positionMs === "number") {
     nowPlaying.positionMs = event.positionMs;
@@ -176,11 +193,17 @@ const handleEngineEvent = (event: EnginePlayerEvent): void => {
     case "positionChanged":
       applyPositionEvent(event);
       break;
+    case "unavailable":
+      logError("Engine: track unavailable:", event.uri);
+      surfaceDiagnostic("Engine: track unavailable — couldn't load audio");
+      break;
     case "connectionLost":
       log("Engine: connection lost");
+      surfaceDiagnostic("Engine: connection lost");
       break;
     case "error":
       logError("Engine: player error:", event.message);
+      surfaceDiagnostic(`Engine error: ${event.message ?? "unknown"}`);
       break;
     default:
       break;

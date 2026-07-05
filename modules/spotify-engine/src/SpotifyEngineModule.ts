@@ -25,6 +25,20 @@ export interface EnginePlayerEvent {
 /** "high" is 320 kbps Vorbis - the best librespot can request. */
 export type EngineStreamingQuality = "low" | "normal" | "high";
 
+export interface EngineDebugMetrics {
+  transportReconnect: number;
+  fullRebuild: number;
+  stallEvents: number;
+  sinkRecreate: number;
+  audiotrackWriteErrors: number;
+  audiotrackRoutingEvents: number;
+  sinkBackend: string;
+  ringOccupancyMs: number;
+  pendingOutputMs: number;
+  producerBlockMs: number;
+  drainPartialWrites: number;
+}
+
 export interface EngineQueueSnapshot {
   nowPlayingUri: string | null;
   nextInQueue: string[];
@@ -67,6 +81,7 @@ interface SpotifyEngineNative {
   setStreamingQuality(value: EngineStreamingQuality): Promise<void>;
   getGaplessEnabled(): Promise<boolean>;
   setGaplessEnabled(enabled: boolean): Promise<void>;
+  getDebugMetrics(): Promise<EngineDebugMetrics>;
   isSessionConnected(): Promise<boolean>;
   forceReconnectCheck(): Promise<void>;
   addListener(
