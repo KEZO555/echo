@@ -56,6 +56,9 @@ jobs:
         env:
           ANDROID_ABIS: arm64-v8a
         run: |
+          # The host-side build (UniFFI bindgen metadata) links librespot's
+          # default Linux audio backend, which needs the ALSA headers.
+          sudo apt-get update -qq && sudo apt-get install -y -qq libasound2-dev pkg-config
           export ANDROID_NDK_HOME="${ANDROID_NDK_HOME:-$ANDROID_NDK_LATEST_HOME}"
           chmod +x rust/build-rust.sh
           ./rust/build-rust.sh
