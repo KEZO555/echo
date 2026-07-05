@@ -322,6 +322,10 @@ const parseStoredSettings = (
       settings[key as SettingKey] = value === "true";
     }
   }
+  // The built-in (librespot) engine is shelved: Spotify refuses decryption
+  // keys to it, so playback always uses the Spotify app. Force the setting
+  // off regardless of any previously stored value so it can never activate.
+  settings.useBuiltInEngine = false;
   return {
     settings,
     sortSettings,
