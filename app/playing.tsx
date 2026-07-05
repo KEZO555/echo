@@ -28,6 +28,7 @@ import { ContextMenu } from "@/shared/components/ContextMenu";
 import { FallbackImage } from "@/shared/components/FallbackImage";
 import { HapticPressable } from "@/shared/components/HapticPressable";
 import { MarqueeText } from "@/shared/components/MarqueeText";
+import { SleepTimerPopup } from "@/shared/components/SleepTimerPopup";
 import { StyledText } from "@/shared/components/StyledText";
 import { useNetworkState, usePreventDoubleTap } from "@/shared/hooks";
 import type {
@@ -215,6 +216,7 @@ export default function PlayingScreen() {
     hideLyricsButton,
     hideQueueButton,
     hidePlayingCover,
+    stopEpisodesAtEnd,
   } = useSettings();
   const { isOnline } = useNetworkState();
   const saveAlbum = useAlbumsStore((s) => s.saveAlbum);
@@ -313,6 +315,8 @@ export default function PlayingScreen() {
   const lastCheckedTrackUriRef = useRef<string | null>(null);
   const isPlayingRef = useRef(false);
   const hasVisibleTrackRef = useRef(false);
+  const stopEpisodesAtEndRef = useRef(stopEpisodesAtEnd);
+  stopEpisodesAtEndRef.current = stopEpisodesAtEnd;
   const isEpisodeRef = useRef(false);
   const episodeEndStoppedRef = useRef(false);
   const pausePollingUntilRef = useRef<number | null>(null);
@@ -740,6 +744,7 @@ export default function PlayingScreen() {
         // Stop at the end of an episode instead of letting Spotify roll on to
         // the next one. Pause just before the end to beat the auto-advance.
         if (
+          stopEpisodesAtEndRef.current &&
           isEpisodeRef.current &&
           !episodeEndStoppedRef.current &&
           positionMs >= duration - 1500
@@ -1020,27 +1025,6 @@ export default function PlayingScreen() {
         onPress: wrap(candidate.run),
       }));
   };
-
-  const sleepTimerActions = [
-    ...(sleepTimerEndAt !== null
-      ? [
-          {
-            label: "Turn off",
-            onPress: () => {
-              setSleepTimerVisible(false);
-              clearSleepTimer();
-            },
-          },
-        ]
-      : []),
-    ...[15, 30, 60].map((minutes) => ({
-      label: `${minutes} minutes`,
-      onPress: () => {
-        setSleepTimerVisible(false);
-        startSleepTimer(minutes);
-      },
-    })),
-  ];
 
   const chapterActions = episodeChapters.map((chapter) => ({
     label: `${formatTime(chapter.positionMs)}   ${chapter.title}`,
@@ -1437,10 +1421,11 @@ export default function PlayingScreen() {
         title="Chapters"
         visible={chaptersVisible}
       />
-      <ContextMenu
-        actions={sleepTimerActions}
+      <SleepTimerPopup
+        activeEndAt={sleepTimerEndAt}
         onClose={() => setSleepTimerVisible(false)}
-        title="Sleep Timer"
+        onStart={startSleepTimer}
+        onTurnOff={clearSleepTimer}
         visible={sleepTimerVisible}
       />
     </ContentContainer>

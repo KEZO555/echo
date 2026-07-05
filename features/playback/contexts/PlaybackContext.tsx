@@ -7,7 +7,8 @@ import {
   useMemo,
 } from "react";
 import { useAuth } from "@/features/auth";
-import { useSpotifyConnection } from "@/modules/spotify-sdk";
+import { useSettings } from "@/features/settings";
+import { spotify, useSpotifyConnection } from "@/modules/spotify-sdk";
 import type {
   SpotifyCurrentlyPlaying,
   SpotifyQueueResponse,
@@ -85,9 +86,69 @@ const PlaybackContext = createContext<PlaybackContextType | undefined>(
 
 export const PlaybackProvider = ({ children }: { children: ReactNode }) => {
   const { accessToken, ensureValidToken } = useAuth();
+  const { stopEpisodesAtEnd } = useSettings();
   const { isConnected: isConnectedToAppRemote } = useSpotifyConnection();
   const sleepTimerEndAt = useSleepTimerStore((s) => s.endAt);
   const clearSleepTimer = useSleepTimerStore((s) => s.clear);
+
+  // Stop at the end of a podcast episode instead of auto-advancing to the
+  // next one. Lives here (mounted for the whole session) so it works even
+  // when the Now Playing screen isn't focused. Uses a single timeout keyed to
+  // the remaining time, rescheduled on every player-state change (play/pause/
+  // seek/track change), so there's no polling.
+  useEffect(() => {
+    if (!stopEpisodesAtEnd) {
+      return;
+    }
+    let timeoutId: ReturnType<typeof setTimeout> | null = null;
+    const EPISODE_END_BUFFER_MS = 1500;
+
+    const clearPending = () => {
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+        timeoutId = null;
+      }
+    };
+
+    const pauseNow = () =>
+      pausePlaybackService().catch((error) =>
+        logError("Episode end: failed to stop playback", error)
+      );
+
+    const schedule = (state: {
+      track?: { isEpisode?: boolean; duration?: number };
+      playbackPosition?: number;
+      isPaused?: boolean;
+    }) => {
+      clearPending();
+      const track = state?.track;
+      if (!track?.isEpisode || state.isPaused || !track.duration) {
+        return;
+      }
+      const remaining =
+        track.duration - (state.playbackPosition ?? 0) - EPISODE_END_BUFFER_MS;
+      if (remaining <= 0) {
+        pauseNow();
+        return;
+      }
+      timeoutId = setTimeout(pauseNow, remaining);
+    };
+
+    const unsubscribe = spotify.onPlayerStateChanged(schedule);
+    spotify
+      .getPlayerState()
+      .then((state) => {
+        if (state?.track) {
+          schedule(state);
+        }
+      })
+      .catch(() => undefined);
+
+    return () => {
+      clearPending();
+      unsubscribe();
+    };
+  }, [stopEpisodesAtEnd]);
 
   // Pause playback when the sleep timer elapses. Lives here (mounted for
   // the whole app session) so the timer survives leaving the player screen.

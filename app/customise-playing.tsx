@@ -26,6 +26,8 @@ export default function CustomisePlayingScreen() {
     setHideQueueButton,
     hidePlayingCover,
     setHidePlayingCover,
+    stopEpisodesAtEnd,
+    setStopEpisodesAtEnd,
   } = useSettings();
 
   const settingsItems: SettingsItem[] = [
@@ -64,6 +66,12 @@ export default function CustomisePlayingScreen() {
       label: "Hide Queue Button",
       value: hideQueueButton,
       onValueChange: setHideQueueButton,
+    },
+    {
+      type: "toggle",
+      label: "Stop After Each Episode",
+      value: stopEpisodesAtEnd,
+      onValueChange: setStopEpisodesAtEnd,
     },
   ];
 

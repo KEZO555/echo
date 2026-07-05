@@ -28,6 +28,11 @@ const SETTING_KEYS = {
   hideYourEpisodes: "hideYourEpisodes",
   hideNowPlayingButton: "hideNowPlayingButton",
   hasSeenGestureHint: "hasSeenGestureHint",
+  stopEpisodesAtEnd: "stopEpisodesAtEnd",
+  showContinueListening: "showContinueListening",
+  showNewEpisodes: "showNewEpisodes",
+  showRecentlyPlayed: "showRecentlyPlayed",
+  showTopTracks: "showTopTracks",
 } as const;
 
 type SettingKey = keyof typeof SETTING_KEYS;
@@ -61,6 +66,53 @@ export const DEFAULT_TAB_ORDER: TabId[] = [
   "search",
 ];
 const DEFAULT_TAB_ORDER_SET = new Set<TabId>(DEFAULT_TAB_ORDER);
+
+const HOME_SECTION_ORDER_KEY = "homeSectionOrder";
+
+export type HomeSectionId =
+  | "continueListening"
+  | "newEpisodes"
+  | "recentlyPlayed"
+  | "topTracks";
+
+export const DEFAULT_HOME_SECTION_ORDER: HomeSectionId[] = [
+  "continueListening",
+  "newEpisodes",
+  "recentlyPlayed",
+  "topTracks",
+];
+const HOME_SECTION_ID_SET = new Set<HomeSectionId>(DEFAULT_HOME_SECTION_ORDER);
+
+const sanitiseHomeSectionOrder = (value: unknown): HomeSectionId[] => {
+  let parsed: unknown = value;
+  if (typeof value === "string") {
+    try {
+      parsed = JSON.parse(value);
+    } catch {
+      return [...DEFAULT_HOME_SECTION_ORDER];
+    }
+  }
+  if (!Array.isArray(parsed)) {
+    return [...DEFAULT_HOME_SECTION_ORDER];
+  }
+  const order: HomeSectionId[] = [];
+  for (const item of parsed) {
+    if (
+      typeof item === "string" &&
+      HOME_SECTION_ID_SET.has(item as HomeSectionId) &&
+      !order.includes(item as HomeSectionId)
+    ) {
+      order.push(item as HomeSectionId);
+    }
+  }
+  // Append any sections missing from a stored (older) order.
+  for (const id of DEFAULT_HOME_SECTION_ORDER) {
+    if (!order.includes(id)) {
+      order.push(id);
+    }
+  }
+  return order;
+};
 
 export interface TabPreferences {
   showHome: boolean;
@@ -97,6 +149,11 @@ const defaultSettings: BooleanSettings = {
   hideYourEpisodes: false,
   hideNowPlayingButton: false,
   hasSeenGestureHint: false,
+  stopEpisodesAtEnd: true,
+  showContinueListening: true,
+  showNewEpisodes: true,
+  showRecentlyPlayed: true,
+  showTopTracks: true,
 };
 
 const defaultSortSettings: LibrarySortSettings = {
@@ -134,6 +191,21 @@ interface SettingsContextType {
   setHideNowPlayingButton: (value: boolean) => void;
   hasSeenGestureHint: boolean;
   setHasSeenGestureHint: (value: boolean) => void;
+  stopEpisodesAtEnd: boolean;
+  setStopEpisodesAtEnd: (value: boolean) => void;
+  showContinueListening: boolean;
+  setShowContinueListening: (value: boolean) => void;
+  showNewEpisodes: boolean;
+  setShowNewEpisodes: (value: boolean) => void;
+  showRecentlyPlayed: boolean;
+  setShowRecentlyPlayed: (value: boolean) => void;
+  showTopTracks: boolean;
+  setShowTopTracks: (value: boolean) => void;
+  homeSectionOrder: HomeSectionId[];
+  reorderHomeSection: (
+    id: HomeSectionId,
+    direction: "up" | "down"
+  ) => Promise<void>;
   albumSortOrder: LibrarySortOption;
   setAlbumSortOrder: (value: LibrarySortOption) => Promise<void>;
   podcastSortOrder: LibrarySortOption;
@@ -338,6 +410,9 @@ export const SettingsProvider = ({ children }: { children: ReactNode }) => {
   const [tabPreferences, setTabPreferences] = useState<TabPreferences>(
     defaultTabPreferences
   );
+  const [homeSectionOrder, setHomeSectionOrder] = useState<HomeSectionId[]>(
+    DEFAULT_HOME_SECTION_ORDER
+  );
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
@@ -348,6 +423,7 @@ export const SettingsProvider = ({ children }: { children: ReactNode }) => {
         const results = await AsyncStorage.multiGet([
           ...keys,
           TAB_PREFERENCES_KEY,
+          HOME_SECTION_ORDER_KEY,
           ...sortKeys,
         ]);
         const {
@@ -357,6 +433,10 @@ export const SettingsProvider = ({ children }: { children: ReactNode }) => {
           tabPrefs,
           shouldPersistTabPrefs,
         } = parseStoredSettings(results);
+        const storedHomeOrder = results.find(
+          ([key]) => key === HOME_SECTION_ORDER_KEY
+        )?.[1];
+        setHomeSectionOrder(sanitiseHomeSectionOrder(storedHomeOrder));
         if (tabPrefs) {
           setTabPreferences(tabPrefs);
           if (shouldPersistTabPrefs) {
@@ -446,6 +526,26 @@ export const SettingsProvider = ({ children }: { children: ReactNode }) => {
     (v: boolean) => setSetting("hasSeenGestureHint", v),
     [setSetting]
   );
+  const setStopEpisodesAtEnd = useCallback(
+    (v: boolean) => setSetting("stopEpisodesAtEnd", v),
+    [setSetting]
+  );
+  const setShowContinueListening = useCallback(
+    (v: boolean) => setSetting("showContinueListening", v),
+    [setSetting]
+  );
+  const setShowNewEpisodes = useCallback(
+    (v: boolean) => setSetting("showNewEpisodes", v),
+    [setSetting]
+  );
+  const setShowRecentlyPlayed = useCallback(
+    (v: boolean) => setSetting("showRecentlyPlayed", v),
+    [setSetting]
+  );
+  const setShowTopTracks = useCallback(
+    (v: boolean) => setSetting("showTopTracks", v),
+    [setSetting]
+  );
   const setSortSetting = useCallback(
     async (key: SortSettingKey, value: LibrarySortOption) => {
       setSortSettings((prev) => ({ ...prev, [key]: value }));
@@ -460,6 +560,28 @@ export const SettingsProvider = ({ children }: { children: ReactNode }) => {
   const setPodcastSortOrder = useCallback(
     (value: LibrarySortOption) => setSortSetting("podcastSortOrder", value),
     [setSortSetting]
+  );
+
+  const reorderHomeSection = useCallback(
+    async (id: HomeSectionId, direction: "up" | "down") => {
+      const current = [...homeSectionOrder];
+      const index = current.indexOf(id);
+      const target = direction === "up" ? index - 1 : index + 1;
+      if (index === -1 || target < 0 || target >= current.length) {
+        return;
+      }
+      [current[index], current[target]] = [current[target], current[index]];
+      setHomeSectionOrder(current);
+      try {
+        await AsyncStorage.setItem(
+          HOME_SECTION_ORDER_KEY,
+          JSON.stringify(current)
+        );
+      } catch (error) {
+        logError("Error saving home section order:", error);
+      }
+    },
+    [homeSectionOrder]
   );
 
   const updateTabPreference = useCallback(
@@ -543,6 +665,18 @@ export const SettingsProvider = ({ children }: { children: ReactNode }) => {
       setHideNowPlayingButton,
       hasSeenGestureHint: settings.hasSeenGestureHint,
       setHasSeenGestureHint,
+      stopEpisodesAtEnd: settings.stopEpisodesAtEnd,
+      setStopEpisodesAtEnd,
+      showContinueListening: settings.showContinueListening,
+      setShowContinueListening,
+      showNewEpisodes: settings.showNewEpisodes,
+      setShowNewEpisodes,
+      showRecentlyPlayed: settings.showRecentlyPlayed,
+      setShowRecentlyPlayed,
+      showTopTracks: settings.showTopTracks,
+      setShowTopTracks,
+      homeSectionOrder,
+      reorderHomeSection,
       albumSortOrder: sortSettings.albumSortOrder,
       setAlbumSortOrder,
       podcastSortOrder: sortSettings.podcastSortOrder,
@@ -569,6 +703,13 @@ export const SettingsProvider = ({ children }: { children: ReactNode }) => {
       setHideYourEpisodes,
       setHideNowPlayingButton,
       setHasSeenGestureHint,
+      setStopEpisodesAtEnd,
+      setShowContinueListening,
+      setShowNewEpisodes,
+      setShowRecentlyPlayed,
+      setShowTopTracks,
+      homeSectionOrder,
+      reorderHomeSection,
       sortSettings,
       setAlbumSortOrder,
       setPodcastSortOrder,

@@ -10,7 +10,7 @@ import {
   useSavedEpisodesStore,
 } from "@/features/library/stores";
 import { usePlayback } from "@/features/playback";
-import { useSettings } from "@/features/settings";
+import { type HomeSectionId, useSettings } from "@/features/settings";
 import {
   ContentContainer,
   ContextMenu,
@@ -44,6 +44,8 @@ const NEW_EPISODES_TTL_MS = 15 * 60_000;
 // Short TTL just to dedupe the burst of refetches from rapid tab switching;
 // a just-played track still surfaces within this window.
 const RECENT_TRACKS_TTL_MS = 60_000;
+const TOP_TRACKS_LIMIT = 5;
+const TOP_TRACKS_TTL_MS = 15 * 60_000;
 
 const ItemSeparator = () => <View style={{ height: n(8) }} />;
 
@@ -59,6 +61,7 @@ let newEpisodesCache: { entries: NewEpisodeEntry[]; fetchedAt: number } | null =
   null;
 let recentTracksCache: { tracks: SpotifyTrack[]; fetchedAt: number } | null =
   null;
+let topTracksCache: { tracks: SpotifyTrack[]; fetchedAt: number } | null = null;
 
 // Disk snapshot so the screen paints instantly on cold start while fresh
 // data loads in the background.
@@ -98,6 +101,49 @@ type HomeListItem =
   | { key: string; type: "track"; track: SpotifyTrack }
   | { key: string; type: "link"; label: string; route: string };
 
+// A section header followed by its rows, or nothing when there are no rows.
+const homeSection = (
+  sectionKey: string,
+  label: string,
+  rows: HomeListItem[]
+): HomeListItem[] =>
+  rows.length > 0 ? [{ key: sectionKey, type: "section", label }, ...rows] : [];
+
+const trackRows = (tracks: SpotifyTrack[], prefix: string): HomeListItem[] =>
+  tracks.map((track) => ({
+    key: `${prefix}-${track.id}`,
+    type: "track",
+    track,
+  }));
+
+const resumeRows = (entries: SpotifySavedEpisode[]): HomeListItem[] =>
+  entries.map((entry) => ({
+    key: `resume-${entry.episode.id}`,
+    type: "resume",
+    entry,
+  }));
+
+const newEpisodeRows = (entries: NewEpisodeEntry[]): HomeListItem[] =>
+  entries.map((entry) => ({
+    key: `new-${entry.episode.id}`,
+    type: "newEpisode",
+    entry,
+  }));
+
+const RECENT_LINK: HomeListItem = {
+  key: "link-recent",
+  type: "link",
+  label: "All recently played",
+  route: "/recently-played",
+};
+
+const TOP_LINK: HomeListItem = {
+  key: "link-top",
+  type: "link",
+  label: "Your top tracks",
+  route: "/top-tracks",
+};
+
 type HomeMenuItem = Extract<
   HomeListItem,
   { type: "resume" | "newEpisode" | "track" }
@@ -121,7 +167,15 @@ export default function HomeScreen() {
   } = usePlayback();
   const saveAlbum = useAlbumsStore((s) => s.saveAlbum);
   const [menuItem, setMenuItem] = useState<HomeMenuItem | null>(null);
-  const { hideYourEpisodes, invertColors } = useSettings();
+  const {
+    hideYourEpisodes,
+    invertColors,
+    showContinueListening,
+    showNewEpisodes,
+    showRecentlyPlayed,
+    showTopTracks,
+    homeSectionOrder,
+  } = useSettings();
   const secondaryColor = getSecondaryContentColor(invertColors);
   const { isOnline } = useNetworkState();
   const router = useRouter();
@@ -133,6 +187,9 @@ export default function HomeScreen() {
   const fetchPodcasts = usePodcastsStore((s) => s.fetch);
 
   const [recentTracks, setRecentTracks] = useState<SpotifyTrack[]>([]);
+  const [topTracks, setTopTracks] = useState<SpotifyTrack[]>(
+    topTracksCache?.tracks ?? []
+  );
   const [newEpisodes, setNewEpisodes] = useState<NewEpisodeEntry[]>(
     newEpisodesCache?.entries ?? []
   );
@@ -193,6 +250,22 @@ export default function HomeScreen() {
     recentTracksCache = { tracks: deduped, fetchedAt: Date.now() };
     setRecentTracks(deduped);
     persistHomeCache({ recentTracks: deduped });
+  }, []);
+
+  const fetchTopTracks = useCallback(async () => {
+    if (
+      topTracksCache &&
+      Date.now() - topTracksCache.fetchedAt < TOP_TRACKS_TTL_MS
+    ) {
+      setTopTracks(topTracksCache.tracks);
+      return;
+    }
+    const data = await apiGet<{ items: SpotifyTrack[] }>(
+      `https://api.spotify.com/v1/me/top/tracks?limit=${TOP_TRACKS_LIMIT}&time_range=short_term`
+    );
+    const items = data?.items ?? [];
+    topTracksCache = { tracks: items, fetchedAt: Date.now() };
+    setTopTracks(items);
   }, []);
 
   const fetchNewEpisodes = useCallback(async (showList: typeof podcasts) => {
@@ -257,6 +330,11 @@ export default function HomeScreen() {
       fetchRecent().catch((error) =>
         logError("Home: recently played failed", error)
       );
+      if (showTopTracks) {
+        fetchTopTracks().catch((error) =>
+          logError("Home: top tracks failed", error)
+        );
+      }
     }, [
       accessToken,
       user,
@@ -268,6 +346,8 @@ export default function HomeScreen() {
       fetchNewEpisodes,
       fetchPodcasts,
       fetchRecent,
+      fetchTopTracks,
+      showTopTracks,
     ])
   );
 
@@ -281,59 +361,55 @@ export default function HomeScreen() {
   }, [savedEpisodes, hideYourEpisodes]);
 
   const listItems = useMemo(() => {
-    const items: HomeListItem[] = [];
-    if (continueListening.length > 0) {
-      items.push({
-        key: "section-continue",
-        type: "section",
-        label: "Continue Listening",
-      });
-      for (const entry of continueListening) {
-        items.push({
-          key: `resume-${entry.episode.id}`,
-          type: "resume",
-          entry,
-        });
-      }
-    }
-    if (newEpisodes.length > 0) {
-      items.push({
-        key: "section-new",
-        type: "section",
-        label: "New Episodes",
-      });
-      for (const entry of newEpisodes) {
-        items.push({
-          key: `new-${entry.episode.id}`,
-          type: "newEpisode",
-          entry,
-        });
-      }
-    }
-    if (recentTracks.length > 0) {
-      items.push({
-        key: "section-recent",
-        type: "section",
-        label: "Recently Played",
-      });
-      for (const track of recentTracks) {
-        items.push({ key: `recent-${track.id}`, type: "track", track });
-      }
-      items.push({
-        key: "link-recent",
-        type: "link",
-        label: "All recently played",
-        route: "/recently-played",
-      });
-    }
-    items.push({
-      key: "link-top",
-      type: "link",
-      label: "Your top tracks",
-      route: "/top-tracks",
-    });
-    return items;
-  }, [continueListening, newEpisodes, recentTracks]);
+    const sections: Record<HomeSectionId, HomeListItem[]> = {
+      continueListening: showContinueListening
+        ? homeSection(
+            "section-continue",
+            "Continue Listening",
+            resumeRows(continueListening)
+          )
+        : [],
+      newEpisodes: showNewEpisodes
+        ? homeSection(
+            "section-new",
+            "New Episodes",
+            newEpisodeRows(newEpisodes)
+          )
+        : [],
+      recentlyPlayed:
+        showRecentlyPlayed && recentTracks.length > 0
+          ? [
+              ...homeSection(
+                "section-recent",
+                "Recently Played",
+                trackRows(recentTracks, "recent")
+              ),
+              RECENT_LINK,
+            ]
+          : [],
+      topTracks: showTopTracks
+        ? [
+            ...homeSection(
+              "section-top",
+              "Top Tracks",
+              trackRows(topTracks, "top")
+            ),
+            TOP_LINK,
+          ]
+        : [],
+    };
+    return homeSectionOrder.flatMap((id) => sections[id]);
+  }, [
+    homeSectionOrder,
+    continueListening,
+    newEpisodes,
+    recentTracks,
+    topTracks,
+    showContinueListening,
+    showNewEpisodes,
+    showRecentlyPlayed,
+    showTopTracks,
+  ]);
 
   const handleResumePress = usePreventDoubleTap(
     async (savedEpisode: SpotifySavedEpisode) => {

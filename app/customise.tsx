@@ -40,9 +40,13 @@ export default function CustomiseTabsScreen() {
   const handleCustomisePlaying = () => {
     router.push("/customise-playing" as never);
   };
+  const handleCustomiseHome = () => {
+    router.push("/customise-home" as never);
+  };
 
   const settingsItems: SettingsItem[] = [
     { type: "button", text: "Navigation Bar", onPress: handleCustomiseTabs },
+    { type: "button", text: "Home Screen", onPress: handleCustomiseHome },
     { type: "button", text: "Now Playing", onPress: handleCustomisePlaying },
     {
       type: "toggle",
