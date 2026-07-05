@@ -32,6 +32,7 @@ export interface EngineQueueSnapshot {
 interface SpotifyEngineNative {
   beginLogin(): Promise<string>;
   loginWithOauthCode(code: string): Promise<{ loggedIn: boolean }>;
+  loginInteractive(): Promise<{ loggedIn: boolean; cancelled: boolean }>;
   loginWithCachedCredentials(): Promise<{ loggedIn: boolean }>;
   isLoggedIn(): Promise<boolean>;
   logout(): Promise<void>;

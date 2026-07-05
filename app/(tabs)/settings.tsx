@@ -1,24 +1,80 @@
 import { nativeApplicationVersion } from "expo-application";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useCallback, useEffect, useState } from "react";
-import { View } from "react-native";
+import { ToastAndroid, View } from "react-native";
 import { useAuth } from "@/features/auth";
 import { useCredentials } from "@/features/credentials";
 import { clearCachedData } from "@/features/library";
+import { ensureEngineSession } from "@/features/playback";
+import { useSettings } from "@/features/settings";
+import { spotifyEngine } from "@/modules/spotify-engine";
 import ContentContainer from "@/shared/components/ContentContainer";
 import CustomScrollView from "@/shared/components/CustomScrollView";
 import { StyledButton } from "@/shared/components/StyledButton";
+import { ToggleSwitch } from "@/shared/components/ToggleSwitch";
 import { n } from "@/shared/utils";
+import { logError } from "@/shared/utils/logger";
+
+type SettingsItem =
+  | {
+      type: "toggle";
+      label: string;
+      value: boolean;
+      onValueChange: (value: boolean) => void;
+    }
+  | { type: "button"; text: string; onPress: () => void };
 
 export default function SettingsScreen() {
   const { logout } = useAuth();
   const { clearCredentials } = useCredentials();
+  const { useBuiltInEngine, setUseBuiltInEngine } = useSettings();
   const router = useRouter();
   const params = useLocalSearchParams<{
     confirmed?: string;
     action?: string;
   }>();
   const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const [isEngineLoginBusy, setIsEngineLoginBusy] = useState(false);
+
+  const handleBuiltInEngineToggle = useCallback(
+    async (value: boolean) => {
+      if (!value) {
+        setUseBuiltInEngine(false);
+        spotifyEngine.pause().catch(() => undefined);
+        return;
+      }
+      if (isEngineLoginBusy) {
+        return;
+      }
+      setIsEngineLoginBusy(true);
+      try {
+        let loggedIn = await ensureEngineSession();
+        if (!loggedIn) {
+          ToastAndroid.show(
+            "Log in to Spotify to continue",
+            ToastAndroid.SHORT
+          );
+          const result = await spotifyEngine.loginInteractive();
+          loggedIn = result.loggedIn;
+          if (!loggedIn) {
+            ToastAndroid.show("Login cancelled", ToastAndroid.SHORT);
+            return;
+          }
+        }
+        setUseBuiltInEngine(true);
+        ToastAndroid.show("Built-in player enabled", ToastAndroid.SHORT);
+      } catch (error) {
+        logError("Engine login failed:", error);
+        ToastAndroid.show(
+          "Couldn't log in to the built-in player",
+          ToastAndroid.LONG
+        );
+      } finally {
+        setIsEngineLoginBusy(false);
+      }
+    },
+    [isEngineLoginBusy, setUseBuiltInEngine]
+  );
 
   const handleLogout = () => {
     router.push({
@@ -101,13 +157,40 @@ export default function SettingsScreen() {
     return null;
   }
 
-  const settingsButtons = [
-    { text: "Customise", onPress: handleCustomise },
-    { text: "Recently Played", onPress: handleRecentlyPlayed },
-    { text: "Clear Cache", onPress: handleClearCache },
-    { text: "Reset API Credentials", onPress: handleResetCredentials },
-    { text: "Logout", onPress: handleLogout },
+  const settingsItems: SettingsItem[] = [
+    { type: "button", text: "Customise", onPress: handleCustomise },
+    {
+      type: "button",
+      text: "Recently Played",
+      onPress: handleRecentlyPlayed,
+    },
+    {
+      type: "toggle",
+      label: "Built-in Player (Beta)",
+      value: useBuiltInEngine,
+      onValueChange: handleBuiltInEngineToggle,
+    },
+    { type: "button", text: "Clear Cache", onPress: handleClearCache },
+    {
+      type: "button",
+      text: "Reset API Credentials",
+      onPress: handleResetCredentials,
+    },
+    { type: "button", text: "Logout", onPress: handleLogout },
   ];
+
+  const renderItem = ({ item }: { item: SettingsItem }) => {
+    if (item.type === "toggle") {
+      return (
+        <ToggleSwitch
+          label={item.label}
+          onValueChange={item.onValueChange}
+          value={item.value}
+        />
+      );
+    }
+    return <StyledButton onPress={item.onPress} text={item.text} />;
+  };
 
   return (
     <ContentContainer
@@ -116,17 +199,13 @@ export default function SettingsScreen() {
       style={{ paddingHorizontal: n(37), paddingBottom: n(20), gap: 0 }}
     >
       <CustomScrollView
-        data={settingsButtons}
+        data={settingsItems}
         ItemSeparatorComponent={() => <View style={{ height: n(47) }} />}
-        keyExtractor={(item: { text: string; onPress: () => void }) =>
-          item.text
+        keyExtractor={(item: SettingsItem) =>
+          item.type === "toggle" ? item.label : item.text
         }
         overScrollMode="never"
-        renderItem={({
-          item,
-        }: {
-          item: { text: string; onPress: () => void };
-        }) => <StyledButton onPress={item.onPress} text={item.text} />}
+        renderItem={renderItem}
       />
     </ContentContainer>
   );

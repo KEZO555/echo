@@ -1,9 +1,12 @@
 package expo.modules.spotifyengine
 
+import android.app.Activity
+import android.content.Intent
 import android.util.Log
 import com.lightphone.spotify.ffi.LibrespotEngine
 import com.lightphone.spotify.ffi.PlayerEventListener
 import com.lightphone.spotify.ffi.RepeatMode
+import expo.modules.kotlin.Promise
 import expo.modules.kotlin.modules.Module
 import expo.modules.kotlin.modules.ModuleDefinition
 import java.io.File
@@ -15,10 +18,12 @@ import java.io.File
 class SpotifyEngineModule : Module() {
 
   private var engine: LibrespotEngine? = null
+  private var pendingLoginPromise: Promise? = null
 
   companion object {
     const val TAG = "SpotifyEngineModule"
     const val PLAYER_EVENT = "onEnginePlayerEvent"
+    const val LOGIN_REQUEST_CODE = 0x5E10
   }
 
   private fun requireEngine(): LibrespotEngine {
@@ -77,6 +82,45 @@ class SpotifyEngineModule : Module() {
     AsyncFunction("loginWithOauthCode") { code: String ->
       requireEngine().loginWithOauthCode(code)
       mapOf("loggedIn" to true)
+    }
+
+    // One-shot interactive login: opens a WebView on the OAuth page, waits
+    // for the intercepted redirect code, then exchanges it for a session.
+    AsyncFunction("loginInteractive") { promise: Promise ->
+      val activity = appContext.currentActivity
+        ?: throw IllegalStateException("No foreground activity for login")
+      if (pendingLoginPromise != null) {
+        throw IllegalStateException("A login is already in progress")
+      }
+      val authUrl = requireEngine().beginLogin()
+      pendingLoginPromise = promise
+      val intent = Intent(activity, EngineLoginActivity::class.java)
+      intent.putExtra(EngineLoginActivity.EXTRA_AUTH_URL, authUrl)
+      activity.startActivityForResult(intent, LOGIN_REQUEST_CODE)
+    }
+
+    OnActivityResult { _, payload ->
+      if (payload.requestCode == LOGIN_REQUEST_CODE) {
+        val promise = pendingLoginPromise
+        pendingLoginPromise = null
+        if (promise != null) {
+          val code = payload.data?.getStringExtra(EngineLoginActivity.RESULT_CODE)
+          if (payload.resultCode == Activity.RESULT_OK && !code.isNullOrEmpty()) {
+            // The code exchange and session rebuild do blocking network work.
+            Thread {
+              try {
+                requireEngine().loginWithOauthCode(code)
+                promise.resolve(mapOf("loggedIn" to true, "cancelled" to false))
+              } catch (error: Exception) {
+                Log.w(TAG, "Engine login failed", error)
+                promise.reject("ERR_ENGINE_LOGIN", error.message ?: "Login failed", error)
+              }
+            }.start()
+          } else {
+            promise.resolve(mapOf("loggedIn" to false, "cancelled" to true))
+          }
+        }
+      }
     }
 
     AsyncFunction("loginWithCachedCredentials") {

@@ -3,6 +3,7 @@ import {
   isTrackInSavedCache,
   removeTrackFromSavedCache,
 } from "@/features/library/utils/cache";
+import { spotifyEngine } from "@/modules/spotify-engine";
 import { spotify } from "@/modules/spotify-sdk";
 import type { SpotifyTrack as NativeSpotifyTrack } from "@/modules/spotify-sdk/src/SpotifySdk.types";
 import type {
@@ -13,6 +14,20 @@ import type {
 import { apiGet } from "@/shared/utils/api-client";
 import { log, logError } from "@/shared/utils/logger";
 import { getValidToken } from "@/shared/utils/token-helper";
+import { isEngineModeEnabled } from "./engineMode";
+import {
+  engineGetQueue,
+  enginePlayContext,
+  enginePlayTracks,
+  enginePlayTrackWithContext,
+  enginePlayUriWithSkipToUri,
+  engineSetRepeat,
+  engineSetShuffle,
+} from "./enginePlayback";
+import {
+  getEngineCurrentlyPlaying,
+  subscribeEngineChanges,
+} from "./engineState";
 import { normalisePlayerState } from "./playerState";
 
 export type SpotifyPlayerTrack = NativeSpotifyTrack & {
@@ -132,6 +147,9 @@ export const playTracksWithWebApi = async (
   accessToken: string | null,
   ensureValidToken?: () => Promise<string | null>
 ): Promise<void> => {
+  if (isEngineModeEnabled()) {
+    return await enginePlayTracks(uris);
+  }
   const validToken = await getValidToken(accessToken, ensureValidToken);
   if (!validToken) {
     log("Playback: No valid token available for Web API playback");
@@ -260,6 +278,10 @@ export const playContext = async (
 ): Promise<void> => {
   log("Playback: Playing context", { contextUri, options });
 
+  if (isEngineModeEnabled()) {
+    return await enginePlayContext(contextUri, options);
+  }
+
   try {
     const validToken = await getValidToken(accessToken, ensureValidToken);
     if (validToken) {
@@ -288,6 +310,9 @@ export const addToQueue = async (
   accessToken: string | null,
   ensureValidToken?: () => Promise<string | null>
 ): Promise<void> => {
+  if (isEngineModeEnabled()) {
+    return await spotifyEngine.addToQueue(uri);
+  }
   const validToken = await getValidToken(accessToken, ensureValidToken);
   if (!validToken) {
     log("Playback: No valid token available to queue track");
@@ -318,14 +343,23 @@ export const addToQueue = async (
   throw new Error(`Queue request failed: ${response.status} ${errorText}`);
 };
 
-export const getQueue = async (): Promise<SpotifyQueueResponse | null> =>
-  apiGet<SpotifyQueueResponse>("https://api.spotify.com/v1/me/player/queue");
+export const getQueue = async (): Promise<SpotifyQueueResponse | null> => {
+  if (isEngineModeEnabled()) {
+    return await engineGetQueue();
+  }
+  return await apiGet<SpotifyQueueResponse>(
+    "https://api.spotify.com/v1/me/player/queue"
+  );
+};
 
 export const playUriWithSkipToUri = async (
   uri: string,
   skipToUri: string
 ): Promise<void> => {
   log("Playback: Playing URI with skipToURI:", { uri, skipToUri });
+  if (isEngineModeEnabled()) {
+    return await enginePlayUriWithSkipToUri(uri, skipToUri);
+  }
   try {
     await spotify.playUriWithSkipToUri(uri, skipToUri);
   } catch (error) {
@@ -339,6 +373,9 @@ let cachedArtworkImages: SpotifyImage[] = [];
 
 export const getPlaybackState =
   async (): Promise<SpotifyCurrentlyPlaying | null> => {
+    if (isEngineModeEnabled()) {
+      return await getEngineCurrentlyPlaying();
+    }
     try {
       const playerState = await spotify.getPlayerState();
       if (!playerState?.track) {
@@ -379,6 +416,10 @@ export const getPlaybackState =
 
 export const startPlayback = async (): Promise<void> => {
   try {
+    if (isEngineModeEnabled()) {
+      await spotifyEngine.resume();
+      return;
+    }
     await spotify.resume();
     log("Playback: Playback resumed");
   } catch (error) {
@@ -388,6 +429,10 @@ export const startPlayback = async (): Promise<void> => {
 
 export const pausePlayback = async (): Promise<void> => {
   try {
+    if (isEngineModeEnabled()) {
+      await spotifyEngine.pause();
+      return;
+    }
     await spotify.pause();
     log("Playback: Playback paused");
   } catch (error) {
@@ -397,6 +442,10 @@ export const pausePlayback = async (): Promise<void> => {
 
 export const skipToNext = async (): Promise<void> => {
   try {
+    if (isEngineModeEnabled()) {
+      await spotifyEngine.next();
+      return;
+    }
     await spotify.skipNext();
     log("Playback: Skipped to next track");
   } catch (error) {
@@ -406,6 +455,10 @@ export const skipToNext = async (): Promise<void> => {
 
 export const skipToPrevious = async (): Promise<void> => {
   try {
+    if (isEngineModeEnabled()) {
+      await spotifyEngine.previous();
+      return;
+    }
     await spotify.skipPrevious();
     log("Playback: Skipped to previous track");
   } catch (error) {
@@ -415,6 +468,10 @@ export const skipToPrevious = async (): Promise<void> => {
 
 export const toggleShuffle = async (state: boolean): Promise<void> => {
   try {
+    if (isEngineModeEnabled()) {
+      await engineSetShuffle(state);
+      return;
+    }
     await spotify.setShuffle(state);
     log(`Playback: Shuffle set to ${state}`);
   } catch (error) {
@@ -426,6 +483,10 @@ export const toggleRepeat = async (
   state: "off" | "context" | "track"
 ): Promise<void> => {
   try {
+    if (isEngineModeEnabled()) {
+      await engineSetRepeat(state);
+      return;
+    }
     const repeatModes = { off: 0, track: 1, context: 2 } as const;
     const repeatMode = repeatModes[state];
     await spotify.setRepeat(repeatMode);
@@ -437,11 +498,28 @@ export const toggleRepeat = async (
 
 export const seekToPosition = async (positionMs: number): Promise<void> => {
   try {
+    if (isEngineModeEnabled()) {
+      await spotifyEngine.seek(Math.floor(positionMs));
+      return;
+    }
     await spotify.seekTo(positionMs);
     log("Playback: Seek completed");
   } catch (error) {
     logError("Playback: Error seeking:", error);
   }
+};
+
+/**
+ * Push notification for playback changes, routed to whichever engine is
+ * active when the subscription is made. Returns an unsubscribe function.
+ */
+export const subscribeToPlaybackChanges = (
+  callback: () => void
+): (() => void) => {
+  if (isEngineModeEnabled()) {
+    return subscribeEngineChanges(callback);
+  }
+  return spotify.onPlayerStateChanged(() => callback());
 };
 
 export const getCurrentTrack = async (): Promise<SpotifyPlayerTrack | null> => {
@@ -607,6 +685,10 @@ export const playTrackWithContext = async (
   ensureValidToken?: () => Promise<string | null>
 ): Promise<void> => {
   log("Playback: Playing track with context:", sourceContext?.type || "none");
+
+  if (isEngineModeEnabled()) {
+    return await enginePlayTrackWithContext(trackUri, sourceContext);
+  }
 
   try {
     if (sourceContext?.uri && sourceContext.type !== "artist") {

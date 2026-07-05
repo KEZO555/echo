@@ -1,6 +1,11 @@
 import { useEffect, useRef, useState } from "react";
+import { useSettings } from "@/features/settings";
 import { spotify } from "@/modules/spotify-sdk";
 import { log } from "@/shared/utils/logger";
+import {
+  getEngineSnapshot,
+  subscribeEngineChanges,
+} from "../services/engineState";
 import {
   type PlaybackSnapshot,
   toPlaybackSnapshot,
@@ -12,12 +17,30 @@ interface LivePlaybackStateResult {
 }
 
 export function useLivePlaybackState(): LivePlaybackStateResult {
+  const { useBuiltInEngine } = useSettings();
   const [snapshot, setSnapshot] = useState<PlaybackSnapshot | null>(null);
   const [hasResolvedInitialState, setHasResolvedInitialState] = useState(false);
   const [isConnected, setIsConnected] = useState<boolean | null>(null);
   const hasReceivedLiveEventRef = useRef(false);
 
+  // Built-in engine: playback state comes straight from engine events.
   useEffect(() => {
+    if (!useBuiltInEngine) {
+      return;
+    }
+    const update = () => {
+      setSnapshot(getEngineSnapshot());
+      setHasResolvedInitialState(true);
+    };
+    const unsubscribe = subscribeEngineChanges(update);
+    update();
+    return unsubscribe;
+  }, [useBuiltInEngine]);
+
+  useEffect(() => {
+    if (useBuiltInEngine) {
+      return;
+    }
     let cancelled = false;
 
     spotify
@@ -41,9 +64,12 @@ export function useLivePlaybackState(): LivePlaybackStateResult {
       cancelled = true;
       unsubscribe();
     };
-  }, []);
+  }, [useBuiltInEngine]);
 
   useEffect(() => {
+    if (useBuiltInEngine) {
+      return;
+    }
     const unsubscribe = spotify.onPlayerStateChanged((playerState) => {
       hasReceivedLiveEventRef.current = true;
       setSnapshot(toPlaybackSnapshot(playerState));
@@ -51,10 +77,10 @@ export function useLivePlaybackState(): LivePlaybackStateResult {
     });
 
     return unsubscribe;
-  }, []);
+  }, [useBuiltInEngine]);
 
   useEffect(() => {
-    if (isConnected === null) {
+    if (useBuiltInEngine || isConnected === null) {
       return;
     }
 
@@ -97,7 +123,7 @@ export function useLivePlaybackState(): LivePlaybackStateResult {
     return () => {
       cancelled = true;
     };
-  }, [isConnected]);
+  }, [isConnected, useBuiltInEngine]);
 
   return { snapshot, hasResolvedInitialState };
 }
