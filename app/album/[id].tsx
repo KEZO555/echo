@@ -247,27 +247,13 @@ export default function AlbumDetailScreen() {
     [router]
   );
 
-  const handleGoToArtist = useCallback(
-    (track: SpotifyTrackSimple) => {
-      const artist = track.artists?.find((entry) => entry.id);
-      if (!artist) {
-        return;
-      }
-      router.push({
-        pathname: "/artist/[id]",
-        params: { id: artist.id, artistName: artist.name },
-      });
-    },
-    [router]
-  );
-
   const menuActions = useMemo(() => {
     if (!menuTrack) {
       return [];
     }
     const { track, index } = menuTrack;
     const close = () => setMenuTrack(null);
-    const actions = [
+    return [
       {
         label: "Play",
         onPress: () => {
@@ -290,23 +276,7 @@ export default function AlbumDetailScreen() {
         },
       },
     ];
-    if (track.artists?.some((entry) => entry.id)) {
-      actions.push({
-        label: "Go to artist",
-        onPress: () => {
-          close();
-          handleGoToArtist(track);
-        },
-      });
-    }
-    return actions;
-  }, [
-    menuTrack,
-    handleTrackPress,
-    handleAddTrackToQueue,
-    handleAddToPlaylist,
-    handleGoToArtist,
-  ]);
+  }, [menuTrack, handleTrackPress, handleAddTrackToQueue, handleAddToPlaylist]);
 
   if (!album) {
     return (

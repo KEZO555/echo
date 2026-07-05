@@ -965,17 +965,6 @@ export default function PlayingScreen() {
     }
   });
 
-  const handleGoToArtist = usePreventDoubleTap(() => {
-    const artist = currentTrack?.artists?.find((entry) => entry.id);
-    if (!(isOnline && artist)) {
-      return;
-    }
-    router.push({
-      pathname: "/artist/[id]",
-      params: { id: artist.id, artistName: artist.name },
-    } as never);
-  });
-
   const handleQueuePress = usePreventDoubleTap(() => {
     if (isOnline) {
       router.push({ pathname: "/queue" as never });
@@ -1005,11 +994,6 @@ export default function PlayingScreen() {
             show: canNavigateToAlbum,
             label: "Go to album",
             run: handleTitlePress,
-          },
-          {
-            show: isOnline && Boolean(currentTrack?.artists?.some((a) => a.id)),
-            label: "Go to artist",
-            run: handleGoToArtist,
           },
           {
             show: isOnline && Boolean(currentTrack?.album?.id),

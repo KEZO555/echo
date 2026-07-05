@@ -15,7 +15,6 @@ import { useNetworkState } from "@/shared/hooks/useNetworkState";
 import { usePreventDoubleTap } from "@/shared/hooks/usePreventDoubleTap";
 import type {
   SpotifyAlbumSimple,
-  SpotifyArtist,
   SpotifyImage,
   SpotifyPlaylistSimple,
   SpotifySearchResults,
@@ -28,7 +27,6 @@ const ItemSeparator = () => <View style={{ height: n(8) }} />;
 
 type SearchItem =
   | { type: "track"; data: SpotifyTrack }
-  | { type: "artist"; data: SpotifyArtist }
   | { type: "playlist"; data: SpotifyPlaylistSimple }
   | { type: "album"; data: SpotifyAlbumSimple }
   | { type: "podcast"; data: SpotifyShow };
@@ -85,14 +83,6 @@ function collectSearchResults(apiResponse: SpotifySearchResults): SearchItem[] {
     }
   }
 
-  if (apiResponse.artists?.items) {
-    for (const artist of apiResponse.artists.items) {
-      if (artist?.id) {
-        newResults.push({ type: "artist", data: artist });
-      }
-    }
-  }
-
   const firstAlbumIndex = newResults.findIndex((item) => item.type === "album");
   if (firstAlbumIndex > -1) {
     const [firstAlbum] = newResults.splice(firstAlbumIndex, 1);
@@ -107,16 +97,6 @@ function collectSearchResults(apiResponse: SpotifySearchResults): SearchItem[] {
     const albumAtTop = newResults.length > 0 && newResults[0].type === "album";
     const insertIndex = albumAtTop ? 1 : 0;
     newResults.splice(insertIndex, 0, firstPodcast);
-  }
-
-  // Searching for a name usually means looking for that artist, so surface the
-  // top artist match first.
-  const firstArtistIndex = newResults.findIndex(
-    (item) => item.type === "artist"
-  );
-  if (firstArtistIndex > -1) {
-    const [firstArtist] = newResults.splice(firstArtistIndex, 1);
-    newResults.unshift(firstArtist);
   }
 
   return newResults;
@@ -196,19 +176,6 @@ export default function SearchResultsScreen() {
         },
       });
     }
-    const primaryArtist = track.artists?.find((artist) => artist.id);
-    if (primaryArtist) {
-      actions.push({
-        label: "Go to artist",
-        onPress: () => {
-          close();
-          router.push({
-            pathname: "/artist/[id]",
-            params: { id: primaryArtist.id, artistName: primaryArtist.name },
-          } as never);
-        },
-      });
-    }
     return actions;
   }, [menuTrack, handleAddToQueue, handleAddToPlaylist, router]);
 
@@ -223,7 +190,7 @@ export default function SearchResultsScreen() {
 
       searchItems(
         routeQuery,
-        ["artist", "track", "album", "playlist", "show"],
+        ["track", "album", "playlist", "show"],
         accessToken,
         ensureValidToken
       )
@@ -286,11 +253,6 @@ export default function SearchResultsScreen() {
             }),
           },
         } as never);
-      } else if (item.type === "artist") {
-        router.push({
-          pathname: "/artist/[id]",
-          params: { id: item.data.id, artistName: item.data.name },
-        } as never);
       } else if (item.type === "playlist") {
         router.push({
           pathname: `/playlist/${item.data.id}`,
@@ -323,12 +285,6 @@ export default function SearchResultsScreen() {
         subtitle = `Song \u2022 ${getArtistNames(item.data.artists)}`;
         images = item.data.album?.images;
         itemUri = item.data.uri;
-        break;
-      case "artist":
-        title = item.data.name;
-        subtitle = "Artist";
-        images = item.data.images;
-        itemUri = item.data.uri ?? "";
         break;
       case "album":
         title = item.data.name;
