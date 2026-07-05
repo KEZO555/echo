@@ -28,6 +28,7 @@ import { ContextMenu } from "@/shared/components/ContextMenu";
 import { FallbackImage } from "@/shared/components/FallbackImage";
 import { HapticPressable } from "@/shared/components/HapticPressable";
 import { MarqueeText } from "@/shared/components/MarqueeText";
+import { SleepTimerButton } from "@/shared/components/SleepTimerButton";
 import { SleepTimerPopup } from "@/shared/components/SleepTimerPopup";
 import { StyledText } from "@/shared/components/StyledText";
 import { useNetworkState, usePreventDoubleTap } from "@/shared/hooks";
@@ -897,6 +898,7 @@ export default function PlayingScreen() {
     showLyricsButton,
     showAddButton,
     showQueueButton,
+    true, // sleep timer button is always shown
   ].filter(Boolean).length;
 
   // Native-driver transform: the full-width bar slides right from fully
@@ -968,10 +970,6 @@ export default function PlayingScreen() {
       setNowPlayingMenuVisible(false);
       run();
     };
-    const sleepTimerLabel =
-      sleepTimerEndAt !== null
-        ? `Sleep timer · ${Math.max(Math.ceil((sleepTimerEndAt - Date.now()) / 60_000), 1)} min left`
-        : "Sleep timer";
     const candidates = isEpisode
       ? [
           {
@@ -983,11 +981,6 @@ export default function PlayingScreen() {
             show: canNavigateToShow,
             label: "Go to show",
             run: handleSubtitlePress,
-          },
-          {
-            show: true,
-            label: sleepTimerLabel,
-            run: () => setSleepTimerVisible(true),
           },
         ]
       : [
@@ -1012,11 +1005,6 @@ export default function PlayingScreen() {
             run: handleNavigateToAddToPlaylist,
           },
           { show: isOnline, label: "View queue", run: handleQueuePress },
-          {
-            show: true,
-            label: sleepTimerLabel,
-            run: () => setSleepTimerVisible(true),
-          },
         ];
     return candidates
       .filter((candidate) => candidate.show)
@@ -1406,6 +1394,10 @@ export default function PlayingScreen() {
                 />
               </HapticPressable>
             )}
+            <SleepTimerButton
+              invertColors={invertColors}
+              onPress={() => setSleepTimerVisible(true)}
+            />
           </View>
         </View>
       </View>
