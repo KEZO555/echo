@@ -87,6 +87,8 @@ export default function LyricsScreen() {
   const track = liveTrack ?? (hasResolvedInitialState ? null : routeTrack);
   const { data, isLoading, isResolved, trackKey } = useLyrics(track);
   const [isFollowing, setIsFollowing] = useState(true);
+  const [activeIndex, setActiveIndex] = useState(-1);
+  const activeIndexRef = useRef(-1);
   const scrollViewRef = useRef<ScrollView>(null);
   const lineLayoutsRef = useRef<Record<number, LineLayout>>({});
   const isFollowingRef = useRef(true);
@@ -123,6 +125,8 @@ export default function LyricsScreen() {
     pendingSeekRef.current = null;
     isFollowingRef.current = true;
     setIsFollowing(true);
+    activeIndexRef.current = -1;
+    setActiveIndex(-1);
     scrollViewRef.current?.scrollTo({ y: 0, animated: false });
     if (!trackKey) {
       return;
@@ -174,12 +178,20 @@ export default function LyricsScreen() {
 
   const syncToProgress = useCallback(
     (progressMs: number | null, shouldFollow = isFollowingRef.current) => {
-      if (progressMs === null || syncedLines.length === 0) {
-        syncToIndex(-1, shouldFollow);
-        return;
+      const nextIndex =
+        progressMs === null || syncedLines.length === 0
+          ? -1
+          : findActiveLyricIndex(syncedLines, progressMs);
+
+      // Track the active line so it can be highlighted, regardless of whether
+      // we auto-scroll (the user may have scrolled away). Only touch state on
+      // an actual change so the per-frame progress loop stays cheap.
+      if (nextIndex !== activeIndexRef.current) {
+        activeIndexRef.current = nextIndex;
+        setActiveIndex(nextIndex);
       }
 
-      syncToIndex(findActiveLyricIndex(syncedLines, progressMs), shouldFollow);
+      syncToIndex(nextIndex, shouldFollow);
     },
     [syncToIndex, syncedLines]
   );
@@ -384,7 +396,12 @@ export default function LyricsScreen() {
               >
                 <StyledText
                   onPress={() => handleLyricPress(index, line.timeMs)}
-                  style={styles.lyricText}
+                  style={[
+                    styles.lyricText,
+                    activeIndex >= 0 &&
+                      index !== activeIndex &&
+                      styles.lyricTextInactive,
+                  ]}
                 >
                   {line.text || " "}
                 </StyledText>
@@ -461,6 +478,10 @@ const styles = StyleSheet.create({
   },
   lyricText: {
     fontSize: n(30),
+  },
+  // Dim non-active synced lines so the current line stands out as it scrolls.
+  lyricTextInactive: {
+    opacity: 0.35,
   },
   messageText: {
     fontSize: n(18),

@@ -1,11 +1,12 @@
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { StyleSheet, View } from "react-native";
 import { useAuth } from "@/features/auth";
 import { usePlayback } from "@/features/playback";
 import { searchItems } from "@/features/search";
 import { useSettings } from "@/features/settings";
 import ContentContainer from "@/shared/components/ContentContainer";
+import { ContextMenu } from "@/shared/components/ContextMenu";
 import CustomScrollView from "@/shared/components/CustomScrollView";
 import { FallbackImage } from "@/shared/components/FallbackImage";
 import { HapticPressable } from "@/shared/components/HapticPressable";
@@ -105,12 +106,78 @@ export default function SearchResultsScreen() {
   const params = useLocalSearchParams();
   const routeQuery = params.query as string | undefined;
   const { accessToken, ensureValidToken } = useAuth();
-  const { playTrackWithContext } = usePlayback();
+  const { playTrackWithContext, addToQueue } = usePlayback();
   const { isOnline } = useNetworkState();
-  const { hideAlbumCovers } = useSettings();
+  const { hideAlbumCovers, triggerHaptic } = useSettings();
   const router = useRouter();
   const [results, setResults] = useState<SearchItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [menuTrack, setMenuTrack] = useState<SpotifyTrack | null>(null);
+
+  const handleAddToQueue = useCallback(
+    async (track: SpotifyTrack) => {
+      if (!track.uri) {
+        return;
+      }
+      triggerHaptic();
+      try {
+        await addToQueue(track.uri);
+      } catch (error) {
+        logError("Search: failed to add track to queue:", error);
+      }
+    },
+    [addToQueue, triggerHaptic]
+  );
+
+  const handleAddToPlaylist = useCallback(
+    (track: SpotifyTrack) => {
+      if (!track.uri) {
+        return;
+      }
+      router.push({
+        pathname: "/add-to-playlist",
+        params: { trackUri: track.uri },
+      });
+    },
+    [router]
+  );
+
+  const menuActions = useMemo(() => {
+    if (!menuTrack) {
+      return [];
+    }
+    const track = menuTrack;
+    const close = () => setMenuTrack(null);
+    const actions = [
+      {
+        label: "Play later",
+        onPress: () => {
+          close();
+          handleAddToQueue(track);
+        },
+      },
+      {
+        label: "Add to playlist",
+        onPress: () => {
+          close();
+          handleAddToPlaylist(track);
+        },
+      },
+    ];
+    if (track.album?.id) {
+      actions.push({
+        label: "Go to album",
+        onPress: () => {
+          close();
+          router.push({
+            pathname: `/album/${track.album.id}`,
+            params: { albumName: track.album.name ?? "" },
+          } as never);
+        },
+      });
+    }
+    return actions;
+  }, [menuTrack, handleAddToQueue, handleAddToPlaylist, router]);
 
   useEffect(() => {
     if (routeQuery) {
@@ -243,6 +310,9 @@ export default function SearchResultsScreen() {
 
     return (
       <HapticPressable
+        onLongPress={
+          item.type === "track" ? () => setMenuTrack(item.data) : undefined
+        }
         onPress={() => handleResultPress(item, itemUri)}
         style={styles.itemContainer}
       >
@@ -322,6 +392,12 @@ export default function SearchResultsScreen() {
       style={{ paddingHorizontal: n(20) }}
     >
       {bodyContent}
+      <ContextMenu
+        actions={menuActions}
+        onClose={() => setMenuTrack(null)}
+        title={menuTrack?.name}
+        visible={menuTrack !== null}
+      />
     </ContentContainer>
   );
 }
