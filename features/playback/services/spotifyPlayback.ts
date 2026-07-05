@@ -337,44 +337,64 @@ export const playUriWithSkipToUri = async (
 let cachedArtworkUri: string | null = null;
 let cachedArtworkImages: SpotifyImage[] = [];
 
+// Resolve the current track's artwork from the native SDK. A failure here must
+// NOT nullify the whole playback state (that would show "No song playing" while
+// a track is actually playing), so it always resolves to an image list -
+// empty when the native image call fails or returns nothing usable.
+const resolveAppRemoteArtwork = async (
+  albumUri: string
+): Promise<SpotifyImage[]> => {
+  if (!albumUri) {
+    return [];
+  }
+  if (albumUri === cachedArtworkUri && cachedArtworkImages.length > 0) {
+    return cachedArtworkImages;
+  }
+  try {
+    const nativeImageUrl = await spotify.getCurrentTrackImage("MEDIUM");
+    if (nativeImageUrl?.startsWith("data:image/")) {
+      const images: SpotifyImage[] = [
+        { url: nativeImageUrl, height: 300, width: 300 },
+      ];
+      cachedArtworkUri = albumUri;
+      cachedArtworkImages = images;
+      return images;
+    }
+  } catch (error) {
+    log("Playback: getCurrentTrackImage failed:", error);
+  }
+  return [];
+};
+
 export const getPlaybackState =
   async (): Promise<SpotifyCurrentlyPlaying | null> => {
     try {
       const playerState = await spotify.getPlayerState();
-      if (!playerState?.track) {
-        log("Playback: No player state or track available");
-        return null;
+      if (playerState?.track) {
+        const albumImages = await resolveAppRemoteArtwork(
+          playerState.track.album?.uri ?? ""
+        );
+        return normalisePlayerState(playerState, albumImages);
       }
-
-      let albumImages: SpotifyImage[] = [];
-      const albumUri = playerState.track.album?.uri ?? "";
-
-      if (albumUri === cachedArtworkUri && cachedArtworkImages.length > 0) {
-        albumImages = cachedArtworkImages;
-      } else if (albumUri) {
-        const nativeImageUrl = await spotify.getCurrentTrackImage("MEDIUM");
-        if (nativeImageUrl?.startsWith("data:image/")) {
-          albumImages = [
-            {
-              url: nativeImageUrl,
-              height: 300,
-              width: 300,
-            },
-          ];
-          cachedArtworkUri = albumUri;
-          cachedArtworkImages = albumImages;
-        } else {
-          throw new Error(
-            "Native SDK getCurrentTrackImage did not return valid image data"
-          );
-        }
-      }
-
-      return normalisePlayerState(playerState, albumImages);
+      log("Playback: No App Remote track; falling back to Web API");
     } catch (error) {
-      log("Playback: Error getting playback state:", error);
-      return null;
+      log("Playback: App Remote state error, falling back to Web API:", error);
     }
+
+    // Fallback: the Web API reports whatever is currently playing on the
+    // account - including playback this app started over the Web API when the
+    // App Remote isn't connected/reporting - so Now Playing still works.
+    try {
+      const webState = await apiGet<SpotifyCurrentlyPlaying>(
+        "https://api.spotify.com/v1/me/player"
+      );
+      if (webState?.item) {
+        return webState;
+      }
+    } catch (webError) {
+      log("Playback: Web API player state unavailable:", webError);
+    }
+    return null;
   };
 
 export const startPlayback = async (): Promise<void> => {
