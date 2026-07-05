@@ -15,6 +15,9 @@ import { ToggleSwitch } from "@/shared/components/ToggleSwitch";
 import { n } from "@/shared/utils";
 import { logError } from "@/shared/utils/logger";
 
+const ENGINE_LOG_RELEVANCE =
+  /error|unavailable|denied|forbidden|token|audio key|country|premium|load|restrict/i;
+
 type SettingsItem =
   | {
       type: "toggle";
@@ -78,11 +81,13 @@ export default function SettingsScreen() {
 
   const handleEngineDiagnostics = useCallback(async () => {
     try {
-      const [metrics, loggedIn, sessionConnected] = await Promise.all([
-        spotifyEngine.getDebugMetrics(),
-        spotifyEngine.isLoggedIn(),
-        spotifyEngine.isSessionConnected(),
-      ]);
+      const [metrics, loggedIn, sessionConnected, recentLogs] =
+        await Promise.all([
+          spotifyEngine.getDebugMetrics(),
+          spotifyEngine.isLoggedIn(),
+          spotifyEngine.isSessionConnected(),
+          spotifyEngine.getRecentLogs(),
+        ]);
       const lines = [
         `logged in: ${loggedIn}`,
         `session connected: ${sessionConnected}`,
@@ -91,11 +96,16 @@ export default function SettingsScreen() {
         `ring occupancy: ${metrics.ringOccupancyMs} ms`,
         `pending output: ${metrics.pendingOutputMs} ms`,
         `stall events: ${metrics.stallEvents}`,
-        `sink recreate: ${metrics.sinkRecreate}`,
-        `routing events: ${metrics.audiotrackRoutingEvents}`,
-        `transport reconnect: ${metrics.transportReconnect}`,
-        `full rebuild: ${metrics.fullRebuild}`,
       ];
+      // The load-failure reason lives in librespot's own log lines; show the
+      // most relevant recent ones so the cause is visible without a logcat.
+      const relevant = recentLogs.filter((entry) =>
+        ENGINE_LOG_RELEVANCE.test(entry)
+      );
+      const tail = (relevant.length > 0 ? relevant : recentLogs).slice(-12);
+      if (tail.length > 0) {
+        lines.push("", "recent engine logs:", ...tail);
+      }
       Alert.alert("Engine Diagnostics", lines.join("\n"));
     } catch (error) {
       logError("Engine diagnostics failed:", error);

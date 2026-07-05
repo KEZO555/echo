@@ -263,6 +263,10 @@ class SpotifyEngineModule : Module() {
       )
     }
 
+    AsyncFunction("getRecentLogs") {
+      requireEngine().recentEngineLogs()
+    }
+
     AsyncFunction("isSessionConnected") {
       requireEngine().isSessionConnected()
     }

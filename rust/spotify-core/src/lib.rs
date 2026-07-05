@@ -584,6 +584,18 @@ impl LibrespotEngine {
         self.shared.playback_debug_metrics()
     }
 
+    /// Recent captured log lines (oldest first) for in-app diagnostics.
+    pub fn recent_engine_logs(&self) -> Vec<String> {
+        #[cfg(target_os = "android")]
+        {
+            android_ctx::recent_logs()
+        }
+        #[cfg(not(target_os = "android"))]
+        {
+            Vec::new()
+        }
+    }
+
     /// Bank the currently playing track to its end (opportunistic full-track cache).
     pub fn buffer_current_to_end(&self) {
         self.shared.with_active(|a| a.player.buffer_current_to_end());

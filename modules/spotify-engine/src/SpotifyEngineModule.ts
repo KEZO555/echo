@@ -82,6 +82,7 @@ interface SpotifyEngineNative {
   getGaplessEnabled(): Promise<boolean>;
   setGaplessEnabled(enabled: boolean): Promise<void>;
   getDebugMetrics(): Promise<EngineDebugMetrics>;
+  getRecentLogs(): Promise<string[]>;
   isSessionConnected(): Promise<boolean>;
   forceReconnectCheck(): Promise<void>;
   addListener(

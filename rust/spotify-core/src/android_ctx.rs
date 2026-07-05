@@ -15,10 +15,60 @@
 #![cfg(target_os = "android")]
 
 use std::ffi::c_void;
-use std::sync::OnceLock;
+use std::sync::{Mutex, Once, OnceLock};
 
 use jni::objects::{GlobalRef, JClass, JObject};
 use jni::{JNIEnv, JavaVM};
+
+// Bounded ring of recent log lines, mirrored from the `log` facade so the app
+// can surface librespot's own failure reasons (e.g. why a track is
+// "unavailable") without a USB logcat.
+static LOG_RING: Mutex<Vec<String>> = Mutex::new(Vec::new());
+const LOG_RING_CAP: usize = 150;
+static LOGGER_INIT: Once = Once::new();
+
+fn capture_log(record: &log::Record) {
+    let target = record.target();
+    // Keep all warnings/errors, plus librespot/engine info lines for context.
+    let keep = record.level() <= log::Level::Warn
+        || target.starts_with("librespot")
+        || target.starts_with("spotify_core");
+    if !keep {
+        return;
+    }
+    let line = format!("{}: {}", record.level(), record.args());
+    if let Ok(mut ring) = LOG_RING.lock() {
+        if ring.len() >= LOG_RING_CAP {
+            ring.remove(0);
+        }
+        ring.push(line);
+    }
+}
+
+/// Recent captured log lines (oldest first) for in-app diagnostics.
+pub fn recent_logs() -> Vec<String> {
+    LOG_RING.lock().map(|ring| ring.clone()).unwrap_or_default()
+}
+
+/// Tees the `log` facade to logcat (android_logger) and the in-memory ring.
+struct TeeLogger {
+    inner: android_logger::AndroidLogger,
+}
+
+impl log::Log for TeeLogger {
+    fn enabled(&self, metadata: &log::Metadata) -> bool {
+        self.inner.enabled(metadata)
+    }
+
+    fn log(&self, record: &log::Record) {
+        self.inner.log(record);
+        capture_log(record);
+    }
+
+    fn flush(&self) {
+        self.inner.flush();
+    }
+}
 
 // Keep the Context global ref pinned for the whole process lifetime; ndk_context
 // stores only a raw pointer to it.
@@ -102,12 +152,18 @@ fn read_android_sdk_int(env: &mut JNIEnv) -> jni::errors::Result<i32> {
     env.get_static_field(version_class, "SDK_INT", "I")?.i()
 }
 
-/// Initialize Android logging so `log::*` shows up in logcat. Idempotent.
+/// Initialize Android logging so `log::*` shows up in logcat and the in-app
+/// diagnostics ring. Idempotent.
 pub fn init_logging() {
-    use android_logger::Config;
-    android_logger::init_once(
-        Config::default()
-            .with_max_level(log::LevelFilter::Info)
-            .with_tag("spotify-core"),
-    );
+    use android_logger::{AndroidLogger, Config};
+    LOGGER_INIT.call_once(|| {
+        let android = AndroidLogger::new(
+            Config::default()
+                .with_max_level(log::LevelFilter::Info)
+                .with_tag("spotify-core"),
+        );
+        if log::set_boxed_logger(Box::new(TeeLogger { inner: android })).is_ok() {
+            log::set_max_level(log::LevelFilter::Info);
+        }
+    });
 }
