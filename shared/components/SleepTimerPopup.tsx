@@ -24,6 +24,19 @@ const clampToStep = (minutes: number): number => {
   return Math.min(Math.max(rounded, MIN_MINUTES), MAX_MINUTES);
 };
 
+const pad = (value: number): string => (value < 10 ? `0${value}` : `${value}`);
+
+const formatRemaining = (ms: number): string => {
+  const totalSeconds = Math.max(Math.floor(ms / 1000), 0);
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+  if (hours > 0) {
+    return `${hours}:${pad(minutes)}:${pad(seconds)}`;
+  }
+  return `${minutes}:${pad(seconds)}`;
+};
+
 export function SleepTimerPopup({
   visible,
   activeEndAt,
@@ -33,6 +46,7 @@ export function SleepTimerPopup({
 }: SleepTimerPopupProps) {
   const { invertColors } = useSettings();
   const [minutes, setMinutes] = useState(DEFAULT_MINUTES);
+  const [remainingMs, setRemainingMs] = useState<number | null>(null);
 
   // Seed the stepper from the running timer's remaining minutes when opened,
   // so "+/-" adjusts the current time rather than starting from scratch.
@@ -46,6 +60,18 @@ export function SleepTimerPopup({
     } else {
       setMinutes(DEFAULT_MINUTES);
     }
+  }, [visible, activeEndAt]);
+
+  // Tick the live countdown while the popup is open and a timer is running.
+  useEffect(() => {
+    if (!visible || activeEndAt === null) {
+      setRemainingMs(null);
+      return;
+    }
+    const update = () => setRemainingMs(Math.max(activeEndAt - Date.now(), 0));
+    update();
+    const id = setInterval(update, 1000);
+    return () => clearInterval(id);
   }, [visible, activeEndAt]);
 
   const iconColor = invertColors ? "black" : "white";
@@ -73,6 +99,12 @@ export function SleepTimerPopup({
           ]}
         >
           <StyledText style={styles.title}>Sleep Timer</StyledText>
+
+          {remainingMs !== null && (
+            <StyledText style={styles.countdown}>
+              {formatRemaining(remainingMs)} left
+            </StyledText>
+          )}
 
           <View style={styles.stepperRow}>
             <HapticPressable
@@ -141,6 +173,10 @@ const styles = StyleSheet.create({
     fontSize: n(16),
     opacity: 0.6,
     paddingBottom: n(12),
+  },
+  countdown: {
+    fontSize: n(20),
+    paddingBottom: n(10),
   },
   stepperRow: {
     flexDirection: "row",

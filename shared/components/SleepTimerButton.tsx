@@ -55,8 +55,9 @@ export function SleepTimerButton({
   return (
     <HapticPressable hitSlop={n(8)} onPress={onPress}>
       <View style={styles.container}>
-        {/* Drained portion: a faint moon that shows once the bright fill has
-            receded past it. */}
+        {/* The moon keeps its full shape at all times: this dimmed moon stays
+            visible as the outline while the bright fill drains away inside
+            it. */}
         <View style={styles.faintLayer}>
           <MaterialIcons color={color} name="bedtime" size={SIZE} />
         </View>
@@ -83,7 +84,7 @@ const styles = StyleSheet.create({
     ...StyleSheet.absoluteFillObject,
     alignItems: "center",
     justifyContent: "center",
-    opacity: 0.25,
+    opacity: 0.4,
   },
   fillClip: {
     position: "absolute",
