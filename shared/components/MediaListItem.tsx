@@ -48,6 +48,9 @@ export const MediaListItem = React.memo(function MediaListItem({
       onPress={onPress}
       style={[
         styles.itemContainer,
+        // Multi-line rows top-align the thumbnail with the first line of text
+        // instead of centering it against the taller title+subtitle block.
+        primaryLines > 1 && styles.itemContainerTop,
         disabled && styles.disabledContainer,
         style,
       ]}
@@ -97,6 +100,9 @@ const styles = StyleSheet.create({
     paddingVertical: 0,
     flexDirection: "row",
     alignItems: "center",
+  },
+  itemContainerTop: {
+    alignItems: "flex-start",
   },
   imageContainer: {
     width: n(50),
