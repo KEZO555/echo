@@ -10,7 +10,7 @@ import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { AuthProvider, useAuth } from "@/features/auth";
 import { CredentialsProvider } from "@/features/credentials";
 import { useLibraryInit } from "@/features/library";
-import { PlaybackProvider } from "@/features/playback";
+import { EpisodeEndWatcher, PlaybackProvider } from "@/features/playback";
 import { SettingsProvider, useSettings } from "@/features/settings";
 import { getAppFontFamily, loadSystemFont } from "@/shared/utils/appFont";
 import "@/shared/utils/logger";
@@ -173,6 +173,7 @@ export default function RootLayout() {
           <AuthProvider>
             <PlaybackProvider>
               <RootNavigation />
+              <EpisodeEndWatcher />
             </PlaybackProvider>
           </AuthProvider>
         </SettingsProvider>

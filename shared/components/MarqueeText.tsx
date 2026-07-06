@@ -43,7 +43,7 @@ export function MarqueeText({
   return (
     <View onLayout={handleContainerLayout} style={styles.container}>
       <View pointerEvents="none" style={styles.measuringContainer}>
-        <StyledText onLayout={handleTextLayout} style={style}>
+        <StyledText numberOfLines={1} onLayout={handleTextLayout} style={style}>
           {children}
         </StyledText>
       </View>
@@ -75,6 +75,10 @@ const styles = StyleSheet.create({
     position: "absolute",
     top: 0,
     left: 0,
+    // A wide bound so the hidden label lays out on a single unwrapped line and
+    // reports its true intrinsic width. Without this the text wraps to the
+    // column width, so overflow (and thus the marquee) was never detected.
+    width: 4000,
     opacity: 0,
   },
   scrollContainer: {
