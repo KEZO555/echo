@@ -738,6 +738,7 @@ export default function PlayingScreen() {
       const tickId = setInterval(() => {
         if (
           !isPlayingRef.current ||
+          appStateRef.current !== "active" ||
           routePlaybackExpiresAtRef.current !== null
         ) {
           return;
