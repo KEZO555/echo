@@ -10,6 +10,7 @@ import { ContextMenu } from "@/shared/components/ContextMenu";
 import CustomScrollView from "@/shared/components/CustomScrollView";
 import { FallbackImage } from "@/shared/components/FallbackImage";
 import { HapticPressable } from "@/shared/components/HapticPressable";
+import { LoadingScreen } from "@/shared/components/LoadingScreen";
 import { StyledText } from "@/shared/components/StyledText";
 import { useNetworkState } from "@/shared/hooks/useNetworkState";
 import { usePreventDoubleTap } from "@/shared/hooks/usePreventDoubleTap";
@@ -380,11 +381,7 @@ export default function SearchResultsScreen() {
   );
 
   const loadedContent = isOnline ? onlineContent : offlineContent;
-  const bodyContent = loading ? (
-    <View style={styles.centeredMessageContainer} />
-  ) : (
-    loadedContent
-  );
+  const bodyContent = loading ? <LoadingScreen /> : loadedContent;
 
   return (
     <ContentContainer

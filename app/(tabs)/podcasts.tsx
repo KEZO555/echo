@@ -1,18 +1,17 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useFocusEffect, useRouter } from "expo-router";
 import { useCallback, useMemo, useState } from "react";
-import { View } from "react-native";
 import { SHOW_DETAIL_KEY_PREFIX } from "@/constants/spotify";
 import { refreshFollowedPodcastsFromCache } from "@/features/library";
 import { usePodcastsStore } from "@/features/library/stores";
 import { useSettings } from "@/features/settings";
 import {
   ListScreen,
+  LoadingScreen,
   MediaListItem,
   RateLimitListMessage,
 } from "@/shared/components";
 import { useNetworkState, usePreventDoubleTap } from "@/shared/hooks";
-import { tabScreenStyles as styles } from "@/shared/styles/detailScreen";
 import type { SpotifySavedShow } from "@/shared/types/spotify";
 import type { WithRateLimitItem } from "@/shared/utils";
 import {
@@ -258,7 +257,7 @@ export default function PodcastsScreen() {
   });
 
   if (isFetching && !sortedPodcasts) {
-    return <View style={styles.centeredMessageContainer} />;
+    return <LoadingScreen />;
   }
 
   if (!sortedPodcasts || sortedPodcasts.length === 0) {

@@ -21,6 +21,7 @@ import {
 } from "react-native";
 import { useAlbumsStore } from "@/features/library/stores";
 import {
+  fetchCurrentArtwork,
   usePlayback,
   useSkipIntervalStore,
   useSleepTimerStore,
@@ -301,6 +302,7 @@ export default function PlayingScreen() {
   const [nowPlayingMenuVisible, setNowPlayingMenuVisible] = useState(false);
   const [chaptersVisible, setChaptersVisible] = useState(false);
   const [sleepTimerVisible, setSleepTimerVisible] = useState(false);
+  const [nativeArtwork, setNativeArtwork] = useState<string | null>(null);
   const sleepTimerEndAt = useSleepTimerStore((s) => s.endAt);
   const sleepEndOfTrack = useSleepTimerStore((s) => s.endOfTrack);
   const startSleepTimer = useSleepTimerStore((s) => s.start);
@@ -858,12 +860,37 @@ export default function PlayingScreen() {
     item?.type === "episode";
   const currentEpisode = isEpisode ? (item as SpotifyEpisode) : null;
   const currentTrack = !isEpisode && item ? (item as SpotifyTrackSimple) : null;
+
+  // Artwork is resolved separately from the playback state so the text can
+  // update instantly on a track change without waiting for the image decode.
+  // Cleared on every track change so a stale image is never shown.
+  const artworkTargetUri = item?.uri ?? null;
+  useEffect(() => {
+    setNativeArtwork(null);
+    if (!artworkTargetUri) {
+      return;
+    }
+    let cancelled = false;
+    fetchCurrentArtwork(artworkTargetUri)
+      .then((url) => {
+        if (!cancelled && url) {
+          setNativeArtwork(url);
+        }
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, [artworkTargetUri]);
+
   const artworkUrl =
     (isPendingRoutePlayback && params.albumArtUrl) ||
     (isEpisode
       ? currentEpisode?.images?.[0]?.url ||
         currentEpisode?.show?.images?.[0]?.url
-      : currentTrack?.album?.images?.[0]?.url);
+      : currentTrack?.album?.images?.[0]?.url) ||
+    nativeArtwork ||
+    undefined;
   const displayTitle = isEpisode
     ? (currentEpisode?.name ?? "")
     : (currentTrack?.name ?? "");

@@ -337,36 +337,38 @@ export const playUriWithSkipToUri = async (
 let cachedArtworkUri: string | null = null;
 let cachedArtworkImages: SpotifyImage[] = [];
 
-// Resolve the current track's artwork from the native SDK. A failure here must
-// NOT nullify the whole playback state (that would show "No song playing" while
-// a track is actually playing), so it always resolves to an image list -
-// empty when the native image call fails or returns nothing usable. The cache
-// is keyed by the track/episode URI, not the album/show URI: every episode of
-// a podcast shares one show URI but has its own artwork, so keying by show
-// would return the wrong (previous) episode's image.
-const resolveAppRemoteArtwork = async (
+// The artwork cache is keyed by the track/episode URI, not the album/show URI:
+// every episode of a podcast shares one show URI but has its own artwork, so
+// keying by show would return the wrong (previous) episode's image.
+const artworkFromCache = (trackUri: string): SpotifyImage[] =>
+  trackUri && trackUri === cachedArtworkUri ? cachedArtworkImages : [];
+
+/**
+ * Fetch the current track's artwork from the native SDK and cache it under the
+ * track URI. Kept separate from getPlaybackState so the Now Playing text can
+ * update instantly on a track change without waiting for the (slower) image
+ * decode; the screen calls this afterwards to fill the art in.
+ */
+export const fetchCurrentArtwork = async (
   trackUri: string
-): Promise<SpotifyImage[]> => {
+): Promise<string | null> => {
   if (!trackUri) {
-    return [];
+    return null;
   }
   if (trackUri === cachedArtworkUri && cachedArtworkImages.length > 0) {
-    return cachedArtworkImages;
+    return cachedArtworkImages[0].url;
   }
   try {
     const nativeImageUrl = await spotify.getCurrentTrackImage("MEDIUM");
     if (nativeImageUrl?.startsWith("data:image/")) {
-      const images: SpotifyImage[] = [
-        { url: nativeImageUrl, height: 300, width: 300 },
-      ];
       cachedArtworkUri = trackUri;
-      cachedArtworkImages = images;
-      return images;
+      cachedArtworkImages = [{ url: nativeImageUrl, height: 300, width: 300 }];
+      return nativeImageUrl;
     }
   } catch (error) {
     log("Playback: getCurrentTrackImage failed:", error);
   }
-  return [];
+  return null;
 };
 
 export const getPlaybackState =
@@ -374,10 +376,12 @@ export const getPlaybackState =
     try {
       const playerState = await spotify.getPlayerState();
       if (playerState?.track) {
-        const albumImages = await resolveAppRemoteArtwork(
-          playerState.track.uri ?? ""
+        // Cache-only artwork keeps this call fast; the screen fetches the
+        // image separately so the text isn't blocked on the image decode.
+        return normalisePlayerState(
+          playerState,
+          artworkFromCache(playerState.track.uri ?? "")
         );
-        return normalisePlayerState(playerState, albumImages);
       }
       log("Playback: No App Remote track; falling back to Web API");
     } catch (error) {

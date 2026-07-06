@@ -9,6 +9,7 @@ import ContentContainer from "@/shared/components/ContentContainer";
 import CustomScrollView from "@/shared/components/CustomScrollView";
 import { FallbackImage } from "@/shared/components/FallbackImage";
 import { HapticPressable } from "@/shared/components/HapticPressable";
+import { LoadingScreen } from "@/shared/components/LoadingScreen";
 import { RateLimitListMessage } from "@/shared/components/RateLimitListMessage";
 import { StyledText } from "@/shared/components/StyledText";
 import { usePreventDoubleTap } from "@/shared/hooks/usePreventDoubleTap";
@@ -169,7 +170,7 @@ export default function AddToPlaylistScreen() {
         headerTitle="Add to playlist"
         style={{ paddingHorizontal: n(20), gap: 0 }}
       >
-        <View style={styles.centeredMessageContainer} />
+        <LoadingScreen />
       </ContentContainer>
     );
   }

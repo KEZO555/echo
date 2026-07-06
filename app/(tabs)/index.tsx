@@ -1,6 +1,5 @@
 import { useRouter } from "expo-router";
 import { useCallback, useMemo, useState } from "react";
-import { View } from "react-native";
 import { useAuth } from "@/features/auth";
 import { useAlbumsStore, useSavedTracksStore } from "@/features/library/stores";
 import { getSavedTrackIdentity } from "@/features/library/utils/savedTracks";
@@ -9,11 +8,11 @@ import { useSettings } from "@/features/settings";
 import {
   ContextMenu,
   ListScreen,
+  LoadingScreen,
   MediaListItem,
   RateLimitListMessage,
 } from "@/shared/components";
 import { useNetworkState, usePreventDoubleTap } from "@/shared/hooks";
-import { tabScreenStyles as styles } from "@/shared/styles/detailScreen";
 import type { SavedTrackObject } from "@/shared/types/spotify";
 import type { WithRateLimitItem } from "@/shared/utils";
 import {
@@ -244,7 +243,7 @@ export default function LikedSongsScreen() {
   };
 
   if (!savedTracks && (isLoading || isFetching || isNetworkLoading)) {
-    return <View style={styles.centeredMessageContainer} />;
+    return <LoadingScreen />;
   }
 
   const handleLoadMore = () => {

@@ -1,7 +1,6 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useFocusEffect, useRouter } from "expo-router";
 import { useCallback, useMemo, useState } from "react";
-import { View } from "react-native";
 import { ALBUM_DETAIL_KEY_PREFIX } from "@/constants/spotify";
 import { useAuth } from "@/features/auth";
 import {
@@ -13,11 +12,11 @@ import { type LibrarySortOption, useSettings } from "@/features/settings";
 import {
   ContextMenu,
   ListScreen,
+  LoadingScreen,
   MediaListItem,
   RateLimitListMessage,
 } from "@/shared/components";
 import { useNetworkState, usePreventDoubleTap } from "@/shared/hooks";
-import { tabScreenStyles as styles } from "@/shared/styles/detailScreen";
 import type { SpotifySavedAlbum } from "@/shared/types/spotify";
 import type { WithRateLimitItem } from "@/shared/utils";
 import {
@@ -252,11 +251,11 @@ export default function AlbumsScreen() {
   };
 
   if (isLoading && !sortedAlbums) {
-    return <View style={styles.centeredMessageContainer} />;
+    return <LoadingScreen />;
   }
 
   if (isFetching && !sortedAlbums) {
-    return <View style={styles.centeredMessageContainer} />;
+    return <LoadingScreen />;
   }
 
   const handleLoadMore = () => {

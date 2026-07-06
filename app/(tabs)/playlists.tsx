@@ -1,7 +1,6 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useFocusEffect, useRouter } from "expo-router";
 import { useCallback, useMemo, useState } from "react";
-import { View } from "react-native";
 import { PLAYLIST_DETAIL_KEY_PREFIX } from "@/constants/spotify";
 import { useAuth } from "@/features/auth";
 import { refreshPlaylistsFromCache } from "@/features/library";
@@ -9,11 +8,11 @@ import { usePlaylistsStore } from "@/features/library/stores";
 import { useSettings } from "@/features/settings";
 import {
   ListScreen,
+  LoadingScreen,
   MediaListItem,
   RateLimitListMessage,
 } from "@/shared/components";
 import { useNetworkState, usePreventDoubleTap } from "@/shared/hooks";
-import { tabScreenStyles as styles } from "@/shared/styles/detailScreen";
 import type { SpotifyPlaylist } from "@/shared/types/spotify";
 import type { WithRateLimitItem } from "@/shared/utils";
 import {
@@ -196,11 +195,11 @@ export default function PlaylistsScreen() {
   const isUserPending = Boolean(accessToken) && !user?.id;
 
   if ((isLoading || isUserPending) && !sortedPlaylists) {
-    return <View style={styles.centeredMessageContainer} />;
+    return <LoadingScreen />;
   }
 
   if (isFetching && !sortedPlaylists) {
-    return <View style={styles.centeredMessageContainer} />;
+    return <LoadingScreen />;
   }
 
   const createNewPlaylistItem: SpotifyPlaylist = {
