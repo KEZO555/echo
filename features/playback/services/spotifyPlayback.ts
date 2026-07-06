@@ -340,14 +340,17 @@ let cachedArtworkImages: SpotifyImage[] = [];
 // Resolve the current track's artwork from the native SDK. A failure here must
 // NOT nullify the whole playback state (that would show "No song playing" while
 // a track is actually playing), so it always resolves to an image list -
-// empty when the native image call fails or returns nothing usable.
+// empty when the native image call fails or returns nothing usable. The cache
+// is keyed by the track/episode URI, not the album/show URI: every episode of
+// a podcast shares one show URI but has its own artwork, so keying by show
+// would return the wrong (previous) episode's image.
 const resolveAppRemoteArtwork = async (
-  albumUri: string
+  trackUri: string
 ): Promise<SpotifyImage[]> => {
-  if (!albumUri) {
+  if (!trackUri) {
     return [];
   }
-  if (albumUri === cachedArtworkUri && cachedArtworkImages.length > 0) {
+  if (trackUri === cachedArtworkUri && cachedArtworkImages.length > 0) {
     return cachedArtworkImages;
   }
   try {
@@ -356,7 +359,7 @@ const resolveAppRemoteArtwork = async (
       const images: SpotifyImage[] = [
         { url: nativeImageUrl, height: 300, width: 300 },
       ];
-      cachedArtworkUri = albumUri;
+      cachedArtworkUri = trackUri;
       cachedArtworkImages = images;
       return images;
     }
@@ -372,7 +375,7 @@ export const getPlaybackState =
       const playerState = await spotify.getPlayerState();
       if (playerState?.track) {
         const albumImages = await resolveAppRemoteArtwork(
-          playerState.track.album?.uri ?? ""
+          playerState.track.uri ?? ""
         );
         return normalisePlayerState(playerState, albumImages);
       }

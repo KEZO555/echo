@@ -1,3 +1,4 @@
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useFocusEffect, useRouter } from "expo-router";
 import { useCallback, useState } from "react";
 import { View } from "react-native";
@@ -20,10 +21,28 @@ import { getThumbnailImage, logError, n } from "@/shared/utils";
 
 const ItemSeparator = () => <View style={{ height: n(8) }} />;
 const NEW_EPISODES_TTL_MS = 15 * 60_000;
+const NEW_EPISODES_DISK_KEY = "newEpisodesCache";
 
 // Cached so returning to the screen doesn't refire one request per followed
-// show every time.
-let cache: { entries: NewEpisodeEntry[]; fetchedAt: number } | null = null;
+// show every time. Also mirrored to disk so a cold open paints instantly.
+interface NewEpisodesCache {
+  entries: NewEpisodeEntry[];
+  fetchedAt: number;
+}
+let cache: NewEpisodesCache | null = null;
+
+// Drop the heaviest fields we never use in this list before persisting.
+const stripHeavy = (key: string, value: unknown) =>
+  key === "available_markets" || key === "html_description" ? undefined : value;
+
+const readDiskCache = async (): Promise<NewEpisodesCache | null> => {
+  try {
+    const raw = await AsyncStorage.getItem(NEW_EPISODES_DISK_KEY);
+    return raw ? (JSON.parse(raw) as NewEpisodesCache) : null;
+  } catch {
+    return null;
+  }
+};
 
 const getResumeMs = (episode: SpotifyEpisode): number => {
   const resume = episode.resume_point;
@@ -51,10 +70,29 @@ export default function NewEpisodesScreen() {
       setEntries(cache.entries);
       return;
     }
+    // Paint the last saved list instantly while we refresh in the background.
+    if (!cache) {
+      const saved = await readDiskCache();
+      if (saved) {
+        cache = saved;
+        setEntries((current) => current ?? saved.entries);
+        if (Date.now() - saved.fetchedAt < NEW_EPISODES_TTL_MS) {
+          return;
+        }
+      }
+    }
     try {
-      const fresh = await fetchNewEpisodesForShows(podcasts, { perShow: 1 });
+      // Stream results in as each show responds instead of blocking on all.
+      const fresh = await fetchNewEpisodesForShows(podcasts, {
+        perShow: 1,
+        onPartial: setEntries,
+      });
       cache = { entries: fresh, fetchedAt: Date.now() };
       setEntries(fresh);
+      AsyncStorage.setItem(
+        NEW_EPISODES_DISK_KEY,
+        JSON.stringify(cache, stripHeavy)
+      ).catch(() => undefined);
     } catch (error) {
       logError("NewEpisodes: failed to load", error);
       setEntries((current) => current ?? []);

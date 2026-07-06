@@ -31,7 +31,6 @@ import ContentContainer from "@/shared/components/ContentContainer";
 import { ContextMenu } from "@/shared/components/ContextMenu";
 import { FallbackImage } from "@/shared/components/FallbackImage";
 import { HapticPressable } from "@/shared/components/HapticPressable";
-import { MarqueeText } from "@/shared/components/MarqueeText";
 import { SleepTimerButton } from "@/shared/components/SleepTimerButton";
 import { SleepTimerPopup } from "@/shared/components/SleepTimerPopup";
 import { StyledText } from "@/shared/components/StyledText";
@@ -1138,23 +1137,17 @@ export default function PlayingScreen() {
               disabled={!(isEpisode ? canViewEpisode : canNavigateToAlbum)}
               onPress={handleTitlePress}
             >
-              <MarqueeText
-                isActive={isFocusedRef.current}
-                style={styles.trackName}
-              >
+              <StyledText numberOfLines={2} style={styles.trackName}>
                 {displayTitle}
-              </MarqueeText>
+              </StyledText>
             </HapticPressable>
             <HapticPressable
               disabled={!canNavigateToShow}
               onPress={handleSubtitlePress}
             >
-              <MarqueeText
-                isActive={isFocusedRef.current}
-                style={styles.artistName}
-              >
+              <StyledText numberOfLines={1} style={styles.artistName}>
                 {displaySubtitle}
-              </MarqueeText>
+              </StyledText>
             </HapticPressable>
           </View>
 
