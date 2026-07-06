@@ -1,6 +1,6 @@
 import { useRouter } from "expo-router";
 import { useCallback, useEffect, useState } from "react";
-import { StyleSheet, View } from "react-native";
+import { RefreshControl, StyleSheet, View } from "react-native";
 import { usePlayback } from "@/features/playback";
 import { useSettings } from "@/features/settings";
 import {
@@ -34,6 +34,7 @@ export default function TopTracksScreen() {
   const router = useRouter();
   const [timeRange, setTimeRange] = useState<TimeRange>("medium_term");
   const [tracks, setTracks] = useState<SpotifyTrack[] | null>(null);
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   const fetchTopTracks = useCallback(async (range: TimeRange) => {
     const data = await apiGet<{ items: SpotifyTrack[] }>(
@@ -41,6 +42,16 @@ export default function TopTracksScreen() {
     );
     setTracks(data?.items ?? []);
   }, []);
+
+  const handleRefresh = useCallback(async () => {
+    setIsRefreshing(true);
+    try {
+      await fetchTopTracks(timeRange);
+    } catch (error) {
+      logError("TopTracks: refresh failed", error);
+    }
+    setIsRefreshing(false);
+  }, [fetchTopTracks, timeRange]);
 
   useEffect(() => {
     if (!isOnline) {
@@ -116,6 +127,14 @@ export default function TopTracksScreen() {
           ) : null
         }
         overScrollMode="never"
+        refreshControl={
+          <RefreshControl
+            colors={["white"]}
+            onRefresh={handleRefresh}
+            progressBackgroundColor="black"
+            refreshing={isRefreshing}
+          />
+        }
         renderItem={({
           item,
           index,

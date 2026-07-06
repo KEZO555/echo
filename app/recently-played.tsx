@@ -1,10 +1,11 @@
 import { useRouter } from "expo-router";
 import { useCallback, useEffect, useState } from "react";
-import { View } from "react-native";
+import { RefreshControl, View } from "react-native";
 import { usePlayback } from "@/features/playback";
 import {
   ContentContainer,
   CustomScrollView,
+  LoadingScreen,
   MediaListItem,
   StyledText,
 } from "@/shared/components";
@@ -30,9 +31,9 @@ export default function RecentlyPlayedScreen() {
   const { playTracksWithWebApi } = usePlayback();
   const [tracks, setTracks] = useState<SpotifyTrack[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
-  const fetchRecent = useCallback(async () => {
-    setIsLoading(true);
+  const loadRecent = useCallback(async () => {
     try {
       const data = await apiGet<RecentlyPlayedResponse>(
         "https://api.spotify.com/v1/me/player/recently-played?limit=50"
@@ -49,14 +50,18 @@ export default function RecentlyPlayedScreen() {
       setTracks(deduped);
     } catch (error) {
       logError("RecentlyPlayed: failed to load", error);
-    } finally {
-      setIsLoading(false);
     }
   }, []);
 
   useEffect(() => {
-    fetchRecent();
-  }, [fetchRecent]);
+    loadRecent().finally(() => setIsLoading(false));
+  }, [loadRecent]);
+
+  const handleRefresh = useCallback(async () => {
+    setIsRefreshing(true);
+    await loadRecent();
+    setIsRefreshing(false);
+  }, [loadRecent]);
 
   const handlePress = usePreventDoubleTap(async (track: SpotifyTrack) => {
     try {
@@ -76,7 +81,11 @@ export default function RecentlyPlayedScreen() {
   });
 
   if (isLoading) {
-    return <ContentContainer headerTitle="Recently Played" />;
+    return (
+      <ContentContainer headerTitle="Recently Played">
+        <LoadingScreen />
+      </ContentContainer>
+    );
   }
 
   return (
@@ -98,6 +107,14 @@ export default function RecentlyPlayedScreen() {
             </StyledText>
           }
           overScrollMode="never"
+          refreshControl={
+            <RefreshControl
+              colors={["white"]}
+              onRefresh={handleRefresh}
+              progressBackgroundColor="black"
+              refreshing={isRefreshing}
+            />
+          }
           renderItem={({ item }: { item: SpotifyTrack }) => (
             <MediaListItem
               imageUri={getThumbnailImage(item.album?.images)}

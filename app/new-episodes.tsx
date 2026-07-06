@@ -1,7 +1,7 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useFocusEffect, useRouter } from "expo-router";
 import { useCallback, useState } from "react";
-import { View } from "react-native";
+import { RefreshControl, View } from "react-native";
 import {
   fetchNewEpisodesForShows,
   type NewEpisodeEntry,
@@ -60,6 +60,29 @@ export default function NewEpisodesScreen() {
   const [entries, setEntries] = useState<NewEpisodeEntry[] | null>(
     cache?.entries ?? null
   );
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
+  const handleRefresh = useCallback(async () => {
+    if (!(isOnline && podcasts?.length)) {
+      return;
+    }
+    setIsRefreshing(true);
+    try {
+      const fresh = await fetchNewEpisodesForShows(podcasts, {
+        perShow: 1,
+        onPartial: setEntries,
+      });
+      cache = { entries: fresh, fetchedAt: Date.now() };
+      setEntries(fresh);
+      AsyncStorage.setItem(
+        NEW_EPISODES_DISK_KEY,
+        JSON.stringify(cache, stripHeavy)
+      ).catch(() => undefined);
+    } catch (error) {
+      logError("NewEpisodes: refresh failed", error);
+    }
+    setIsRefreshing(false);
+  }, [isOnline, podcasts]);
 
   const load = useCallback(async () => {
     if (!podcasts || podcasts.length === 0) {
@@ -187,6 +210,14 @@ export default function NewEpisodesScreen() {
           ) : null
         }
         overScrollMode="never"
+        refreshControl={
+          <RefreshControl
+            colors={["white"]}
+            onRefresh={handleRefresh}
+            progressBackgroundColor="black"
+            refreshing={isRefreshing}
+          />
+        }
         renderItem={({ item }: { item: NewEpisodeEntry }) => (
           <MediaListItem
             disabled={!isOnline}
