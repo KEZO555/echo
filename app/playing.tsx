@@ -19,7 +19,6 @@ import {
   StyleSheet,
   View,
 } from "react-native";
-import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import { useAlbumsStore } from "@/features/library/stores";
 import {
   usePlayback,
@@ -223,7 +222,6 @@ export default function PlayingScreen() {
     hideQueueButton,
     hidePlayingCover,
     stopEpisodesAtEnd,
-    triggerHaptic,
   } = useSettings();
   const { isOnline } = useNetworkState();
   const saveAlbum = useAlbumsStore((s) => s.saveAlbum);
@@ -860,55 +858,6 @@ export default function PlayingScreen() {
     item?.type === "episode";
   const currentEpisode = isEpisode ? (item as SpotifyEpisode) : null;
   const currentTrack = !isEpisode && item ? (item as SpotifyTrackSimple) : null;
-
-  // Swipe the artwork: left = next/forward, right = previous/back. Episodes
-  // seek (they have no track list); music changes track. Handlers are read
-  // through a ref so the gesture object stays stable across re-renders.
-  const swipeActionsRef = useRef({
-    isEpisode,
-    triggerHaptic,
-    handleSeekForward,
-    handleSeekBackward,
-    handleSkipToNext,
-    handleSkipToPrevious,
-  });
-  swipeActionsRef.current = {
-    isEpisode,
-    triggerHaptic,
-    handleSeekForward,
-    handleSeekBackward,
-    handleSkipToNext,
-    handleSkipToPrevious,
-  };
-  const artworkSwipe = useMemo(
-    () =>
-      Gesture.Pan()
-        .activeOffsetX([-20, 20])
-        .failOffsetY([-24, 24])
-        .onEnd((event) => {
-          if (Math.abs(event.translationX) < 60) {
-            return;
-          }
-          const actions = swipeActionsRef.current;
-          const forward = event.translationX < 0;
-          actions.triggerHaptic();
-          if (actions.isEpisode) {
-            if (forward) {
-              actions.handleSeekForward();
-            } else {
-              actions.handleSeekBackward();
-            }
-            return;
-          }
-          if (forward) {
-            actions.handleSkipToNext();
-          } else {
-            actions.handleSkipToPrevious();
-          }
-        })
-        .runOnJS(true),
-    []
-  );
   const artworkUrl =
     (isPendingRoutePlayback && params.albumArtUrl) ||
     (isEpisode
@@ -1171,19 +1120,17 @@ export default function PlayingScreen() {
       <View style={styles.content}>
         <View style={styles.mainContent}>
           {!hidePlayingCover && (
-            <GestureDetector gesture={artworkSwipe}>
-              <HapticPressable
-                disabled={isPendingRoutePlayback}
-                onLongPress={() => setNowPlayingMenuVisible(true)}
-              >
-                <FallbackImage
-                  placeholderIcon={isEpisode ? "mic" : "music-note"}
-                  placeholderIconColor={invertColors ? "black" : "white"}
-                  style={styles.albumArt}
-                  uri={artworkUrl}
-                />
-              </HapticPressable>
-            </GestureDetector>
+            <HapticPressable
+              disabled={isPendingRoutePlayback}
+              onLongPress={() => setNowPlayingMenuVisible(true)}
+            >
+              <FallbackImage
+                placeholderIcon={isEpisode ? "mic" : "music-note"}
+                placeholderIconColor={invertColors ? "black" : "white"}
+                style={styles.albumArt}
+                uri={artworkUrl}
+              />
+            </HapticPressable>
           )}
           <View style={styles.trackInfoContainer}>
             <HapticPressable
