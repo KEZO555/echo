@@ -144,14 +144,24 @@ export default function QueueScreen() {
     } catch (error) {
       logError("Error playing queued item:", error);
     }
-    router.push({
-      pathname: "/playing",
-      params: buildPlayingParams(queue[index]),
-    });
+    // Return to the existing Now Playing layer (pop this Queue) rather than
+    // pushing a second player on top, so Back doesn't loop Playing<->Queue.
+    if (router.canGoBack()) {
+      router.back();
+    } else {
+      router.replace({
+        pathname: "/playing",
+        params: buildPlayingParams(queue[index]),
+      });
+    }
   });
 
   const handleOpenCurrent = usePreventDoubleTap(() => {
-    router.push({ pathname: "/playing" });
+    if (router.canGoBack()) {
+      router.back();
+    } else {
+      router.replace({ pathname: "/playing" });
+    }
   });
 
   if (isLoading) {

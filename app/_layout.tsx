@@ -11,7 +11,7 @@ import { AuthProvider, useAuth } from "@/features/auth";
 import { CredentialsProvider } from "@/features/credentials";
 import { useLibraryInit } from "@/features/library";
 import { PlayHistoryWatcher } from "@/features/listening";
-import { EpisodeEndWatcher, PlaybackProvider } from "@/features/playback";
+import { PlaybackProvider } from "@/features/playback";
 import { SettingsProvider, useSettings } from "@/features/settings";
 import { getAppFontFamily, loadSystemFont } from "@/shared/utils/appFont";
 import "@/shared/utils/logger";
@@ -175,7 +175,6 @@ export default function RootLayout() {
           <AuthProvider>
             <PlaybackProvider>
               <RootNavigation />
-              <EpisodeEndWatcher />
               <PlayHistoryWatcher />
             </PlaybackProvider>
           </AuthProvider>
