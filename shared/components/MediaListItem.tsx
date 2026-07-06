@@ -69,8 +69,10 @@ export const MediaListItem = React.memo(function MediaListItem({
             <Image
               cachePolicy="disk"
               onError={() => setImageError(true)}
+              recyclingKey={imageUri}
               source={{ uri: imageUri }}
               style={[styles.image, imageStyle]}
+              transition={120}
             />
           </View>
         ))}

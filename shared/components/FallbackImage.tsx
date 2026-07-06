@@ -55,8 +55,10 @@ export const FallbackImage = React.memo(function FallbackImage({
       <Image
         cachePolicy="disk"
         onError={() => setHasError(true)}
+        recyclingKey={uri}
         source={{ uri }}
         style={style}
+        transition={120}
       />
     </View>
   );
