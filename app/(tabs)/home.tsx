@@ -151,6 +151,13 @@ const TOP_LINK: HomeListItem = {
   route: "/top-tracks",
 };
 
+const LISTENING_LINK: HomeListItem = {
+  key: "link-listening",
+  type: "link",
+  label: "Your listening",
+  route: "/stats",
+};
+
 type HomeMenuItem = Extract<
   HomeListItem,
   { type: "resume" | "newEpisode" | "track" }
@@ -409,7 +416,7 @@ export default function HomeScreen() {
           ]
         : [],
     };
-    return homeSectionOrder.flatMap((id) => sections[id]);
+    return [...homeSectionOrder.flatMap((id) => sections[id]), LISTENING_LINK];
   }, [
     homeSectionOrder,
     continueListening,

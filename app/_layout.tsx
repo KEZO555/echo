@@ -10,6 +10,7 @@ import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { AuthProvider, useAuth } from "@/features/auth";
 import { CredentialsProvider } from "@/features/credentials";
 import { useLibraryInit } from "@/features/library";
+import { PlayHistoryWatcher } from "@/features/listening";
 import { EpisodeEndWatcher, PlaybackProvider } from "@/features/playback";
 import { SettingsProvider, useSettings } from "@/features/settings";
 import { getAppFontFamily, loadSystemFont } from "@/shared/utils/appFont";
@@ -152,6 +153,7 @@ function RootNavigation() {
       <Stack.Screen name="queue" />
       <Stack.Screen name="recently-played" />
       <Stack.Screen name="top-tracks" />
+      <Stack.Screen name="stats" />
       <Stack.Screen name="login" />
       <Stack.Screen name="select-device" />
       <Stack.Screen name="add-to-playlist" />
@@ -174,6 +176,7 @@ export default function RootLayout() {
             <PlaybackProvider>
               <RootNavigation />
               <EpisodeEndWatcher />
+              <PlayHistoryWatcher />
             </PlaybackProvider>
           </AuthProvider>
         </SettingsProvider>
