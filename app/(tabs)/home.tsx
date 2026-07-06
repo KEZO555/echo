@@ -19,7 +19,11 @@ import {
   MediaListItem,
   StyledText,
 } from "@/shared/components";
-import { useNetworkState, usePreventDoubleTap } from "@/shared/hooks";
+import {
+  useNetworkState,
+  usePreventDoubleTap,
+  useScrollIdle,
+} from "@/shared/hooks";
 import { tabScreenStyles as styles } from "@/shared/styles/detailScreen";
 import { getSecondaryContentColor } from "@/shared/styles/lightTokens";
 import type {
@@ -185,6 +189,7 @@ export default function HomeScreen() {
   } = useSettings();
   const secondaryColor = getSecondaryContentColor(invertColors);
   const { isOnline } = useNetworkState();
+  const { isIdle, scrollIdleHandlers } = useScrollIdle();
   const router = useRouter();
 
   const savedEpisodes = useSavedEpisodesStore((s) => s.savedEpisodes);
@@ -662,6 +667,7 @@ export default function HomeScreen() {
             onPress={() => handleResumePress(item.entry)}
             placeholderIcon="mic"
             primaryText={episode.name}
+            scrollActive={isIdle}
             scrollPrimary
             secondaryText={`${formatDuration(remainingMs, true)} left`}
           />
@@ -677,6 +683,7 @@ export default function HomeScreen() {
             onPress={() => handleNewEpisodePress(item.entry)}
             placeholderIcon="mic"
             primaryText={episode.name}
+            scrollActive={isIdle}
             scrollPrimary
             secondaryText={showName}
           />
@@ -728,6 +735,7 @@ export default function HomeScreen() {
         overScrollMode="never"
         renderItem={renderItem}
         style={styles.list}
+        {...scrollIdleHandlers}
       />
       <ContextMenu
         actions={menuActions}

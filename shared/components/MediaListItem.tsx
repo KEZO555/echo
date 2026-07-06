@@ -17,6 +17,7 @@ interface MediaListItemProps {
   forceShowImage?: boolean;
   disabled?: boolean;
   scrollPrimary?: boolean;
+  scrollActive?: boolean;
   onPress: () => void;
   onLongPress?: () => void;
   imageStyle?: StyleProp<ImageStyle>;
@@ -31,6 +32,7 @@ export const MediaListItem = React.memo(function MediaListItem({
   forceShowImage = false,
   disabled = false,
   scrollPrimary = false,
+  scrollActive = true,
   onPress,
   onLongPress,
   imageStyle,
@@ -74,7 +76,9 @@ export const MediaListItem = React.memo(function MediaListItem({
         ))}
       <View style={styles.textContainer}>
         {scrollPrimary ? (
-          <MarqueeText style={styles.primaryText}>{primaryText}</MarqueeText>
+          <MarqueeText isActive={scrollActive} style={styles.primaryText}>
+            {primaryText}
+          </MarqueeText>
         ) : (
           <StyledText numberOfLines={1} style={styles.primaryText}>
             {primaryText}

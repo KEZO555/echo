@@ -13,7 +13,11 @@ import {
   RateLimitListMessage,
   StyledText,
 } from "@/shared/components";
-import { useNetworkState, usePreventDoubleTap } from "@/shared/hooks";
+import {
+  useNetworkState,
+  usePreventDoubleTap,
+  useScrollIdle,
+} from "@/shared/hooks";
 import { tabScreenStyles as styles } from "@/shared/styles/detailScreen";
 import type { SpotifySavedEpisode } from "@/shared/types/spotify";
 import type { WithRateLimitItem } from "@/shared/utils";
@@ -33,6 +37,7 @@ type EpisodeListItem = WithRateLimitItem<SpotifySavedEpisode>;
 export default function YourEpisodesScreen() {
   const { accessToken, user, isLoading: isAuthLoading } = useAuth();
   const { playTrackWithContext } = usePlayback();
+  const { isIdle, scrollIdleHandlers } = useScrollIdle();
   const savedEpisodes = useSavedEpisodesStore((s) => s.savedEpisodes);
   const nextUrl = useSavedEpisodesStore((s) => s.nextUrl);
   const isRefreshing = useSavedEpisodesStore((s) => s.isRefreshing);
@@ -180,6 +185,7 @@ export default function YourEpisodesScreen() {
         onPress={() => handleEpisodePress(item)}
         placeholderIcon="mic"
         primaryText={episode.name}
+        scrollActive={isIdle}
         scrollPrimary
         secondaryText={metaParts.join(" · ")}
       />
@@ -218,6 +224,7 @@ export default function YourEpisodesScreen() {
         }}
         onEndReachedThreshold={2}
         overScrollMode="never"
+        {...scrollIdleHandlers}
         refreshControl={
           shouldAttachRefreshControl ? (
             <RefreshControl

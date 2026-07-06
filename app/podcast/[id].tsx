@@ -17,6 +17,7 @@ import {
   useNetworkState,
   usePreventDoubleTap,
   useSaveStatus,
+  useScrollIdle,
 } from "@/shared/hooks";
 import type { SpotifyEpisode, SpotifyShow } from "@/shared/types/spotify";
 import {
@@ -42,6 +43,7 @@ export default function PodcastDetailScreen() {
   const checkIfFollowing = usePodcastsStore((s) => s.checkIfFollowing);
   const router = useRouter();
   const { isOnline } = useNetworkState();
+  const { isIdle, scrollIdleHandlers } = useScrollIdle();
   const [menuEpisode, setMenuEpisode] = useState<{
     episode: SpotifyEpisode;
     index: number;
@@ -277,7 +279,9 @@ export default function PodcastDetailScreen() {
             />
           )}
           <View style={styles.episodeNameWrap}>
-            <MarqueeText style={styles.episodeName}>{episode.name}</MarqueeText>
+            <MarqueeText isActive={isIdle} style={styles.episodeName}>
+              {episode.name}
+            </MarqueeText>
           </View>
         </View>
         {(() => {
@@ -323,6 +327,7 @@ export default function PodcastDetailScreen() {
       placeholderIcon="mic"
       placeholderText={displayName.charAt(0)}
       renderItem={renderEpisodeItem}
+      scrollHandlers={scrollIdleHandlers}
       title={displayName}
     >
       <ContextMenu
