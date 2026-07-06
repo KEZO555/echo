@@ -75,10 +75,13 @@ const styles = StyleSheet.create({
     position: "absolute",
     top: 0,
     left: 0,
-    // A wide bound so the hidden label lays out on a single unwrapped line and
-    // reports its true intrinsic width. Without this the text wraps to the
-    // column width, so overflow (and thus the marquee) was never detected.
+    // A wide bound so the hidden label lays out on a single unwrapped line, and
+    // flex-start so it hugs its content instead of stretching to that bound -
+    // together these report the text's true intrinsic width. Otherwise the
+    // label either wraps to the column (never detects overflow) or stretches to
+    // the bound (always detects overflow, so every name scrolls).
     width: 4000,
+    alignItems: "flex-start",
     opacity: 0,
   },
   scrollContainer: {
