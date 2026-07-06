@@ -89,6 +89,7 @@ export const PlaybackProvider = ({ children }: { children: ReactNode }) => {
   const { stopEpisodesAtEnd } = useSettings();
   const { isConnected: isConnectedToAppRemote } = useSpotifyConnection();
   const sleepTimerEndAt = useSleepTimerStore((s) => s.endAt);
+  const sleepEndOfTrack = useSleepTimerStore((s) => s.endOfTrack);
   const clearSleepTimer = useSleepTimerStore((s) => s.clear);
 
   // Stop at the end of a podcast episode instead of auto-advancing to the
@@ -165,6 +166,64 @@ export const PlaybackProvider = ({ children }: { children: ReactNode }) => {
     }, delayMs);
     return () => clearTimeout(timeoutId);
   }, [sleepTimerEndAt, clearSleepTimer]);
+
+  // Sleep at the end of the current track/episode: pause when the playing item
+  // finishes, then clear the (one-shot) timer. Works for music and podcasts.
+  useEffect(() => {
+    if (!sleepEndOfTrack) {
+      return;
+    }
+    let timeoutId: ReturnType<typeof setTimeout> | null = null;
+    const END_BUFFER_MS = 800;
+
+    const clearPending = () => {
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+        timeoutId = null;
+      }
+    };
+
+    const stopNow = () => {
+      clearSleepTimer();
+      pausePlaybackService().catch((error) =>
+        logError("Sleep timer: failed to stop at end of track", error)
+      );
+    };
+
+    const schedule = (state: {
+      track?: { duration?: number };
+      playbackPosition?: number;
+      isPaused?: boolean;
+    }) => {
+      clearPending();
+      const duration = state?.track?.duration;
+      if (!duration || state.isPaused) {
+        return;
+      }
+      const remaining =
+        duration - (state.playbackPosition ?? 0) - END_BUFFER_MS;
+      if (remaining <= 0) {
+        stopNow();
+        return;
+      }
+      timeoutId = setTimeout(stopNow, remaining);
+    };
+
+    const unsubscribe = spotify.onPlayerStateChanged(schedule);
+    spotify
+      .getPlayerState()
+      .then((state) => {
+        if (state?.track) {
+          schedule(state);
+        }
+      })
+      .catch(() => undefined);
+
+    return () => {
+      clearPending();
+      unsubscribe();
+    };
+  }, [sleepEndOfTrack, clearSleepTimer]);
 
   const playTracksWithWebApi = useCallback(
     (uris: string[]) => {

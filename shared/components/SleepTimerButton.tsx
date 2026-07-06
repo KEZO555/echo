@@ -22,6 +22,7 @@ export function SleepTimerButton({
 }: SleepTimerButtonProps) {
   const endAt = useSleepTimerStore((s) => s.endAt);
   const durationMs = useSleepTimerStore((s) => s.durationMs);
+  const endOfTrack = useSleepTimerStore((s) => s.endOfTrack);
   const [fraction, setFraction] = useState(1);
 
   useEffect(() => {
@@ -38,7 +39,7 @@ export function SleepTimerButton({
   }, [endAt, durationMs]);
 
   const color = invertColors ? "black" : "white";
-  const isActive = endAt !== null;
+  const isActive = endAt !== null || endOfTrack;
 
   if (!isActive) {
     return (

@@ -35,7 +35,7 @@ const getResumeMs = (episode: SpotifyEpisode): number => {
 
 export default function NewEpisodesScreen() {
   const podcasts = usePodcastsStore((s) => s.podcasts);
-  const { playContext } = usePlayback();
+  const { playContext, playTracksWithWebApi } = usePlayback();
   const { isOnline } = useNetworkState();
   const router = useRouter();
   const [entries, setEntries] = useState<NewEpisodeEntry[] | null>(
@@ -69,6 +69,33 @@ export default function NewEpisodesScreen() {
     }, [isOnline, load])
   );
 
+  const handlePlayAll = usePreventDoubleTap(async () => {
+    const list = entries ?? [];
+    const uris = list
+      .map((entry) => entry.episode.uri)
+      .filter((uri): uri is string => Boolean(uri));
+    if (uris.length === 0) {
+      return;
+    }
+    try {
+      await playTracksWithWebApi(uris);
+    } catch (error) {
+      logError("NewEpisodes: error playing all", error);
+    }
+    const first = list[0].episode;
+    router.push({
+      pathname: "/playing",
+      params: {
+        trackName: first.name ?? "",
+        artistName: list[0].showName,
+        albumArtUrl: getThumbnailImage(first.images) ?? "",
+        durationMs: first.duration_ms?.toString() ?? "0",
+        mediaType: "episode",
+        episodeId: first.id,
+      },
+    });
+  });
+
   const handleEpisodePress = usePreventDoubleTap(
     async (entry: NewEpisodeEntry) => {
       const { episode, showId, showName } = entry;
@@ -98,6 +125,10 @@ export default function NewEpisodesScreen() {
 
   return (
     <ContentContainer
+      headerIcon={
+        isOnline && (entries?.length ?? 0) > 0 ? "playlist-play" : undefined
+      }
+      headerIconPress={handlePlayAll}
       headerTitle="New Episodes"
       style={{ paddingHorizontal: n(20), paddingBottom: n(20) }}
     >

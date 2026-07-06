@@ -1,13 +1,15 @@
 import { useFocusEffect, useRouter } from "expo-router";
 import { useCallback, useMemo, useState } from "react";
-import { RefreshControl, View } from "react-native";
+import { RefreshControl, StyleSheet, View } from "react-native";
 import { useAuth } from "@/features/auth";
 import { useSavedEpisodesStore } from "@/features/library/stores";
 import { usePlayback } from "@/features/playback";
+import { useSettings } from "@/features/settings";
 import {
   ContentContainer,
   ContextMenu,
   CustomScrollView,
+  HapticPressable,
   ListFooter,
   MediaListItem,
   RateLimitListMessage,
@@ -15,6 +17,7 @@ import {
 } from "@/shared/components";
 import { useNetworkState, usePreventDoubleTap } from "@/shared/hooks";
 import { tabScreenStyles as styles } from "@/shared/styles/detailScreen";
+import { getSecondaryContentColor } from "@/shared/styles/lightTokens";
 import type { SpotifySavedEpisode } from "@/shared/types/spotify";
 import type { WithRateLimitItem } from "@/shared/utils";
 import {
@@ -30,6 +33,32 @@ import {
 const ItemSeparator = () => <View style={{ height: n(8) }} />;
 type EpisodeListItem = WithRateLimitItem<SpotifySavedEpisode>;
 
+type EpisodeFilter = "all" | "unplayed" | "inProgress";
+
+const EPISODE_FILTERS: { id: EpisodeFilter; label: string }[] = [
+  { id: "all", label: "All" },
+  { id: "unplayed", label: "Unplayed" },
+  { id: "inProgress", label: "In progress" },
+];
+
+const filterEpisodes = (
+  episodes: SpotifySavedEpisode[],
+  filter: EpisodeFilter
+): SpotifySavedEpisode[] => {
+  if (filter === "all") {
+    return episodes;
+  }
+  return episodes.filter((saved) => {
+    const resume = saved.episode.resume_point;
+    const played = resume?.fully_played ?? false;
+    const started = (resume?.resume_position_ms ?? 0) > 0;
+    if (filter === "unplayed") {
+      return !(played || started);
+    }
+    return !played && started;
+  });
+};
+
 export default function YourEpisodesScreen() {
   const { accessToken, user, isLoading: isAuthLoading } = useAuth();
   const { playTrackWithContext } = usePlayback();
@@ -43,15 +72,21 @@ export default function YourEpisodesScreen() {
   const fetchMoreEpisodes = useSavedEpisodesStore((s) => s.fetchMore);
   const router = useRouter();
   const { isOnline } = useNetworkState();
+  const { invertColors } = useSettings();
   const [menuEpisode, setMenuEpisode] = useState<SpotifySavedEpisode | null>(
     null
   );
+  const [episodeFilter, setEpisodeFilter] = useState<EpisodeFilter>("all");
   const rateLimitMessage = useMemo(
     () => getRateLimitMessage("your episodes", rateLimitRetryAt),
     [rateLimitRetryAt]
   );
+  const filteredEpisodes = useMemo(
+    () => filterEpisodes(savedEpisodes ?? [], episodeFilter),
+    [savedEpisodes, episodeFilter]
+  );
   const displayEpisodes: EpisodeListItem[] = prependRateLimitItem(
-    savedEpisodes ?? [],
+    filteredEpisodes,
     isRateLimited,
     rateLimitMessage
   );
@@ -190,11 +225,37 @@ export default function YourEpisodesScreen() {
     return <ListFooter isLoading={isLoadingMore} />;
   };
 
+  const hasSavedEpisodes = (savedEpisodes?.length ?? 0) > 0;
+  const emptyMessage =
+    hasSavedEpisodes && episodeFilter !== "all"
+      ? "No episodes match this filter."
+      : "No saved episodes yet.";
+
   return (
     <ContentContainer
       headerTitle="Your Episodes"
       style={{ paddingHorizontal: n(20), paddingBottom: n(20) }}
     >
+      <View style={filterStyles.row}>
+        {EPISODE_FILTERS.map((option) => (
+          <HapticPressable
+            key={option.id}
+            onPress={() => setEpisodeFilter(option.id)}
+            style={filterStyles.button}
+          >
+            <StyledText
+              style={[
+                filterStyles.label,
+                episodeFilter !== option.id && {
+                  color: getSecondaryContentColor(invertColors),
+                },
+              ]}
+            >
+              {option.label}
+            </StyledText>
+          </HapticPressable>
+        ))}
+      </View>
       <CustomScrollView
         contentContainerStyle={{ ...styles.listContentContainer }}
         data={displayEpisodes}
@@ -203,12 +264,9 @@ export default function YourEpisodesScreen() {
           isRateLimitItem(item) ? item.id : item.episode.id
         }
         ListEmptyComponent={
-          !(isRefreshing || isRateLimited) &&
-          (!savedEpisodes || savedEpisodes.length === 0) ? (
-            <StyledText style={styles.emptyText}>
-              No saved episodes yet.
-            </StyledText>
-          ) : null
+          isRefreshing || isRateLimited ? null : (
+            <StyledText style={styles.emptyText}>{emptyMessage}</StyledText>
+          )
         }
         ListFooterComponent={renderFooter}
         onEndReached={() => {
@@ -248,3 +306,18 @@ export default function YourEpisodesScreen() {
     </ContentContainer>
   );
 }
+
+const filterStyles = StyleSheet.create({
+  row: {
+    flexDirection: "row",
+    justifyContent: "center",
+    gap: n(20),
+    marginBottom: n(12),
+  },
+  button: {
+    paddingVertical: n(4),
+  },
+  label: {
+    fontSize: n(20),
+  },
+});

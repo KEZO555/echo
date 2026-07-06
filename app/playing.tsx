@@ -299,7 +299,9 @@ export default function PlayingScreen() {
   const [chaptersVisible, setChaptersVisible] = useState(false);
   const [sleepTimerVisible, setSleepTimerVisible] = useState(false);
   const sleepTimerEndAt = useSleepTimerStore((s) => s.endAt);
+  const sleepEndOfTrack = useSleepTimerStore((s) => s.endOfTrack);
   const startSleepTimer = useSleepTimerStore((s) => s.start);
+  const startSleepEndOfTrack = useSleepTimerStore((s) => s.startEndOfTrack);
   const clearSleepTimer = useSleepTimerStore((s) => s.clear);
   const chaptersEpisodeIdRef = useRef<string | null>(null);
   const positionTextRef = useRef<PositionTextHandle>(null);
@@ -1418,8 +1420,10 @@ export default function PlayingScreen() {
       />
       <SleepTimerPopup
         activeEndAt={sleepTimerEndAt}
+        activeEndOfTrack={sleepEndOfTrack}
         onClose={() => setSleepTimerVisible(false)}
         onStart={startSleepTimer}
+        onStartEndOfTrack={startSleepEndOfTrack}
         onTurnOff={clearSleepTimer}
         visible={sleepTimerVisible}
       />

@@ -14,7 +14,9 @@ const DEFAULT_MINUTES = 15;
 interface SleepTimerPopupProps {
   visible: boolean;
   activeEndAt: number | null;
+  activeEndOfTrack: boolean;
   onStart: (minutes: number) => void;
+  onStartEndOfTrack: () => void;
   onTurnOff: () => void;
   onClose: () => void;
 }
@@ -40,7 +42,9 @@ const formatRemaining = (ms: number): string => {
 export function SleepTimerPopup({
   visible,
   activeEndAt,
+  activeEndOfTrack,
   onStart,
+  onStartEndOfTrack,
   onTurnOff,
   onClose,
 }: SleepTimerPopupProps) {
@@ -106,6 +110,12 @@ export function SleepTimerPopup({
             </StyledText>
           )}
 
+          {activeEndOfTrack && (
+            <StyledText style={styles.countdown}>
+              Stopping at end of this
+            </StyledText>
+          )}
+
           <View style={styles.stepperRow}>
             <HapticPressable
               disabled={minutes <= MIN_MINUTES}
@@ -138,7 +148,17 @@ export function SleepTimerPopup({
             </StyledText>
           </HapticPressable>
 
-          {activeEndAt !== null && (
+          <HapticPressable
+            onPress={() => {
+              onStartEndOfTrack();
+              onClose();
+            }}
+            style={styles.actionButton}
+          >
+            <StyledText style={styles.actionText}>End of episode</StyledText>
+          </HapticPressable>
+
+          {(activeEndAt !== null || activeEndOfTrack) && (
             <HapticPressable
               onPress={() => {
                 onTurnOff();
