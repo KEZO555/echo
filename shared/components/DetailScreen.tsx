@@ -30,12 +30,6 @@ interface DetailScreenProps<T> {
   headerIconShowLength?: number;
   itemSeparatorComponent?: React.ComponentType<{ leadingItem: T }> | null;
   headerAccessory?: ReactNode;
-  scrollHandlers?: {
-    onScrollBeginDrag?: () => void;
-    onMomentumScrollBegin?: () => void;
-    onMomentumScrollEnd?: () => void;
-    onScrollEndDrag?: () => void;
-  };
   children?: ReactNode;
 }
 
@@ -61,7 +55,6 @@ export function DetailScreen<T>({
   headerIconShowLength,
   itemSeparatorComponent,
   headerAccessory,
-  scrollHandlers,
   children,
 }: DetailScreenProps<T>) {
   const { hideDetailCovers: settingsHideCovers } = useSettings();
@@ -132,7 +125,6 @@ export function DetailScreen<T>({
           onEndReachedThreshold={2}
           overScrollMode="never"
           renderItem={renderItem}
-          {...scrollHandlers}
         />
       </View>
       {children}

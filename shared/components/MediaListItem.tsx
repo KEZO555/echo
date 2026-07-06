@@ -4,7 +4,6 @@ import React, { useState } from "react";
 import { type StyleProp, StyleSheet, View, type ViewStyle } from "react-native";
 import { useSettings } from "@/features/settings";
 import { HapticPressable } from "@/shared/components/HapticPressable";
-import { MarqueeText } from "@/shared/components/MarqueeText";
 import { StyledText } from "@/shared/components/StyledText";
 import { getSecondaryContentColor } from "@/shared/styles/lightTokens";
 import { n } from "@/shared/utils";
@@ -16,8 +15,7 @@ interface MediaListItemProps {
   placeholderIcon?: keyof typeof MaterialIcons.glyphMap;
   forceShowImage?: boolean;
   disabled?: boolean;
-  scrollPrimary?: boolean;
-  scrollActive?: boolean;
+  primaryLines?: number;
   onPress: () => void;
   onLongPress?: () => void;
   imageStyle?: StyleProp<ImageStyle>;
@@ -31,8 +29,7 @@ export const MediaListItem = React.memo(function MediaListItem({
   placeholderIcon = "music-note",
   forceShowImage = false,
   disabled = false,
-  scrollPrimary = false,
-  scrollActive = true,
+  primaryLines = 1,
   onPress,
   onLongPress,
   imageStyle,
@@ -75,15 +72,9 @@ export const MediaListItem = React.memo(function MediaListItem({
           </View>
         ))}
       <View style={styles.textContainer}>
-        {scrollPrimary ? (
-          <MarqueeText isActive={scrollActive} style={styles.primaryText}>
-            {primaryText}
-          </MarqueeText>
-        ) : (
-          <StyledText numberOfLines={1} style={styles.primaryText}>
-            {primaryText}
-          </StyledText>
-        )}
+        <StyledText numberOfLines={primaryLines} style={styles.primaryText}>
+          {primaryText}
+        </StyledText>
         {secondaryText && (
           <StyledText
             numberOfLines={1}

@@ -13,11 +13,7 @@ import {
   MediaListItem,
   StyledText,
 } from "@/shared/components";
-import {
-  useNetworkState,
-  usePreventDoubleTap,
-  useScrollIdle,
-} from "@/shared/hooks";
+import { useNetworkState, usePreventDoubleTap } from "@/shared/hooks";
 import { tabScreenStyles as styles } from "@/shared/styles/detailScreen";
 import type { SpotifyEpisode } from "@/shared/types/spotify";
 import { getThumbnailImage, logError, n } from "@/shared/utils";
@@ -41,7 +37,6 @@ export default function NewEpisodesScreen() {
   const podcasts = usePodcastsStore((s) => s.podcasts);
   const { playContext } = usePlayback();
   const { isOnline } = useNetworkState();
-  const { isIdle, scrollIdleHandlers } = useScrollIdle();
   const router = useRouter();
   const [entries, setEntries] = useState<NewEpisodeEntry[] | null>(
     cache?.entries ?? null
@@ -129,13 +124,11 @@ export default function NewEpisodesScreen() {
             imageUri={getThumbnailImage(item.episode.images)}
             onPress={() => handleEpisodePress(item)}
             placeholderIcon="mic"
+            primaryLines={2}
             primaryText={item.episode.name}
-            scrollActive={isIdle}
-            scrollPrimary
             secondaryText={item.showName}
           />
         )}
-        {...scrollIdleHandlers}
         style={styles.list}
       />
     </ContentContainer>
