@@ -1,16 +1,25 @@
-import { View } from "react-native";
+import { StyleSheet, View } from "react-native";
+import {
+  SKIP_INTERVAL_OPTIONS,
+  useSkipIntervalStore,
+} from "@/features/playback";
 import { useSettings } from "@/features/settings";
 import ContentContainer from "@/shared/components/ContentContainer";
 import CustomScrollView from "@/shared/components/CustomScrollView";
+import { HapticPressable } from "@/shared/components/HapticPressable";
+import { StyledText } from "@/shared/components/StyledText";
 import { ToggleSwitch } from "@/shared/components/ToggleSwitch";
+import { getSecondaryContentColor } from "@/shared/styles/lightTokens";
 import { n } from "@/shared/utils";
 
-interface SettingsItem {
-  type: "toggle";
-  label: string;
-  value: boolean;
-  onValueChange: (value: boolean) => void;
-}
+type SettingsItem =
+  | {
+      type: "toggle";
+      label: string;
+      value: boolean;
+      onValueChange: (value: boolean) => void;
+    }
+  | { type: "skipInterval" };
 
 export default function CustomisePlayingScreen() {
   const {
@@ -28,7 +37,10 @@ export default function CustomisePlayingScreen() {
     setHidePlayingCover,
     stopEpisodesAtEnd,
     setStopEpisodesAtEnd,
+    invertColors,
   } = useSettings();
+  const skipSeconds = useSkipIntervalStore((s) => s.seconds);
+  const setSkipSeconds = useSkipIntervalStore((s) => s.setSeconds);
 
   const settingsItems: SettingsItem[] = [
     {
@@ -73,15 +85,45 @@ export default function CustomisePlayingScreen() {
       value: stopEpisodesAtEnd,
       onValueChange: setStopEpisodesAtEnd,
     },
+    { type: "skipInterval" },
   ];
 
-  const renderItem = ({ item }: { item: SettingsItem }) => (
-    <ToggleSwitch
-      label={item.label}
-      onValueChange={item.onValueChange}
-      value={item.value}
-    />
-  );
+  const secondary = getSecondaryContentColor(invertColors);
+
+  const renderItem = ({ item }: { item: SettingsItem }) => {
+    if (item.type === "toggle") {
+      return (
+        <ToggleSwitch
+          label={item.label}
+          onValueChange={item.onValueChange}
+          value={item.value}
+        />
+      );
+    }
+    return (
+      <View style={styles.skipRow}>
+        <StyledText style={styles.skipLabel}>Skip interval</StyledText>
+        <View style={styles.skipOptions}>
+          {SKIP_INTERVAL_OPTIONS.map((option) => (
+            <HapticPressable
+              key={option}
+              onPress={() => setSkipSeconds(option)}
+              style={styles.skipOption}
+            >
+              <StyledText
+                style={[
+                  styles.skipOptionLabel,
+                  skipSeconds !== option && { color: secondary },
+                ]}
+              >
+                {option}s
+              </StyledText>
+            </HapticPressable>
+          ))}
+        </View>
+      </View>
+    );
+  };
 
   return (
     <ContentContainer
@@ -98,3 +140,25 @@ export default function CustomisePlayingScreen() {
     </ContentContainer>
   );
 }
+
+const styles = StyleSheet.create({
+  skipRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingLeft: n(20),
+  },
+  skipLabel: {
+    fontSize: n(25),
+  },
+  skipOptions: {
+    flexDirection: "row",
+    gap: n(14),
+  },
+  skipOption: {
+    paddingVertical: n(2),
+  },
+  skipOptionLabel: {
+    fontSize: n(22),
+  },
+});
