@@ -234,7 +234,7 @@ export default function YourEpisodesScreen() {
   return (
     <ContentContainer
       headerTitle="Your Episodes"
-      style={{ paddingHorizontal: n(20), paddingBottom: n(20) }}
+      style={{ paddingHorizontal: n(20), paddingBottom: n(20), gap: 0 }}
     >
       <View style={filterStyles.row}>
         {EPISODE_FILTERS.map((option) => (

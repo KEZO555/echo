@@ -98,7 +98,7 @@ export default function TopTracksScreen() {
   return (
     <ContentContainer
       headerTitle="Top Tracks"
-      style={{ paddingHorizontal: n(20), paddingBottom: n(20) }}
+      style={{ paddingHorizontal: n(20), paddingBottom: n(20), gap: 0 }}
     >
       {renderRangeSelector()}
       <CustomScrollView
