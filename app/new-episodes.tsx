@@ -157,6 +157,19 @@ export default function NewEpisodesScreen() {
     });
   });
 
+  const handleEpisodeInfo = usePreventDoubleTap((entry: NewEpisodeEntry) => {
+    const { episode, showName } = entry;
+    router.push({
+      pathname: "/episode/[id]",
+      params: {
+        id: episode.id,
+        episodeString: JSON.stringify(episode),
+        episodeName: episode.name,
+        showName,
+      },
+    });
+  });
+
   const handleEpisodePress = usePreventDoubleTap(
     async (entry: NewEpisodeEntry) => {
       const { episode, showId, showName } = entry;
@@ -222,6 +235,7 @@ export default function NewEpisodesScreen() {
           <MediaListItem
             disabled={!isOnline}
             imageUri={getThumbnailImage(item.episode.images)}
+            onLongPress={() => handleEpisodeInfo(item)}
             onPress={() => handleEpisodePress(item)}
             placeholderIcon="mic"
             primaryLines={2}

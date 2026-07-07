@@ -6,12 +6,7 @@ import { useAuth } from "@/features/auth";
 import { getCachedShowDetail, saveCachedShowDetail } from "@/features/library";
 import { usePodcastsStore } from "@/features/library/stores";
 import { usePlayback } from "@/features/playback";
-import {
-  ContextMenu,
-  DetailScreen,
-  HapticPressable,
-  StyledText,
-} from "@/shared/components";
+import { DetailScreen, HapticPressable, StyledText } from "@/shared/components";
 import {
   useNetworkState,
   usePreventDoubleTap,
@@ -41,10 +36,6 @@ export default function PodcastDetailScreen() {
   const checkIfFollowing = usePodcastsStore((s) => s.checkIfFollowing);
   const router = useRouter();
   const { isOnline } = useNetworkState();
-  const [menuEpisode, setMenuEpisode] = useState<{
-    episode: SpotifyEpisode;
-    index: number;
-  } | null>(null);
 
   const initialShow = useMemo(() => {
     if (!showString) {
@@ -225,34 +216,6 @@ export default function PodcastDetailScreen() {
     });
   });
 
-  const handleOpenEpisodeMenu = (episode: SpotifyEpisode, index: number) => {
-    setMenuEpisode({ episode, index });
-  };
-
-  const menuActions = useMemo(() => {
-    if (!menuEpisode) {
-      return [];
-    }
-    const { episode, index } = menuEpisode;
-    const close = () => setMenuEpisode(null);
-    return [
-      {
-        label: "Play",
-        onPress: () => {
-          close();
-          handleEpisodePlay(episode, index);
-        },
-      },
-      {
-        label: "Info",
-        onPress: () => {
-          close();
-          handleEpisodeInfo(episode);
-        },
-      },
-    ];
-  }, [menuEpisode, handleEpisodePlay, handleEpisodeInfo]);
-
   const renderEpisodeItem = ({
     item: episode,
     index,
@@ -261,7 +224,7 @@ export default function PodcastDetailScreen() {
     index: number;
   }) => (
     <HapticPressable
-      onLongPress={() => handleOpenEpisodeMenu(episode, index)}
+      onLongPress={() => handleEpisodeInfo(episode)}
       onPress={() => handleEpisodePlay(episode, index)}
       style={styles.episodeItemContainer}
     >
@@ -325,14 +288,7 @@ export default function PodcastDetailScreen() {
       placeholderText={displayName.charAt(0)}
       renderItem={renderEpisodeItem}
       title={displayName}
-    >
-      <ContextMenu
-        actions={menuActions}
-        onClose={() => setMenuEpisode(null)}
-        title={menuEpisode?.episode.name}
-        visible={menuEpisode !== null}
-      />
-    </DetailScreen>
+    />
   );
 }
 

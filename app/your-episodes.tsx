@@ -7,7 +7,6 @@ import { usePlayback } from "@/features/playback";
 import { useSettings } from "@/features/settings";
 import {
   ContentContainer,
-  ContextMenu,
   CustomScrollView,
   HapticPressable,
   ListFooter,
@@ -73,9 +72,6 @@ export default function YourEpisodesScreen() {
   const router = useRouter();
   const { isOnline } = useNetworkState();
   const { invertColors } = useSettings();
-  const [menuEpisode, setMenuEpisode] = useState<SpotifySavedEpisode | null>(
-    null
-  );
   const [episodeFilter, setEpisodeFilter] = useState<EpisodeFilter>("all");
   const rateLimitMessage = useMemo(
     () => getRateLimitMessage("your episodes", rateLimitRetryAt),
@@ -148,13 +144,7 @@ export default function YourEpisodesScreen() {
     }
   );
 
-  const handleMenuPlay = (savedEpisode: SpotifySavedEpisode) => {
-    setMenuEpisode(null);
-    handleEpisodePress(savedEpisode);
-  };
-
-  const handleMenuInfo = (savedEpisode: SpotifySavedEpisode) => {
-    setMenuEpisode(null);
+  const handleEpisodeInfo = (savedEpisode: SpotifySavedEpisode) => {
     const episode = savedEpisode.episode;
     router.push({
       pathname: "/episode/[id]",
@@ -211,7 +201,7 @@ export default function YourEpisodesScreen() {
       <MediaListItem
         disabled={isDisabled}
         imageUri={imageUri}
-        onLongPress={() => setMenuEpisode(item)}
+        onLongPress={() => handleEpisodeInfo(item)}
         onPress={() => handleEpisodePress(item)}
         placeholderIcon="mic"
         primaryLines={2}
@@ -289,19 +279,6 @@ export default function YourEpisodesScreen() {
         }
         renderItem={renderEpisodeItem}
         style={styles.list}
-      />
-      <ContextMenu
-        actions={
-          menuEpisode
-            ? [
-                { label: "Play", onPress: () => handleMenuPlay(menuEpisode) },
-                { label: "Info", onPress: () => handleMenuInfo(menuEpisode) },
-              ]
-            : []
-        }
-        onClose={() => setMenuEpisode(null)}
-        title={menuEpisode?.episode.name}
-        visible={menuEpisode !== null}
       />
     </ContentContainer>
   );

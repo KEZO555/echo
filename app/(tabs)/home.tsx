@@ -151,10 +151,7 @@ const TOP_LINK: HomeListItem = {
   route: "/top-tracks",
 };
 
-type HomeMenuItem = Extract<
-  HomeListItem,
-  { type: "resume" | "newEpisode" | "track" }
->;
+type HomeMenuItem = Extract<HomeListItem, { type: "track" }>;
 
 const getResumeMs = (episode: SpotifyEpisode): number => {
   const resume = episode.resume_point;
@@ -504,60 +501,6 @@ export default function HomeScreen() {
     [router]
   );
 
-  const handleGoToShow = useCallback(
-    (showId: string, showName: string) => {
-      router.push({
-        pathname: "/podcast/[id]",
-        params: { id: showId, showName },
-      });
-    },
-    [router]
-  );
-
-  const buildEpisodeMenuActions = (
-    item: Extract<HomeMenuItem, { type: "resume" | "newEpisode" }>,
-    close: () => void
-  ) => {
-    const episode = item.entry.episode;
-    const showId =
-      item.type === "newEpisode" ? item.entry.showId : episode.show?.id;
-    const showName =
-      item.type === "newEpisode"
-        ? item.entry.showName
-        : (episode.show?.name ?? "");
-    const play = () =>
-      item.type === "resume"
-        ? handleResumePress(item.entry)
-        : handleNewEpisodePress(item.entry);
-    return [
-      {
-        label: "Play",
-        onPress: () => {
-          close();
-          play();
-        },
-      },
-      {
-        label: "Info",
-        onPress: () => {
-          close();
-          handleEpisodeInfo(episode, showName);
-        },
-      },
-      ...(showId
-        ? [
-            {
-              label: "Go to show",
-              onPress: () => {
-                close();
-                handleGoToShow(showId, showName);
-              },
-            },
-          ]
-        : []),
-    ];
-  };
-
   const buildTrackMenuActions = (track: SpotifyTrack, close: () => void) => {
     const album = track.album;
     return [
@@ -622,18 +565,11 @@ export default function HomeScreen() {
   };
 
   const closeMenu = () => setMenuItem(null);
-  let menuActions: { label: string; onPress: () => void }[] = [];
-  if (menuItem) {
-    menuActions =
-      menuItem.type === "track"
-        ? buildTrackMenuActions(menuItem.track, closeMenu)
-        : buildEpisodeMenuActions(menuItem, closeMenu);
-  }
+  const menuActions = menuItem
+    ? buildTrackMenuActions(menuItem.track, closeMenu)
+    : [];
 
-  const menuTitle =
-    menuItem?.type === "track"
-      ? menuItem.track.name
-      : menuItem?.entry.episode.name;
+  const menuTitle = menuItem?.track.name;
 
   const renderItem = ({ item }: { item: HomeListItem }) => {
     switch (item.type) {
@@ -658,7 +594,9 @@ export default function HomeScreen() {
               getThumbnailImage(episode.images) ??
               getThumbnailImage(episode.show?.images)
             }
-            onLongPress={() => setMenuItem(item)}
+            onLongPress={() =>
+              handleEpisodeInfo(episode, episode.show?.name ?? "")
+            }
             onPress={() => handleResumePress(item.entry)}
             placeholderIcon="mic"
             primaryLines={2}
@@ -673,7 +611,7 @@ export default function HomeScreen() {
           <MediaListItem
             disabled={!isOnline}
             imageUri={getThumbnailImage(episode.images)}
-            onLongPress={() => setMenuItem(item)}
+            onLongPress={() => handleEpisodeInfo(episode, showName)}
             onPress={() => handleNewEpisodePress(item.entry)}
             placeholderIcon="mic"
             primaryLines={2}
