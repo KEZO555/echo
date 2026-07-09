@@ -209,35 +209,27 @@ export default function SearchResultsScreen() {
   }, [routeQuery, accessToken, ensureValidToken, isOnline]);
 
   const handleResultPress = usePreventDoubleTap(
-    async (item: SearchItem, itemUri: string) => {
+    (item: SearchItem, itemUri: string) => {
       if (item.type === "track") {
         const track = item.data;
         const artistName = getArtistNames(track.artists ?? []);
         const albumArtUrl = track.album?.images?.[0]?.url ?? "";
 
-        try {
-          await playTrackWithContext(itemUri);
-          router.push({
-            pathname: "/playing",
-            params: {
-              trackName: track.name ?? "",
-              artistName,
-              albumArtUrl,
-              durationMs: track.duration_ms?.toString() ?? "0",
-            },
-          });
-        } catch (error) {
-          logError("Error playing track:", error);
-          router.push({
-            pathname: "/playing",
-            params: {
-              trackName: track.name ?? "",
-              artistName,
-              albumArtUrl,
-              durationMs: track.duration_ms?.toString() ?? "0",
-            },
-          });
-        }
+        // Open Now Playing immediately so the tap feels instant. Starting
+        // playback can block on an App Remote (re)connection, so fire it in
+        // the background instead of awaiting it before we navigate.
+        router.push({
+          pathname: "/playing",
+          params: {
+            trackName: track.name ?? "",
+            artistName,
+            albumArtUrl,
+            durationMs: track.duration_ms?.toString() ?? "0",
+          },
+        });
+        playTrackWithContext(itemUri).catch((error) =>
+          logError("Error playing track:", error)
+        );
       } else if (item.type === "album") {
         router.navigate({
           pathname: `/album/${item.data.id}`,
