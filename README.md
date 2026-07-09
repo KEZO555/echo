@@ -30,7 +30,7 @@ I recommend using [Obtainium](https://github.com/ImranR98/Obtainium) and adding 
 7. Go to **Settings** and note your **Client ID** and **Client Secret**
 8. Under **Basic Information**, add your Android package:
    - **Package Name**: `com.vandam.echo`
-   - **SHA1 Fingerprint**: `73:25:19:F7:40:25:9D:F2:B0:B2:CC:C1:5D:09:D6:7E:72:20:C2:64`
+   - **SHA1 Fingerprint**: `5E:8F:16:06:2E:A3:CD:2C:4A:0D:54:78:76:BA:A6:F3:8C:AB:F6:25`
 9. Click **Save**
 
 > [!TIP]
