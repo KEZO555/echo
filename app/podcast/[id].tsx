@@ -170,7 +170,7 @@ export default function PodcastDetailScreen() {
   );
 
   const handleEpisodePlay = usePreventDoubleTap(
-    async (episode: SpotifyEpisode, index: number) => {
+    (episode: SpotifyEpisode, index: number) => {
       const albumArtUrl =
         getLargestImage(episode.images) ?? getLargestImage(show?.images) ?? "";
       const resumePoint = episode.resume_point;
@@ -188,16 +188,14 @@ export default function PodcastDetailScreen() {
         episodeId: episode.id,
       };
 
-      try {
-        await playContext(`spotify:show:${id}`, {
-          offsetUri: episode.uri,
-          offsetPosition: index,
-          positionMs: resumeMs,
-        });
-      } catch (playError) {
-        logError("Error playing episode:", playError);
-      }
+      // Open Now Playing immediately; playback can block on an App Remote
+      // (re)connection, so start it in the background instead of awaiting.
       router.push({ pathname: "/playing", params: playingParams });
+      playContext(`spotify:show:${id}`, {
+        offsetUri: episode.uri,
+        offsetPosition: index,
+        positionMs: resumeMs,
+      }).catch((playError) => logError("Error playing episode:", playError));
     }
   );
 

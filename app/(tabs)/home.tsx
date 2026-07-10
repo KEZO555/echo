@@ -420,10 +420,11 @@ export default function HomeScreen() {
   ]);
 
   const handleResumePress = usePreventDoubleTap(
-    async (savedEpisode: SpotifySavedEpisode) => {
+    (savedEpisode: SpotifySavedEpisode) => {
       const episode = savedEpisode.episode;
       const resumeMs = getResumeMs(episode);
-      await playTrackWithContext(episode.uri);
+      // Open Now Playing immediately; playback can block on an App Remote
+      // (re)connection, so start it in the background instead of awaiting.
       router.push({
         pathname: "/playing",
         params: {
@@ -439,21 +440,18 @@ export default function HomeScreen() {
           episodeId: episode.id,
         },
       });
+      playTrackWithContext(episode.uri).catch((playError) =>
+        logError("Home: error resuming episode", playError)
+      );
     }
   );
 
   const handleNewEpisodePress = usePreventDoubleTap(
-    async (entry: NewEpisodeEntry) => {
+    (entry: NewEpisodeEntry) => {
       const { episode, showId, showName } = entry;
       const resumeMs = getResumeMs(episode);
-      try {
-        await playContext(`spotify:show:${showId}`, {
-          offsetUri: episode.uri,
-          positionMs: resumeMs > 0 ? resumeMs : undefined,
-        });
-      } catch (playError) {
-        logError("Home: error playing episode", playError);
-      }
+      // Open Now Playing immediately; playback can block on an App Remote
+      // (re)connection, so start it in the background instead of awaiting.
       router.push({
         pathname: "/playing",
         params: {
@@ -466,6 +464,12 @@ export default function HomeScreen() {
           episodeId: episode.id,
         },
       });
+      playContext(`spotify:show:${showId}`, {
+        offsetUri: episode.uri,
+        positionMs: resumeMs > 0 ? resumeMs : undefined,
+      }).catch((playError) =>
+        logError("Home: error playing episode", playError)
+      );
     }
   );
 

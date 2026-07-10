@@ -170,32 +170,28 @@ export default function NewEpisodesScreen() {
     });
   });
 
-  const handleEpisodePress = usePreventDoubleTap(
-    async (entry: NewEpisodeEntry) => {
-      const { episode, showId, showName } = entry;
-      const resumeMs = getResumeMs(episode);
-      try {
-        await playContext(`spotify:show:${showId}`, {
-          offsetUri: episode.uri,
-          positionMs: resumeMs > 0 ? resumeMs : undefined,
-        });
-      } catch (error) {
-        logError("NewEpisodes: error playing episode", error);
-      }
-      router.push({
-        pathname: "/playing",
-        params: {
-          trackName: episode.name ?? "",
-          artistName: showName,
-          albumArtUrl: getThumbnailImage(episode.images) ?? "",
-          durationMs: episode.duration_ms?.toString() ?? "0",
-          mediaType: "episode",
-          positionMs: resumeMs ? Math.floor(resumeMs).toString() : "0",
-          episodeId: episode.id,
-        },
-      });
-    }
-  );
+  const handleEpisodePress = usePreventDoubleTap((entry: NewEpisodeEntry) => {
+    const { episode, showId, showName } = entry;
+    const resumeMs = getResumeMs(episode);
+    // Open Now Playing immediately; playback can block on an App Remote
+    // (re)connection, so start it in the background instead of awaiting.
+    router.push({
+      pathname: "/playing",
+      params: {
+        trackName: episode.name ?? "",
+        artistName: showName,
+        albumArtUrl: getThumbnailImage(episode.images) ?? "",
+        durationMs: episode.duration_ms?.toString() ?? "0",
+        mediaType: "episode",
+        positionMs: resumeMs ? Math.floor(resumeMs).toString() : "0",
+        episodeId: episode.id,
+      },
+    });
+    playContext(`spotify:show:${showId}`, {
+      offsetUri: episode.uri,
+      positionMs: resumeMs > 0 ? resumeMs : undefined,
+    }).catch((error) => logError("NewEpisodes: error playing episode", error));
+  });
 
   return (
     <ContentContainer

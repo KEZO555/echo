@@ -25,6 +25,7 @@ import {
   getRateLimitMessage,
   getThumbnailImage,
   isRateLimitItem,
+  logError,
   n,
   prependRateLimitItem,
 } from "@/shared/utils";
@@ -116,7 +117,7 @@ export default function YourEpisodesScreen() {
   }, [fetchEpisodes, isRefreshing, isOnline]);
 
   const handleEpisodePress = usePreventDoubleTap(
-    async (savedEpisode: SpotifySavedEpisode) => {
+    (savedEpisode: SpotifySavedEpisode) => {
       const episode = savedEpisode.episode;
       const albumArtUrl =
         getLargestImage(episode.images) ??
@@ -128,7 +129,8 @@ export default function YourEpisodesScreen() {
           ? (resumePoint.resume_position_ms ?? 0)
           : 0;
 
-      await playTrackWithContext(episode.uri);
+      // Open Now Playing immediately; playback can block on an App Remote
+      // (re)connection, so start it in the background instead of awaiting.
       router.push({
         pathname: "/playing",
         params: {
@@ -141,6 +143,9 @@ export default function YourEpisodesScreen() {
           episodeId: episode.id,
         },
       });
+      playTrackWithContext(episode.uri).catch((error) =>
+        logError("YourEpisodes: error playing episode", error)
+      );
     }
   );
 
