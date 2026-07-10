@@ -70,7 +70,7 @@ export default function LikedSongsScreen() {
     [rateLimitRetryAt]
   );
 
-  const handleShufflePlay = usePreventDoubleTap(async () => {
+  const handleShufflePlay = usePreventDoubleTap(() => {
     const uris = baseTracks
       .map((saved) => saved.track?.uri)
       .filter((uri): uri is string => Boolean(uri));
@@ -81,36 +81,39 @@ export default function LikedSongsScreen() {
       const j = Math.floor(Math.random() * (i + 1));
       [uris[i], uris[j]] = [uris[j], uris[i]];
     }
-    try {
-      await playTracksWithWebApi(uris.slice(0, 50));
-      router.push("/playing" as never);
-    } catch (error) {
-      logError("Error shuffle playing liked songs:", error);
-    }
+    // Open Now Playing immediately; start playback in the background.
+    router.push("/playing" as never);
+    playTracksWithWebApi(uris.slice(0, 50)).catch((error) =>
+      logError("Error shuffle playing liked songs:", error)
+    );
   });
 
-  const handleTrackPress = usePreventDoubleTap(
-    async (item: SavedTrackObject) => {
-      const likedSongsUri = "spotify:collection:tracks";
-      const track = item.track;
-      const artistName = getArtistNames(track.artists ?? []);
-      const albumArtUrl = track.album?.images?.[0]?.url ?? "";
-      const playingParams = {
-        trackName: track.name ?? "",
-        artistName,
-        albumArtUrl,
-        durationMs: track.duration_ms?.toString() ?? "0",
-        sourceContext: "liked",
-      };
+  const handleTrackPress = usePreventDoubleTap((item: SavedTrackObject) => {
+    const likedSongsUri = "spotify:collection:tracks";
+    const track = item.track;
+    const artistName = getArtistNames(track.artists ?? []);
+    const albumArtUrl = track.album?.images?.[0]?.url ?? "";
+    const playingParams = {
+      trackName: track.name ?? "",
+      artistName,
+      albumArtUrl,
+      durationMs: track.duration_ms?.toString() ?? "0",
+      sourceContext: "liked",
+    };
 
-      const startIndex = baseTracks.findIndex(
-        (saved) => saved.track?.uri === track.uri
-      );
-      const orderedUris = (startIndex >= 0 ? baseTracks.slice(startIndex) : [])
-        .map((saved) => saved.track?.uri)
-        .filter((uri): uri is string => Boolean(uri))
-        .slice(0, 50);
+    const startIndex = baseTracks.findIndex(
+      (saved) => saved.track?.uri === track.uri
+    );
+    const orderedUris = (startIndex >= 0 ? baseTracks.slice(startIndex) : [])
+      .map((saved) => saved.track?.uri)
+      .filter((uri): uri is string => Boolean(uri))
+      .slice(0, 50);
 
+    // Open Now Playing immediately; start playback (with App Remote fallback)
+    // in the background so the tap never waits on the network round-trip.
+    router.push({ pathname: "/playing", params: playingParams });
+
+    const startPlayback = async () => {
       try {
         if (orderedUris.length > 0) {
           await playTracksWithWebApi(orderedUris);
@@ -125,10 +128,9 @@ export default function LikedSongsScreen() {
           logError("Error playing liked track:", fallbackError);
         }
       }
-
-      router.push({ pathname: "/playing", params: playingParams });
-    }
-  );
+    };
+    startPlayback().catch(() => undefined);
+  });
 
   const handleAddTrackToQueue = useCallback(
     async (item: SavedTrackObject) => {

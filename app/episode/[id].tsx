@@ -192,30 +192,27 @@ export default function EpisodeDetailScreen() {
     [playContext]
   );
 
-  const handlePlay = usePreventDoubleTap(async () => {
+  const handlePlay = usePreventDoubleTap(() => {
     if (!episode) {
       return;
     }
-    try {
-      const resumeMs = getResumeMs(episode);
-      await playFromPosition(episode, resumeMs);
-      navigateToPlaying(episode, resumeMs);
-    } catch (playError) {
-      logError("Error playing episode:", playError);
-      navigateToPlaying(episode, getResumeMs(episode));
-    }
+    const resumeMs = getResumeMs(episode);
+    // Open Now Playing immediately; start playback in the background.
+    navigateToPlaying(episode, resumeMs);
+    playFromPosition(episode, resumeMs).catch((playError) =>
+      logError("Error playing episode:", playError)
+    );
   });
 
-  const handlePlayChapter = usePreventDoubleTap(async (positionMs: number) => {
+  const handlePlayChapter = usePreventDoubleTap((positionMs: number) => {
     if (!episode) {
       return;
     }
-    try {
-      await playFromPosition(episode, positionMs);
-      navigateToPlaying(episode, positionMs);
-    } catch (playError) {
-      logError("Error playing chapter:", playError);
-    }
+    // Open Now Playing immediately; start playback in the background.
+    navigateToPlaying(episode, positionMs);
+    playFromPosition(episode, positionMs).catch((playError) =>
+      logError("Error playing chapter:", playError)
+    );
   });
 
   const handleShowPress = usePreventDoubleTap(() => {

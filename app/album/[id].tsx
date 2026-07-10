@@ -168,13 +168,9 @@ export default function AlbumDetailScreen() {
     }
   }, [album, isLoadingMoreTracks]);
 
-  const handlePlayAlbum = usePreventDoubleTap(async () => {
+  const handlePlayAlbum = usePreventDoubleTap(() => {
     const firstTrack = album?.tracks?.items?.[0];
-    try {
-      await playContext(`spotify:album:${id}`);
-    } catch (playError) {
-      logError("Error playing album:", playError);
-    }
+    // Open Now Playing immediately; start playback in the background.
     router.push({
       pathname: "/playing",
       params: {
@@ -184,9 +180,12 @@ export default function AlbumDetailScreen() {
         durationMs: firstTrack?.duration_ms?.toString() ?? "0",
       },
     });
+    playContext(`spotify:album:${id}`).catch((playError) =>
+      logError("Error playing album:", playError)
+    );
   });
 
-  const handleTrackPress = usePreventDoubleTap(async (trackIndex: number) => {
+  const handleTrackPress = usePreventDoubleTap((trackIndex: number) => {
     const track = album?.tracks?.items[trackIndex];
     const artistName =
       track?.artists
@@ -194,29 +193,19 @@ export default function AlbumDetailScreen() {
         .join(", ") ?? "";
     const albumArtUrl = album?.images?.[0]?.url ?? "";
 
-    try {
-      await playContext(`spotify:album:${id}`, { offsetPosition: trackIndex });
-      router.push({
-        pathname: "/playing",
-        params: {
-          trackName: track?.name ?? "",
-          artistName,
-          albumArtUrl,
-          durationMs: track?.duration_ms?.toString() ?? "0",
-        },
-      });
-    } catch (playError) {
-      logError("Error playing track:", playError);
-      router.push({
-        pathname: "/playing",
-        params: {
-          trackName: track?.name ?? "",
-          artistName,
-          albumArtUrl,
-          durationMs: track?.duration_ms?.toString() ?? "0",
-        },
-      });
-    }
+    // Open Now Playing immediately; start playback in the background.
+    router.push({
+      pathname: "/playing",
+      params: {
+        trackName: track?.name ?? "",
+        artistName,
+        albumArtUrl,
+        durationMs: track?.duration_ms?.toString() ?? "0",
+      },
+    });
+    playContext(`spotify:album:${id}`, { offsetPosition: trackIndex }).catch(
+      (playError) => logError("Error playing track:", playError)
+    );
   });
 
   const handleAddTrackToQueue = useCallback(

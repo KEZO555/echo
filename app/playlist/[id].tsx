@@ -297,7 +297,7 @@ export default function PlaylistDetailScreen() {
     }
   }, [loadedPlaylist, isLoadingMoreTracks]);
 
-  const handleTrackPress = usePreventDoubleTap(async (trackIndex: number) => {
+  const handleTrackPress = usePreventDoubleTap((trackIndex: number) => {
     const playlistTrack = loadedPlaylist?.items.items[trackIndex];
     const track = playlistTrack?.item;
     const artistName =
@@ -307,31 +307,19 @@ export default function PlaylistDetailScreen() {
     const albumArtUrl =
       track?.album?.images?.[0]?.url ?? playlist?.images?.[0]?.url ?? "";
 
-    try {
-      await playContext(`spotify:playlist:${id}`, {
-        offsetPosition: trackIndex,
-      });
-      router.push({
-        pathname: "/playing",
-        params: {
-          trackName: track?.name ?? "",
-          artistName,
-          albumArtUrl,
-          durationMs: track?.duration_ms?.toString() ?? "0",
-        },
-      });
-    } catch (playError) {
-      logError("Error playing track:", playError);
-      router.push({
-        pathname: "/playing",
-        params: {
-          trackName: track?.name ?? "",
-          artistName,
-          albumArtUrl,
-          durationMs: track?.duration_ms?.toString() ?? "0",
-        },
-      });
-    }
+    // Open Now Playing immediately; start playback in the background.
+    router.push({
+      pathname: "/playing",
+      params: {
+        trackName: track?.name ?? "",
+        artistName,
+        albumArtUrl,
+        durationMs: track?.duration_ms?.toString() ?? "0",
+      },
+    });
+    playContext(`spotify:playlist:${id}`, {
+      offsetPosition: trackIndex,
+    }).catch((playError) => logError("Error playing track:", playError));
   });
 
   const handleAddTrackToQueue = useCallback(

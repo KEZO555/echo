@@ -64,13 +64,9 @@ export default function TopTracksScreen() {
   }, [timeRange, isOnline, fetchTopTracks]);
 
   const handleTrackPress = usePreventDoubleTap(
-    async (track: SpotifyTrack, index: number) => {
-      try {
-        const uris = (tracks ?? []).slice(index).map((entry) => entry.uri);
-        await playTracksWithWebApi(uris.length > 0 ? uris : [track.uri]);
-      } catch (error) {
-        logError("TopTracks: failed to play", error);
-      }
+    (track: SpotifyTrack, index: number) => {
+      const uris = (tracks ?? []).slice(index).map((entry) => entry.uri);
+      // Open Now Playing immediately; start playback in the background.
       router.push({
         pathname: "/playing",
         params: {
@@ -80,6 +76,9 @@ export default function TopTracksScreen() {
           durationMs: track.duration_ms?.toString() ?? "0",
         },
       });
+      playTracksWithWebApi(uris.length > 0 ? uris : [track.uri]).catch(
+        (error) => logError("TopTracks: failed to play", error)
+      );
     }
   );
 

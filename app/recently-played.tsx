@@ -63,12 +63,8 @@ export default function RecentlyPlayedScreen() {
     setIsRefreshing(false);
   }, [loadRecent]);
 
-  const handlePress = usePreventDoubleTap(async (track: SpotifyTrack) => {
-    try {
-      await playTracksWithWebApi([track.uri]);
-    } catch (error) {
-      logError("RecentlyPlayed: failed to play", error);
-    }
+  const handlePress = usePreventDoubleTap((track: SpotifyTrack) => {
+    // Open Now Playing immediately; start playback in the background.
     router.push({
       pathname: "/playing",
       params: {
@@ -78,6 +74,9 @@ export default function RecentlyPlayedScreen() {
         durationMs: track.duration_ms?.toString() ?? "0",
       },
     });
+    playTracksWithWebApi([track.uri]).catch((error) =>
+      logError("RecentlyPlayed: failed to play", error)
+    );
   });
 
   if (isLoading) {

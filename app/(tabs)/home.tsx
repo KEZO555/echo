@@ -2,7 +2,7 @@ import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useFocusEffect, useRouter } from "expo-router";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { StyleSheet, View } from "react-native";
+import { RefreshControl, StyleSheet, View } from "react-native";
 import { useAuth } from "@/features/auth";
 import {
   useAlbumsStore,
@@ -197,6 +197,7 @@ export default function HomeScreen() {
   const [newEpisodes, setNewEpisodes] = useState<NewEpisodeEntry[]>(
     newEpisodesCache?.entries ?? []
   );
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   // Paint from the disk snapshot immediately; fresh data replaces it when
   // the focus fetches land.
@@ -315,6 +316,42 @@ export default function HomeScreen() {
     setNewEpisodes(entries);
     persistHomeCache({ newEpisodes: entries });
   }, []);
+
+  const handleRefresh = useCallback(async () => {
+    if (!(accessToken && user && isOnline)) {
+      return;
+    }
+    setIsRefreshing(true);
+    // Bust the TTL caches so the fetches actually hit the network instead of
+    // returning the values they just short-circuited on.
+    recentTracksCache = null;
+    topTracksCache = null;
+    newEpisodesCache = null;
+    try {
+      await Promise.all([
+        fetchEpisodes({ showRefreshing: false }),
+        podcasts
+          ? fetchNewEpisodes(podcasts)
+          : fetchPodcasts({ showRefreshing: false }),
+        fetchRecent(),
+        showTopTracks ? fetchTopTracks() : Promise.resolve(),
+      ]);
+    } catch (error) {
+      logError("Home: refresh failed", error);
+    }
+    setIsRefreshing(false);
+  }, [
+    accessToken,
+    user,
+    isOnline,
+    fetchEpisodes,
+    podcasts,
+    fetchNewEpisodes,
+    fetchPodcasts,
+    fetchRecent,
+    fetchTopTracks,
+    showTopTracks,
+  ]);
 
   useFocusEffect(
     useCallback(() => {
@@ -473,12 +510,9 @@ export default function HomeScreen() {
     }
   );
 
-  const handleTrackPress = usePreventDoubleTap(async (track: SpotifyTrack) => {
-    try {
-      await playTracksWithWebApi([track.uri]);
-    } catch (error) {
-      logError("Home: failed to play track", error);
-    }
+  const handleTrackPress = usePreventDoubleTap((track: SpotifyTrack) => {
+    // Open Now Playing immediately; start playback in the background so the
+    // tap never waits on the Web API round-trip.
     router.push({
       pathname: "/playing",
       params: {
@@ -488,6 +522,9 @@ export default function HomeScreen() {
         durationMs: track.duration_ms?.toString() ?? "0",
       },
     });
+    playTracksWithWebApi([track.uri]).catch((error) =>
+      logError("Home: failed to play track", error)
+    );
   });
 
   const handleEpisodeInfo = useCallback(
@@ -668,6 +705,14 @@ export default function HomeScreen() {
         ItemSeparatorComponent={ItemSeparator}
         keyExtractor={(item: HomeListItem) => item.key}
         overScrollMode="never"
+        refreshControl={
+          <RefreshControl
+            colors={["white"]}
+            onRefresh={handleRefresh}
+            progressBackgroundColor="black"
+            refreshing={isRefreshing}
+          />
+        }
         renderItem={renderItem}
         style={styles.list}
       />

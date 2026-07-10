@@ -130,7 +130,7 @@ export default function NewEpisodesScreen() {
     }, [isOnline, load])
   );
 
-  const handlePlayAll = usePreventDoubleTap(async () => {
+  const handlePlayAll = usePreventDoubleTap(() => {
     const list = entries ?? [];
     const uris = list
       .map((entry) => entry.episode.uri)
@@ -138,12 +138,8 @@ export default function NewEpisodesScreen() {
     if (uris.length === 0) {
       return;
     }
-    try {
-      await playTracksWithWebApi(uris);
-    } catch (error) {
-      logError("NewEpisodes: error playing all", error);
-    }
     const first = list[0].episode;
+    // Open Now Playing immediately; start playback in the background.
     router.push({
       pathname: "/playing",
       params: {
@@ -155,6 +151,9 @@ export default function NewEpisodesScreen() {
         episodeId: first.id,
       },
     });
+    playTracksWithWebApi(uris).catch((error) =>
+      logError("NewEpisodes: error playing all", error)
+    );
   });
 
   const handleEpisodeInfo = usePreventDoubleTap((entry: NewEpisodeEntry) => {

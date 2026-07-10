@@ -130,7 +130,7 @@ export default function QueueScreen() {
     fetchQueue();
   }, [fetchQueue]);
 
-  const handlePlayQueueItem = usePreventDoubleTap(async (index: number) => {
+  const handlePlayQueueItem = usePreventDoubleTap((index: number) => {
     // Play the tapped item and keep everything after it queued behind it.
     const uris = queue
       .slice(index)
@@ -139,13 +139,9 @@ export default function QueueScreen() {
     if (uris.length === 0) {
       return;
     }
-    try {
-      await playTracksWithWebApi(uris);
-    } catch (error) {
-      logError("Error playing queued item:", error);
-    }
-    // Return to the existing Now Playing layer (pop this Queue) rather than
-    // pushing a second player on top, so Back doesn't loop Playing<->Queue.
+    // Return to the existing Now Playing layer immediately (pop this Queue)
+    // rather than pushing a second player on top, so Back doesn't loop
+    // Playing<->Queue. Start playback in the background.
     if (router.canGoBack()) {
       router.back();
     } else {
@@ -154,6 +150,9 @@ export default function QueueScreen() {
         params: buildPlayingParams(queue[index]),
       });
     }
+    playTracksWithWebApi(uris).catch((error) =>
+      logError("Error playing queued item:", error)
+    );
   });
 
   const handleOpenCurrent = usePreventDoubleTap(() => {
