@@ -1,6 +1,6 @@
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { StyleSheet, View } from "react-native";
+import { ScrollView, StyleSheet, View } from "react-native";
 import { useAuth } from "@/features/auth";
 import { usePlayback } from "@/features/playback";
 import { searchItems } from "@/features/search";
@@ -14,6 +14,7 @@ import { LoadingScreen } from "@/shared/components/LoadingScreen";
 import { StyledText } from "@/shared/components/StyledText";
 import { useNetworkState } from "@/shared/hooks/useNetworkState";
 import { usePreventDoubleTap } from "@/shared/hooks/usePreventDoubleTap";
+import { getSecondaryContentColor } from "@/shared/styles/lightTokens";
 import type {
   SpotifyAlbumSimple,
   SpotifyImage,
@@ -31,6 +32,16 @@ type SearchItem =
   | { type: "playlist"; data: SpotifyPlaylistSimple }
   | { type: "album"; data: SpotifyAlbumSimple }
   | { type: "podcast"; data: SpotifyShow };
+
+type SearchFilter = "all" | SearchItem["type"];
+
+const SEARCH_FILTERS: { id: SearchFilter; label: string }[] = [
+  { id: "all", label: "All" },
+  { id: "track", label: "Songs" },
+  { id: "album", label: "Albums" },
+  { id: "playlist", label: "Playlists" },
+  { id: "podcast", label: "Podcasts" },
+];
 
 // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: search result collection with validation
 function collectSearchResults(apiResponse: SpotifySearchResults): SearchItem[] {
@@ -109,11 +120,12 @@ export default function SearchResultsScreen() {
   const { accessToken, ensureValidToken } = useAuth();
   const { playTrackWithContext, addToQueue } = usePlayback();
   const { isOnline } = useNetworkState();
-  const { hideAlbumCovers, triggerHaptic } = useSettings();
+  const { hideAlbumCovers, invertColors, triggerHaptic } = useSettings();
   const router = useRouter();
   const [results, setResults] = useState<SearchItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [menuTrack, setMenuTrack] = useState<SpotifyTrack | null>(null);
+  const [filter, setFilter] = useState<SearchFilter>("all");
 
   const handleAddToQueue = useCallback(
     async (track: SpotifyTrack) => {
@@ -183,6 +195,7 @@ export default function SearchResultsScreen() {
   useEffect(() => {
     if (routeQuery) {
       setLoading(true);
+      setFilter("all");
 
       if (!isOnline) {
         setLoading(false);
@@ -338,17 +351,61 @@ export default function SearchResultsScreen() {
     );
   }
 
+  const filteredResults =
+    filter === "all" ? results : results.filter((item) => item.type === filter);
+  const activeFilterLabel =
+    SEARCH_FILTERS.find((f) => f.id === filter)?.label ?? "results";
+
+  const filterBar = (
+    <ScrollView
+      contentContainerStyle={styles.filterRow}
+      horizontal={true}
+      showsHorizontalScrollIndicator={false}
+      style={styles.filterBar}
+    >
+      {SEARCH_FILTERS.map((option) => (
+        <HapticPressable
+          key={option.id}
+          onPress={() => setFilter(option.id)}
+          style={styles.filterButton}
+        >
+          <StyledText
+            style={[
+              styles.filterLabel,
+              filter !== option.id && {
+                color: getSecondaryContentColor(invertColors),
+              },
+            ]}
+          >
+            {option.label}
+          </StyledText>
+        </HapticPressable>
+      ))}
+    </ScrollView>
+  );
+
   const resultsContent = (
-    <View style={{ paddingBottom: n(20) }}>
-      <CustomScrollView
-        contentContainerStyle={styles.listContentContainer}
-        data={results}
-        ItemSeparatorComponent={ItemSeparator}
-        keyExtractor={(item, index) => `${item.type}-${item.data.id}-${index}`}
-        overScrollMode={"never"}
-        renderItem={renderItem}
-        style={styles.list}
-      />
+    <View style={{ flex: 1, paddingBottom: n(20) }}>
+      {filterBar}
+      {filteredResults.length > 0 ? (
+        <CustomScrollView
+          contentContainerStyle={styles.listContentContainer}
+          data={filteredResults}
+          ItemSeparatorComponent={ItemSeparator}
+          keyExtractor={(item, index) =>
+            `${item.type}-${item.data.id}-${index}`
+          }
+          overScrollMode={"never"}
+          renderItem={renderItem}
+          style={styles.list}
+        />
+      ) : (
+        <View style={styles.centeredMessageContainer}>
+          <StyledText style={styles.emptyText}>
+            No {activeFilterLabel.toLowerCase()} for this search.
+          </StyledText>
+        </View>
+      )}
     </View>
   );
 
@@ -402,6 +459,20 @@ const styles = StyleSheet.create({
   emptyText: {
     fontSize: n(18),
     textAlign: "center",
+  },
+  filterBar: {
+    flexGrow: 0,
+    marginBottom: n(10),
+  },
+  filterRow: {
+    gap: n(22),
+    paddingRight: n(20),
+  },
+  filterButton: {
+    paddingVertical: n(4),
+  },
+  filterLabel: {
+    fontSize: n(20),
   },
   list: {
     flex: 1,
