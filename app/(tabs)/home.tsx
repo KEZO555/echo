@@ -179,6 +179,7 @@ export default function HomeScreen() {
     showRecentlyPlayed,
     showTopTracks,
     homeSectionOrder,
+    musicMode,
   } = useSettings();
   const secondaryColor = getSecondaryContentColor(invertColors);
   const { isOnline } = useNetworkState();
@@ -358,15 +359,18 @@ export default function HomeScreen() {
       if (!(accessToken && user) || isAuthLoading || !isOnline) {
         return;
       }
-      if (!isEpisodesRefreshing) {
-        fetchEpisodes({ showRefreshing: false });
-      }
-      if (podcasts) {
-        fetchNewEpisodes(podcasts).catch((error) =>
-          logError("Home: new episodes failed", error)
-        );
-      } else {
-        fetchPodcasts({ showRefreshing: false });
+      // In Music Mode the podcast sections are hidden, so skip fetching them.
+      if (!musicMode) {
+        if (!isEpisodesRefreshing) {
+          fetchEpisodes({ showRefreshing: false });
+        }
+        if (podcasts) {
+          fetchNewEpisodes(podcasts).catch((error) =>
+            logError("Home: new episodes failed", error)
+          );
+        } else {
+          fetchPodcasts({ showRefreshing: false });
+        }
       }
       fetchRecent().catch((error) =>
         logError("Home: recently played failed", error)
@@ -389,6 +393,7 @@ export default function HomeScreen() {
       fetchRecent,
       fetchTopTracks,
       showTopTracks,
+      musicMode,
     ])
   );
 
@@ -403,15 +408,16 @@ export default function HomeScreen() {
 
   const listItems = useMemo(() => {
     const sections: Record<HomeSectionId, HomeListItem[]> = {
-      continueListening: showContinueListening
-        ? homeSection(
-            "section-continue",
-            "Continue Listening",
-            resumeRows(continueListening)
-          )
-        : [],
+      continueListening:
+        showContinueListening && !musicMode
+          ? homeSection(
+              "section-continue",
+              "Continue Listening",
+              resumeRows(continueListening)
+            )
+          : [],
       newEpisodes:
-        showNewEpisodes && newEpisodes.length > 0
+        showNewEpisodes && !musicMode && newEpisodes.length > 0
           ? [
               ...homeSection(
                 "section-new",
@@ -454,6 +460,7 @@ export default function HomeScreen() {
     showNewEpisodes,
     showRecentlyPlayed,
     showTopTracks,
+    musicMode,
   ]);
 
   const handleResumePress = usePreventDoubleTap(

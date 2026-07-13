@@ -33,6 +33,8 @@ export default function CustomiseTabsScreen() {
     setHideYourEpisodes,
     hideNowPlayingButton,
     setHideNowPlayingButton,
+    musicMode,
+    setMusicMode,
   } = useSettings();
   const handleCustomiseTabs = () => {
     router.push("/customise-tabs" as never);
@@ -48,6 +50,12 @@ export default function CustomiseTabsScreen() {
     { type: "button", text: "Navigation Bar", onPress: handleCustomiseTabs },
     { type: "button", text: "Home Screen", onPress: handleCustomiseHome },
     { type: "button", text: "Now Playing", onPress: handleCustomisePlaying },
+    {
+      type: "toggle",
+      label: "Hide Podcasts",
+      value: musicMode,
+      onValueChange: setMusicMode,
+    },
     {
       type: "toggle",
       label: "Hide Item Images",

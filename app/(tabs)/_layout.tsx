@@ -43,7 +43,7 @@ export const TABS_CONFIG: readonly TabConfigItem[] = [
 ] as const;
 
 export default function TabLayout() {
-  const { tabPreferences } = useSettings();
+  const { tabPreferences, musicMode } = useSettings();
 
   const visibleTabs = useMemo(() => {
     const filtered = TABS_CONFIG.filter((tab) => {
@@ -55,7 +55,7 @@ export default function TabLayout() {
         case "albums":
           return tabPreferences.showAlbums;
         case "podcasts":
-          return tabPreferences.showPodcasts;
+          return tabPreferences.showPodcasts && !musicMode;
         case "playlists":
           return tabPreferences.showPlaylists;
         case "search":
@@ -84,7 +84,7 @@ export default function TabLayout() {
     });
 
     return sorted;
-  }, [tabPreferences]);
+  }, [tabPreferences, musicMode]);
 
   return (
     <>

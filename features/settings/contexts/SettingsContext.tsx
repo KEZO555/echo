@@ -33,6 +33,7 @@ const SETTING_KEYS = {
   showNewEpisodes: "showNewEpisodes",
   showRecentlyPlayed: "showRecentlyPlayed",
   showTopTracks: "showTopTracks",
+  musicMode: "musicMode",
 } as const;
 
 type SettingKey = keyof typeof SETTING_KEYS;
@@ -154,6 +155,7 @@ const defaultSettings: BooleanSettings = {
   showNewEpisodes: true,
   showRecentlyPlayed: true,
   showTopTracks: true,
+  musicMode: false,
 };
 
 const defaultSortSettings: LibrarySortSettings = {
@@ -201,6 +203,8 @@ interface SettingsContextType {
   setShowRecentlyPlayed: (value: boolean) => void;
   showTopTracks: boolean;
   setShowTopTracks: (value: boolean) => void;
+  musicMode: boolean;
+  setMusicMode: (value: boolean) => void;
   homeSectionOrder: HomeSectionId[];
   reorderHomeSection: (
     id: HomeSectionId,
@@ -546,6 +550,10 @@ export const SettingsProvider = ({ children }: { children: ReactNode }) => {
     (v: boolean) => setSetting("showTopTracks", v),
     [setSetting]
   );
+  const setMusicMode = useCallback(
+    (v: boolean) => setSetting("musicMode", v),
+    [setSetting]
+  );
   const setSortSetting = useCallback(
     async (key: SortSettingKey, value: LibrarySortOption) => {
       setSortSettings((prev) => ({ ...prev, [key]: value }));
@@ -675,6 +683,8 @@ export const SettingsProvider = ({ children }: { children: ReactNode }) => {
       setShowRecentlyPlayed,
       showTopTracks: settings.showTopTracks,
       setShowTopTracks,
+      musicMode: settings.musicMode,
+      setMusicMode,
       homeSectionOrder,
       reorderHomeSection,
       albumSortOrder: sortSettings.albumSortOrder,
@@ -708,6 +718,7 @@ export const SettingsProvider = ({ children }: { children: ReactNode }) => {
       setShowNewEpisodes,
       setShowRecentlyPlayed,
       setShowTopTracks,
+      setMusicMode,
       homeSectionOrder,
       reorderHomeSection,
       sortSettings,
