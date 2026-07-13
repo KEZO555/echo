@@ -13,6 +13,38 @@ import SpotifySdk from "@/modules/spotify-sdk";
 import type { SpotifyUser } from "@/shared/types/spotify";
 import { log, logError } from "@/shared/utils/logger";
 
+// Spotify's auth service occasionally returns AUTHENTICATION_SERVICE_UNAVAILABLE
+// as a transient failure (service momentarily unreachable, app just woke). It
+// usually succeeds on a second attempt, so retry once before surfacing it.
+const authorizeWithRetry = async (
+  clientId: string,
+  redirectUri: string
+): ReturnType<typeof SpotifySdk.authorize> => {
+  try {
+    return await SpotifySdk.authorize(
+      clientId,
+      redirectUri,
+      SPOTIFY_SCOPES,
+      undefined,
+      false
+    );
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    if (!message.includes("AUTHENTICATION_SERVICE_UNAVAILABLE")) {
+      throw error;
+    }
+    log("Auth: service unavailable, retrying authorization once...");
+    await new Promise((resolve) => setTimeout(resolve, 900));
+    return await SpotifySdk.authorize(
+      clientId,
+      redirectUri,
+      SPOTIFY_SCOPES,
+      undefined,
+      false
+    );
+  }
+};
+
 export const loginWithSpotify = async (
   credentials: Credentials,
   redirectUri: string,
@@ -26,12 +58,9 @@ export const loginWithSpotify = async (
 ): Promise<void> => {
   log("Auth: Starting authentication with CODE flow via server...");
 
-  const authResult = await SpotifySdk.authorize(
+  const authResult = await authorizeWithRetry(
     credentials.clientId,
-    redirectUri,
-    SPOTIFY_SCOPES,
-    undefined,
-    false
+    redirectUri
   );
 
   if (authResult.success && authResult.data?.authorizationCode) {

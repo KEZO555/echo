@@ -215,6 +215,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           message:
             "Your Client ID or Secret is incorrect.\n\nPlease check your Spotify Dashboard and try again.",
         });
+      } else if (errorMessage.includes("AUTHENTICATION_SERVICE_UNAVAILABLE")) {
+        setAuthError({
+          title: "Spotify Login Unavailable",
+          message:
+            "Spotify's login service didn't respond. Open the Spotify app and make sure you're signed in, then tap Login to try again.",
+        });
       } else {
         setAuthError({
           title: "Login Failed",
