@@ -24,6 +24,7 @@ import { tabScreenStyles as styles } from "@/shared/styles/detailScreen";
 import { getSecondaryContentColor } from "@/shared/styles/lightTokens";
 import type {
   SpotifyEpisode,
+  SpotifyImage,
   SpotifySavedEpisode,
   SpotifyTrack,
 } from "@/shared/types/spotify";
@@ -46,6 +47,15 @@ const NEW_EPISODES_TTL_MS = 15 * 60_000;
 const RECENT_TRACKS_TTL_MS = 60_000;
 const TOP_TRACKS_LIMIT = 5;
 const TOP_TRACKS_TTL_MS = 15 * 60_000;
+const TOP_ARTISTS_LIMIT = 10;
+const TOP_ARTISTS_TTL_MS = 15 * 60_000;
+
+interface TopArtist {
+  id: string;
+  name: string;
+  images?: SpotifyImage[];
+  uri?: string;
+}
 
 const ItemSeparator = () => <View style={{ height: n(8) }} />;
 
@@ -62,6 +72,7 @@ let newEpisodesCache: { entries: NewEpisodeEntry[]; fetchedAt: number } | null =
 let recentTracksCache: { tracks: SpotifyTrack[]; fetchedAt: number } | null =
   null;
 let topTracksCache: { tracks: SpotifyTrack[]; fetchedAt: number } | null = null;
+let topArtistsCache: { artists: TopArtist[]; fetchedAt: number } | null = null;
 
 // Disk snapshot so the screen paints instantly on cold start while fresh
 // data loads in the background.
@@ -99,6 +110,7 @@ type HomeListItem =
   | { key: string; type: "resume"; entry: SpotifySavedEpisode }
   | { key: string; type: "newEpisode"; entry: NewEpisodeEntry }
   | { key: string; type: "track"; track: SpotifyTrack }
+  | { key: string; type: "artist"; artist: TopArtist }
   | { key: string; type: "link"; label: string; route: string };
 
 // A section header followed by its rows, or nothing when there are no rows.
@@ -128,6 +140,13 @@ const newEpisodeRows = (entries: NewEpisodeEntry[]): HomeListItem[] =>
     key: `new-${entry.episode.id}`,
     type: "newEpisode",
     entry,
+  }));
+
+const artistRows = (artists: TopArtist[]): HomeListItem[] =>
+  artists.map((artist) => ({
+    key: `artist-${artist.id}`,
+    type: "artist",
+    artist,
   }));
 
 const NEW_EPISODES_LINK: HomeListItem = {
@@ -178,6 +197,7 @@ export default function HomeScreen() {
     showNewEpisodes,
     showRecentlyPlayed,
     showTopTracks,
+    showTopArtists,
     homeSectionOrder,
     musicMode,
   } = useSettings();
@@ -197,6 +217,9 @@ export default function HomeScreen() {
   );
   const [newEpisodes, setNewEpisodes] = useState<NewEpisodeEntry[]>(
     newEpisodesCache?.entries ?? []
+  );
+  const [topArtists, setTopArtists] = useState<TopArtist[]>(
+    topArtistsCache?.artists ?? []
   );
   const [isRefreshing, setIsRefreshing] = useState(false);
 
@@ -274,6 +297,22 @@ export default function HomeScreen() {
     setTopTracks(items);
   }, []);
 
+  const fetchTopArtists = useCallback(async () => {
+    if (
+      topArtistsCache &&
+      Date.now() - topArtistsCache.fetchedAt < TOP_ARTISTS_TTL_MS
+    ) {
+      setTopArtists(topArtistsCache.artists);
+      return;
+    }
+    const data = await apiGet<{ items: TopArtist[] }>(
+      `https://api.spotify.com/v1/me/top/artists?limit=${TOP_ARTISTS_LIMIT}&time_range=short_term`
+    );
+    const items = data?.items ?? [];
+    topArtistsCache = { artists: items, fetchedAt: Date.now() };
+    setTopArtists(items);
+  }, []);
+
   const fetchNewEpisodes = useCallback(async (showList: typeof podcasts) => {
     if (!showList || showList.length === 0) {
       return;
@@ -327,6 +366,7 @@ export default function HomeScreen() {
     // returning the values they just short-circuited on.
     recentTracksCache = null;
     topTracksCache = null;
+    topArtistsCache = null;
     newEpisodesCache = null;
     try {
       await Promise.all([
@@ -336,6 +376,7 @@ export default function HomeScreen() {
           : fetchPodcasts({ showRefreshing: false }),
         fetchRecent(),
         showTopTracks ? fetchTopTracks() : Promise.resolve(),
+        showTopArtists ? fetchTopArtists() : Promise.resolve(),
       ]);
     } catch (error) {
       logError("Home: refresh failed", error);
@@ -352,6 +393,8 @@ export default function HomeScreen() {
     fetchRecent,
     fetchTopTracks,
     showTopTracks,
+    fetchTopArtists,
+    showTopArtists,
   ]);
 
   useFocusEffect(
@@ -380,6 +423,11 @@ export default function HomeScreen() {
           logError("Home: top tracks failed", error)
         );
       }
+      if (showTopArtists) {
+        fetchTopArtists().catch((error) =>
+          logError("Home: top artists failed", error)
+        );
+      }
     }, [
       accessToken,
       user,
@@ -393,6 +441,8 @@ export default function HomeScreen() {
       fetchRecent,
       fetchTopTracks,
       showTopTracks,
+      fetchTopArtists,
+      showTopArtists,
       musicMode,
     ])
   );
@@ -448,6 +498,14 @@ export default function HomeScreen() {
             TOP_LINK,
           ]
         : [],
+      topArtists:
+        showTopArtists && topArtists.length > 0
+          ? homeSection(
+              "section-artists",
+              "Top Artists",
+              artistRows(topArtists)
+            )
+          : [],
     };
     return homeSectionOrder.flatMap((id) => sections[id]);
   }, [
@@ -456,6 +514,8 @@ export default function HomeScreen() {
     newEpisodes,
     recentTracks,
     topTracks,
+    topArtists,
+    showTopArtists,
     showContinueListening,
     showNewEpisodes,
     showRecentlyPlayed,
@@ -532,6 +592,15 @@ export default function HomeScreen() {
     playTracksWithWebApi([track.uri]).catch((error) =>
       logError("Home: failed to play track", error)
     );
+  });
+
+  // Artist pages are blocked for this app, so open a search for the artist
+  // instead — the results give their songs, albums and playlists.
+  const handleArtistPress = usePreventDoubleTap((artist: TopArtist) => {
+    router.push({
+      pathname: "/search-results",
+      params: { query: artist.name },
+    });
   });
 
   const handleEpisodeInfo = useCallback(
@@ -678,6 +747,17 @@ export default function HomeScreen() {
             placeholderIcon="music-note"
             primaryText={item.track.name}
             secondaryText={getArtistNames(item.track.artists ?? [])}
+          />
+        );
+      case "artist":
+        return (
+          <MediaListItem
+            disabled={!isOnline}
+            imageUri={getThumbnailImage(item.artist.images)}
+            onPress={() => handleArtistPress(item.artist)}
+            placeholderIcon="person"
+            primaryText={item.artist.name}
+            secondaryText="Artist"
           />
         );
       case "link":

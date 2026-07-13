@@ -33,6 +33,7 @@ const SETTING_KEYS = {
   showNewEpisodes: "showNewEpisodes",
   showRecentlyPlayed: "showRecentlyPlayed",
   showTopTracks: "showTopTracks",
+  showTopArtists: "showTopArtists",
   musicMode: "musicMode",
 } as const;
 
@@ -74,13 +75,16 @@ export type HomeSectionId =
   | "continueListening"
   | "newEpisodes"
   | "recentlyPlayed"
-  | "topTracks";
+  | "topTracks"
+  | "topArtists";
 
+// Music-first: lead with the listening sections, podcasts below.
 export const DEFAULT_HOME_SECTION_ORDER: HomeSectionId[] = [
-  "continueListening",
-  "newEpisodes",
   "recentlyPlayed",
   "topTracks",
+  "topArtists",
+  "continueListening",
+  "newEpisodes",
 ];
 const HOME_SECTION_ID_SET = new Set<HomeSectionId>(DEFAULT_HOME_SECTION_ORDER);
 
@@ -155,6 +159,7 @@ const defaultSettings: BooleanSettings = {
   showNewEpisodes: true,
   showRecentlyPlayed: true,
   showTopTracks: true,
+  showTopArtists: true,
   musicMode: false,
 };
 
@@ -203,6 +208,8 @@ interface SettingsContextType {
   setShowRecentlyPlayed: (value: boolean) => void;
   showTopTracks: boolean;
   setShowTopTracks: (value: boolean) => void;
+  showTopArtists: boolean;
+  setShowTopArtists: (value: boolean) => void;
   musicMode: boolean;
   setMusicMode: (value: boolean) => void;
   homeSectionOrder: HomeSectionId[];
@@ -550,6 +557,10 @@ export const SettingsProvider = ({ children }: { children: ReactNode }) => {
     (v: boolean) => setSetting("showTopTracks", v),
     [setSetting]
   );
+  const setShowTopArtists = useCallback(
+    (v: boolean) => setSetting("showTopArtists", v),
+    [setSetting]
+  );
   const setMusicMode = useCallback(
     (v: boolean) => setSetting("musicMode", v),
     [setSetting]
@@ -683,6 +694,8 @@ export const SettingsProvider = ({ children }: { children: ReactNode }) => {
       setShowRecentlyPlayed,
       showTopTracks: settings.showTopTracks,
       setShowTopTracks,
+      showTopArtists: settings.showTopArtists,
+      setShowTopArtists,
       musicMode: settings.musicMode,
       setMusicMode,
       homeSectionOrder,
@@ -718,6 +731,7 @@ export const SettingsProvider = ({ children }: { children: ReactNode }) => {
       setShowNewEpisodes,
       setShowRecentlyPlayed,
       setShowTopTracks,
+      setShowTopArtists,
       setMusicMode,
       homeSectionOrder,
       reorderHomeSection,

@@ -20,6 +20,8 @@ export default function CustomiseHomeScreen() {
     setShowRecentlyPlayed,
     showTopTracks,
     setShowTopTracks,
+    showTopArtists,
+    setShowTopArtists,
     homeSectionOrder,
     reorderHomeSection,
     isLoading,
@@ -53,6 +55,12 @@ export default function CustomiseHomeScreen() {
       label: "Top Tracks",
       value: showTopTracks,
       onValueChange: setShowTopTracks,
+    },
+    topArtists: {
+      id: "topArtists",
+      label: "Top Artists",
+      value: showTopArtists,
+      onValueChange: setShowTopArtists,
     },
   };
 
