@@ -120,7 +120,8 @@ export default function SearchResultsScreen() {
   const { accessToken, ensureValidToken } = useAuth();
   const { playTrackWithContext, addToQueue } = usePlayback();
   const { isOnline } = useNetworkState();
-  const { hideAlbumCovers, invertColors, triggerHaptic } = useSettings();
+  const { hideAlbumCovers, invertColors, musicMode, triggerHaptic } =
+    useSettings();
   const router = useRouter();
   const [results, setResults] = useState<SearchItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -204,7 +205,9 @@ export default function SearchResultsScreen() {
 
       searchItems(
         routeQuery,
-        ["track", "album", "playlist", "show"],
+        musicMode
+          ? ["track", "album", "playlist"]
+          : ["track", "album", "playlist", "show"],
         accessToken,
         ensureValidToken
       )
@@ -219,7 +222,7 @@ export default function SearchResultsScreen() {
       setResults([]);
       setLoading(false);
     }
-  }, [routeQuery, accessToken, ensureValidToken, isOnline]);
+  }, [routeQuery, accessToken, ensureValidToken, isOnline, musicMode]);
 
   const handleResultPress = usePreventDoubleTap(
     (item: SearchItem, itemUri: string) => {
@@ -355,6 +358,9 @@ export default function SearchResultsScreen() {
     filter === "all" ? results : results.filter((item) => item.type === filter);
   const activeFilterLabel =
     SEARCH_FILTERS.find((f) => f.id === filter)?.label ?? "results";
+  const visibleFilters = musicMode
+    ? SEARCH_FILTERS.filter((f) => f.id !== "podcast")
+    : SEARCH_FILTERS;
 
   const filterBar = (
     <ScrollView
@@ -363,7 +369,7 @@ export default function SearchResultsScreen() {
       showsHorizontalScrollIndicator={false}
       style={styles.filterBar}
     >
-      {SEARCH_FILTERS.map((option) => (
+      {visibleFilters.map((option) => (
         <HapticPressable
           key={option.id}
           onPress={() => setFilter(option.id)}
