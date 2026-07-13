@@ -11,6 +11,7 @@ import { usePlayback } from "@/features/playback";
 import {
   ContentContainer,
   CustomScrollView,
+  LoadingScreen,
   MediaListItem,
   StyledText,
 } from "@/shared/components";
@@ -68,10 +69,9 @@ export default function NewEpisodesScreen() {
     }
     setIsRefreshing(true);
     try {
-      const fresh = await fetchNewEpisodesForShows(podcasts, {
-        perShow: 1,
-        onPartial: setEntries,
-      });
+      // Assemble the whole list before swapping it in, so the visible rows
+      // don't reshuffle as each show responds one by one.
+      const fresh = await fetchNewEpisodesForShows(podcasts, { perShow: 1 });
       cache = { entries: fresh, fetchedAt: Date.now() };
       setEntries(fresh);
       AsyncStorage.setItem(
@@ -105,11 +105,10 @@ export default function NewEpisodesScreen() {
       }
     }
     try {
-      // Stream results in as each show responds instead of blocking on all.
-      const fresh = await fetchNewEpisodesForShows(podcasts, {
-        perShow: 1,
-        onPartial: setEntries,
-      });
+      // Assemble the whole list before swapping it in. The cached list is
+      // already on screen, so a single update avoids the rows jumping around
+      // as each show responds one by one.
+      const fresh = await fetchNewEpisodesForShows(podcasts, { perShow: 1 });
       cache = { entries: fresh, fetchedAt: Date.now() };
       setEntries(fresh);
       AsyncStorage.setItem(
@@ -209,13 +208,15 @@ export default function NewEpisodesScreen() {
           `${item.episode.id}-${index}`
         }
         ListEmptyComponent={
-          entries !== null ? (
+          entries === null ? (
+            <LoadingScreen />
+          ) : (
             <StyledText style={styles.emptyText}>
               {isOnline
                 ? "No new episodes from your podcasts yet."
                 : "New episodes aren't available offline."}
             </StyledText>
-          ) : null
+          )
         }
         overScrollMode="never"
         refreshControl={
