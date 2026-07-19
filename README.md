@@ -1,73 +1,61 @@
-<img src="assets/images/example.png" alt="Echo Screenshots">
+<p>A minimal TIDAL client for the Light Phone III.</p>
 
-<p>A minimal Spotify client for the Light Phone III.</p>
+> [!WARNING]
+> Tide is a work in progress. It is a fork of [Echo](https://github.com/vandamd/echo)
+> (a Spotify client) being migrated to TIDAL's official API. The data and
+> playback layers are still being ported — see [Status](#status) below.
 
-![GitHub License](https://img.shields.io/github/license/vandamd/echo?)
-![GitHub Release](https://img.shields.io/github/v/release/vandamd/echo?)
-
-> [!NOTE]
-> There are a few steps required to complete before you can use Echo. Please read the [Setup](#setup) section below.
-> Echo is primarily designed for the Light Phone III, it may work on other Android devices but is not guaranteed to function properly.
-
-## Installation
-The lastest .apk file is available in [releases](https://github.com/vandamd/echo/releases/latest).
-
-I recommend using [Obtainium](https://github.com/ImranR98/Obtainium) and adding the repository's URL to receive updates.
+## About
+Tide reuses Echo's minimal, Light-Phone-friendly UI and rebuilds the backend on
+[TIDAL's official OpenAPI (v2)](https://developer.tidal.com) with an OAuth2
+PKCE login. It is designed primarily for the Light Phone III.
 
 ## Setup
 ### Prerequisites
-- Spotify installed on your Light Phone III. (You can use Aurora Store to install it)
-- Your account is logged in on the Spotify app on your Light Phone III.
-- Active Spotify Premium subscription.
+- An active TIDAL subscription (HiFi or HiFi Plus for full-quality playback).
+- A TIDAL developer app (free to create — see below).
 
-### 1. Create a Spotify Developer App
-1. Go to [developer.spotify.com/dashboard](https://developer.spotify.com/dashboard)
-2. Click **Create App**
-3. Fill in the app name and description
-4. Set the **Redirect URI** to `echo://callback`
-5. Select **Android** and **Web API** under "Which API/SDKs are you planning to use?"
-6. Accept the terms and click **Save**
-7. Go to **Settings** and note your **Client ID** and **Client Secret**
-8. Under **Basic Information**, add your Android package:
-   - **Package Name**: `com.vandam.echo`
-   - **SHA1 Fingerprint**: `5E:8F:16:06:2E:A3:CD:2C:4A:0D:54:78:76:BA:A6:F3:8C:AB:F6:25`
-9. Click **Save**
+### 1. Create a TIDAL Developer App
+1. Go to [developer.tidal.com](https://developer.tidal.com) and sign in with
+   your TIDAL account.
+2. Open the **Dashboard** and **Create App**.
+3. Give it a name and description.
+4. Add a **Redirect URI** of `tide://callback`.
+5. Note your **Client ID**. (The PKCE flow Tide uses does **not** require a
+   client secret.)
+6. Under the app's scopes, request at least: `user.read`, `collection.read`,
+   `collection.write`, `playlists.read`, `playlists.write`, `entitlements.read`.
 
-> [!TIP]
-> It's very easy to miss the save button when adding the Android package details, so please double check you've added it and saved!
+> [!NOTE]
+> Full-quality streaming through the official API is access-gated. Standard
+> developer apps get catalog + user data; streaming manifests may return a
+> **preview** until your app/account is approved for full playback. Tide
+> surfaces the `previewReason` when that happens.
 
-### 2. Configure Echo
-1. Open Echo on your device
-2. Enter your **Client ID** from the Spotify Dashboard
-3. Enter your **Client Secret** from the Spotify Dashboard
-4. Tap Login and you should be prompted to give Echo permission to access your Spotify account's data.
-5. If successful, you should see your Spotify liked songs!
+### 2. Configure Tide
+1. Open Tide on your device.
+2. Enter your **Client ID** from the TIDAL developer dashboard.
+3. Tap **Login** — you'll be taken to TIDAL's login page in the browser and
+   returned to Tide (`tide://callback`) on success.
+4. If it worked, you'll see your TIDAL collection.
 
-## Features
-- Song library with full playback
-- Playback controls (play/pause, skip, seek, shuffle, repeat)
-- Browse artists, albums, playlists and podcasts
-- Like, unlike and add to playlists
-- Device selection for remote playback
+## Status
+Tide is being ported from Echo in phases:
 
-## Limitations
-- Requires the Spotify app to be installed
-- No Spotify owned content (e.g. Radio, Daylist, Playlists like "Discover Weekly")
-- Playlists created by the user are only supported. Collaborative playlists may be added in the future!
-- No queue management
-- Limited offline functionality
-- Liked song playback is currently using some not-so-great workarounds, so expect some bugs! Playlist and album playback should work fine though.
+- [x] **Phase 0** — Rebrand Echo → Tide (app identity, package, scheme).
+- [x] **Phase 0** — TIDAL API client core (`features/tidal/`): OAuth2 PKCE
+      auth, JSON:API request layer, and typed endpoints (user, search,
+      catalog, favorites, playlists, track manifest).
+- [ ] **Phase 1** — Wire the auth flow + credentials screen to TIDAL.
+- [ ] **Phase 2** — Migrate the data layer screen-by-screen (library, search,
+      albums, artists, playlists) off the Spotify Web API.
+- [ ] **Phase 3** — Playback via TIDAL's official streaming API
+      (`/trackManifests/{id}`).
+- [ ] **Phase 4** — Remove the legacy Spotify SDK module and Spotify code.
 
-## Greyscale Toggle
-Echo can automatically disable greyscale while the app is open and restore it when you leave.
+See [`docs/TIDAL_API.md`](docs/TIDAL_API.md) for the API reference this port is
+built against.
 
-This requires granting the app special permission via ADB:
-
-```bash
-adb shell pm grant com.vandam.echo android.permission.WRITE_SECURE_SETTINGS
-```
-
-## Support
-Echo is developed and maintained in my free time.
-
-If you find it useful, please [consider sponsoring](https://github.com/sponsors/vandamd)! :)
+## Credits
+Forked from [Echo](https://github.com/vandamd/echo) by vandamd. Tide adapts it
+for TIDAL.
