@@ -54,18 +54,18 @@ function updateDefaultConfigBlock(defaultConfigBlock, placeholders) {
   );
 }
 
-module.exports = function withSpotifyAuthManifestPlaceholders(
+module.exports = function withTidalAuthManifestPlaceholders(
   config,
   props = {}
 ) {
   const redirectUri =
-    props.redirectUri ?? `${config.scheme ?? "echo"}://callback`;
+    props.redirectUri ?? `${config.scheme ?? "tide"}://callback`;
   const placeholders = getRedirectParts(redirectUri);
 
   return withAppBuildGradle(config, (configWithGradle) => {
     if (configWithGradle.modResults.language !== "groovy") {
       throw new Error(
-        "withSpotifyAuthManifestPlaceholders only supports Groovy build.gradle files."
+        "withTidalAuthManifestPlaceholders only supports Groovy build.gradle files."
       );
     }
 

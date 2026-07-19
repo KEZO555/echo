@@ -1,4 +1,4 @@
-package com.vandam.echo
+package com.kezo.tide
 import android.util.Log
 import android.provider.Settings
 import expo.modules.splashscreen.SplashScreenManager
@@ -104,7 +104,7 @@ class MainActivity : ReactActivity() {
                 Settings.Secure.putInt(contentResolver, "accessibility_display_daltonizer_enabled", 0)
                 Log.d("Daltonizer", "Disabled (was mode: $daltonizerMode)")
             } catch (exception: SecurityException) {
-                Log.e("Daltonizer", "No permission - run: adb shell pm grant com.vandam.echo android.permission.WRITE_SECURE_SETTINGS")
+                Log.e("Daltonizer", "No permission - run: adb shell pm grant com.kezo.tide android.permission.WRITE_SECURE_SETTINGS")
             }
         }
     }

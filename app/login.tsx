@@ -153,7 +153,7 @@ export default function LoginScreen() {
       onBackPress={handleBackToSetup}
     >
       <StyledText style={styles.informationText}>
-        Welcome to Echo!
+        Welcome to Tide!
         {"\n"}
         {"\n"}
         If there are any issues, please don't hesitate to let me know via

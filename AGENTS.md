@@ -1,11 +1,12 @@
-# Echo
+# Tide
 
-A minimal Spotify client for Light Phone III built with Expo.
+A minimal Tidal client for Light Phone III built with Expo. Forked from Echo
+(a Spotify client) and being migrated to TIDAL's official API.
 
 ## Tech Stack
 - Expo
-- Spotify Web API
-- Spotify Android SDK
+- TIDAL OpenAPI (v2) + OAuth2 (PKCE)
+- (Legacy, being removed) Spotify Web API + Spotify Android SDK
 
 ## Commands
 - `bunx expo run:android` to run the app
